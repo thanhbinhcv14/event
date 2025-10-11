@@ -1,0 +1,30 @@
+{
+  "name": "event-management-socket",
+  "version": "1.0.0",
+  "description": "Real-time event management system with Socket.IO",
+  "main": "socket-server.js",
+  "scripts": {
+    "start": "node socket-server.js",
+    "dev": "nodemon socket-server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "socket.io",
+    "real-time",
+    "event-management",
+    "php",
+    "nodejs"
+  ],
+  "author": "Event Management Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
