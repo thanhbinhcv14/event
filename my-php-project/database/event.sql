@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 10, 2025 lúc 06:26 PM
+-- Thời gian đã tạo: Th10 12, 2025 lúc 12:53 AM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -46,7 +46,11 @@ CREATE TABLE `chitietdatsukien` (
 
 INSERT INTO `chitietdatsukien` (`ID_CT`, `ID_DatLich`, `ID_TB`, `ID_Combo`, `SoLuong`, `DonGia`, `GhiChu`, `NgayTao`, `NgayCapNhat`) VALUES
 (1, 4, NULL, 5, 1, 10000000.00, 'Combo thiết bị', '2025-10-09 07:22:08', '2025-10-09 07:22:08'),
-(2, 5, NULL, 5, 1, 10000000.00, 'Combo thiết bị', '2025-10-09 08:22:58', '2025-10-09 08:22:58');
+(2, 5, NULL, 5, 1, 10000000.00, 'Combo thiết bị', '2025-10-09 08:22:58', '2025-10-09 08:22:58'),
+(22, 6, 6, NULL, 1, 1800000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16'),
+(23, 6, 14, NULL, 1, 400000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16'),
+(24, 6, 4, NULL, 1, 2000000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16'),
+(25, 6, NULL, 5, 1, 10000000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16');
 
 -- --------------------------------------------------------
 
@@ -281,7 +285,8 @@ INSERT INTO `datlichsukien` (`ID_DatLich`, `ID_KhachHang`, `TenSuKien`, `MoTa`, 
 (1, 5, 'ádasdas', 'qseqwe', '2025-10-09 07:35:00', '2025-10-09 09:35:00', 9, 6, 300, 400000.00, 0.00, 'Từ chối', 'Chưa thanh toán', 'ngày hôm nay bị trùng lịch. xin cảm ơn ', '2025-10-08 12:36:39', '2025-10-09 05:09:01'),
 (2, 5, 'qưeqeqwq', 'qưeqeq', '2025-10-17 07:40:00', '2025-10-17 09:40:00', 1, 1, 500, 400000.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', 'oke', '2025-10-08 12:39:26', '2025-10-09 05:08:30'),
 (4, 5, 'seqeqqw', '12313', '2025-10-17 12:22:00', '2025-10-17 14:22:00', 4, 3, 2233, 22333.00, 0.00, 'Từ chối', 'Chưa thanh toán', 'ko hợp lí', '2025-10-09 07:22:08', '2025-10-09 07:23:37'),
-(5, 5, '321312', '1313', '2025-10-15 13:01:00', '2025-10-15 15:01:00', 8, 3, 2444, 400000.00, 0.00, 'Chờ duyệt', 'Chưa thanh toán', 'Đăng ký từ website', '2025-10-09 08:22:58', '2025-10-09 08:22:58');
+(5, 5, '321312', '1313', '2025-10-15 13:01:00', '2025-10-15 15:01:00', 8, 3, 2444, 400000.00, 0.00, 'Chờ duyệt', 'Chưa thanh toán', 'Đăng ký từ website', '2025-10-09 08:22:58', '2025-10-09 08:22:58'),
+(6, 17, 'Tiệc cuối năm', NULL, '2025-12-22 18:00:00', '0000-00-00 00:00:00', 9, 6, 200, 20000000000.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-11 21:53:38', '2025-10-11 22:05:07');
 
 -- --------------------------------------------------------
 
@@ -345,6 +350,24 @@ INSERT INTO `diadiem_loaisk` (`ID_DD`, `ID_LoaiSK`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Cấu trúc bảng cho bảng `kehoachthuchien`
+--
+
+CREATE TABLE `kehoachthuchien` (
+  `id_kehoach` int(11) NOT NULL,
+  `id_sukien` int(11) NOT NULL,
+  `ten_kehoach` varchar(255) NOT NULL,
+  `noidung` text DEFAULT NULL,
+  `ngay_batdau` date NOT NULL,
+  `ngay_ketthuc` date NOT NULL,
+  `trangthai` enum('Chưa bắt đầu','Đang thực hiện','Hoàn thành') DEFAULT 'Chưa bắt đầu',
+  `id_nhanvien` int(11) DEFAULT NULL,
+  `ngay_tao` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Cấu trúc bảng cho bảng `khachhanginfo`
 --
 
@@ -385,8 +408,20 @@ CREATE TABLE `lichlamviec` (
   `TrangThai` enum('Chưa làm','Đang làm','Hoàn thành','Báo sự cố') DEFAULT 'Chưa làm',
   `GhiChu` text DEFAULT NULL,
   `NgayTao` timestamp NOT NULL DEFAULT current_timestamp(),
-  `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `id_kehoach` int(11) DEFAULT NULL,
+  `congviec` varchar(255) DEFAULT NULL,
+  `han_hoanthanh` date DEFAULT NULL,
+  `tiendo` varchar(50) DEFAULT '0%'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `lichlamviec`
+--
+
+INSERT INTO `lichlamviec` (`ID_LLV`, `ID_DatLich`, `ID_NhanVien`, `NhiemVu`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `GhiChu`, `NgayTao`, `NgayCapNhat`, `id_kehoach`, `congviec`, `han_hoanthanh`, `tiendo`) VALUES
+(1, 2, 3, 'Chuẩn bị và setup thiết bị cho sự kiện', '2024-01-15 00:00:00', '2024-01-16 00:00:00', '', 'Cần chuẩn bị đầy đủ thiết bị âm thanh và ánh sáng', '2025-10-11 22:22:02', '2025-10-11 22:22:02', NULL, NULL, NULL, '0%'),
+(2, 6, 4, 'Quản lý và điều phối sự kiện', '2024-01-20 00:00:00', '2024-01-21 00:00:00', '', 'Đảm bảo sự kiện diễn ra suôn sẻ', '2025-10-11 22:22:02', '2025-10-11 22:22:02', NULL, NULL, NULL, '0%');
 
 -- --------------------------------------------------------
 
@@ -526,7 +561,8 @@ CREATE TABLE `sukien` (
 --
 
 INSERT INTO `sukien` (`ID_SuKien`, `ID_DatLich`, `MaSuKien`, `TenSuKien`, `NgayBatDauThucTe`, `NgayKetThucThucTe`, `DiaDiemThucTe`, `TrangThaiThucTe`, `TongChiPhiThucTe`, `DanhGiaKhachHang`, `NhanXetKhachHang`, `GhiChuQuanLy`, `NgayTao`, `NgayCapNhat`) VALUES
-(1, 2, 'EV202510090002', 'qưeqeqwq', '2025-10-17 07:40:00', '2025-10-17 09:40:00', 'Trung tâm Hội nghị White Palace', 'Đang chuẩn bị', 120000000.00, NULL, NULL, 'oke', '2025-10-09 05:08:30', '2025-10-09 05:08:30');
+(1, 2, 'EV202510090002', 'qưeqeqwq', '2025-10-17 07:40:00', '2025-10-17 09:40:00', 'Trung tâm Hội nghị White Palace', 'Đang chuẩn bị', 120000000.00, NULL, NULL, 'oke', '2025-10-09 05:08:30', '2025-10-09 05:08:30'),
+(2, 6, 'EV202510120006', 'Tiệc cuối năm', '2025-12-22 18:00:00', '0000-00-00 00:00:00', 'Phố đi bộ Nguyễn Huệ', 'Đang chuẩn bị', 150000000.00, NULL, NULL, '', '2025-10-11 22:05:07', '2025-10-11 22:05:07');
 
 -- --------------------------------------------------------
 
@@ -730,6 +766,14 @@ ALTER TABLE `diadiem_loaisk`
   ADD KEY `ID_LoaiSK` (`ID_LoaiSK`);
 
 --
+-- Chỉ mục cho bảng `kehoachthuchien`
+--
+ALTER TABLE `kehoachthuchien`
+  ADD PRIMARY KEY (`id_kehoach`),
+  ADD KEY `id_sukien` (`id_sukien`),
+  ADD KEY `id_nhanvien` (`id_nhanvien`);
+
+--
 -- Chỉ mục cho bảng `khachhanginfo`
 --
 ALTER TABLE `khachhanginfo`
@@ -742,7 +786,8 @@ ALTER TABLE `khachhanginfo`
 ALTER TABLE `lichlamviec`
   ADD PRIMARY KEY (`ID_LLV`),
   ADD KEY `fk_llv_datlich` (`ID_DatLich`),
-  ADD KEY `fk_llv_nhanvien` (`ID_NhanVien`);
+  ADD KEY `fk_llv_nhanvien` (`ID_NhanVien`),
+  ADD KEY `id_kehoach` (`id_kehoach`);
 
 --
 -- Chỉ mục cho bảng `loaisukien`
@@ -826,7 +871,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT cho bảng `chitietdatsukien`
 --
 ALTER TABLE `chitietdatsukien`
-  MODIFY `ID_CT` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ID_CT` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
 
 --
 -- AUTO_INCREMENT cho bảng `combo`
@@ -850,13 +895,19 @@ ALTER TABLE `danhgia`
 -- AUTO_INCREMENT cho bảng `datlichsukien`
 --
 ALTER TABLE `datlichsukien`
-  MODIFY `ID_DatLich` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `ID_DatLich` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT cho bảng `diadiem`
 --
 ALTER TABLE `diadiem`
   MODIFY `ID_DD` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+
+--
+-- AUTO_INCREMENT cho bảng `kehoachthuchien`
+--
+ALTER TABLE `kehoachthuchien`
+  MODIFY `id_kehoach` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT cho bảng `khachhanginfo`
@@ -868,7 +919,7 @@ ALTER TABLE `khachhanginfo`
 -- AUTO_INCREMENT cho bảng `lichlamviec`
 --
 ALTER TABLE `lichlamviec`
-  MODIFY `ID_LLV` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_LLV` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT cho bảng `loaisukien`
@@ -898,7 +949,7 @@ ALTER TABLE `phanquyen`
 -- AUTO_INCREMENT cho bảng `sukien`
 --
 ALTER TABLE `sukien`
-  MODIFY `ID_SuKien` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `ID_SuKien` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT cho bảng `thanhtoan`
@@ -968,6 +1019,13 @@ ALTER TABLE `datlichsukien`
   ADD CONSTRAINT `fk_datlich_loaisk` FOREIGN KEY (`ID_LoaiSK`) REFERENCES `loaisukien` (`ID_LoaiSK`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
+-- Các ràng buộc cho bảng `kehoachthuchien`
+--
+ALTER TABLE `kehoachthuchien`
+  ADD CONSTRAINT `kehoachthuchien_ibfk_1` FOREIGN KEY (`id_sukien`) REFERENCES `sukien` (`ID_SuKien`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `kehoachthuchien_ibfk_2` FOREIGN KEY (`id_nhanvien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
 -- Các ràng buộc cho bảng `khachhanginfo`
 --
 ALTER TABLE `khachhanginfo`
@@ -978,7 +1036,8 @@ ALTER TABLE `khachhanginfo`
 --
 ALTER TABLE `lichlamviec`
   ADD CONSTRAINT `fk_llv_datlich` FOREIGN KEY (`ID_DatLich`) REFERENCES `datlichsukien` (`ID_DatLich`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_llv_nhanvien` FOREIGN KEY (`ID_NhanVien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `fk_llv_nhanvien` FOREIGN KEY (`ID_NhanVien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `lichlamviec_ibfk_1` FOREIGN KEY (`id_kehoach`) REFERENCES `kehoachthuchien` (`id_kehoach`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `messages`

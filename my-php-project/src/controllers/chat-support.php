@@ -82,11 +82,11 @@ function getCustomers($pdo) {
             SELECT DISTINCT 
                 u.ID_User,
                 u.Email,
-                kh.HoTen,
+                COALESCE(kh.HoTen, u.Email) as HoTen,
                 u.TrangThai,
                 u.NgayTao,
                 u.NgayCapNhat,
-                COUNT(c.id) as conversation_count,
+                COUNT(DISTINCT c.id) as conversation_count,
                 MAX(m.SentAt) as last_message_time,
                 (SELECT MessageText FROM messages m2 
                  WHERE m2.conversation_id = c.id 

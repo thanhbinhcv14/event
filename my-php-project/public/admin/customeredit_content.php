@@ -48,9 +48,9 @@ include 'includes/admin-header.php';
         </div>
 
         <!-- Filter Section -->
-        <div class="filter-section">
-            <div class="filter-group">
-                <div class="form-group">
+        <div class="filter-section mb-4">
+            <div class="row g-3">
+                <div class="col-md-4">
                     <label class="form-label">Tìm kiếm</label>
                     <div class="input-group">
                         <span class="input-group-text">
@@ -64,7 +64,7 @@ include 'includes/admin-header.php';
                     </div>
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-2">
                     <label class="form-label">Trạng thái</label>
                     <select class="form-select" id="statusFilter">
                         <option value="">Tất cả trạng thái</option>
@@ -74,8 +74,7 @@ include 'includes/admin-header.php';
                     </select>
                 </div>
                 
-                
-                <div class="form-group">
+                <div class="col-md-2">
                     <label class="form-label">Sắp xếp</label>
                     <select class="form-select" id="sortBy">
                         <option value="HoTen">Tên khách hàng</option>
@@ -85,17 +84,19 @@ include 'includes/admin-header.php';
                     </select>
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-4">
                     <label class="form-label">&nbsp;</label>
-                    <button class="btn btn-primary" onclick="applyFilters()">
-                        <i class="fas fa-filter"></i> Lọc
-                    </button>
-                    <button class="btn btn-outline-secondary" onclick="clearFilters()">
-                        <i class="fas fa-times"></i> Xóa lọc
-                    </button>
-    </div>
-</div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" onclick="applyFilters()">
+                            <i class="fas fa-filter"></i> Lọc
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="clearFilters()">
+                            <i class="fas fa-times"></i> Xóa
+                        </button>
+                    </div>
+                </div>
             </div>
+        </div>
 
         <!-- Table Container -->
         <div class="table-container">
@@ -335,7 +336,11 @@ include 'includes/admin-header.php';
                 order: [[0, 'desc']],
                 language: {
                     url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json'
-                }
+                },
+                // Ẩn thanh tìm kiếm và thông tin hiển thị của DataTable
+                dom: 'rtip',
+                info: false, // Ẩn thông tin "Hiển thị X dữ liệu"
+                paging: false // Ẩn phân trang (hiển thị tất cả dữ liệu)
             });
             } catch (error) {
                 console.error('Error initializing DataTable:', error);
@@ -377,28 +382,44 @@ include 'includes/admin-header.php';
         }
 
         function applyFilters() {
-            currentFilters = {
-                search: $('#searchInput').val(),
-                status: $('#statusFilter').val(),
-                sort_by: $('#sortBy').val()
-            };
-
-            // Remove empty filters
-            Object.keys(currentFilters).forEach(key => {
-                if (!currentFilters[key]) {
-                    delete currentFilters[key];
-                }
-            });
-
-            customersTable.ajax.reload();
+            const searchValue = $('#searchInput').val();
+            const statusFilter = $('#statusFilter').val();
+            const sortBy = $('#sortBy').val();
+            
+            // Apply search to DataTable
+            customersTable.search(searchValue).draw();
+            
+            // Apply column filters
+            if (statusFilter) {
+                customersTable.column(3).search(statusFilter);
+            } else {
+                customersTable.column(3).search('');
+            }
+            
+            // Apply sorting
+            if (sortBy === 'HoTen') {
+                customersTable.order([1, 'asc']).draw();
+            } else if (sortBy === 'Email') {
+                customersTable.order([2, 'asc']).draw();
+            } else if (sortBy === 'NgayTao') {
+                customersTable.order([4, 'desc']).draw();
+            } else if (sortBy === 'SoDienThoai') {
+                customersTable.order([2, 'asc']).draw();
+            }
+            
+            // Redraw table
+            customersTable.draw();
         }
 
         function clearFilters() {
             $('#searchInput').val('');
             $('#statusFilter').val('');
             $('#sortBy').val('HoTen');
-            currentFilters = {};
-            customersTable.ajax.reload();
+            
+            // Clear all DataTable filters
+            customersTable.search('');
+            customersTable.columns().search('');
+            customersTable.order([0, 'desc']).draw();
         }
 
         function clearSearch() {

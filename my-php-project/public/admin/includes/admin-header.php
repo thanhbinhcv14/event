@@ -21,11 +21,18 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 // Page titles mapping
 $pageTitles = [
     'index' => 'Dashboard',
-    'event-registrations' => 'Quản lý đăng ký sự kiện',
+    'event-registrations' => 'Duyệt đăng ký sự kiện',
+    'event-registration' => 'Đăng ký sự kiện',
+    'event-planning' => 'Lên kế hoạch sự kiện',
+    'staff-assignment' => 'Phân công nhân viên',
+    'work-schedule' => 'Lịch làm việc',
+    'customer-events' => 'Thông tin khách hàng',
+    'work-reports' => 'Báo cáo thực hiện',
     'locations' => 'Quản lý địa điểm',
     'device' => 'Quản lý thiết bị',
     'customeredit_content' => 'Quản lý khách hàng',
     'accstaff' => 'Quản lý nhân viên',
+    'reports' => 'Thống kê báo cáo',
     'chat' => 'Chat Hỗ trợ'
 ];
 
@@ -115,44 +122,137 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
         </div>
         
         <nav class="sidebar-menu">
+            <!-- Dashboard - Tất cả role -->
             <a href="index.php" class="menu-item <?= $currentPage === 'index' ? 'active' : '' ?>">
                 <i class="fas fa-tachometer-alt"></i>
                 <span>Dashboard</span>
             </a>
             
-            <?php if ($isAdmin || $isManager): ?>
+            <!-- Role 1: Admin - Tất cả quyền -->
+            <?php if ($user['role'] == 1): ?>
             <a href="event-registrations.php" class="menu-item <?= $currentPage === 'event-registrations' ? 'active' : '' ?>">
                 <i class="fas fa-clipboard-list"></i>
-                <span>Đăng ký sự kiện</span>
+                <span>Duyệt đăng ký sự kiện</span>
+            </a>
+            
+            <a href="event-planning.php" class="menu-item <?= $currentPage === 'event-planning' ? 'active' : '' ?>">
+                <i class="fas fa-calendar-check"></i>
+                <span>Lên kế hoạch sự kiện</span>
+            </a>
+            
+            <a href="staff-assignment.php" class="menu-item <?= $currentPage === 'staff-assignment' ? 'active' : '' ?>">
+                <i class="fas fa-user-plus"></i>
+                <span>Phân công nhân viên</span>
             </a>
             
             <a href="locations.php" class="menu-item <?= $currentPage === 'locations' ? 'active' : '' ?>">
                 <i class="fas fa-map-marker-alt"></i>
-                <span>Địa điểm</span>
-            </a>
-            
-            <a href="device.php" class="menu-item <?= $currentPage === 'device' ? 'active' : '' ?>">
-                <i class="fas fa-tools"></i>
-                <span>Thiết bị</span>
-            </a>
-            
-            <a href="customeredit_content.php" class="menu-item <?= $currentPage === 'customeredit_content' ? 'active' : '' ?>">
-                <i class="fas fa-users"></i>
-                <span>Khách hàng</span>
+                <span>Quản lý địa điểm</span>
             </a>
             
             <a href="accstaff.php" class="menu-item <?= $currentPage === 'accstaff' ? 'active' : '' ?>">
                 <i class="fas fa-user-tie"></i>
-                <span>Nhân viên</span>
+                <span>Quản lý nhân viên</span>
+            </a>
+            
+            <a href="device.php" class="menu-item <?= $currentPage === 'device' ? 'active' : '' ?>">
+                <i class="fas fa-tools"></i>
+                <span>Quản lý thiết bị</span>
+            </a>
+            
+            <a href="customeredit_content.php" class="menu-item <?= $currentPage === 'customeredit_content' ? 'active' : '' ?>">
+                <i class="fas fa-users"></i>
+                <span>Thông tin khách hàng</span>
+            </a>
+            
+            <a href="reports.php" class="menu-item <?= $currentPage === 'reports' ? 'active' : '' ?>">
+                <i class="fas fa-chart-bar"></i>
+                <span>Thống kê báo cáo</span>
             </a>
             <?php endif; ?>
             
-            <!-- Chat Support -->
-            <?php if (in_array($user['role'], [1, 3])): ?>
+            <!-- Role 2: Quản lý tổ chức -->
+            <?php if ($user['role'] == 2): ?>
+            <a href="event-registrations.php" class="menu-item <?= $currentPage === 'event-registrations' ? 'active' : '' ?>">
+                <i class="fas fa-clipboard-list"></i>
+                <span>Duyệt đăng ký sự kiện</span>
+            </a>
+            
+            <a href="event-planning.php" class="menu-item <?= $currentPage === 'event-planning' ? 'active' : '' ?>">
+                <i class="fas fa-calendar-check"></i>
+                <span>Lên kế hoạch thực hiện</span>
+            </a>
+            
+            <a href="staff-assignment.php" class="menu-item <?= $currentPage === 'staff-assignment' ? 'active' : '' ?>">
+                <i class="fas fa-user-plus"></i>
+                <span>Phân công nhân viên</span>
+            </a>
+            
+            <a href="locations.php" class="menu-item <?= $currentPage === 'locations' ? 'active' : '' ?>">
+                <i class="fas fa-map-marker-alt"></i>
+                <span>Quản lý địa điểm</span>
+            </a>
+            
+            <a href="accstaff.php" class="menu-item <?= $currentPage === 'accstaff' ? 'active' : '' ?>">
+                <i class="fas fa-user-tie"></i>
+                <span>Quản lý nhân viên</span>
+            </a>
+            
+            <a href="device.php" class="menu-item <?= $currentPage === 'device' ? 'active' : '' ?>">
+                <i class="fas fa-tools"></i>
+                <span>Quản lý thiết bị</span>
+            </a>
+            
+            <a href="customeredit_content.php" class="menu-item <?= $currentPage === 'customeredit_content' ? 'active' : '' ?>">
+                <i class="fas fa-users"></i>
+                <span>Thông tin khách hàng</span>
+            </a>
+            
+            <a href="reports.php" class="menu-item <?= $currentPage === 'reports' ? 'active' : '' ?>">
+                <i class="fas fa-chart-bar"></i>
+                <span>Thống kê báo cáo</span>
+            </a>
+            <?php endif; ?>
+            
+            <!-- Role 3: Quản lý sự kiện -->
+            <?php if ($user['role'] == 3): ?>
+            <a href="event-registration.php" class="menu-item <?= $currentPage === 'event-registration' ? 'active' : '' ?>">
+                <i class="fas fa-plus-circle"></i>
+                <span>Đăng ký sự kiện</span>
+            </a>
+            
+            <a href="event-registrations.php" class="menu-item <?= $currentPage === 'event-registrations' ? 'active' : '' ?>">
+                <i class="fas fa-eye"></i>
+                <span>Xem duyệt sự kiện</span>
+            </a>
+            
+            <a href="reports.php" class="menu-item <?= $currentPage === 'reports' ? 'active' : '' ?>">
+                <i class="fas fa-chart-bar"></i>
+                <span>Thống kê báo cáo</span>
+            </a>
+            
             <a href="chat.php" class="menu-item <?= $currentPage === 'chat' ? 'active' : '' ?>">
                 <i class="fas fa-comments"></i>
-                <span>Chat Hỗ trợ</span>
+                <span>Chat hỗ trợ</span>
                 <span class="chat-badge" id="chatBadge" style="display: none;">0</span>
+            </a>
+            <?php endif; ?>
+            
+            <!-- Role 4: Nhân viên -->
+            <?php if ($user['role'] == 4): ?>
+            <a href="work-schedule.php" class="menu-item <?= $currentPage === 'work-schedule' ? 'active' : '' ?>">
+                <i class="fas fa-calendar-alt"></i>
+                <span>Lịch làm việc</span>
+            </a>
+            
+            <a href="customer-events.php" class="menu-item <?= $currentPage === 'customer-events' ? 'active' : '' ?>">
+                <i class="fas fa-users"></i>
+                <span>Thông tin khách hàng</span>
+            </a>
+            
+            <a href="work-reports.php" class="menu-item <?= $currentPage === 'work-reports' ? 'active' : '' ?>">
+                <i class="fas fa-file-alt"></i>
+                <span>Báo cáo thực hiện</span>
             </a>
             <?php endif; ?>
             

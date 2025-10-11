@@ -26,13 +26,14 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
             top: 0;
             left: 0;
             height: 100vh;
-            width: 280px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 300px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
             color: white;
             z-index: 1000;
             transform: translateX(-100%);
-            transition: transform 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow-y: auto;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
         }
         
         .sidebar.show {
@@ -40,82 +41,218 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
         }
         
         .sidebar-header {
-            padding: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 30px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
             text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
         }
         
-        .sidebar-header img {
-            width: 50px;
-            height: 50px;
+        
+        .sidebar-header h5 {
+            font-weight: 600;
+            margin-bottom: 5px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .sidebar-header small {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+        
+        .user-avatar {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+        
+        .user-avatar img {
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
-            margin-bottom: 10px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .user-avatar:hover img {
+            transform: scale(1.05);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .status-indicator {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            width: 16px;
+            height: 16px;
+            background: #4ade80;
+            border: 3px solid white;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
         }
         
         .sidebar-menu {
-            padding: 20px 0;
+            padding: 25px 0;
         }
         
         .sidebar-menu .menu-item {
-            display: block;
-            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            padding: 18px 25px;
             color: white;
             text-decoration: none;
-            transition: all 0.3s ease;
-            border-left: 3px solid transparent;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 4px solid transparent;
+            position: relative;
+            font-weight: 500;
         }
         
         .sidebar-menu .menu-item:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.15);
             border-left-color: #fff;
             color: white;
+            transform: translateX(5px);
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.1);
         }
         
         .sidebar-menu .menu-item i {
-            width: 20px;
-            margin-right: 10px;
+            width: 24px;
+            margin-right: 15px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+        
+        .sidebar-menu .menu-item.active {
+            background: rgba(255, 255, 255, 0.2);
+            border-left-color: #fff;
+            font-weight: 600;
+            transform: translateX(8px);
+        }
+        
+        .sidebar-menu .menu-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 0;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent);
+            transition: width 0.3s ease;
+        }
+        
+        .sidebar-menu .menu-item:hover::before {
+            width: 100%;
         }
         
         .sidebar-menu .menu-group {
-            margin: 20px 0;
+            margin: 30px 0;
         }
         
         .sidebar-menu .menu-group-title {
-            padding: 10px 25px;
-            font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.7);
+            padding: 15px 25px 10px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.8);
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 10px;
+            position: relative;
+        }
+        
+        .sidebar-menu .menu-group-title::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 25px;
+            width: 30px;
+            height: 2px;
+            background: linear-gradient(90deg, #fff, transparent);
         }
         
         .sidebar-toggle {
             position: fixed;
-            top: 80px; /* đặt thấp xuống dưới navbar */
+            top: 80px;
             left: 25px;
             z-index: 1100;
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #667eea, #764ba2, #f093fb);
             color: white;
             border: none;
             border-radius: 50%;
-            width: 55px;
-            height: 55px;
+            width: 60px;
+            height: 60px;
             font-size: 1.4rem;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-            transition: all 0.4s ease;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(10px);
         }
         
         .sidebar-toggle:hover {
-            transform: scale(1.1);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-            background: linear-gradient(45deg, #5a6fe0, #8a4dc5);
+            transform: scale(1.15) rotate(5deg);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.6);
+            background: linear-gradient(135deg, #5a6fe0, #8a4dc5, #ff6b9d);
         }
         
         .sidebar-toggle i {
             transition: transform 0.4s ease;
+        }
+        
+        /* Ẩn sidebar và toggle cho khách hàng */
+        .customer-role .sidebar-toggle,
+        .customer-role .sidebar,
+        .customer-role .sidebar-overlay {
+            display: none !important;
+        }
+        
+        /* Điều chỉnh main content cho khách hàng */
+        .customer-role .main-content {
+            margin-left: 0 !important;
+        }
+        
+        /* Sidebar scrollbar styling */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        /* Sidebar animation effects */
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+        
+        .sidebar.show::before {
+            transform: translateX(100%);
         }
         
         /* Khi sidebar mở, icon xoay */
@@ -275,6 +412,32 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
             background: rgba(255, 255, 255, 0.95) !important;
             backdrop-filter: blur(10px);
             box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .navbar.scrolled {
+            background: rgba(255, 255, 255, 0.98) !important;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.15);
+        }
+        
+        .navbar-nav .nav-link {
+            color: #333 !important;
+            font-weight: 500;
+            padding: 0.5rem 1rem !important;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .navbar-nav .nav-link:hover {
+            color: #667eea !important;
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .navbar-nav .nav-link i {
+            margin-right: 0.5rem;
+            font-size: 0.9rem;
         }
         
         .navbar-brand img {
@@ -324,6 +487,159 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
         .service-card:hover {
             transform: translateY(-10px);
             box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+        
+        /* Event Card Styles */
+        .event-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            height: 100%;
+            position: relative;
+        }
+        
+        .event-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+        
+        .event-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+        
+        .event-card:hover .event-image {
+            transform: scale(1.05);
+        }
+        
+        .event-content {
+            padding: 1.5rem;
+        }
+        
+        .event-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+        }
+        
+        .event-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .event-meta {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .event-meta i {
+            margin-right: 0.5rem;
+            color: #667eea;
+        }
+        
+        .event-location {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .event-location i {
+            margin-right: 0.5rem;
+            color: #667eea;
+        }
+        
+        .event-budget {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .event-budget i {
+            margin-right: 0.5rem;
+        }
+        
+        .event-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-event-detail {
+            flex: 1;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-event-detail:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+        
+        .btn-event-register {
+            flex: 1;
+            background: linear-gradient(45deg, #28a745, #20c997);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-event-register:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+            color: white;
+        }
+        
+        .event-status {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .no-events {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #666;
+        }
+        
+        .no-events i {
+            font-size: 3rem;
+            color: #ddd;
+            margin-bottom: 1rem;
         }
         
         .service-icon {
@@ -903,7 +1219,7 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
         }
     </style>
 </head>
-<body class="main-content">
+<body class="main-content <?php echo ($userRole == 5) ? 'customer-role' : ''; ?>">
     <!-- Sidebar Toggle Button -->
     <?php if ($user): ?>
     <button class="sidebar-toggle" onclick="toggleSidebar()">
@@ -918,7 +1234,10 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
     <?php if ($user): ?>
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <img src="../img/logo/logo.jpg" alt="Logo">
+            <div class="user-avatar">
+                <img src="../img/logo/logo.jpg" alt="Avatar">
+                <div class="status-indicator"></div>
+            </div>
             <h5 class="mb-0"><?php echo htmlspecialchars($user['Email'] ?? 'User'); ?></h5>
             <small class="text-light">
                 <?php
@@ -1081,15 +1400,34 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
                         <a class="nav-link" href="#home">Trang chủ</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#services">Dịch vụ</a>
+                        <a class="nav-link" href="services.php">Dịch vụ</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#about">Giới thiệu</a>
+                        <a class="nav-link" href="about.php">Giới thiệu</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#contact">Liên hệ</a>
+                        <a class="nav-link" href="contact.php">Liên hệ</a>
                     </li>
                     <?php if ($user): ?>
+                    <!-- Chức năng dành cho khách hàng -->
+                    <?php if ($userRole == 5): ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="events/register.php">
+                            <i class="fa fa-calendar-plus me-1"></i>Đăng ký sự kiện
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="events/my-events.php">
+                            <i class="fa fa-list-alt me-1"></i>Sự kiện của tôi
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="chat.php">
+                            <i class="fa fa-comments me-1"></i>Chat hỗ trợ
+                        </a>
+                    </li>
+                    <?php else: ?>
+                    <!-- Chức năng dành cho admin/staff -->
                     <li class="nav-item">
                         <a class="nav-link" href="events/register.php">
                             <i class="fa fa-calendar-plus me-1"></i>Đăng ký sự kiện
@@ -1106,6 +1444,7 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
                             <i class="fa fa-cog me-1"></i>Quản lý sự kiện
                         </a>
                     </li>
+                    <?php endif; ?>
                     <?php endif; ?>
                     <?php endif; ?>
                 </ul>
@@ -1152,7 +1491,7 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
                     <h1 class="display-4 fw-bold mb-4">Tổ chức sự kiện chuyên nghiệp</h1>
                     <p class="lead mb-4">Chúng tôi cung cấp dịch vụ tổ chức sự kiện hoàn hảo với đội ngũ chuyên nghiệp và trang thiết bị hiện đại.</p>
                     <div class="d-flex gap-3 flex-wrap">
-                        <a href="#services" class="btn btn-primary btn-lg">
+                        <a href="services.php" class="btn btn-primary btn-lg">
                             <i class="fa fa-calendar-alt me-2"></i>Xem dịch vụ
                         </a>
                         <?php if (!$user): ?>
@@ -1167,6 +1506,24 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
                         <img src="../img/banner/banner1.jpg" alt="Event Planning" class="img-fluid rounded-3 shadow-lg hero-image active" data-banner="0">
                         <img src="../img/banner/banner2.jpg" alt="Event Planning" class="img-fluid rounded-3 shadow-lg hero-image" data-banner="1">
                         <img src="../img/banner/banner3.jpeg" alt="Event Planning" class="img-fluid rounded-3 shadow-lg hero-image" data-banner="2">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Featured Events Section -->
+    <section id="featured-events" class="py-5 bg-light">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold">Sự kiện nổi bật</h2>
+                <p class="lead text-muted">Khám phá các sự kiện sắp diễn ra và đăng ký tham gia</p>
+            </div>
+            <div class="row g-4" id="events-container">
+                <!-- Events will be loaded here via JavaScript -->
+                <div class="col-12 text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
                     </div>
                 </div>
             </div>
@@ -1315,26 +1672,26 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
                 <div class="col-lg-2 col-md-6 mb-4">
                     <h6>Dịch vụ</h6>
                     <ul class="list-unstyled">
-                        <li><a href="#">Tiệc sinh nhật</a></li>
-                        <li><a href="#">Đám cưới</a></li>
-                        <li><a href="#">Sự kiện doanh nghiệp</a></li>
-                        <li><a href="#">Lễ tốt nghiệp</a></li>
+                        <li><a href="services.php">Xem tất cả dịch vụ</a></li>
+                        <li><a href="services.php">Tiệc sinh nhật</a></li>
+                        <li><a href="services.php">Đám cưới</a></li>
+                        <li><a href="services.php">Sự kiện doanh nghiệp</a></li>
                     </ul>
                 </div>
                 <div class="col-lg-2 col-md-6 mb-4">
                     <h6>Hỗ trợ</h6>
                     <ul class="list-unstyled">
-                        <li><a href="#">Liên hệ</a></li>
-                        <li><a href="#">FAQ</a></li>
-                        <li><a href="#">Chính sách</a></li>
-                        <li><a href="#">Điều khoản</a></li>
+                        <li><a href="contact.php">Liên hệ</a></li>
+                        <li><a href="about.php">Giới thiệu</a></li>
+                        <li><a href="contact.php">FAQ</a></li>
+                        <li><a href="contact.php">Chính sách</a></li>
                     </ul>
                 </div>
                 <div class="col-lg-4 mb-4">
                     <h6>Liên hệ</h6>
                     <p><i class="fa fa-phone me-2"></i> 0123 456 789</p>
                     <p><i class="fa fa-envelope me-2"></i> info@eventmanagement.com</p>
-                    <p><i class="fa fa-map-marker-alt me-2"></i> 123 Đường ABC, Quận 1, TP.HCM</p>
+                    <p><i class="fa fa-map-marker-alt me-2"></i> 12 NVB, Gò Vấp, TP.HCM</p>
                 </div>
             </div>
             <hr class="my-4">
@@ -1537,7 +1894,113 @@ $userRole = $user['ID_Role'] ?? $user['role'] ?? null;
         // Ensure jQuery is loaded before chat widget
         $(document).ready(function() {
             console.log('jQuery loaded successfully');
+            loadFeaturedEvents();
         });
+        
+        // Load featured events
+        function loadFeaturedEvents() {
+            $.ajax({
+                url: 'src/controllers/events.php?action=get_featured_events',
+                method: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success && response.events.length > 0) {
+                        displayEvents(response.events);
+                    } else {
+                        displayNoEvents();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading events:', error);
+                    displayNoEvents();
+                }
+            });
+        }
+        
+        // Display events
+        function displayEvents(events) {
+            const container = $('#events-container');
+            let html = '';
+            
+            events.forEach(function(event) {
+                html += `
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="event-card">
+                            <div class="event-status">Đã duyệt</div>
+                            <img src="${event.HinhAnhURL}" alt="${event.TenSuKien}" class="event-image">
+                            <div class="event-content">
+                                <h3 class="event-title">${event.TenSuKien}</h3>
+                                <p class="event-description">${event.MoTa || 'Không có mô tả'}</p>
+                                
+                                <div class="event-meta">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <span>${event.NgayBatDau} - ${event.NgayKetThuc}</span>
+                                </div>
+                                
+                                <div class="event-location">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>${event.TenDiaDiem}</span>
+                                </div>
+                                
+                                <div class="event-meta">
+                                    <i class="fas fa-users"></i>
+                                    <span>${event.SoNguoiDuKien} người</span>
+                                </div>
+                                
+                                <div class="event-budget">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                    <span>${event.NganSach}</span>
+                                </div>
+                                
+                                <div class="event-actions">
+                                    <button class="btn-event-detail" onclick="viewEventDetail(${event.ID_DatLich})">
+                                        <i class="fas fa-eye"></i> Chi tiết
+                                    </button>
+                                    <button class="btn-event-register" onclick="registerForEvent(${event.ID_DatLich})">
+                                        <i class="fas fa-calendar-plus"></i> Đăng ký
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.html(html);
+        }
+        
+        // Display no events message
+        function displayNoEvents() {
+            const container = $('#events-container');
+            container.html(`
+                <div class="col-12">
+                    <div class="no-events">
+                        <i class="fas fa-calendar-times"></i>
+                        <h4>Chưa có sự kiện nào</h4>
+                        <p>Hiện tại chưa có sự kiện nào được duyệt. Vui lòng quay lại sau!</p>
+                    </div>
+                </div>
+            `);
+        }
+        
+        // View event detail
+        function viewEventDetail(eventId) {
+            // Redirect to event detail page or show modal
+            alert('Chức năng xem chi tiết sự kiện sẽ được phát triển!');
+        }
+        
+        // Register for event
+        function registerForEvent(eventId) {
+            <?php if ($user): ?>
+                // User is logged in, redirect to registration
+                window.location.href = `events/register.php?event_id=${eventId}`;
+            <?php else: ?>
+                // User not logged in, redirect to login
+                if (confirm('Bạn cần đăng nhập để đăng ký sự kiện. Bạn có muốn đăng nhập ngay không?')) {
+                    window.location.href = 'login.php';
+                }
+            <?php endif; ?>
+        }
     </script>
 </body>
 </html>

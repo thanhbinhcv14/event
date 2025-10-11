@@ -48,9 +48,9 @@ include 'includes/admin-header.php';
         </div>
 
         <!-- Filter Section -->
-        <div class="filter-section">
-            <div class="filter-group">
-                <div class="form-group">
+        <div class="filter-section mb-4">
+            <div class="row g-3">
+                <div class="col-md-4">
                     <label class="form-label">Tìm kiếm</label>
                     <div class="input-group">
                         <span class="input-group-text">
@@ -64,7 +64,7 @@ include 'includes/admin-header.php';
                     </div>
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-2">
                     <label class="form-label">Trạng thái</label>
                     <select class="form-select" id="statusFilter">
                         <option value="">Tất cả trạng thái</option>
@@ -74,7 +74,7 @@ include 'includes/admin-header.php';
                     </select>
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-2">
                     <label class="form-label">Loại địa điểm</label>
                     <select class="form-select" id="typeFilter">
                         <option value="">Tất cả loại</option>
@@ -83,7 +83,7 @@ include 'includes/admin-header.php';
                     </select>
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-2">
                     <label class="form-label">Sắp xếp</label>
                     <select class="form-select" id="sortBy">
                         <option value="TenDiaDiem">Tên địa điểm</option>
@@ -93,14 +93,16 @@ include 'includes/admin-header.php';
                     </select>
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-2">
                     <label class="form-label">&nbsp;</label>
-                    <button class="btn btn-primary" onclick="applyFilters()">
-                        <i class="fas fa-filter"></i> Lọc
-                    </button>
-                    <button class="btn btn-outline-secondary" onclick="clearFilters()">
-                        <i class="fas fa-times"></i> Xóa lọc
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" onclick="applyFilters()">
+                            <i class="fas fa-filter"></i> Lọc
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="clearFilters()">
+                            <i class="fas fa-times"></i> Xóa
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -156,7 +158,7 @@ include 'includes/admin-header.php';
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <form id="locationForm">
+                        <form id="locationForm" enctype="multipart/form-data">
                             <input type="hidden" id="locationId" name="id">
                             
                             <div class="row">
@@ -205,7 +207,14 @@ include 'includes/admin-header.php';
                             
                             <div class="mb-3">
                                 <label class="form-label">Hình ảnh</label>
+                                <div id="currentImageContainer" class="mb-2" style="display: none;">
+                                    <label class="form-label text-muted">Hình ảnh hiện tại:</label>
+                                    <div class="text-center">
+                                        <img id="currentImage" src="" alt="Hình ảnh hiện tại" class="img-fluid rounded" style="max-width: 200px; max-height: 150px; object-fit: cover;">
+                                    </div>
+                                </div>
                                 <input type="file" class="form-control" id="locationImage" name="HinhAnh" accept="image/*">
+                                <small class="form-text text-muted">Chọn hình ảnh mới để thay thế hình ảnh hiện tại</small>
                             </div>
                             
                             <div class="mb-3">
@@ -276,8 +285,10 @@ include 'includes/admin-header.php';
                     url: '../../src/controllers/locations.php',
                     type: 'GET',
                     data: function(d) {
-                        d.action = 'get_locations';
-                        return $.extend(d, currentFilters);
+                        return $.extend({
+                            action: 'get_locations',
+                            limit: 1000 // Lấy tất cả để client-side filter
+                        }, currentFilters);
                     },
                     dataSrc: function(json) {
                         if (json.success && json.locations) {
@@ -346,7 +357,18 @@ include 'includes/admin-header.php';
                 order: [[0, 'desc']],
                 language: {
                     url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json'
-                }
+                },
+                // Ẩn thanh tìm kiếm và thông tin hiển thị của DataTable
+                dom: 'rtip',
+                info: false, // Ẩn thông tin "Hiển thị X dữ liệu"
+                paging: false, // Ẩn phân trang (hiển thị tất cả dữ liệu)
+                // Custom filtering
+                columnDefs: [
+                    {
+                        targets: [1, 2, 3], // Tên, Loại, Địa chỉ
+                        searchable: true
+                    }
+                ]
             });
             } catch (error) {
                 console.error('Error initializing DataTable:', error);
@@ -388,21 +410,40 @@ include 'includes/admin-header.php';
         }
 
         function applyFilters() {
-            currentFilters = {
-                search: $('#searchInput').val(),
-                status: $('#statusFilter').val(),
-                type: $('#typeFilter').val(),
-                sort_by: $('#sortBy').val()
-            };
-
-            // Remove empty filters
-            Object.keys(currentFilters).forEach(key => {
-                if (!currentFilters[key]) {
-                    delete currentFilters[key];
-                }
-            });
-
-            locationsTable.ajax.reload();
+            const searchValue = $('#searchInput').val();
+            const statusFilter = $('#statusFilter').val();
+            const typeFilter = $('#typeFilter').val();
+            const sortBy = $('#sortBy').val();
+            
+            // Apply search to DataTable
+            locationsTable.search(searchValue).draw();
+            
+            // Apply column filters
+            if (statusFilter) {
+                locationsTable.column(6).search(statusFilter);
+            } else {
+                locationsTable.column(6).search('');
+            }
+            
+            if (typeFilter) {
+                locationsTable.column(2).search(typeFilter);
+            } else {
+                locationsTable.column(2).search('');
+            }
+            
+            // Apply sorting
+            if (sortBy === 'TenDiaDiem') {
+                locationsTable.order([1, 'asc']).draw();
+            } else if (sortBy === 'DiaChi') {
+                locationsTable.order([3, 'asc']).draw();
+            } else if (sortBy === 'SucChua') {
+                locationsTable.order([4, 'desc']).draw();
+            } else if (sortBy === 'NgayTao') {
+                locationsTable.order([7, 'desc']).draw();
+            }
+            
+            // Redraw table
+            locationsTable.draw();
         }
 
         function clearFilters() {
@@ -410,8 +451,11 @@ include 'includes/admin-header.php';
             $('#statusFilter').val('');
             $('#typeFilter').val('');
             $('#sortBy').val('TenDiaDiem');
-            currentFilters = {};
-            locationsTable.ajax.reload();
+            
+            // Clear all DataTable filters
+            locationsTable.search('');
+            locationsTable.columns().search('');
+            locationsTable.order([0, 'desc']).draw();
         }
 
         function clearSearch() {
@@ -422,6 +466,7 @@ include 'includes/admin-header.php';
         function showAddModal() {
             $('#locationForm')[0].reset();
             $('#locationId').val('');
+            $('#currentImageContainer').hide(); // Ẩn hình ảnh hiện tại khi thêm mới
             $('#locationModalTitle').html('<i class="fas fa-plus"></i> Thêm địa điểm mới');
             
             const modal = new bootstrap.Modal(document.getElementById('locationModal'));
@@ -444,6 +489,14 @@ include 'includes/admin-header.php';
                     $('#locationPrice').val(location.GiaThue);
                     $('#locationDescription').val(location.MoTa);
                     $('#locationStatus').val(location.TrangThaiHoatDong);
+                    
+                    // Hiển thị hình ảnh hiện tại nếu có
+                    if (location.HinhAnh) {
+                        $('#currentImage').attr('src', `../../img/diadiem/${location.HinhAnh}`);
+                        $('#currentImageContainer').show();
+                    } else {
+                        $('#currentImageContainer').hide();
+                    }
                     
                     $('#locationModalTitle').html('<i class="fas fa-edit"></i> Chỉnh sửa địa điểm');
                     
@@ -488,7 +541,7 @@ include 'includes/admin-header.php';
                                 <h6><i class="fas fa-info-circle"></i> Thông tin khác</h6>
                                 <table class="table table-sm">
                                     <tr><td><strong>Mô tả:</strong></td><td>${location.MoTa || 'Không có mô tả'}</td></tr>
-                                    <tr><td><strong>Hình ảnh:</strong></td><td>${location.HinhAnh || 'Không có hình ảnh'}</td></tr>
+                                    <tr><td><strong>Hình ảnh:</strong></td><td>${location.HinhAnh ? `<img src="../../img/diadiem/${location.HinhAnh}" alt="${location.TenDiaDiem}" class="img-fluid rounded" style="max-width: 200px; max-height: 150px; object-fit: cover;">` : 'Không có hình ảnh'}</td></tr>
                                     <tr><td><strong>Ngày tạo:</strong></td><td>${AdminPanel.formatDate(location.NgayTao, 'dd/mm/yyyy hh:mm')}</td></tr>
                                     <tr><td><strong>Cập nhật:</strong></td><td>${AdminPanel.formatDate(location.NgayCapNhat, 'dd/mm/yyyy hh:mm')}</td></tr>
                                 </table>

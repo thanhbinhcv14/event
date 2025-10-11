@@ -509,21 +509,36 @@ $userName = $user['Email'] ?? 'User';
         
         function loadCustomers() {
             fetch('../../src/controllers/chat-support.php?action=get_customers')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('HTTP error! status: ' + response.status);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
                         renderCustomerList(data.customers);
                         updateOnlineCount(data.customers.filter(c => c.status === 'online').length);
                     } else {
                         console.error('Error loading customers:', data.error);
-                        // Fallback to empty list
-                        renderCustomerList([]);
+                        // Show error message
+                        document.getElementById('customerList').innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle"></i>
+                                Lỗi tải danh sách khách hàng: ${data.error}
+                            </div>
+                        `;
                         updateOnlineCount(0);
                     }
                 })
                 .catch(error => {
                     console.error('Error loading customers:', error);
-                    renderCustomerList([]);
+                    document.getElementById('customerList').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            Lỗi kết nối: ${error.message}
+                        </div>
+                    `;
                     updateOnlineCount(0);
                 });
         }

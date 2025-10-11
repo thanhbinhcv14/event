@@ -360,6 +360,184 @@
                 margin: 0.5rem 0;
             }
         }
+        
+        /* Equipment Selection Styles */
+        .equipment-card {
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .equipment-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .equipment-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .equipment-category {
+            margin-bottom: 2rem;
+        }
+        
+        .category-title {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .equipment-type {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .equipment-details {
+            font-size: 0.9rem;
+        }
+        
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        
+        .form-check-input:focus {
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .summary-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .summary-item:last-child {
+            border-bottom: none;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #667eea;
+        }
+        
+        /* Combo Card Styles */
+        .combo-card {
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: white;
+            height: 100%;
+        }
+        
+        .combo-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+            transform: translateY(-5px);
+        }
+        
+        .combo-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+        
+        .combo-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .combo-title {
+            color: #495057;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .combo-price {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .combo-description {
+            color: #6c757d;
+            font-style: italic;
+            margin-bottom: 15px;
+        }
+        
+        .combo-equipment h6 {
+            color: #495057;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .equipment-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .equipment-item-combo {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+        
+        .equipment-item-combo:last-child {
+            border-bottom: none;
+        }
+        
+        .equipment-name {
+            color: #495057;
+            font-size: 0.9rem;
+        }
+        
+        .equipment-quantity {
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .combo-footer {
+            margin-top: 15px;
+            text-align: center;
+        }
+        
+        .combo-footer .btn {
+            border-radius: 20px;
+            padding: 8px 20px;
+        }
     </style>
 </head>
 <body>
@@ -556,12 +734,131 @@
         $(document).ready(function() {
             loadEventTypes();
             setMinDate();
+            
+            // Check if we're editing an existing event
+            const urlParams = new URLSearchParams(window.location.search);
+            const editId = urlParams.get('edit');
+            if (editId) {
+                loadEventForEdit(editId);
+            }
         });
         
         // Set minimum date to today
         function setMinDate() {
             const today = new Date().toISOString().split('T')[0];
             $('#eventDate').attr('min', today);
+        }
+        
+        // Load event data for editing
+        function loadEventForEdit(eventId) {
+            // First load event types, then load event data
+            $.get('../../src/controllers/event-register.php?action=get_event_types', function(typesData) {
+                if (typesData.success) {
+                    eventTypes = typesData.event_types;
+                    const select = $('#eventType');
+                    select.empty().append('<option value="">Chọn loại sự kiện</option>');
+                    eventTypes.forEach(type => {
+                        select.append(`<option value="${type.ID_LoaiSK}">${type.TenLoai}</option>`);
+                    });
+                    
+                    // Now load event data
+                    $.get(`../../src/controllers/event-register.php?action=get_event_for_edit&event_id=${eventId}`, function(data) {
+                        if (data.success) {
+                            const event = data.event;
+                            
+                            // Fill form fields
+                            $('#eventName').val(event.TenSuKien);
+                            $('#eventDescription').val(event.MoTa);
+                            $('#eventDate').val(event.NgayBatDau.split(' ')[0]);
+                            $('#eventTime').val(event.NgayBatDau.split(' ')[1]);
+                            $('#eventEndDate').val(event.NgayKetThuc.split(' ')[0]);
+                            $('#eventEndTime').val(event.NgayKetThuc.split(' ')[1]);
+                            $('#expectedGuests').val(event.SoNguoiDuKien);
+                            $('#budget').val(event.NganSach);
+                            $('#eventType').val(event.ID_LoaiSK);
+                            $('#notes').val(event.GhiChu);
+                            
+                            // Update header to show edit mode
+                            $('.header-section h1').text('Chỉnh sửa sự kiện');
+                            $('.header-section p').text('Cập nhật thông tin sự kiện của bạn');
+                            $('#submitBtn').html('<i class="fas fa-save"></i> Cập nhật sự kiện');
+                            
+                            // Load location and equipment data
+                            loadLocationSuggestions();
+                            loadEquipmentSuggestions();
+                            loadComboSuggestions();
+                            
+                            // Load selected location and equipment after a short delay
+                            setTimeout(() => {
+                                loadSelectedData(eventId);
+                            }, 1000);
+                            
+                        } else {
+                            alert('Lỗi khi tải dữ liệu sự kiện: ' + data.message);
+                            window.location.href = 'my-events.php';
+                        }
+                    }, 'json').fail(function() {
+                        alert('Lỗi khi tải dữ liệu sự kiện');
+                        window.location.href = 'my-events.php';
+                    });
+                } else {
+                    alert('Lỗi khi tải loại sự kiện: ' + typesData.error);
+                }
+            }, 'json').fail(function() {
+                alert('Lỗi kết nối khi tải loại sự kiện');
+            });
+        }
+        
+        // Load selected data for editing
+        function loadSelectedData(eventId) {
+            $.get(`../../src/controllers/event-register.php?action=get_event_selected_data&event_id=${eventId}`, function(data) {
+                if (data.success) {
+                    console.log('Loaded selected data:', data);
+                    
+                    // Set selected location
+                    if (data.location) {
+                        selectedLocation = data.location;
+                        console.log('Set selected location:', selectedLocation);
+                        displayLocationSuggestions();
+                    }
+                    
+                    // Set selected equipment
+                    if (data.equipment && data.equipment.length > 0) {
+                        selectedEquipment = data.equipment;
+                        console.log('Set selected equipment:', selectedEquipment);
+                        displayEquipmentSuggestions();
+                    }
+                    
+                    // Set selected combo
+                    if (data.combo) {
+                        selectedCombo = data.combo;
+                        console.log('Set selected combo:', selectedCombo);
+                        displayComboSuggestions();
+                    }
+                    
+                    // Update order summary after a short delay
+                    setTimeout(() => {
+                        console.log('Force updating order summary after loading selected data');
+                        updateOrderSummary();
+                    }, 500);
+                    
+                    // Also try to update immediately
+                    console.log('Immediate update order summary');
+                    updateOrderSummary();
+                }
+            }, 'json').fail(function() {
+                console.log('Failed to load selected data');
+            });
+        }
+        
+        // Force update order summary (for edit mode)
+        function forceUpdateOrderSummary() {
+            console.log('Force updating order summary');
+            if (selectedLocation) {
+                updateOrderSummary();
+            } else {
+                console.log('No selected location, cannot force update');
+            }
         }
         
         // Load event types
@@ -572,7 +869,7 @@
                     const select = $('#eventType');
                     select.empty().append('<option value="">Chọn loại sự kiện</option>');
                     eventTypes.forEach(type => {
-                        select.append(`<option value="${type.TenLoai}">${type.TenLoai}</option>`);
+                        select.append(`<option value="${type.ID_LoaiSK}">${type.TenLoai}</option>`);
                     });
                 } else {
                     showError('Không thể tải danh sách loại sự kiện: ' + data.error);
@@ -636,6 +933,10 @@
                     showError('Vui lòng chọn địa điểm');
                     return false;
                 }
+            } else if (currentStep === 3) {
+                // Validate step 3 - equipment selection is optional
+                // No specific validation needed for step 3
+                console.log('Step 3 validation passed');
             }
             
             return true;
@@ -650,9 +951,16 @@
         
         // Load location suggestions based on event type
         function loadLocationSuggestions() {
-            const eventType = $('#eventType').val();
-            if (!eventType) {
+            const eventTypeId = $('#eventType').val();
+            if (!eventTypeId) {
                 showError('Vui lòng chọn loại sự kiện trước');
+                return;
+            }
+            
+            // Find the event type name from the loaded event types
+            const eventType = eventTypes.find(type => type.ID_LoaiSK == eventTypeId);
+            if (!eventType) {
+                showError('Không tìm thấy thông tin loại sự kiện');
                 return;
             }
             
@@ -665,7 +973,7 @@
                 </div>
             `);
             
-            $.get('../../src/controllers/event-register.php?action=get_locations_by_type&event_type=' + encodeURIComponent(eventType), function(data) {
+            $.get('../../src/controllers/event-register.php?action=get_locations_by_type&event_type=' + encodeURIComponent(eventType.TenLoai), function(data) {
                 if (data.success) {
                     locations = data.locations;
                     displayLocationSuggestions();
@@ -751,17 +1059,18 @@
             // Load combo suggestions
             loadComboSuggestions(eventType);
             
-            // Load individual equipment suggestions
+            // Load all available equipment (not just suggestions)
             $('#equipmentSuggestions').html(`
                 <div class="text-center">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <p class="mt-2">Đang tải gợi ý thiết bị...</p>
+                    <p class="mt-2">Đang tải danh sách thiết bị...</p>
                 </div>
             `);
             
-            $.get(`../../src/controllers/event-register.php?action=get_equipment_suggestions&event_type=${encodeURIComponent(eventType)}&location_id=${selectedLocation.ID_DD}`, function(data) {
+            // Get all available equipment instead of just suggestions
+            $.get(`../../src/controllers/event-register.php?action=get_all_equipment`, function(data) {
                 if (data.success) {
                     equipmentSuggestions = data.equipment;
                     displayEquipmentSuggestions();
@@ -769,7 +1078,7 @@
                     $('#equipmentSuggestions').html(`
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle"></i>
-                            Không có gợi ý thiết bị cho sự kiện này.
+                            Không có thiết bị nào có sẵn.
                         </div>
                     `);
                 }
@@ -777,7 +1086,7 @@
                 $('#equipmentSuggestions').html(`
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-circle"></i>
-                        Lỗi khi tải gợi ý thiết bị.
+                        Lỗi khi tải danh sách thiết bị.
                     </div>
                 `);
             });
@@ -794,17 +1103,33 @@
                 </div>
             `);
             
+            // Try to get combo suggestions for this event type first
             $.get(`../../src/controllers/event-register.php?action=get_combo_suggestions&event_type=${encodeURIComponent(eventType)}`, function(data) {
-                if (data.success) {
+                if (data.success && data.combos.length > 0) {
                     comboSuggestions = data.combos;
                     displayComboSuggestions();
                 } else {
-                    $('#comboSuggestions').html(`
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            Không có combo thiết bị phù hợp cho loại sự kiện này.
-                        </div>
-                    `);
+                    // If no specific combos for this event type, get all available combos
+                    $.get(`../../src/controllers/event-register.php?action=get_all_combos`, function(data) {
+                        if (data.success) {
+                            comboSuggestions = data.combos;
+                            displayComboSuggestions();
+                        } else {
+                            $('#comboSuggestions').html(`
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    Không có combo thiết bị nào có sẵn.
+                                </div>
+                            `);
+                        }
+                    }, 'json').fail(function() {
+                        $('#comboSuggestions').html(`
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle"></i>
+                                Lỗi khi tải combo thiết bị.
+                            </div>
+                        `);
+                    });
                 }
             }, 'json').fail(function() {
                 $('#comboSuggestions').html(`
@@ -822,36 +1147,48 @@
                 $('#comboSuggestions').html(`
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle"></i>
-                        Không có combo thiết bị phù hợp cho loại sự kiện này.
+                        Không có combo thiết bị nào có sẵn.
                     </div>
                 `);
                 return;
             }
             
-            let html = '';
+            let html = '<div class="row">';
             comboSuggestions.forEach(combo => {
                 const price = new Intl.NumberFormat('vi-VN').format(combo.GiaCombo);
+                const isSelected = selectedCombo && selectedCombo.ID_Combo === combo.ID_Combo;
                 html += `
-                    <div class="combo-card" onclick="selectCombo(${combo.ID_Combo})" data-combo-id="${combo.ID_Combo}">
-                        <div class="combo-header">
-                            <h5 class="combo-title">${combo.TenCombo}</h5>
-                            <div class="combo-price">${price} VNĐ</div>
-                        </div>
-                        <div class="combo-description">${combo.MoTa || 'Combo thiết bị chuyên nghiệp'}</div>
-                        <div class="combo-equipment">
-                            <h6><i class="fas fa-list"></i> Danh sách thiết bị</h6>
-                            <div class="equipment-list">
-                                ${combo.equipment.map(item => `
-                                    <div class="equipment-item-combo">
-                                        <span class="equipment-name">${item.TenThietBi}</span>
-                                        <span class="equipment-quantity">x${item.SoLuong}</span>
-                                    </div>
-                                `).join('')}
+                    <div class="col-md-6 mb-4">
+                        <div class="combo-card ${isSelected ? 'selected' : ''}" onclick="selectCombo(${combo.ID_Combo})" data-combo-id="${combo.ID_Combo}">
+                            <div class="combo-header">
+                                <h5 class="combo-title">
+                                    <i class="fas fa-box text-primary"></i>
+                                    ${combo.TenCombo}
+                                </h5>
+                                <div class="combo-price">${price} VNĐ</div>
+                            </div>
+                            <div class="combo-description">${combo.MoTa || 'Combo thiết bị chuyên nghiệp'}</div>
+                            <div class="combo-equipment">
+                                <h6><i class="fas fa-list text-primary"></i> Danh sách thiết bị</h6>
+                                <div class="equipment-list">
+                                    ${combo.equipment.map(item => `
+                                        <div class="equipment-item-combo">
+                                            <span class="equipment-name">${item.TenThietBi}</span>
+                                            <span class="equipment-quantity">x${item.SoLuong}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <div class="combo-footer">
+                                <button class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-check"></i> Chọn combo này
+                                </button>
                             </div>
                         </div>
                     </div>
                 `;
             });
+            html += '</div>';
             
             $('#comboSuggestions').html(html);
         }
@@ -878,26 +1215,77 @@
                 $('#equipmentSuggestions').html(`
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle"></i>
-                        Không có thiết bị đặc biệt được đề xuất cho sự kiện này.
+                        Không có thiết bị nào có sẵn.
                     </div>
                 `);
                 return;
             }
             
-            let html = '';
+            // Group equipment by type
+            const groupedEquipment = {};
             equipmentSuggestions.forEach(equipment => {
-                const price = new Intl.NumberFormat('vi-VN').format(equipment.GiaThue);
+                const type = equipment.LoaiThietBi || 'Khác';
+                if (!groupedEquipment[type]) {
+                    groupedEquipment[type] = [];
+                }
+                groupedEquipment[type].push(equipment);
+            });
+            
+            let html = '';
+            Object.keys(groupedEquipment).sort().forEach(type => {
                 html += `
-                    <div class="equipment-item">
-                        <div class="equipment-type">
-                            <i class="fas fa-cog"></i> ${equipment.TenThietBi}
+                    <div class="equipment-category mb-4">
+                        <h6 class="category-title">
+                            <i class="fas fa-tools text-primary"></i>
+                            ${type}
+                        </h6>
+                        <div class="row">
+                `;
+                
+                groupedEquipment[type].forEach(equipment => {
+                    const price = new Intl.NumberFormat('vi-VN').format(equipment.GiaThue);
+                    const isSelected = selectedEquipment.some(eq => eq.ID_TB === equipment.ID_TB);
+                    html += `
+                        <div class="col-md-6 mb-3">
+                            <div class="card equipment-card h-100 ${isSelected ? 'selected' : ''}">
+                                <div class="card-body">
+                                    <div class="form-check">
+                                        <input class="form-check-input equipment-checkbox" type="checkbox" 
+                                               value="${equipment.ID_TB}" id="equipment_${equipment.ID_TB}"
+                                               ${isSelected ? 'checked' : ''}
+                                               onchange="toggleEquipment(${equipment.ID_TB}, '${equipment.TenThietBi}', ${equipment.GiaThue})">
+                                        <label class="form-check-label w-100" for="equipment_${equipment.ID_TB}">
+                                            <div class="equipment-type">
+                                                <i class="fas fa-cog text-primary"></i> 
+                                                <strong>${equipment.TenThietBi}</strong>
+                                            </div>
+                                            <div class="equipment-details mt-2">
+                                                <div class="row">
+                                                    <div class="col-6">
+                                                        <small class="text-muted">Hãng:</small><br>
+                                                        <span>${equipment.HangSX || 'N/A'}</span>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <small class="text-muted">Trạng thái:</small><br>
+                                                        <span class="badge bg-success">${equipment.TrangThai}</span>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <small class="text-muted">Giá:</small><br>
+                                                    <span class="text-primary fw-bold">${price} VNĐ/${equipment.DonViTinh}</span>
+                                                </div>
+                                                ${equipment.MoTa ? `<div class="mt-2"><small class="text-muted">Mô tả:</small><br><small>${equipment.MoTa}</small></div>` : ''}
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="equipment-list">
-                            <strong>Loại:</strong> ${equipment.LoaiThietBi} | 
-                            <strong>Hãng:</strong> ${equipment.HangSX || 'N/A'} | 
-                            <strong>Giá:</strong> ${price} VNĐ/${equipment.DonViTinh}
+                    `;
+                });
+                
+                html += `
                         </div>
-                        ${equipment.MoTa ? `<div class="equipment-list mt-1">${equipment.MoTa}</div>` : ''}
                     </div>
                 `;
             });
@@ -905,9 +1293,49 @@
             $('#equipmentSuggestions').html(html);
         }
         
+        // Toggle equipment selection
+        function toggleEquipment(equipmentId, equipmentName, price) {
+            const checkbox = document.getElementById(`equipment_${equipmentId}`);
+            const card = checkbox.closest('.equipment-card');
+            const existingIndex = selectedEquipment.findIndex(eq => eq.ID_TB === equipmentId);
+            
+            if (checkbox.checked) {
+                // Add equipment if not already selected
+                if (existingIndex === -1) {
+                    selectedEquipment.push({
+                        ID_TB: equipmentId,
+                        TenThietBi: equipmentName,
+                        GiaThue: price,
+                        SoLuong: 1
+                    });
+                }
+                // Add selected class
+                card.classList.add('selected');
+            } else {
+                // Remove equipment if selected
+                if (existingIndex !== -1) {
+                    selectedEquipment.splice(existingIndex, 1);
+                }
+                // Remove selected class
+                card.classList.remove('selected');
+            }
+            
+            updateOrderSummary();
+        }
+        
         // Update order summary
         function updateOrderSummary() {
-            if (!selectedLocation) return;
+            if (!selectedLocation) {
+                console.log('No selected location, cannot update order summary');
+                // Try to get location from the form if in edit mode
+                const urlParams = new URLSearchParams(window.location.search);
+                const editId = urlParams.get('edit');
+                if (editId) {
+                    console.log('In edit mode, trying to load selected data again');
+                    loadSelectedData(editId);
+                }
+                return;
+            }
             
             // Ensure prices are numbers
             const locationPriceNum = parseFloat(selectedLocation.GiaThue) || 0;
@@ -915,6 +1343,9 @@
             const eventName = $('#eventName').val();
             const eventDate = $('#eventDate').val();
             const eventTime = $('#eventTime').val();
+            
+            console.log('Selected location:', selectedLocation);
+            console.log('Location price:', locationPriceNum);
             
             let totalPrice = locationPriceNum;
             let comboPrice = 0;
@@ -959,10 +1390,32 @@
                 totalPrice += comboPrice;
             }
             
+            // Add individual equipment if selected
+            if (selectedEquipment.length > 0) {
+                html += `<div class="summary-item"><span><strong>Thiết bị riêng lẻ:</strong></span></div>`;
+                let equipmentTotal = 0;
+                selectedEquipment.forEach(equipment => {
+                    const equipmentPrice = parseFloat(equipment.GiaThue) || 0;
+                    const equipmentPriceFormatted = new Intl.NumberFormat('vi-VN').format(equipmentPrice);
+                    html += `
+                        <div class="summary-item" style="margin-left: 15px;">
+                            <span>• ${equipment.TenThietBi} (${equipment.SoLuong} cái):</span>
+                            <span>${equipmentPriceFormatted} VNĐ</span>
+                        </div>
+                    `;
+                    equipmentTotal += equipmentPrice;
+                });
+                totalPrice += equipmentTotal;
+            }
+            
             // Debug: Log values to console
             console.log('Location Price:', locationPriceNum);
             console.log('Combo Price:', comboPrice);
+            console.log('Equipment Total:', selectedEquipment.length > 0 ? selectedEquipment.reduce((sum, eq) => sum + (parseFloat(eq.GiaThue) || 0), 0) : 0);
             console.log('Total Price:', totalPrice);
+            console.log('Selected Location:', selectedLocation);
+            console.log('Selected Equipment:', selectedEquipment);
+            console.log('Selected Combo:', selectedCombo);
             
             const totalPriceFormatted = new Intl.NumberFormat('vi-VN').format(totalPrice);
             html += `
@@ -999,47 +1452,69 @@
         // Form submission
         $('#eventRegistrationForm').on('submit', function(e) {
             e.preventDefault();
+            console.log('Form submitted, current step:', currentStep);
             
             if (!validateCurrentStep()) {
+                console.log('Validation failed');
                 return;
             }
             
+            console.log('Validation passed, proceeding with submission');
             $('#loadingSpinner').show();
             $('#submitBtn').prop('disabled', true);
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const editId = urlParams.get('edit');
             
             const formData = {
                 event_name: $('#eventName').val(),
                 event_type: $('#eventType').val(),
                 event_date: $('#eventDate').val(),
                 event_time: $('#eventTime').val(),
+                event_end_date: $('#eventEndDate').val(),
+                event_end_time: $('#eventEndTime').val(),
                 expected_guests: $('#expectedGuests').val(),
                 budget: $('#budget').val(),
-                description: $('#description').val(),
-                location_id: selectedLocation.ID_DD,
-                equipment_ids: selectedEquipment,
+                description: $('#eventDescription').val(),
+                notes: $('#notes').val(),
+                location_id: selectedLocation ? selectedLocation.ID_DD : null,
+                equipment_ids: selectedEquipment.map(eq => eq.ID_TB),
                 combo_id: selectedCombo ? selectedCombo.ID_Combo : null
             };
             
+            console.log('Form data:', formData);
+            console.log('Selected location:', selectedLocation);
+            console.log('Selected equipment:', selectedEquipment);
+            console.log('Selected combo:', selectedCombo);
+            
+            // Add edit ID if we're editing
+            if (editId) {
+                formData.edit_id = editId;
+            }
+            
             $.ajax({
-                url: '../../src/controllers/event-register.php?action=register',
+                url: `../../src/controllers/event-register.php?action=${editId ? 'update_event' : 'register'}`,
                 type: 'POST',
                 data: JSON.stringify(formData),
                 contentType: 'application/json',
                 dataType: 'json',
                 success: function(data) {
+                    console.log('AJAX success response:', data);
                     $('#loadingSpinner').hide();
                     $('#submitBtn').prop('disabled', false);
                     
                     if (data.success) {
-                        showSuccess('Đăng ký sự kiện thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.');
+                        const message = editId ? 'Cập nhật sự kiện thành công!' : 'Đăng ký sự kiện thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.';
+                        showSuccess(message);
                         setTimeout(() => {
                             window.location.href = 'my-events.php';
                         }, 2000);
                     } else {
-                        showError('Lỗi khi đăng ký: ' + data.error);
+                        showError('Lỗi: ' + (data.error || data.message));
                     }
                 },
-                error: function() {
+                error: function(xhr, status, error) {
+                    console.log('AJAX error:', xhr, status, error);
                     $('#loadingSpinner').hide();
                     $('#submitBtn').prop('disabled', false);
                     showError('Lỗi kết nối. Vui lòng thử lại.');

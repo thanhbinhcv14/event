@@ -21,8 +21,12 @@ require_once __DIR__ . '/../socket/socket-client.php';
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
+// Debug action
+error_log("Debug - Action: " . $action);
+error_log("Debug - Session data: " . print_r($_SESSION, true));
+
 // For data loading actions, don't require login
-$publicActions = ['get_event_types', 'get_locations_by_type', 'get_equipment_suggestions', 'get_combo_suggestions'];
+$publicActions = ['get_event_types', 'get_locations_by_type', 'get_equipment_suggestions', 'get_combo_suggestions', 'get_all_equipment', 'get_all_combos', 'get_event_selected_data'];
 
 if (!in_array($action, $publicActions)) {
     // Check if user is logged in for other actions
@@ -43,6 +47,14 @@ if (!in_array($action, $publicActions)) {
 try {
     require_once __DIR__ . '/../../config/database.php';
     $pdo = getDBConnection();
+    
+    // Debug database connection
+    if (!$pdo) {
+        error_log("Debug - Database connection failed");
+        echo json_encode(['success' => false, 'error' => 'Lỗi kết nối database']);
+        exit();
+    }
+    error_log("Debug - Database connection successful");
     
     switch ($action) {
         case 'get_event_types':
@@ -66,13 +78,18 @@ try {
             }
             
             try {
+                // Debug: Log the event type
+                error_log("Debug - Event type: " . $eventType);
+                
                 // Get event type ID
                 $stmt = $pdo->prepare("SELECT ID_LoaiSK FROM loaisukien WHERE TenLoai = ?");
                 $stmt->execute([$eventType]);
                 $eventTypeData = $stmt->fetch(PDO::FETCH_ASSOC);
                 
+                error_log("Debug - Event type data: " . print_r($eventTypeData, true));
+                
                 if (!$eventTypeData) {
-                    echo json_encode(['success' => false, 'error' => 'Loại sự kiện không hợp lệ']);
+                    echo json_encode(['success' => false, 'error' => 'Loại sự kiện không hợp lệ: ' . $eventType]);
                     exit();
                 }
                 
@@ -87,17 +104,39 @@ try {
                 $stmt->execute([$eventTypeData['ID_LoaiSK']]);
                 $locations = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
+                error_log("Debug - Found locations: " . count($locations));
+                error_log("Debug - Locations: " . print_r($locations, true));
+                
                 // If no specific locations found, get all active locations
                 if (empty($locations)) {
+                    error_log("Debug - No specific locations found, getting all active locations");
                     $stmt = $pdo->query("
                         SELECT * FROM diadiem 
                         WHERE TrangThaiHoatDong = 'Hoạt động' 
                         ORDER BY TenDiaDiem
                     ");
                     $locations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    error_log("Debug - All active locations: " . count($locations));
                 }
                 
                 echo json_encode(['success' => true, 'locations' => $locations]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
+            }
+            break;
+            
+        case 'get_all_equipment':
+            // Get all available equipment
+            try {
+                $stmt = $pdo->prepare("
+                    SELECT * FROM thietbi 
+                    WHERE TrangThai = 'Sẵn sàng' 
+                    ORDER BY LoaiThietBi, TenThietBi
+                ");
+                $stmt->execute();
+                $equipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                echo json_encode(['success' => true, 'equipment' => $equipment]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
             }
@@ -154,6 +193,16 @@ try {
                 $input = $_POST;
             }
             
+            // Debug input
+            error_log("Debug - Register input: " . print_r($input, true));
+            
+            // Get user ID from session
+            $userId = $_SESSION['user']['ID_User'] ?? $_SESSION['user']['id'] ?? null;
+            if (!$userId) {
+                echo json_encode(['success' => false, 'error' => 'Không tìm thấy thông tin người dùng']);
+                exit();
+            }
+            
             // Validate required fields
             $requiredFields = ['event_name', 'event_date', 'event_time', 'location_id'];
             foreach ($requiredFields as $field) {
@@ -185,10 +234,27 @@ try {
             $eventType = $input['event_type'] ?? '';
             $eventTypeId = null;
             if ($eventType) {
-                $stmt = $pdo->prepare("SELECT ID_LoaiSK FROM loaisukien WHERE TenLoai = ?");
-                $stmt->execute([$eventType]);
-                $eventTypeData = $stmt->fetch(PDO::FETCH_ASSOC);
-                $eventTypeId = $eventTypeData ? $eventTypeData['ID_LoaiSK'] : null;
+                // Check if event_type is already an ID (numeric) or a name
+                if (is_numeric($eventType)) {
+                    // It's already an ID
+                    $eventTypeId = $eventType;
+                } else {
+                    // It's a name, need to find ID
+                    $stmt = $pdo->prepare("SELECT ID_LoaiSK FROM loaisukien WHERE TenLoai = ?");
+                    $stmt->execute([$eventType]);
+                    $eventTypeData = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $eventTypeId = $eventTypeData ? $eventTypeData['ID_LoaiSK'] : null;
+                }
+            }
+            
+            // Debug event type
+            error_log("Debug - Event type: " . $eventType);
+            error_log("Debug - Event type ID: " . $eventTypeId);
+            
+            // Validate event type ID
+            if (!$eventTypeId) {
+                echo json_encode(['success' => false, 'error' => 'Loại sự kiện không hợp lệ']);
+                exit();
             }
             
             // Prepare event datetime
@@ -303,6 +369,37 @@ try {
             }
             break;
             
+        case 'get_all_combos':
+            // Get all available combos
+            try {
+                $stmt = $pdo->prepare("
+                    SELECT c.ID_Combo, c.TenCombo, c.MoTa, c.GiaCombo
+                    FROM combo c
+                    ORDER BY c.GiaCombo ASC
+                ");
+                $stmt->execute();
+                $combos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Get combo details (equipment in each combo)
+                foreach ($combos as &$combo) {
+                    $stmt = $pdo->prepare("
+                        SELECT t.ID_TB, t.TenThietBi, t.LoaiThietBi, t.HangSX, t.GiaThue, t.DonViTinh, cc.SoLuong
+                        FROM combochitiet cc
+                        INNER JOIN thietbi t ON cc.ID_TB = t.ID_TB
+                        WHERE cc.ID_Combo = ?
+                        ORDER BY t.LoaiThietBi, t.TenThietBi
+                    ");
+                    $stmt->execute([$combo['ID_Combo']]);
+                    $combo['equipment'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                }
+                
+                echo json_encode(['success' => true, 'combos' => $combos]);
+                
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
+            }
+            break;
+            
         case 'get_combo_suggestions':
             // Get combo suggestions based on event type
             try {
@@ -355,6 +452,277 @@ try {
                 
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
+            }
+            break;
+            
+        case 'get_event_for_edit':
+            $eventId = $_GET['event_id'] ?? null;
+            
+            if (!$eventId) {
+                echo json_encode(['success' => false, 'message' => 'ID sự kiện không hợp lệ']);
+                break;
+            }
+            
+            // Check if user is logged in
+            if (!isset($_SESSION['user'])) {
+                echo json_encode(['success' => false, 'message' => 'Chưa đăng nhập']);
+                break;
+            }
+            
+            $userId = $_SESSION['user']['ID_User'] ?? $_SESSION['user']['id'] ?? null;
+            
+            // Debug
+            error_log("Debug - Event ID: " . $eventId);
+            error_log("Debug - User ID: " . $userId);
+            error_log("Debug - Session user: " . print_r($_SESSION['user'], true));
+            
+            try {
+                // Get customer ID from user session
+                $stmt = $pdo->prepare("SELECT ID_KhachHang FROM khachhanginfo WHERE ID_User = ?");
+                $stmt->execute([$userId]);
+                $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                error_log("Debug - Customer: " . print_r($customer, true));
+                
+                if (!$customer) {
+                    echo json_encode(['success' => false, 'message' => 'Không tìm thấy thông tin khách hàng']);
+                    break;
+                }
+                
+                $customerId = $customer['ID_KhachHang'];
+                
+                error_log("Debug - Customer ID: " . $customerId);
+                
+                // Get event details
+                $stmt = $pdo->prepare("
+                    SELECT * FROM datlichsukien 
+                    WHERE ID_DatLich = ? AND ID_KhachHang = ? AND TrangThaiDuyet = 'Chờ duyệt'
+                ");
+                $stmt->execute([$eventId, $customerId]);
+                $event = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                error_log("Debug - Found event: " . print_r($event, true));
+                
+                // If no event found with status restriction, try without status restriction
+                if (!$event) {
+                    error_log("Debug - No event found with status restriction, trying without status");
+                    $stmt = $pdo->prepare("
+                        SELECT * FROM datlichsukien 
+                        WHERE ID_DatLich = ? AND ID_KhachHang = ?
+                    ");
+                    $stmt->execute([$eventId, $customerId]);
+                    $event = $stmt->fetch(PDO::FETCH_ASSOC);
+                    error_log("Debug - Found event without status: " . print_r($event, true));
+                }
+                
+                if (!$event) {
+                    echo json_encode(['success' => false, 'message' => 'Không tìm thấy sự kiện hoặc bạn không có quyền chỉnh sửa']);
+                    break;
+                }
+                
+                echo json_encode(['success' => true, 'event' => $event]);
+                
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => 'Lỗi database: ' . $e->getMessage()]);
+            }
+            break;
+            
+        case 'update_event':
+            $input = json_decode(file_get_contents('php://input'), true);
+            
+            if (!$input) {
+                echo json_encode(['success' => false, 'error' => 'Dữ liệu không hợp lệ']);
+                break;
+            }
+            
+            // Check if user is logged in
+            if (!isset($_SESSION['user'])) {
+                echo json_encode(['success' => false, 'error' => 'Chưa đăng nhập']);
+                break;
+            }
+            
+            $userId = $_SESSION['user']['ID_User'] ?? $_SESSION['user']['id'] ?? null;
+            $editId = $input['edit_id'] ?? null;
+            
+            if (!$editId) {
+                echo json_encode(['success' => false, 'error' => 'ID sự kiện không hợp lệ']);
+                break;
+            }
+            
+            try {
+                // Get customer ID from user session
+                $stmt = $pdo->prepare("SELECT ID_KhachHang FROM khachhanginfo WHERE ID_User = ?");
+                $stmt->execute([$userId]);
+                $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$customer) {
+                    echo json_encode(['success' => false, 'error' => 'Không tìm thấy thông tin khách hàng']);
+                    break;
+                }
+                
+                $customerId = $customer['ID_KhachHang'];
+                
+                // Check if event belongs to user and is not approved yet
+                $stmt = $pdo->prepare("
+                    SELECT ID_DatLich FROM datlichsukien 
+                    WHERE ID_DatLich = ? AND ID_KhachHang = ? AND TrangThaiDuyet = 'Chờ duyệt'
+                ");
+                $stmt->execute([$editId, $customerId]);
+                $event = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$event) {
+                    echo json_encode(['success' => false, 'error' => 'Không tìm thấy sự kiện hoặc bạn không có quyền chỉnh sửa']);
+                    break;
+                }
+                
+                // Get event type ID
+                $eventType = $input['event_type'] ?? '';
+                $eventTypeId = null;
+                if ($eventType) {
+                    // Check if event_type is already an ID (numeric) or a name
+                    if (is_numeric($eventType)) {
+                        // It's already an ID
+                        $eventTypeId = $eventType;
+                    } else {
+                        // It's a name, need to find ID
+                        $stmt = $pdo->prepare("SELECT ID_LoaiSK FROM loaisukien WHERE TenLoai = ?");
+                        $stmt->execute([$eventType]);
+                        $eventTypeData = $stmt->fetch(PDO::FETCH_ASSOC);
+                        $eventTypeId = $eventTypeData ? $eventTypeData['ID_LoaiSK'] : null;
+                    }
+                }
+                
+                // Validate event type ID
+                if (!$eventTypeId) {
+                    echo json_encode(['success' => false, 'error' => 'Loại sự kiện không hợp lệ']);
+                    break;
+                }
+                
+                // Update event
+                $startDateTime = $input['event_date'] . ' ' . $input['event_time'];
+                $endDateTime = $input['event_end_date'] . ' ' . $input['event_end_time'];
+                
+                $stmt = $pdo->prepare("
+                    UPDATE datlichsukien SET
+                        TenSuKien = ?,
+                        ID_LoaiSK = ?,
+                        NgayBatDau = ?,
+                        NgayKetThuc = ?,
+                        SoNguoiDuKien = ?,
+                        NganSach = ?,
+                        MoTa = ?,
+                        GhiChu = ?,
+                        ID_DD = ?
+                    WHERE ID_DatLich = ?
+                ");
+                
+                $result = $stmt->execute([
+                    $input['event_name'],
+                    $eventTypeId,
+                    $startDateTime,
+                    $endDateTime,
+                    $input['expected_guests'],
+                    $input['budget'],
+                    $input['description'],
+                    $input['notes'],
+                    $input['location_id'],
+                    $editId
+                ]);
+                
+                if ($result) {
+                    // Update equipment details
+                    $stmt = $pdo->prepare("DELETE FROM chitietdatsukien WHERE ID_DatLich = ?");
+                    $stmt->execute([$editId]);
+                    
+                    // Add new equipment
+                    if (!empty($input['equipment_ids'])) {
+                        foreach ($input['equipment_ids'] as $equipmentId) {
+                            // Get equipment price
+                            $stmt = $pdo->prepare("SELECT GiaThue FROM thietbi WHERE ID_TB = ?");
+                            $stmt->execute([$equipmentId]);
+                            $equipment = $stmt->fetch(PDO::FETCH_ASSOC);
+                            $price = $equipment ? $equipment['GiaThue'] : 0;
+                            
+                            $stmt = $pdo->prepare("
+                                INSERT INTO chitietdatsukien (ID_DatLich, ID_TB, DonGia) 
+                                VALUES (?, ?, ?)
+                            ");
+                            $stmt->execute([$editId, $equipmentId, $price]);
+                        }
+                    }
+                    
+                    // Add combo if selected
+                    if ($input['combo_id']) {
+                        // Get combo price
+                        $stmt = $pdo->prepare("SELECT GiaCombo FROM combo WHERE ID_Combo = ?");
+                        $stmt->execute([$input['combo_id']]);
+                        $combo = $stmt->fetch(PDO::FETCH_ASSOC);
+                        $price = $combo ? $combo['GiaCombo'] : 0;
+                        
+                        $stmt = $pdo->prepare("
+                            INSERT INTO chitietdatsukien (ID_DatLich, ID_Combo, DonGia) 
+                            VALUES (?, ?, ?)
+                        ");
+                        $stmt->execute([$editId, $input['combo_id'], $price]);
+                    }
+                    
+                    echo json_encode(['success' => true, 'message' => 'Cập nhật sự kiện thành công!']);
+                } else {
+                    echo json_encode(['success' => false, 'error' => 'Lỗi khi cập nhật sự kiện']);
+                }
+                
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
+            }
+            break;
+            
+        case 'get_event_selected_data':
+            $eventId = $_GET['event_id'] ?? null;
+            
+            if (!$eventId) {
+                echo json_encode(['success' => false, 'message' => 'ID sự kiện không hợp lệ']);
+                break;
+            }
+            
+            try {
+                // Get event location
+                $stmt = $pdo->prepare("
+                    SELECT d.* FROM diadiem d
+                    INNER JOIN datlichsukien dl ON d.ID_DD = dl.ID_DD
+                    WHERE dl.ID_DatLich = ?
+                ");
+                $stmt->execute([$eventId]);
+                $location = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                // Get event equipment
+                $stmt = $pdo->prepare("
+                    SELECT t.*, ct.SoLuong, ct.DonGia 
+                    FROM thietbi t
+                    INNER JOIN chitietdatsukien ct ON t.ID_TB = ct.ID_TB
+                    WHERE ct.ID_DatLich = ?
+                ");
+                $stmt->execute([$eventId]);
+                $equipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Get event combo
+                $stmt = $pdo->prepare("
+                    SELECT c.*, ct.SoLuong, ct.DonGia 
+                    FROM combo c
+                    INNER JOIN chitietdatsukien ct ON c.ID_Combo = ct.ID_Combo
+                    WHERE ct.ID_DatLich = ?
+                ");
+                $stmt->execute([$eventId]);
+                $combo = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                echo json_encode([
+                    'success' => true,
+                    'location' => $location,
+                    'equipment' => $equipment,
+                    'combo' => $combo
+                ]);
+                
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => 'Lỗi database: ' . $e->getMessage()]);
             }
             break;
             

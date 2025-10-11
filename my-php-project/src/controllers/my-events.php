@@ -119,6 +119,54 @@ try {
             }
             break;
             
+        case 'cancel_event':
+            $eventId = $_POST['event_id'] ?? null;
+            
+            if (!$eventId) {
+                echo json_encode(['success' => false, 'message' => 'ID sự kiện không hợp lệ']);
+                break;
+            }
+            
+            // Get customer ID from user session
+            $stmt = $pdo->prepare("SELECT ID_KhachHang FROM khachhanginfo WHERE ID_User = ?");
+            $stmt->execute([$userId]);
+            $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$customer) {
+                echo json_encode(['success' => false, 'message' => 'Không tìm thấy thông tin khách hàng']);
+                break;
+            }
+            
+            $customerId = $customer['ID_KhachHang'];
+            
+            // Check if event belongs to current user and is not approved yet
+            $stmt = $pdo->prepare("
+                SELECT ID_DatLich, TrangThaiDuyet 
+                FROM datlichsukien 
+                WHERE ID_DatLich = ? AND ID_KhachHang = ?
+            ");
+            $stmt->execute([$eventId, $customerId]);
+            $event = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$event) {
+                echo json_encode(['success' => false, 'message' => 'Không tìm thấy sự kiện hoặc bạn không có quyền hủy sự kiện này']);
+                break;
+            }
+            
+            if ($event['TrangThaiDuyet'] !== 'Chờ duyệt') {
+                echo json_encode(['success' => false, 'message' => 'Chỉ có thể hủy sự kiện chưa được duyệt']);
+                break;
+            }
+            
+            // Delete the event
+            $stmt = $pdo->prepare("DELETE FROM datlichsukien WHERE ID_DatLich = ?");
+            if ($stmt->execute([$eventId])) {
+                echo json_encode(['success' => true, 'message' => 'Hủy sự kiện thành công']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Lỗi khi hủy sự kiện']);
+            }
+            break;
+            
         default:
             echo json_encode(['success' => false, 'error' => 'Hành động không hợp lệ']);
             break;

@@ -14,6 +14,14 @@ if (!isLoggedIn()) {
     exit;
 }
 
+// Get current user ID
+$userId = getCurrentUserId();
+if (!$userId || $userId == 0) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => 'Không thể lấy thông tin người dùng']);
+    exit;
+}
+
 $action = $_GET['action'] ?? '';
 
 try {
@@ -41,12 +49,18 @@ try {
             getAvailableStaff($pdo);
             break;
             
+        case 'mark_as_read':
+            markAsRead($pdo, $userId);
+            break;
+            
         default:
             echo json_encode(['success' => false, 'error' => 'Action không hợp lệ']);
             break;
     }
     
 } catch (Exception $e) {
+    error_log('Chat controller error: ' . $e->getMessage());
+    http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Lỗi server: ' . $e->getMessage()]);
 }
 
@@ -55,52 +69,109 @@ function getConversations($pdo, $userId) {
     // Debug logging
     error_log("getConversations called with userId: " . $userId);
     
+    try {
+    
     if (!$userId || $userId == 0) {
         echo json_encode(['success' => false, 'error' => 'User not logged in']);
         return;
     }
     
-    $stmt = $pdo->prepare("
-        SELECT 
-            c.id,
-            c.user1_id,
-            c.user2_id,
-            c.updated_at,
-            CASE 
-                WHEN c.user1_id = ? THEN COALESCE(nv2.HoTen, kh2.HoTen, u2.Email)
-                ELSE COALESCE(nv1.HoTen, kh1.HoTen, u1.Email)
-            END as other_user_name,
-            CASE 
-                WHEN c.user1_id = ? THEN u2.ID_User
-                ELSE u1.ID_User
-            END as other_user_id,
-            m.MessageText as last_message,
-            m.SentAt as last_message_time,
-            CASE 
-                WHEN c.user1_id = ? THEN u2.TrangThai = 'Hoạt động'
-                ELSE u1.TrangThai = 'Hoạt động'
-            END as is_online
-        FROM conversations c
-        LEFT JOIN users u1 ON c.user1_id = u1.ID_User
-        LEFT JOIN users u2 ON c.user2_id = u2.ID_User
-        LEFT JOIN nhanvieninfo nv1 ON u1.ID_User = nv1.ID_User
-        LEFT JOIN nhanvieninfo nv2 ON u2.ID_User = nv2.ID_User
-        LEFT JOIN khachhanginfo kh1 ON u1.ID_User = kh1.ID_User
-        LEFT JOIN khachhanginfo kh2 ON u2.ID_User = kh2.ID_User
-        LEFT JOIN (
-            SELECT conversation_id, MessageText, SentAt,
-                   ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY SentAt DESC) as rn
-            FROM messages
-        ) m ON c.id = m.conversation_id AND m.rn = 1
-        WHERE c.user1_id = ? OR c.user2_id = ?
-        ORDER BY c.updated_at DESC
-    ");
-    $stmt->execute([$userId, $userId, $userId, $userId, $userId]);
+    // Get current user role
+    $stmt = $pdo->prepare("SELECT ID_Role FROM users WHERE ID_User = ?");
+    $stmt->execute([$userId]);
+    $currentUserRole = $stmt->fetchColumn();
+    
+    // For role 5 (customers), only show conversations with role 3 (event managers)
+    if ($currentUserRole == 5) {
+        $stmt = $pdo->prepare("
+            SELECT 
+                c.id,
+                c.user1_id,
+                c.user2_id,
+                c.updated_at,
+                CASE 
+                    WHEN c.user1_id = ? THEN COALESCE(nv2.HoTen, kh2.HoTen, u2.Email)
+                    ELSE COALESCE(nv1.HoTen, kh1.HoTen, u1.Email)
+                END as other_user_name,
+                CASE 
+                    WHEN c.user1_id = ? THEN u2.ID_User
+                    ELSE u1.ID_User
+                END as other_user_id,
+                m.MessageText as last_message,
+                m.SentAt as last_message_time,
+                CASE 
+                    WHEN c.user1_id = ? THEN (u2.TrangThai = 'Hoạt động')
+                    ELSE (u1.TrangThai = 'Hoạt động')
+                END as is_online
+            FROM conversations c
+            LEFT JOIN users u1 ON c.user1_id = u1.ID_User
+            LEFT JOIN users u2 ON c.user2_id = u2.ID_User
+            LEFT JOIN nhanvieninfo nv1 ON u1.ID_User = nv1.ID_User
+            LEFT JOIN nhanvieninfo nv2 ON u2.ID_User = nv2.ID_User
+            LEFT JOIN khachhanginfo kh1 ON u1.ID_User = kh1.ID_User
+            LEFT JOIN khachhanginfo kh2 ON u2.ID_User = kh2.ID_User
+            LEFT JOIN (
+                SELECT conversation_id, MessageText, SentAt,
+                       ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY SentAt DESC) as rn
+                FROM messages
+            ) m ON c.id = m.conversation_id AND m.rn = 1
+            WHERE (c.user1_id = ? OR c.user2_id = ?)
+            AND (
+                (c.user1_id = ? AND u2.ID_Role = 3) OR 
+                (c.user2_id = ? AND u1.ID_Role = 3)
+            )
+            ORDER BY c.updated_at DESC
+        ");
+        $stmt->execute([$userId, $userId, $userId, $userId, $userId, $userId, $userId]);
+    } else {
+        // For other roles, show all conversations
+        $stmt = $pdo->prepare("
+            SELECT 
+                c.id,
+                c.user1_id,
+                c.user2_id,
+                c.updated_at,
+                CASE 
+                    WHEN c.user1_id = ? THEN COALESCE(nv2.HoTen, kh2.HoTen, u2.Email)
+                    ELSE COALESCE(nv1.HoTen, kh1.HoTen, u1.Email)
+                END as other_user_name,
+                CASE 
+                    WHEN c.user1_id = ? THEN u2.ID_User
+                    ELSE u1.ID_User
+                END as other_user_id,
+                m.MessageText as last_message,
+                m.SentAt as last_message_time,
+                CASE 
+                    WHEN c.user1_id = ? THEN (u2.TrangThai = 'Hoạt động')
+                    ELSE (u1.TrangThai = 'Hoạt động')
+                END as is_online
+            FROM conversations c
+            LEFT JOIN users u1 ON c.user1_id = u1.ID_User
+            LEFT JOIN users u2 ON c.user2_id = u2.ID_User
+            LEFT JOIN nhanvieninfo nv1 ON u1.ID_User = nv1.ID_User
+            LEFT JOIN nhanvieninfo nv2 ON u2.ID_User = nv2.ID_User
+            LEFT JOIN khachhanginfo kh1 ON u1.ID_User = kh1.ID_User
+            LEFT JOIN khachhanginfo kh2 ON u2.ID_User = kh2.ID_User
+            LEFT JOIN (
+                SELECT conversation_id, MessageText, SentAt,
+                       ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY SentAt DESC) as rn
+                FROM messages
+            ) m ON c.id = m.conversation_id AND m.rn = 1
+            WHERE (c.user1_id = ? OR c.user2_id = ?)
+            ORDER BY c.updated_at DESC
+        ");
+        $stmt->execute([$userId, $userId, $userId, $userId, $userId]);
+    }
     $conversations = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     error_log("Found " . count($conversations) . " conversations for user " . $userId);
     
     echo json_encode(['success' => true, 'conversations' => $conversations]);
+    
+    } catch (Exception $e) {
+        error_log("Error in getConversations: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Lỗi khi tải cuộc trò chuyện: ' . $e->getMessage()]);
+    }
 }
 
 // Get messages for a conversation
@@ -149,6 +220,20 @@ function getMessages($pdo, $userId) {
         error_log("First message: " . print_r($messages[0], true));
     }
     
+    // Format messages for frontend
+    $formattedMessages = [];
+    foreach ($messages as $message) {
+        $formattedMessages[] = [
+            'id' => $message['id'],
+            'conversation_id' => $message['conversation_id'],
+            'sender_id' => $message['sender_id'],
+            'message' => $message['message'],
+            'created_at' => $message['created_at'],
+            'IsRead' => $message['IsRead'],
+            'sender_name' => $message['sender_name']
+        ];
+    }
+    
     // Mark messages as read
     $stmt = $pdo->prepare("
         UPDATE messages 
@@ -157,7 +242,7 @@ function getMessages($pdo, $userId) {
     ");
     $stmt->execute([$conversationId, $userId]);
     
-    echo json_encode(['success' => true, 'messages' => $messages]);
+    echo json_encode(['success' => true, 'messages' => $formattedMessages]);
 }
 
 // Send a message
@@ -183,16 +268,20 @@ function sendMessage($pdo, $userId) {
     
     // Check if user has access to this conversation
     $stmt = $pdo->prepare("
-        SELECT id FROM conversations 
+        SELECT id, user1_id, user2_id FROM conversations 
         WHERE id = ? AND (user1_id = ? OR user2_id = ?)
     ");
     $stmt->execute([$conversationId, $userId, $userId]);
+    $conversation = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if (!$stmt->fetch()) {
+    if (!$conversation) {
         error_log("User $userId does not have access to conversation $conversationId");
         echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập cuộc trò chuyện này']);
         return;
     }
+    
+    // Log conversation details for debugging
+    error_log("Conversation details: " . print_r($conversation, true));
     
     try {
         // Insert message
@@ -230,7 +319,19 @@ function sendMessage($pdo, $userId) {
         $messageData = $stmt->fetch(PDO::FETCH_ASSOC);
         
         error_log("Message data: " . print_r($messageData, true));
-        echo json_encode(['success' => true, 'message' => $messageData]);
+        
+        // Format message for frontend
+        $formattedMessage = [
+            'id' => $messageData['id'],
+            'conversation_id' => $messageData['conversation_id'],
+            'sender_id' => $messageData['sender_id'],
+            'message' => $messageData['message'],
+            'created_at' => $messageData['created_at'],
+            'IsRead' => $messageData['IsRead'],
+            'sender_name' => $messageData['sender_name']
+        ];
+        
+        echo json_encode(['success' => true, 'message' => $formattedMessage]);
         
     } catch (Exception $e) {
         error_log("Error in sendMessage: " . $e->getMessage());
@@ -241,6 +342,76 @@ function sendMessage($pdo, $userId) {
 // Create new conversation
 function createConversation($pdo, $userId) {
     $otherUserId = $_POST['other_user_id'] ?? '';
+    
+    // Auto assignment for support
+    if ($otherUserId === 'auto') {
+        // Get current user role
+        $stmt = $pdo->prepare("SELECT ID_Role FROM users WHERE ID_User = ?");
+        $stmt->execute([$userId]);
+        $currentUserRole = $stmt->fetchColumn();
+        
+        // For customers (role 5), assign to event managers (role 3)
+        if ($currentUserRole == 5) {
+            $stmt = $pdo->prepare("
+                SELECT u.ID_User, 
+                       COALESCE(nv.HoTen, u.Email) as HoTen,
+                       u.Email,
+                       p.RoleName
+                FROM users u
+                LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User
+                LEFT JOIN phanquyen p ON u.ID_Role = p.ID_Role
+                WHERE u.ID_Role = 3 AND u.TrangThai = 'Hoạt động'
+                ORDER BY u.ID_User ASC
+                LIMIT 1
+            ");
+            $stmt->execute();
+            $staff = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$staff) {
+                // Fallback to any available staff
+                $stmt = $pdo->prepare("
+                    SELECT u.ID_User, 
+                           COALESCE(nv.HoTen, u.Email) as HoTen,
+                           u.Email,
+                           p.RoleName
+                    FROM users u
+                    LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User
+                    LEFT JOIN phanquyen p ON u.ID_Role = p.ID_Role
+                    WHERE u.ID_Role IN (1, 2, 3, 4) AND u.TrangThai = 'Hoạt động'
+                    ORDER BY u.ID_Role ASC, u.ID_User ASC
+                    LIMIT 1
+                ");
+                $stmt->execute();
+                $staff = $stmt->fetch(PDO::FETCH_ASSOC);
+            }
+            
+            // Log staff assignment for debugging
+            error_log("Staff assigned to customer: " . print_r($staff, true));
+        } else {
+            // For other roles, find any available staff
+            $stmt = $pdo->prepare("
+                SELECT u.ID_User, 
+                       COALESCE(nv.HoTen, u.Email) as HoTen,
+                       u.Email,
+                       p.RoleName
+                FROM users u
+                LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User
+                LEFT JOIN phanquyen p ON u.ID_Role = p.ID_Role
+                WHERE u.ID_Role IN (1, 2, 3, 4) AND u.TrangThai = 'Hoạt động'
+                ORDER BY u.ID_Role ASC, u.ID_User ASC
+                LIMIT 1
+            ");
+            $stmt->execute();
+            $staff = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+        
+        if (!$staff) {
+            echo json_encode(['success' => false, 'error' => 'Không có nhân viên hỗ trợ trực tuyến']);
+            return;
+        }
+        
+        $otherUserId = $staff['ID_User'];
+    }
     
     if (empty($otherUserId)) {
         echo json_encode(['success' => false, 'error' => 'Thiếu ID người dùng']);
@@ -269,6 +440,25 @@ function createConversation($pdo, $userId) {
     
     $conversationId = $pdo->lastInsertId();
     
+    // Add welcome message
+    $stmt = $pdo->prepare("
+        INSERT INTO messages (conversation_id, sender_id, MessageText, IsRead, SentAt) 
+        VALUES (?, ?, ?, 0, NOW())
+    ");
+    
+    // Get staff role for appropriate welcome message
+    $stmt2 = $pdo->prepare("SELECT ID_Role FROM users WHERE ID_User = ?");
+    $stmt2->execute([$otherUserId]);
+    $staffRole = $stmt2->fetchColumn();
+    
+    if ($staffRole == 3) {
+        $welcomeMessage = "Xin chào! Tôi là quản lý sự kiện. Tôi sẽ hỗ trợ bạn về các vấn đề liên quan đến sự kiện. Bạn có thể gửi tin nhắn bất cứ lúc nào, tôi sẽ trả lời khi online.";
+    } else {
+        $welcomeMessage = "Xin chào! Tôi là nhân viên hỗ trợ. Tôi có thể giúp gì cho bạn?";
+    }
+    
+    $stmt->execute([$conversationId, $otherUserId, $welcomeMessage]);
+    
     echo json_encode(['success' => true, 'conversation_id' => $conversationId]);
 }
 
@@ -290,6 +480,38 @@ function getAvailableStaff($pdo) {
     $staff = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode(['success' => true, 'staff' => $staff]);
+}
+
+// Mark messages as read
+function markAsRead($pdo, $userId) {
+    $conversationId = $_POST['conversation_id'] ?? '';
+    
+    if (empty($conversationId)) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu ID cuộc trò chuyện']);
+        return;
+    }
+    
+    // Check if user has access to this conversation
+    $stmt = $pdo->prepare("
+        SELECT id FROM conversations 
+        WHERE id = ? AND (user1_id = ? OR user2_id = ?)
+    ");
+    $stmt->execute([$conversationId, $userId, $userId]);
+    
+    if (!$stmt->fetch()) {
+        echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập cuộc trò chuyện này']);
+        return;
+    }
+    
+    // Mark messages as read
+    $stmt = $pdo->prepare("
+        UPDATE messages 
+        SET IsRead = 1 
+        WHERE conversation_id = ? AND sender_id != ? AND IsRead = 0
+    ");
+    $stmt->execute([$conversationId, $userId]);
+    
+    echo json_encode(['success' => true]);
 }
 
 // getCurrentUserId() is already defined in src/auth/auth.php

@@ -38,9 +38,22 @@ function isLoggedIn() {
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
     }
-    // Check both session structures
-    return (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) || 
-           (isset($_SESSION['user']['id']) && !empty($_SESSION['user']['id']));
+    
+    // Debug session data
+    error_log("isLoggedIn - Session data: " . print_r($_SESSION, true));
+    
+    // Check multiple session structures
+    if (isset($_SESSION['user']['ID_User']) && !empty($_SESSION['user']['ID_User'])) {
+        return true;
+    }
+    if (isset($_SESSION['user']['id']) && !empty($_SESSION['user']['id'])) {
+        return true;
+    }
+    if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
+        return true;
+    }
+    
+    return false;
 }
 
 // Get current user ID from session
@@ -80,6 +93,34 @@ function getCurrentUserRole() {
         return $_SESSION['user']['role'];
     }
     return $_SESSION['user_role'] ?? 0;
+}
+
+// Get current user data from session
+function getCurrentUser() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    
+    // Debug session data
+    error_log("getCurrentUser - Session data: " . print_r($_SESSION, true));
+    
+    // Check multiple session structures
+    if (isset($_SESSION['user']) && is_array($_SESSION['user'])) {
+        return $_SESSION['user'];
+    }
+    
+    // Fallback to individual session variables
+    if (isset($_SESSION['user_id']) && isset($_SESSION['user_role'])) {
+        return [
+            'ID_User' => $_SESSION['user_id'],
+            'ID_Role' => $_SESSION['user_role'],
+            'Email' => $_SESSION['user_email'] ?? '',
+            'HoTen' => $_SESSION['user_name'] ?? ''
+        ];
+    }
+    
+    error_log("No valid user data found in session");
+    return null;
 }
 
 function authenticate() {

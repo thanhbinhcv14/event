@@ -48,9 +48,9 @@ include 'includes/admin-header.php';
         </div>
 
         <!-- Filter Section -->
-        <div class="filter-section">
-            <div class="filter-group">
-                <div class="form-group">
+        <div class="filter-section mb-4">
+            <div class="row g-3">
+                <div class="col-md-4">
                     <label class="form-label">Tìm kiếm</label>
                     <div class="input-group">
                         <span class="input-group-text">
@@ -64,7 +64,7 @@ include 'includes/admin-header.php';
                     </div>
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-2">
                     <label class="form-label">Trạng thái</label>
                     <select class="form-select" id="statusFilter">
                         <option value="">Tất cả trạng thái</option>
@@ -75,7 +75,7 @@ include 'includes/admin-header.php';
                     </select>
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-2">
                     <label class="form-label">Loại thiết bị</label>
                     <select class="form-select" id="typeFilter">
                         <option value="">Tất cả loại</option>
@@ -86,7 +86,7 @@ include 'includes/admin-header.php';
                     </select>
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-2">
                     <label class="form-label">Sắp xếp</label>
                     <select class="form-select" id="sortBy">
                         <option value="TenThietBi">Tên thiết bị</option>
@@ -94,18 +94,20 @@ include 'includes/admin-header.php';
                         <option value="GiaThue">Giá thuê</option>
                         <option value="NgayTao">Ngày tạo</option>
                     </select>
-                        </div>
+                </div>
                 
-                <div class="form-group">
-                            <label class="form-label">&nbsp;</label>
-                    <button class="btn btn-primary" onclick="applyFilters()">
-                        <i class="fas fa-filter"></i> Lọc
-                                </button>
-                                <button class="btn btn-outline-secondary" onclick="clearFilters()">
-                        <i class="fas fa-times"></i> Xóa lọc
-                                </button>
-                            </div>
-                        </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" onclick="applyFilters()">
+                            <i class="fas fa-filter"></i> Lọc
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="clearFilters()">
+                            <i class="fas fa-times"></i> Xóa
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Table Container -->
@@ -132,6 +134,7 @@ include 'includes/admin-header.php';
                             <th>ID</th>
                             <th>Tên thiết bị</th>
                             <th>Loại</th>
+                            <th>Hình ảnh</th>
                             <th>Mô tả</th>
                             <th>Giá thuê</th>
                             <th>Trạng thái</th>
@@ -158,7 +161,7 @@ include 'includes/admin-header.php';
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                     <div class="modal-body">
-                    <form id="deviceForm">
+                    <form id="deviceForm" enctype="multipart/form-data">
                             <input type="hidden" id="deviceId" name="id">
                         
                         <div class="row">
@@ -210,6 +213,18 @@ include 'includes/admin-header.php';
                                     <option value="Bảo trì">Bảo trì</option>
                                     <option value="Hỏng">Hỏng</option>
                                 </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Hình ảnh</label>
+                            <div id="currentImageContainer" class="mb-2" style="display: none;">
+                                <label class="form-label text-muted">Hình ảnh hiện tại:</label>
+                                <div class="text-center">
+                                    <img id="currentImage" src="" alt="Hình ảnh hiện tại" class="img-fluid rounded" style="max-width: 200px; max-height: 150px; object-fit: cover;">
+                                </div>
+                            </div>
+                            <input type="file" class="form-control" id="deviceImage" name="HinhAnh" accept="image/*">
+                            <small class="form-text text-muted">Chọn hình ảnh mới để thay thế hình ảnh hiện tại</small>
                         </div>
                         
                         <div class="mb-3">
@@ -297,6 +312,16 @@ include 'includes/admin-header.php';
                     { data: 'TenThietBi' },
                     { data: 'LoaiThietBi' },
                     { 
+                        data: 'HinhAnh',
+                        render: function(data) {
+                            if (data) {
+                                return `<img src="../../img/thietbi/${data}" alt="Hình ảnh thiết bị" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">`;
+                            }
+                            return '<span class="text-muted">Không có hình ảnh</span>';
+                        },
+                        className: 'text-center'
+                    },
+                    { 
                         data: 'MoTa',
                         render: function(data) {
                             return data ? (data.length > 50 ? data.substring(0, 50) + '...' : data) : 'Không có mô tả';
@@ -355,7 +380,11 @@ include 'includes/admin-header.php';
                 order: [[0, 'desc']],
                 language: {
                     url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json'
-                }
+                },
+                // Ẩn thanh tìm kiếm và thông tin hiển thị của DataTable
+                dom: 'rtip',
+                info: false, // Ẩn thông tin "Hiển thị X dữ liệu"
+                paging: false // Ẩn phân trang (hiển thị tất cả dữ liệu)
             });
             } catch (error) {
                 console.error('Error initializing DataTable:', error);
@@ -410,21 +439,40 @@ include 'includes/admin-header.php';
         }
 
         function applyFilters() {
-            currentFilters = {
-                search: $('#searchInput').val(),
-                status: $('#statusFilter').val(),
-                type: $('#typeFilter').val(),
-                sort_by: $('#sortBy').val()
-            };
-
-            // Remove empty filters
-            Object.keys(currentFilters).forEach(key => {
-                if (!currentFilters[key]) {
-                    delete currentFilters[key];
-                }
-            });
-
-            devicesTable.ajax.reload();
+            const searchValue = $('#searchInput').val();
+            const statusFilter = $('#statusFilter').val();
+            const typeFilter = $('#typeFilter').val();
+            const sortBy = $('#sortBy').val();
+            
+            // Apply search to DataTable
+            devicesTable.search(searchValue).draw();
+            
+            // Apply column filters
+            if (statusFilter) {
+                devicesTable.column(6).search(statusFilter);
+            } else {
+                devicesTable.column(6).search('');
+            }
+            
+            if (typeFilter) {
+                devicesTable.column(2).search(typeFilter);
+            } else {
+                devicesTable.column(2).search('');
+            }
+            
+            // Apply sorting
+            if (sortBy === 'TenThietBi') {
+                devicesTable.order([1, 'asc']).draw();
+            } else if (sortBy === 'LoaiThietBi') {
+                devicesTable.order([2, 'asc']).draw();
+            } else if (sortBy === 'GiaThue') {
+                devicesTable.order([5, 'desc']).draw();
+            } else if (sortBy === 'NgayTao') {
+                devicesTable.order([7, 'desc']).draw();
+            }
+            
+            // Redraw table
+            devicesTable.draw();
         }
 
         function clearFilters() {
@@ -432,8 +480,11 @@ include 'includes/admin-header.php';
             $('#statusFilter').val('');
             $('#typeFilter').val('');
             $('#sortBy').val('TenThietBi');
-            currentFilters = {};
-            devicesTable.ajax.reload();
+            
+            // Clear all DataTable filters
+            devicesTable.search('');
+            devicesTable.columns().search('');
+            devicesTable.order([0, 'desc']).draw();
         }
 
         function clearSearch() {
@@ -444,6 +495,7 @@ include 'includes/admin-header.php';
         function showAddModal() {
             $('#deviceForm')[0].reset();
             $('#deviceId').val('');
+            $('#currentImageContainer').hide(); // Ẩn hình ảnh hiện tại khi thêm mới
             $('#deviceModalTitle').html('<i class="fas fa-plus"></i> Thêm thiết bị mới');
             
             const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
@@ -466,6 +518,14 @@ include 'includes/admin-header.php';
                     $('#deviceQuantity').val(device.SoLuong);
                     $('#deviceStatus').val(device.TrangThai);
                     $('#deviceNote').val(device.GhiChu);
+                    
+                    // Hiển thị hình ảnh hiện tại nếu có
+                    if (device.HinhAnh) {
+                        $('#currentImage').attr('src', `../../img/thietbi/${device.HinhAnh}`);
+                        $('#currentImageContainer').show();
+                    } else {
+                        $('#currentImageContainer').hide();
+                    }
                     
                     $('#deviceModalTitle').html('<i class="fas fa-edit"></i> Chỉnh sửa thiết bị');
                     

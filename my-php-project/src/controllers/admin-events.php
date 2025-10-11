@@ -103,17 +103,69 @@ try {
                     exit();
                 }
                 
-                // Get equipment details if any
+                // Get equipment details if any (including combos)
                 $stmt = $pdo->prepare("
-                    SELECT ct.*, t.TenThietBi, t.LoaiThietBi, t.GiaThue, t.DonViTinh
+                    SELECT 
+                        ct.*,
+                        t.TenThietBi, 
+                        t.LoaiThietBi, 
+                        t.GiaThue, 
+                        t.DonViTinh,
+                        c.TenCombo,
+                        CASE 
+                            WHEN ct.ID_TB IS NOT NULL THEN 'Thiết bị riêng lẻ'
+                            WHEN ct.ID_Combo IS NOT NULL THEN 'Combo thiết bị'
+                            ELSE 'Không xác định'
+                        END as LoaiDat
                     FROM chitietdatsukien ct
                     LEFT JOIN thietbi t ON ct.ID_TB = t.ID_TB
+                    LEFT JOIN combo c ON ct.ID_Combo = c.ID_Combo
                     WHERE ct.ID_DatLich = ?
                 ");
                 $stmt->execute([$registrationId]);
                 $equipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
-                $registration['equipment'] = $equipment;
+                // If we have combos, get the individual equipment in each combo
+                $finalEquipment = [];
+                foreach ($equipment as $item) {
+                    if ($item['ID_Combo'] && !$item['ID_TB']) {
+                        // Get equipment in this combo
+                        $stmt = $pdo->prepare("
+                            SELECT 
+                                cc.SoLuong,
+                                t.TenThietBi,
+                                t.LoaiThietBi,
+                                t.GiaThue,
+                                t.DonViTinh,
+                                c.TenCombo
+                            FROM combochitiet cc
+                            LEFT JOIN thietbi t ON cc.ID_TB = t.ID_TB
+                            LEFT JOIN combo c ON cc.ID_Combo = c.ID_Combo
+                            WHERE cc.ID_Combo = ?
+                        ");
+                        $stmt->execute([$item['ID_Combo']]);
+                        $comboEquipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        foreach ($comboEquipment as $comboItem) {
+                            $finalEquipment[] = [
+                                'TenThietBi' => $comboItem['TenThietBi'],
+                                'LoaiThietBi' => $comboItem['LoaiThietBi'],
+                                'SoLuong' => $comboItem['SoLuong'],
+                                'DonGia' => $comboItem['GiaThue'],
+                                'DonViTinh' => $comboItem['DonViTinh'],
+                                'GhiChu' => 'Trong combo: ' . $comboItem['TenCombo']
+                            ];
+                        }
+                    } else {
+                        // Individual equipment
+                        $finalEquipment[] = $item;
+                    }
+                }
+                
+                // Debug logging
+                error_log("Equipment query for registration $registrationId: " . json_encode($finalEquipment));
+                
+                $registration['equipment'] = $finalEquipment;
                 
                 // Generate HTML for the modal
                 $html = generateRegistrationDetailsHTML($registration);
@@ -369,28 +421,55 @@ function generateRegistrationDetailsHTML($registration) {
         $equipmentHtml = '<div class="mt-3">
             <h6><i class="fas fa-tools"></i> Thiết bị đã đặt</h6>
             <div class="table-responsive">
-                <table class="table table-sm">
-                    <thead>
+                <table class="table table-sm table-striped">
+                    <thead class="table-dark">
                         <tr>
                             <th>Tên thiết bị</th>
                             <th>Loại</th>
                             <th>Số lượng</th>
-                            <th>Giá thuê</th>
+                            <th>Đơn giá</th>
+                            <th>Thành tiền</th>
                         </tr>
                     </thead>
                     <tbody>';
         
+        $totalAmount = 0;
         foreach($registration['equipment'] as $equipment) {
+            $subtotal = $equipment['SoLuong'] * $equipment['DonGia'];
+            $totalAmount += $subtotal;
+            
             $equipmentHtml .= '<tr>
-                <td>' . htmlspecialchars($equipment['TenThietBi']) . '</td>
-                <td>' . htmlspecialchars($equipment['LoaiThietBi']) . '</td>
+                <td>' . htmlspecialchars($equipment['TenThietBi'] ?? 'Không xác định') . '</td>
+                <td>' . htmlspecialchars($equipment['LoaiThietBi'] ?? 'Không xác định') . '</td>
                 <td>' . $equipment['SoLuong'] . ' ' . ($equipment['DonViTinh'] ?? 'cái') . '</td>
-                <td>' . number_format($equipment['GiaThue'], 0, ',', '.') . ' VNĐ</td>
+                <td>' . number_format($equipment['DonGia'], 0, ',', '.') . ' VNĐ</td>
+                <td>' . number_format($subtotal, 0, ',', '.') . ' VNĐ</td>
             </tr>';
+            
+            // Add note if it's from a combo
+            if (!empty($equipment['GhiChu'])) {
+                $equipmentHtml .= '<tr class="table-light">
+                    <td colspan="5" class="text-muted small">
+                        <i class="fas fa-info-circle"></i> ' . htmlspecialchars($equipment['GhiChu']) . '
+                    </td>
+                </tr>';
+            }
         }
+        
+        $equipmentHtml .= '<tr class="table-info">
+                <td colspan="4" class="text-end"><strong>Tổng cộng:</strong></td>
+                <td><strong>' . number_format($totalAmount, 0, ',', '.') . ' VNĐ</strong></td>
+            </tr>';
         
         $equipmentHtml .= '</tbody>
                 </table>
+            </div>
+        </div>';
+    } else {
+        $equipmentHtml = '<div class="mt-3">
+            <h6><i class="fas fa-tools"></i> Thiết bị đã đặt</h6>
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> Khách hàng chưa đặt thiết bị nào cho sự kiện này.
             </div>
         </div>';
     }

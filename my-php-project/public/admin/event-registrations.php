@@ -63,9 +63,9 @@ include 'includes/admin-header.php';
         </div>
 
         <!-- Filter Section -->
-        <div class="filter-section">
-            <div class="filter-group">
-                <div class="form-group">
+        <div class="filter-section mb-4">
+            <div class="row g-3">
+                <div class="col-md-3">
                     <label class="form-label">Trạng thái</label>
                     <select class="form-select" id="statusFilter">
                         <option value="">Tất cả trạng thái</option>
@@ -75,24 +75,26 @@ include 'includes/admin-header.php';
                     </select>
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-3">
                     <label class="form-label">Từ ngày</label>
                     <input type="date" class="form-control" id="dateFrom">
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-3">
                     <label class="form-label">Đến ngày</label>
                     <input type="date" class="form-control" id="dateTo">
                 </div>
                 
-                <div class="form-group">
+                <div class="col-md-3">
                     <label class="form-label">&nbsp;</label>
-                    <button class="btn btn-primary" onclick="applyFilters()">
-                        <i class="fas fa-filter"></i> Lọc
-                    </button>
-                    <button class="btn btn-outline-secondary" onclick="clearFilters()">
-                        <i class="fas fa-times"></i> Xóa lọc
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" onclick="applyFilters()">
+                            <i class="fas fa-filter"></i> Lọc
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="clearFilters()">
+                            <i class="fas fa-times"></i> Xóa
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -304,7 +306,11 @@ include 'includes/admin-header.php';
                 order: [[0, 'desc']],
                 language: {
                     url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json'
-                }
+                },
+                // Ẩn thanh tìm kiếm và thông tin hiển thị của DataTable
+                dom: 'rtip',
+                info: false, // Ẩn thông tin "Hiển thị X dữ liệu"
+                paging: false // Ẩn phân trang (hiển thị tất cả dữ liệu)
             });
             } catch (error) {
                 console.error('Error initializing DataTable:', error);
@@ -350,28 +356,77 @@ include 'includes/admin-header.php';
         }
 
         function applyFilters() {
-            currentFilters = {
-                status: $('#statusFilter').val(),
-                date_from: $('#dateFrom').val(),
-                date_to: $('#dateTo').val()
-            };
-
-            // Remove empty filters
-            Object.keys(currentFilters).forEach(key => {
-                if (!currentFilters[key]) {
-                    delete currentFilters[key];
-                }
-            });
-
-            registrationsTable.ajax.reload();
+            const statusFilter = $('#statusFilter').val();
+            const dateFrom = $('#dateFrom').val();
+            const dateTo = $('#dateTo').val();
+            
+            console.log('Applying filters:', { statusFilter, dateFrom, dateTo });
+            
+            // Clear all existing filters first
+            registrationsTable.columns().search('');
+            
+            // Apply status filter (column 6 - TrangThaiDuyet)
+            if (statusFilter) {
+                registrationsTable.column(6).search(statusFilter);
+            }
+            
+            // Apply date filters (custom logic for date range)
+            if (dateFrom || dateTo) {
+                // Remove any existing date filter first
+                $.fn.dataTable.ext.search = $.fn.dataTable.ext.search.filter(function(fn) {
+                    return fn.toString().indexOf('dateFrom') === -1 && fn.toString().indexOf('dateTo') === -1;
+                });
+                
+                // Add new date filter
+                $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+                    if (settings.nTable.id !== 'registrationsTable') return true;
+                    
+                    // Get the date from column 4 (NgayBatDau)
+                    const rowDateStr = data[4];
+                    if (!rowDateStr) return true;
+                    
+                    try {
+                        // Parse the date (format: dd/mm/yyyy hh:mm)
+                        const dateParts = rowDateStr.split(' ')[0].split('/');
+                        if (dateParts.length !== 3) return true;
+                        
+                        const rowDate = new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0]));
+                        const fromDate = dateFrom ? new Date(dateFrom) : null;
+                        const toDate = dateTo ? new Date(dateTo) : null;
+                        
+                        // Set time to start/end of day for comparison
+                        if (fromDate) fromDate.setHours(0, 0, 0, 0);
+                        if (toDate) toDate.setHours(23, 59, 59, 999);
+                        rowDate.setHours(0, 0, 0, 0);
+                        
+                        if (fromDate && rowDate < fromDate) return false;
+                        if (toDate && rowDate > toDate) return false;
+                        
+                        return true;
+                    } catch (e) {
+                        console.error('Date parsing error:', e);
+                        return true;
+                    }
+                });
+            }
+            
+            // Redraw table
+            registrationsTable.draw();
         }
 
         function clearFilters() {
             $('#statusFilter').val('');
             $('#dateFrom').val('');
             $('#dateTo').val('');
-            currentFilters = {};
-            registrationsTable.ajax.reload();
+            
+            // Clear all DataTable filters
+            registrationsTable.columns().search('');
+            registrationsTable.order([0, 'desc']).draw();
+            
+            // Remove all custom date filters
+            $.fn.dataTable.ext.search = $.fn.dataTable.ext.search.filter(function(fn) {
+                return fn.toString().indexOf('dateFrom') === -1 && fn.toString().indexOf('dateTo') === -1;
+            });
         }
 
         function viewRegistration(id) {

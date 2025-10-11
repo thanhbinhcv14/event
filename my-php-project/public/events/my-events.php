@@ -484,6 +484,14 @@
                             <button class="btn btn-primary btn-sm" onclick="viewEventDetails(${event.ID_DatLich})">
                                 <i class="fas fa-eye"></i> Xem chi tiết
                             </button>
+                            ${event.TrangThaiDuyet === 'Chờ duyệt' ? `
+                            <button class="btn btn-warning btn-sm" onclick="editEvent(${event.ID_DatLich})">
+                                <i class="fas fa-edit"></i> Sửa
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="cancelEvent(${event.ID_DatLich})">
+                                <i class="fas fa-times"></i> Hủy
+                            </button>
+                            ` : ''}
                             ${event.TrangThaiDuyet === 'Đã duyệt' && event.TrangThaiThanhToan === 'Chưa thanh toán' ? `
                             <button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
                                 <i class="fas fa-credit-card"></i> Thanh toán
@@ -623,6 +631,37 @@
             `);
             
             $('#eventDetailsModal').modal('show');
+        }
+        
+        // Edit event
+        function editEvent(eventId) {
+            if (confirm('Bạn có chắc chắn muốn sửa sự kiện này?')) {
+                // Redirect to edit page or show edit modal
+                window.location.href = `register.php?edit=${eventId}`;
+            }
+        }
+        
+        // Cancel event
+        function cancelEvent(eventId) {
+            if (confirm('Bạn có chắc chắn muốn hủy sự kiện này? Hành động này không thể hoàn tác.')) {
+                $.ajax({
+                    url: '../../src/controllers/my-events.php?action=cancel_event',
+                    method: 'POST',
+                    data: { event_id: eventId },
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            alert('Hủy sự kiện thành công!');
+                            loadEvents(); // Reload the events list
+                        } else {
+                            alert('Lỗi: ' + response.message);
+                        }
+                    },
+                    error: function() {
+                        alert('Lỗi khi hủy sự kiện. Vui lòng thử lại.');
+                    }
+                });
+            }
         }
         
         // Make payment (placeholder)
