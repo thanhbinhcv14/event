@@ -19,103 +19,185 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Hỗ Trợ Thông Minh</title>
+    <title>Floating Chat Button</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            margin: 0;
+            padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        .chat-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
+        .floating-chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .chat-button {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .chat-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .chat-button.pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+            }
+            50% {
+                box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4), 0 0 0 10px rgba(102, 126, 234, 0.1);
+            }
+            100% {
+                box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+            }
+        }
+
+        .chat-widget {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 1001;
+        }
+
+        .chat-widget.show {
+            display: flex;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .chat-header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px 20px 0 0;
-            padding: 1.5rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .chat-title {
-            color: #333;
-            font-size: 1.5rem;
+            font-size: 1rem;
             font-weight: 600;
             margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .chat-subtitle {
-            color: #666;
-            font-size: 0.9rem;
-            margin: 0.5rem 0 0 0;
+        .close-button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .close-button:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
 
         .chat-body {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 0 0 20px 20px;
-            padding: 1.5rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            min-height: 500px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
         }
 
         .quick-questions {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
         }
 
         .question-card {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
-            padding: 1rem;
-            border-radius: 15px;
+            padding: 0.5rem;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             border: none;
             text-align: left;
+            font-size: 0.8rem;
         }
 
         .question-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
         }
 
         .question-card i {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
             display: block;
         }
 
         .question-title {
             font-weight: 600;
             margin-bottom: 0.25rem;
+            font-size: 0.75rem;
         }
 
         .question-desc {
-            font-size: 0.85rem;
+            font-size: 0.7rem;
             opacity: 0.9;
         }
 
         .chat-messages {
+            flex: 1;
             background: #f8f9fa;
-            border-radius: 15px;
-            padding: 1rem;
-            min-height: 300px;
-            max-height: 400px;
-            overflow-y: auto;
+            border-radius: 10px;
+            padding: 0.75rem;
             margin-bottom: 1rem;
+            overflow-y: auto;
+            min-height: 150px;
         }
 
         .message {
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
             display: flex;
             align-items: flex-start;
             animation: messageSlideIn 0.3s ease-out;
@@ -124,7 +206,7 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
         @keyframes messageSlideIn {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(10px);
             }
             to {
                 opacity: 1;
@@ -141,10 +223,11 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
         }
 
         .message-content {
-            max-width: 70%;
-            padding: 0.75rem 1rem;
-            border-radius: 18px;
+            max-width: 80%;
+            padding: 0.4rem 0.6rem;
+            border-radius: 12px;
             position: relative;
+            font-size: 0.8rem;
         }
 
         .message.user .message-content {
@@ -161,7 +244,7 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
         }
 
         .message-time {
-            font-size: 0.75rem;
+            font-size: 0.6rem;
             opacity: 0.7;
             margin-top: 0.25rem;
         }
@@ -172,9 +255,10 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
 
         .typing-indicator {
             display: none;
-            padding: 0.5rem 1rem;
+            padding: 0.4rem;
             color: #666;
             font-style: italic;
+            font-size: 0.75rem;
         }
 
         .typing-indicator.show {
@@ -189,11 +273,12 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
 
         .chat-input input {
             flex: 1;
-            padding: 0.75rem 1rem;
+            padding: 0.4rem 0.6rem;
             border: 2px solid #e9ecef;
-            border-radius: 25px;
+            border-radius: 15px;
             outline: none;
             transition: all 0.3s ease;
+            font-size: 0.8rem;
         }
 
         .chat-input input:focus {
@@ -206,18 +291,19 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
             color: white;
             border: none;
             border-radius: 50%;
-            width: 45px;
-            height: 45px;
+            width: 30px;
+            height: 30px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: all 0.3s ease;
+            font-size: 0.7rem;
         }
 
         .send-button:hover {
             transform: scale(1.1);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
         }
 
         .send-button:disabled {
@@ -227,40 +313,43 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
         }
 
         .smart-suggestions {
-            margin-top: 1rem;
-            padding: 1rem;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
             background: #f8f9fa;
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
         }
 
         .suggestion-title {
             font-weight: 600;
             color: #333;
             margin-bottom: 0.5rem;
+            font-size: 0.75rem;
         }
 
         .suggestion-item {
             background: white;
-            padding: 0.5rem 1rem;
-            margin: 0.25rem 0;
-            border-radius: 20px;
+            padding: 0.3rem 0.6rem;
+            margin: 0.2rem 0;
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.3s ease;
             border: 1px solid #e9ecef;
+            font-size: 0.7rem;
         }
 
         .suggestion-item:hover {
             background: #667eea;
             color: white;
-            transform: translateX(5px);
+            transform: translateX(3px);
         }
 
         .ai-thinking {
             display: none;
             text-align: center;
-            padding: 1rem;
+            padding: 0.4rem;
             color: #666;
+            font-size: 0.75rem;
         }
 
         .ai-thinking.show {
@@ -278,112 +367,108 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
             80%, 100% { opacity: 0; }
         }
 
-        .back-button {
-            position: absolute;
-            top: 1rem;
-            left: 1rem;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .back-button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.1);
+        @media (max-width: 768px) {
+            .chat-widget {
+                width: 300px;
+                height: 400px;
+                bottom: 80px;
+                right: 10px;
+            }
+            
+            .floating-chat-container {
+                bottom: 15px;
+                right: 15px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <button class="back-button" onclick="goBack()">
-            <i class="fas fa-arrow-left"></i>
+    <div class="floating-chat-container">
+        <button class="chat-button" id="chatButton" onclick="toggleChat()">
+            <i class="fas fa-robot"></i>
         </button>
-
-        <div class="chat-header">
-            <h1 class="chat-title">
-                <i class="fas fa-robot"></i>
-                Chat Hỗ Trợ Thông Minh
-            </h1>
-            <p class="chat-subtitle">Tôi có thể giúp bạn trả lời các câu hỏi về hệ thống và sự kiện</p>
-        </div>
-
-        <div class="chat-body">
-            <!-- Quick Questions -->
-            <div class="quick-questions" id="quickQuestions">
-                <button class="question-card" onclick="askQuestion('event_registration')">
-                    <i class="fas fa-calendar-plus"></i>
-                    <div class="question-title">Đăng ký sự kiện</div>
-                    <div class="question-desc">Hướng dẫn đăng ký sự kiện mới</div>
-                </button>
-
-                <button class="question-card" onclick="askQuestion('event_status')">
-                    <i class="fas fa-info-circle"></i>
-                    <div class="question-title">Trạng thái sự kiện</div>
-                    <div class="question-desc">Kiểm tra trạng thái đăng ký</div>
-                </button>
-
-                <button class="question-card" onclick="askQuestion('payment')">
-                    <i class="fas fa-credit-card"></i>
-                    <div class="question-title">Thanh toán</div>
-                    <div class="question-desc">Hướng dẫn thanh toán phí sự kiện</div>
-                </button>
-
-                <button class="question-card" onclick="askQuestion('equipment')">
-                    <i class="fas fa-tools"></i>
-                    <div class="question-title">Thiết bị</div>
-                    <div class="question-desc">Thông tin về thiết bị sự kiện</div>
-                </button>
-
-                <button class="question-card" onclick="askQuestion('location')">
-                    <i class="fas fa-map-marker-alt"></i>
-                    <div class="question-title">Địa điểm</div>
-                    <div class="question-desc">Danh sách địa điểm tổ chức</div>
-                </button>
-
-                <button class="question-card" onclick="askQuestion('support')">
-                    <i class="fas fa-headset"></i>
-                    <div class="question-title">Hỗ trợ kỹ thuật</div>
-                    <div class="question-desc">Giải quyết vấn đề kỹ thuật</div>
+        
+        <div class="chat-widget" id="chatWidget">
+            <div class="chat-header">
+                <h1 class="chat-title">
+                    <i class="fas fa-robot"></i>
+                    Chat Hỗ Trợ AI
+                </h1>
+                <button class="close-button" onclick="toggleChat()">
+                    <i class="fas fa-times"></i>
                 </button>
             </div>
 
-            <!-- Chat Messages -->
-            <div class="chat-messages" id="chatMessages">
-                <div class="message assistant">
-                    <div class="message-content">
-                        <div>Xin chào! Tôi là trợ lý AI thông minh. Tôi có thể giúp bạn:</div>
-                        <div class="message-time"><?= date('H:i') ?></div>
+            <div class="chat-body">
+                <!-- Quick Questions -->
+                <div class="quick-questions" id="quickQuestions">
+                    <button class="question-card" onclick="askQuestion('event_registration')">
+                        <i class="fas fa-calendar-plus"></i>
+                        <div class="question-title">Đăng ký</div>
+                        <div class="question-desc">Hướng dẫn</div>
+                    </button>
+
+                    <button class="question-card" onclick="askQuestion('event_status')">
+                        <i class="fas fa-info-circle"></i>
+                        <div class="question-title">Trạng thái</div>
+                        <div class="question-desc">Kiểm tra</div>
+                    </button>
+
+                    <button class="question-card" onclick="askQuestion('payment')">
+                        <i class="fas fa-credit-card"></i>
+                        <div class="question-title">Thanh toán</div>
+                        <div class="question-desc">Hướng dẫn</div>
+                    </button>
+
+                    <button class="question-card" onclick="askQuestion('equipment')">
+                        <i class="fas fa-tools"></i>
+                        <div class="question-title">Thiết bị</div>
+                        <div class="question-desc">Thông tin</div>
+                    </button>
+
+                    <button class="question-card" onclick="askQuestion('location')">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <div class="question-title">Địa điểm</div>
+                        <div class="question-desc">Danh sách</div>
+                    </button>
+
+                    <button class="question-card" onclick="askQuestion('support')">
+                        <i class="fas fa-headset"></i>
+                        <div class="question-title">Hỗ trợ</div>
+                        <div class="question-desc">Giải quyết</div>
+                    </button>
+                </div>
+
+                <!-- Chat Messages -->
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message assistant">
+                        <div class="message-content">
+                            <div>Xin chào! Tôi có thể giúp bạn với các câu hỏi về hệ thống. Chọn một chủ đề hoặc nhập câu hỏi.</div>
+                            <div class="message-time"><?= date('H:i') ?></div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- AI Thinking Indicator -->
-            <div class="ai-thinking" id="aiThinking">
-                <i class="fas fa-brain"></i>
-                <span>AI đang suy nghĩ</span>
-                <span class="thinking-dots">...</span>
-            </div>
+                <!-- AI Thinking Indicator -->
+                <div class="ai-thinking" id="aiThinking">
+                    <i class="fas fa-brain"></i>
+                    <span>AI đang suy nghĩ</span>
+                    <span class="thinking-dots">...</span>
+                </div>
 
-            <!-- Smart Suggestions -->
-            <div class="smart-suggestions" id="smartSuggestions" style="display: none;">
-                <div class="suggestion-title">Gợi ý thông minh:</div>
-                <div id="suggestionItems"></div>
-            </div>
+                <!-- Smart Suggestions -->
+                <div class="smart-suggestions" id="smartSuggestions" style="display: none;">
+                    <div class="suggestion-title">Gợi ý:</div>
+                    <div id="suggestionItems"></div>
+                </div>
 
-            <!-- Chat Input -->
-            <div class="chat-input">
-                <input type="text" id="messageInput" placeholder="Nhập câu hỏi của bạn..." maxlength="500">
-                <button class="send-button" id="sendButton" onclick="sendMessage()">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
+                <!-- Chat Input -->
+                <div class="chat-input">
+                    <input type="text" id="messageInput" placeholder="Nhập câu hỏi..." maxlength="500">
+                    <button class="send-button" id="sendButton" onclick="sendMessage()">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -394,42 +479,57 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
         let currentUserId = <?= $currentUserId ?>;
         let currentUserName = '<?= htmlspecialchars($currentUserName) ?>';
         let userRole = <?= $userRole ?>;
-        let conversationId = null;
-        let isTyping = false;
+        let isChatOpen = false;
 
         // AI Knowledge Base
         const aiKnowledge = {
             event_registration: {
                 title: "Đăng ký sự kiện",
-                response: "Để đăng ký sự kiện, bạn cần:\n\n1. Chọn loại sự kiện phù hợp\n2. Chọn địa điểm tổ chức\n3. Đặt ngày giờ sự kiện\n4. Chọn thiết bị cần thiết\n5. Điền thông tin chi tiết\n6. Xác nhận và thanh toán\n\nBạn có muốn tôi hướng dẫn chi tiết từng bước không?",
-                suggestions: ["Hướng dẫn chi tiết", "Xem danh sách sự kiện", "Kiểm tra địa điểm có sẵn"]
+                response: "Để đăng ký sự kiện:\n\n1. Chọn loại sự kiện\n2. Chọn địa điểm\n3. Đặt ngày giờ\n4. Chọn thiết bị\n5. Điền thông tin\n6. Xác nhận\n\nBạn cần hướng dẫn chi tiết không?",
+                suggestions: ["Hướng dẫn chi tiết", "Xem sự kiện", "Kiểm tra trạng thái"]
             },
             event_status: {
                 title: "Trạng thái sự kiện",
-                response: "Bạn có thể kiểm tra trạng thái sự kiện bằng cách:\n\n1. Vào mục 'Sự kiện của tôi'\n2. Xem trạng thái: Chờ duyệt, Đã duyệt, Từ chối\n3. Nếu cần hỗ trợ, liên hệ admin\n\nTrạng thái hiện tại của bạn là gì?",
-                suggestions: ["Kiểm tra sự kiện của tôi", "Liên hệ admin", "Xem lịch sử đăng ký"]
+                response: "Kiểm tra trạng thái:\n\n1. Vào 'Sự kiện của tôi'\n2. Xem trạng thái: Chờ duyệt, Đã duyệt, Từ chối\n3. Liên hệ admin nếu cần\n\nTrạng thái hiện tại của bạn là gì?",
+                suggestions: ["Kiểm tra sự kiện", "Liên hệ admin", "Xem lịch sử"]
             },
             payment: {
                 title: "Thanh toán",
-                response: "Hệ thống hỗ trợ các phương thức thanh toán:\n\n1. Chuyển khoản ngân hàng\n2. Thanh toán trực tiếp tại văn phòng\n3. Thanh toán online (nếu có)\n\nPhí sự kiện sẽ được tính dựa trên:\n- Loại sự kiện\n- Thời gian tổ chức\n- Thiết bị sử dụng\n- Địa điểm",
+                response: "Phương thức thanh toán:\n\n1. Chuyển khoản ngân hàng\n2. Thanh toán trực tiếp\n3. Thanh toán online\n\nPhí tính theo loại sự kiện, thời gian, thiết bị, địa điểm.",
                 suggestions: ["Xem bảng giá", "Hướng dẫn thanh toán", "Liên hệ tài chính"]
             },
             equipment: {
                 title: "Thiết bị sự kiện",
-                response: "Hệ thống cung cấp đầy đủ thiết bị cho sự kiện:\n\n🎵 Âm thanh: Micro, Loa, Mixer\n🎬 Video: Máy chiếu, Màn hình LED\n💡 Ánh sáng: Đèn sân khấu, Đèn trang trí\n🪑 Nội thất: Bàn ghế, Khán đài\n\nBạn cần thiết bị gì cho sự kiện?",
-                suggestions: ["Xem danh sách thiết bị", "Kiểm tra tình trạng", "Đặt trước thiết bị"]
+                response: "Thiết bị có sẵn:\n\n🎵 Âm thanh: Micro, Loa, Mixer\n🎬 Video: Máy chiếu, Màn hình\n💡 Ánh sáng: Đèn sân khấu\n🪑 Nội thất: Bàn ghế, Khán đài\n\nBạn cần thiết bị gì?",
+                suggestions: ["Xem danh sách", "Kiểm tra tình trạng", "Đặt trước"]
             },
             location: {
                 title: "Địa điểm tổ chức",
-                response: "Chúng tôi có nhiều địa điểm phù hợp:\n\n🏢 Hội trường lớn: Phù hợp sự kiện quy mô lớn\n🏛️ Phòng họp: Sự kiện nhỏ, hội thảo\n🌳 Ngoài trời: Sự kiện cộng đồng\n🎪 Sân khấu: Biểu diễn, ca nhạc\n\nBạn muốn tổ chức sự kiện gì?",
-                suggestions: ["Xem danh sách địa điểm", "Kiểm tra lịch trống", "Đặt địa điểm"]
+                response: "Địa điểm có sẵn:\n\n🏢 Hội trường lớn: Sự kiện quy mô lớn\n🏛️ Phòng họp: Hội thảo, sự kiện nhỏ\n🌳 Ngoài trời: Sự kiện cộng đồng\n🎪 Sân khấu: Biểu diễn, ca nhạc\n\nBạn muốn tổ chức gì?",
+                suggestions: ["Xem địa điểm", "Kiểm tra lịch", "Đặt địa điểm"]
             },
             support: {
                 title: "Hỗ trợ kỹ thuật",
-                response: "Tôi có thể giúp bạn giải quyết:\n\n🔧 Vấn đề đăng nhập/đăng ký\n📱 Lỗi giao diện\n💾 Khôi phục dữ liệu\n🔄 Đồng bộ thông tin\n\nMô tả chi tiết vấn đề bạn đang gặp phải?",
-                suggestions: ["Lỗi đăng nhập", "Không tải được trang", "Mất dữ liệu", "Liên hệ admin"]
+                response: "Tôi có thể giúp:\n\n🔧 Vấn đề đăng nhập\n📱 Lỗi giao diện\n💾 Khôi phục dữ liệu\n🔄 Đồng bộ thông tin\n\nMô tả vấn đề bạn gặp phải?",
+                suggestions: ["Lỗi đăng nhập", "Không tải trang", "Mất dữ liệu", "Liên hệ admin"]
             }
         };
+
+        // Toggle chat
+        function toggleChat() {
+            const chatWidget = document.getElementById('chatWidget');
+            const chatButton = document.getElementById('chatButton');
+            
+            isChatOpen = !isChatOpen;
+            
+            if (isChatOpen) {
+                chatWidget.classList.add('show');
+                chatButton.classList.add('pulse');
+            } else {
+                chatWidget.classList.remove('show');
+                chatButton.classList.remove('pulse');
+            }
+        }
 
         // Smart context analysis
         function analyzeContext(message) {
@@ -466,8 +566,8 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
                         hideAIThinking();
                         addMessage(question.response, 'assistant');
                         showSmartSuggestions(question.suggestions);
-                    }, 2000);
-                }, 500);
+                    }, 1200);
+                }, 300);
             }
         }
 
@@ -494,7 +594,6 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
                     response = aiKnowledge[context].response;
                     suggestions = aiKnowledge[context].suggestions;
                 } else {
-                    // Generate smart response based on user role and context
                     response = generateSmartResponse(message);
                     suggestions = generateSmartSuggestions(message);
                 }
@@ -502,7 +601,7 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
                 hideAIThinking();
                 addMessage(response, 'assistant');
                 showSmartSuggestions(suggestions);
-            }, 2000);
+            }, 1200);
         }
 
         // Generate smart response
@@ -510,23 +609,18 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
             const lowerMessage = message.toLowerCase();
             
             if (lowerMessage.includes('cảm ơn') || lowerMessage.includes('thank')) {
-                return "Không có gì! Tôi rất vui được giúp đỡ bạn. Nếu có thêm câu hỏi gì, đừng ngại hỏi nhé! 😊";
+                return "Không có gì! Tôi rất vui được giúp đỡ bạn. 😊";
             }
             
             if (lowerMessage.includes('xin chào') || lowerMessage.includes('hello')) {
-                return `Xin chào ${currentUserName}! Tôi là trợ lý AI của hệ thống. Tôi có thể giúp bạn với các vấn đề về sự kiện, đăng ký, thanh toán và nhiều hơn nữa. Bạn cần hỗ trợ gì?`;
+                return `Xin chào ${currentUserName}! Tôi là trợ lý AI. Tôi có thể giúp bạn với các vấn đề về sự kiện, đăng ký, thanh toán. Bạn cần hỗ trợ gì?`;
             }
             
             if (lowerMessage.includes('giờ') || lowerMessage.includes('thời gian')) {
-                return `Hiện tại là ${new Date().toLocaleString('vi-VN')}. Hệ thống hoạt động 24/7 để phục vụ bạn. Bạn có thể đăng ký sự kiện bất cứ lúc nào!`;
+                return `Hiện tại là ${new Date().toLocaleString('vi-VN')}. Hệ thống hoạt động 24/7!`;
             }
             
-            if (lowerMessage.includes('admin') || lowerMessage.includes('quản trị')) {
-                return "Để liên hệ admin, bạn có thể:\n\n1. Sử dụng chat hỗ trợ trực tiếp\n2. Gửi email đến admin\n3. Gọi hotline hỗ trợ\n\nBạn muốn tôi kết nối với admin không?";
-            }
-            
-            // Default smart response
-            return "Tôi hiểu câu hỏi của bạn. Dựa trên phân tích, tôi khuyến nghị bạn:\n\n1. Kiểm tra thông tin trong tài khoản\n2. Liên hệ hỗ trợ nếu cần thiết\n3. Tham khảo hướng dẫn sử dụng\n\nBạn có muốn tôi hướng dẫn chi tiết hơn không?";
+            return "Tôi hiểu câu hỏi của bạn. Dựa trên phân tích, tôi khuyến nghị bạn kiểm tra thông tin trong tài khoản hoặc liên hệ hỗ trợ. Bạn có muốn tôi hướng dẫn chi tiết hơn không?";
         }
 
         // Generate smart suggestions
@@ -534,15 +628,11 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
             const lowerMessage = message.toLowerCase();
             
             if (lowerMessage.includes('đăng ký')) {
-                return ["Hướng dẫn đăng ký", "Xem sự kiện có sẵn", "Kiểm tra trạng thái"];
+                return ["Hướng dẫn đăng ký", "Xem sự kiện", "Kiểm tra trạng thái"];
             }
             
             if (lowerMessage.includes('thanh toán')) {
                 return ["Xem bảng giá", "Hướng dẫn thanh toán", "Liên hệ tài chính"];
-            }
-            
-            if (lowerMessage.includes('thiết bị')) {
-                return ["Xem danh sách thiết bị", "Kiểm tra tình trạng", "Đặt trước"];
             }
             
             return ["Xem thêm thông tin", "Liên hệ hỗ trợ", "Hướng dẫn chi tiết"];
@@ -600,11 +690,6 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
             container.style.display = 'block';
         }
 
-        // Hide smart suggestions
-        function hideSmartSuggestions() {
-            document.getElementById('smartSuggestions').style.display = 'none';
-        }
-
         // Escape HTML
         function escapeHtml(text) {
             const map = {
@@ -617,11 +702,6 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
             return text.replace(/[&<>"']/g, function(m) { return map[m]; });
         }
 
-        // Go back
-        function goBack() {
-            window.history.back();
-        }
-
         // Event listeners
         document.getElementById('messageInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
@@ -631,8 +711,14 @@ $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? $_SESSI
 
         // Initialize
         $(document).ready(function() {
-            console.log('Smart Chat Widget initialized');
-            console.log('User:', currentUserName, 'Role:', userRole);
+            console.log('Floating Chat Button initialized');
+            
+            // Auto-open chat after 3 seconds
+            setTimeout(() => {
+                if (!isChatOpen) {
+                    toggleChat();
+                }
+            }, 3000);
         });
     </script>
 </body>

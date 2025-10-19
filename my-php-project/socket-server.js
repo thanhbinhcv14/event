@@ -152,99 +152,111 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Handle new message
+    // Handle new message - Enhanced for real-time sync
     socket.on('new_message', (data) => {
-        const { conversation_id, message, sender_id, receiver_id } = data;
+        const { conversation_id, message, user_id, user_name } = data;
         const userInfo = connectedUsers.get(socket.id);
         
         if (userInfo) {
-            // Send to receiver if online
-            const receiverSocketId = userRooms.get(receiver_id);
-            if (receiverSocketId) {
-                io.to(receiverSocketId).emit('new_message', {
-                    conversation_id,
-                    message,
-                    sender_id,
-                    sender_name: userInfo.userName,
-                    timestamp: new Date()
-                });
-            }
+            console.log(`💬 ${userInfo.userName}: ${message}`);
             
-            // Send to sender (confirmation)
-            socket.emit('message_sent', {
+            // Broadcast to all users in the conversation room
+            io.to(`conversation_${conversation_id}`).emit('new_message', {
                 conversation_id,
                 message,
+                user_id: userInfo.userId,
+                user_name: userInfo.userName,
                 timestamp: new Date()
             });
             
-            console.log(`Message sent from ${userInfo.userName} to user ${receiver_id}`);
+            console.log(`📢 Message broadcasted to conversation ${conversation_id}`);
         }
     });
 
-    // Handle typing indicator
+    // Handle typing indicator - Enhanced for real-time sync
     socket.on('typing', (data) => {
+        const { conversation_id, user_id, user_name } = data;
+        const userInfo = connectedUsers.get(socket.id);
+        
+        if (userInfo) {
+            console.log(`⌨️ ${userInfo.userName} is typing in conversation ${conversation_id}`);
+            
+            // Broadcast to conversation participants (excluding sender)
+            socket.to(`conversation_${conversation_id}`).emit('typing', {
+                conversation_id,
+                user_id: userInfo.userId,
+                user_name: userInfo.userName
+            });
+        }
+    });
+
+    // Handle stop typing - Enhanced for real-time sync
+    socket.on('stop_typing', (data) => {
         const { conversation_id, user_id } = data;
         const userInfo = connectedUsers.get(socket.id);
         
         if (userInfo) {
-            // Store typing state
-            if (!typingUsers.has(conversation_id)) {
-                typingUsers.set(conversation_id, new Set());
-            }
-            typingUsers.get(conversation_id).add(user_id);
+            console.log(`⏹️ ${userInfo.userName} stopped typing in conversation ${conversation_id}`);
             
-            // Broadcast to conversation participants
-            socket.to(`conversation_${conversation_id}`).emit('typing', {
+            // Broadcast to conversation participants (excluding sender)
+            socket.to(`conversation_${conversation_id}`).emit('stop_typing', {
                 conversation_id,
-                user_id,
-                user_name: userInfo.userName
+                user_id: userInfo.userId
             });
-            
-            // Clear typing state after 3 seconds
-            setTimeout(() => {
-                if (typingUsers.has(conversation_id)) {
-                    typingUsers.get(conversation_id).delete(user_id);
-                    if (typingUsers.get(conversation_id).size === 0) {
-                        typingUsers.delete(conversation_id);
-                    }
-                }
-                socket.to(`conversation_${conversation_id}`).emit('stop_typing', {
-                    conversation_id,
-                    user_id
-                });
-            }, 3000);
         }
     });
 
-    // Handle stop typing
-    socket.on('stop_typing', (data) => {
-        const { conversation_id, user_id } = data;
-        
-        if (typingUsers.has(conversation_id)) {
-            typingUsers.get(conversation_id).delete(user_id);
-            if (typingUsers.get(conversation_id).size === 0) {
-                typingUsers.delete(conversation_id);
-            }
-        }
-        
-        socket.to(`conversation_${conversation_id}`).emit('stop_typing', {
-            conversation_id,
-            user_id
-        });
-    });
-
-    // Handle join conversation
+    // Handle join conversation - Enhanced for real-time sync
     socket.on('join_conversation', (data) => {
         const { conversation_id } = data;
         socket.join(`conversation_${conversation_id}`);
-        console.log(`User joined conversation ${conversation_id}`);
+        console.log(`🟢 User joined conversation ${conversation_id}`);
     });
 
     // Handle leave conversation
     socket.on('leave_conversation', (data) => {
         const { conversation_id } = data;
         socket.leave(`conversation_${conversation_id}`);
-        console.log(`User left conversation ${conversation_id}`);
+        console.log(`🔴 User left conversation ${conversation_id}`);
+    });
+
+    // Handle broadcast message instantly
+    socket.on('broadcast_message', (data) => {
+        const { conversation_id, message, userId, timestamp } = data;
+        console.log(`📢 Broadcasting message in conversation ${conversation_id}`);
+        
+        // Broadcast to all users in the conversation
+        io.to(`conversation_${conversation_id}`).emit('broadcast_message', {
+            conversation_id,
+            message,
+            userId,
+            timestamp
+        });
+    });
+
+    // Handle message read status
+    socket.on('message_read', (data) => {
+        const { conversation_id, message_id, user_id } = data;
+        console.log(`👁️ Message ${message_id} read by user ${user_id}`);
+        
+        // Notify other users in the conversation
+        socket.to(`conversation_${conversation_id}`).emit('message_read', {
+            conversation_id,
+            message_id,
+            user_id
+        });
+    });
+
+    // Handle messages loaded event
+    socket.on('messages_loaded', (data) => {
+        const { conversation_id, userId } = data;
+        console.log(`📥 Messages loaded for user ${userId} in conversation ${conversation_id}`);
+        
+        // Notify other users that messages were loaded
+        socket.to(`conversation_${conversation_id}`).emit('messages_loaded', {
+            conversation_id,
+            userId
+        });
     });
 
     // Handle real-time chat (optional)

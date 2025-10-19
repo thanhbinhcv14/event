@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeTooltips();
     initializeModals();
     initializeNotifications();
+    initializeResponsiveMenu();
     
     // Initialize DataTables after a short delay to ensure all scripts are loaded
     setTimeout(function() {
@@ -61,6 +62,19 @@ function initializeAdminPanel() {
             sidebar.classList.toggle('collapsed', sidebarCollapsed);
             mainContent.classList.toggle('expanded', sidebarCollapsed);
             
+            // Add animation class to button
+            toggleBtn.classList.toggle('collapsed', sidebarCollapsed);
+            
+            // Change icon
+            const icon = toggleBtn.querySelector('i');
+            if (sidebarCollapsed) {
+                icon.className = 'fas fa-chevron-right';
+                toggleBtn.title = 'Mở rộng menu';
+            } else {
+                icon.className = 'fas fa-chevron-left';
+                toggleBtn.title = 'Thu gọn menu';
+            }
+            
             // Save state to localStorage
             localStorage.setItem('sidebarCollapsed', sidebarCollapsed);
         });
@@ -71,6 +85,12 @@ function initializeAdminPanel() {
             sidebarCollapsed = true;
             sidebar.classList.add('collapsed');
             mainContent.classList.add('expanded');
+            toggleBtn.classList.add('collapsed');
+            
+            // Update icon
+            const icon = toggleBtn.querySelector('i');
+            icon.className = 'fas fa-chevron-right';
+            toggleBtn.title = 'Mở rộng menu';
         }
     }
     
@@ -91,6 +111,48 @@ function initializeAdminPanel() {
             }
         }
     });
+}
+
+// Initialize responsive menu
+function initializeResponsiveMenu() {
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('mainContent');
+    
+    if (!sidebar || !mainContent) return;
+    
+    function handleResize() {
+        const width = window.innerWidth;
+        
+        if (width <= 1200 && width > 768) {
+            // Tablet view - collapse sidebar
+            sidebar.classList.add('collapsed');
+            mainContent.classList.add('expanded');
+            sidebarCollapsed = true;
+        } else if (width <= 768) {
+            // Mobile view - hide sidebar
+            sidebar.classList.remove('collapsed', 'show');
+            mainContent.classList.remove('expanded');
+            sidebarCollapsed = false;
+        } else {
+            // Desktop view - restore saved state
+            const savedState = localStorage.getItem('sidebarCollapsed');
+            if (savedState === 'true') {
+                sidebar.classList.add('collapsed');
+                mainContent.classList.add('expanded');
+                sidebarCollapsed = true;
+            } else {
+                sidebar.classList.remove('collapsed');
+                mainContent.classList.remove('expanded');
+                sidebarCollapsed = false;
+            }
+        }
+    }
+    
+    // Initial call
+    handleResize();
+    
+    // Listen for resize events
+    window.addEventListener('resize', handleResize);
 }
 
 // Initialize DataTables with common settings

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 12, 2025 lúc 12:53 AM
+-- Thời gian đã tạo: Th10 16, 2025 lúc 08:26 AM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -50,7 +50,9 @@ INSERT INTO `chitietdatsukien` (`ID_CT`, `ID_DatLich`, `ID_TB`, `ID_Combo`, `SoL
 (22, 6, 6, NULL, 1, 1800000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16'),
 (23, 6, 14, NULL, 1, 400000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16'),
 (24, 6, 4, NULL, 1, 2000000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16'),
-(25, 6, NULL, 5, 1, 10000000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16');
+(25, 6, NULL, 5, 1, 10000000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16'),
+(31, 16, NULL, 4, 1, 50000000.00, 'Combo thiết bị', '2025-10-13 01:35:12', '2025-10-13 01:35:12'),
+(32, 16, 9, NULL, 1, 2200000.00, 'Thiết bị riêng lẻ', '2025-10-13 01:35:12', '2025-10-13 01:35:12');
 
 -- --------------------------------------------------------
 
@@ -222,12 +224,13 @@ CREATE TABLE `conversations` (
 --
 
 INSERT INTO `conversations` (`id`, `user1_id`, `user2_id`, `created_at`, `updated_at`, `LastMessage_ID`) VALUES
-(1, 3, 17, '2025-10-09 07:09:35', '2025-10-09 07:09:35', NULL),
+(1, 3, 17, '2025-10-09 07:09:35', '2025-10-12 12:27:17', 9),
 (2, 29, 17, '2025-10-09 07:09:35', '2025-10-09 07:09:35', NULL),
-(3, 98, 17, '2025-10-09 07:09:35', '2025-10-09 07:09:35', NULL),
+(3, 98, 17, '2025-10-09 07:09:35', '2025-10-12 11:05:53', 8),
 (4, 3, 118, '2025-10-09 07:09:35', '2025-10-09 07:09:35', NULL),
 (5, 29, 118, '2025-10-09 07:09:35', '2025-10-09 07:09:35', NULL),
-(6, 98, 124, '2025-10-09 07:09:35', '2025-10-09 07:09:35', NULL);
+(6, 98, 124, '2025-10-09 07:09:35', '2025-10-09 07:09:35', NULL),
+(9, 127, 3, '2025-10-12 16:45:38', '2025-10-16 01:59:19', NULL);
 
 -- --------------------------------------------------------
 
@@ -286,7 +289,11 @@ INSERT INTO `datlichsukien` (`ID_DatLich`, `ID_KhachHang`, `TenSuKien`, `MoTa`, 
 (2, 5, 'qưeqeqwq', 'qưeqeq', '2025-10-17 07:40:00', '2025-10-17 09:40:00', 1, 1, 500, 400000.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', 'oke', '2025-10-08 12:39:26', '2025-10-09 05:08:30'),
 (4, 5, 'seqeqqw', '12313', '2025-10-17 12:22:00', '2025-10-17 14:22:00', 4, 3, 2233, 22333.00, 0.00, 'Từ chối', 'Chưa thanh toán', 'ko hợp lí', '2025-10-09 07:22:08', '2025-10-09 07:23:37'),
 (5, 5, '321312', '1313', '2025-10-15 13:01:00', '2025-10-15 15:01:00', 8, 3, 2444, 400000.00, 0.00, 'Chờ duyệt', 'Chưa thanh toán', 'Đăng ký từ website', '2025-10-09 08:22:58', '2025-10-09 08:22:58'),
-(6, 17, 'Tiệc cuối năm', NULL, '2025-12-22 18:00:00', '0000-00-00 00:00:00', 9, 6, 200, 20000000000.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-11 21:53:38', '2025-10-11 22:05:07');
+(6, 17, 'Tiệc cuối năm', NULL, '2025-12-22 18:00:00', '0000-00-00 00:00:00', 9, 6, 200, 20000000000.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-11 21:53:38', '2025-10-11 22:05:07'),
+(13, 17, 'Sự kiện cuối năm 2024', '', '2024-12-31 18:00:00', '2025-01-01 02:00:00', 1, 6, NULL, NULL, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-12 23:40:42', '2025-10-12 23:40:42'),
+(14, 17, 'Sự kiện cuối năm 2024', '', '2024-12-31 18:00:00', '2025-01-01 02:00:00', 1, 6, NULL, NULL, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-12 23:47:09', '2025-10-12 23:47:09'),
+(15, 17, 'Test Event with Location', 'Test event description', '2025-01-15 10:00:00', '2025-01-15 12:00:00', 1, 6, 50, 1000000.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', 'Test notes', '2025-10-13 00:22:32', '2025-10-13 00:22:32'),
+(16, 5, 'lieen hoan', '', '2025-10-14 12:00:00', '2025-10-14 14:00:00', 2, 2, 123, 123.00, 0.00, 'Chờ duyệt', 'Chưa thanh toán', 'Đăng ký từ website', '2025-10-13 01:35:12', '2025-10-13 01:35:12');
 
 -- --------------------------------------------------------
 
@@ -388,9 +395,10 @@ CREATE TABLE `khachhanginfo` (
 
 INSERT INTO `khachhanginfo` (`ID_KhachHang`, `ID_User`, `HoTen`, `SoDienThoai`, `DiaChi`, `NgaySinh`, `NgayTao`, `NgayCapNhat`) VALUES
 (5, 17, 'Bùi Thanh Bình', '0707102548', '14 NVB', '2021-10-21', '2025-09-23 20:48:28', '2025-10-09 09:44:05'),
-(12, 98, 'Vũ Thảo', '0356690717', '60 đường số 1', '2003-12-21', '2025-09-24 11:37:42', '2025-09-24 11:37:42'),
+(12, 98, 'Vũ Yên', '0356690717', '60 đường số 1', '2003-12-21', '2025-09-24 11:37:42', '2025-10-12 16:12:28'),
 (15, 118, 'Vũ Thảo Ánh', '0356690717', '60 đường số 1', '2009-12-11', '2025-09-24 18:57:20', '2025-09-24 22:45:30'),
-(17, 124, 'Vũ Thảo Ánh', '0356690717', '60 đường số 4\r\n', '2003-09-16', '2025-09-25 02:09:32', '2025-10-09 05:01:04');
+(17, 124, 'Vũ Thảo Ánh', '0356690717', '60 đường số 4\r\n', '2003-09-16', '2025-09-25 02:09:32', '2025-10-09 05:01:04'),
+(18, 127, 'Vũ Nam', '0938667171', '12NVB', '2010-10-15', '2025-10-12 16:22:19', '2025-10-16 05:19:24');
 
 -- --------------------------------------------------------
 
@@ -470,13 +478,39 @@ CREATE TABLE `messages` (
 --
 
 INSERT INTO `messages` (`id`, `conversation_id`, `sender_id`, `MessageText`, `IsRead`, `SentAt`, `UpdatedAt`) VALUES
-(1, 1, 3, 'Xin chào! Tôi có thể giúp gì cho bạn?', 0, '2025-10-09 14:09:35', '2025-10-10 23:17:17'),
+(1, 1, 3, 'Xin chào! Tôi có thể giúp gì cho bạn?', 1, '2025-10-09 14:09:35', '2025-10-12 23:08:39'),
 (2, 1, 17, 'Tôi muốn đăng ký sự kiện', 1, '2025-10-09 14:09:35', '2025-10-10 23:17:17'),
 (3, 2, 29, 'Chào bạn! Bạn cần hỗ trợ gì?', 0, '2025-10-09 14:09:35', '2025-10-10 23:17:17'),
-(4, 3, 98, 'Tôi có thể giúp bạn đăng ký sự kiện', 0, '2025-10-09 14:09:35', '2025-10-10 23:17:17'),
-(5, 4, 3, 'Chào bạn! Tôi có thể hỗ trợ gì?', 0, '2025-10-09 14:09:35', '2025-10-10 23:17:17'),
+(4, 3, 98, 'Tôi có thể giúp bạn đăng ký sự kiện', 1, '2025-10-09 14:09:35', '2025-10-12 18:05:36'),
+(5, 4, 3, 'Chào bạn! Tôi có thể hỗ trợ gì?', 1, '2025-10-09 14:09:35', '2025-10-12 23:20:43'),
 (6, 5, 29, 'Bạn cần tư vấn về sự kiện nào?', 0, '2025-10-09 14:09:35', '2025-10-10 23:17:17'),
-(7, 6, 98, 'Tôi sẵn sàng hỗ trợ bạn!', 0, '2025-10-09 14:09:35', '2025-10-10 23:17:17');
+(7, 6, 98, 'Tôi sẵn sàng hỗ trợ bạn!', 1, '2025-10-09 14:09:35', '2025-10-12 23:17:54'),
+(8, 3, 17, 'hello', 0, '2025-10-12 18:05:53', '2025-10-12 18:05:53'),
+(9, 1, 3, 'hello', 1, '2025-10-12 19:27:17', '2025-10-12 23:08:39'),
+(36, 9, 3, 'Xin chào! Tôi có thể giúp gì cho bạn?', 1, '2025-10-13 01:00:25', '2025-10-13 01:01:06'),
+(37, 9, 3, 'Xin chào! Tôi có thể giúp gì cho bạn?', 1, '2025-10-13 01:00:27', '2025-10-13 01:01:06'),
+(38, 9, 3, 'xin chào', 1, '2025-10-13 01:00:41', '2025-10-13 01:01:06'),
+(39, 9, 3, 'Bạn có thể cho tôi biết thêm chi tiết về vấn đề này không?', 1, '2025-10-13 04:02:34', '2025-10-13 04:03:05'),
+(40, 9, 3, 'Bạn có thể cho tôi biết thêm chi tiết về vấn đề này không?', 1, '2025-10-13 04:03:11', '2025-10-13 04:21:39'),
+(41, 9, 3, 'Bạn có thể cho tôi biết thêm chi tiết về vấn đề này không?', 1, '2025-10-13 04:03:49', '2025-10-13 04:21:39'),
+(42, 9, 3, 'Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất.', 1, '2025-10-13 04:04:14', '2025-10-13 04:21:39'),
+(43, 9, 127, 'eeee', 1, '2025-10-13 04:23:19', '2025-10-13 04:25:42'),
+(44, 9, 127, 'eeee', 1, '2025-10-13 04:25:36', '2025-10-13 04:25:42'),
+(45, 9, 3, 'eee', 1, '2025-10-13 04:25:45', '2025-10-13 04:26:02'),
+(46, 9, 127, 'eee', 1, '2025-10-13 04:26:17', '2025-10-13 04:28:13'),
+(47, 9, 127, 'eee', 1, '2025-10-13 04:26:28', '2025-10-13 04:28:13'),
+(48, 9, 3, 'ee', 1, '2025-10-13 04:34:28', '2025-10-13 04:34:34'),
+(49, 9, 127, 'nn', 1, '2025-10-13 04:35:18', '2025-10-13 04:35:21'),
+(50, 9, 3, 'zz', 1, '2025-10-16 07:47:27', '2025-10-16 07:48:56'),
+(51, 9, 127, 'zz', 1, '2025-10-16 08:38:02', '2025-10-16 08:38:47'),
+(52, 9, 127, 'hello', 1, '2025-10-16 08:38:12', '2025-10-16 08:38:47'),
+(53, 9, 127, 'chào anh', 1, '2025-10-16 08:39:02', '2025-10-16 08:44:13'),
+(54, 9, 127, 'chào e,', 1, '2025-10-16 08:39:52', '2025-10-16 08:44:13'),
+(55, 9, 127, 'eee', 1, '2025-10-16 08:49:48', '2025-10-16 08:49:49'),
+(56, 9, 3, 'zzz', 1, '2025-10-16 08:49:54', '2025-10-16 08:59:11'),
+(57, 9, 3, 'zz', 1, '2025-10-16 08:50:00', '2025-10-16 08:59:11'),
+(58, 9, 127, 'zz', 1, '2025-10-16 08:50:09', '2025-10-16 08:50:12'),
+(59, 9, 127, '22', 1, '2025-10-16 08:59:19', '2025-10-16 08:59:25');
 
 -- --------------------------------------------------------
 
@@ -506,7 +540,7 @@ INSERT INTO `nhanvieninfo` (`ID_NhanVien`, `ID_User`, `HoTen`, `SoDienThoai`, `D
 (3, 29, 'Bùi Thanh Bình', '0323456774', '12 NVB', '2003-02-02', 'Quản lí tổ chức', 8000000.00, '2025-06-24', '2025-09-24 02:06:23', '2025-10-03 01:16:32'),
 (4, 39, 'Đình Hiếu', '0323456677', '12 GV', '2001-12-11', 'Nhân viên kỹ thuật', 4000000.00, '2025-05-24', '2025-09-24 02:11:39', '2025-10-03 01:17:26'),
 (5, 96, 'Đường Yên', '0356690717', '60 đường số 1', '2023-12-11', 'Nhân viên âm thanh', 400000.00, '2025-06-24', '2025-09-24 10:28:06', '2025-09-24 11:51:12'),
-(7, 119, 'Đường Yên', '0356690717', '60 đường số 2', '1111-11-11', 'Quản lí tổ chức', 10000000.00, '2025-06-24', '2025-09-24 19:17:28', '2025-10-09 02:24:14');
+(7, 119, 'Đường Yên', '0356690717', '60 đường số 2', '1111-11-11', 'Quản lí tổ chức', 10000000.00, '2025-06-24', '2025-09-24 19:17:28', '2025-10-16 05:20:20');
 
 -- --------------------------------------------------------
 
@@ -562,7 +596,10 @@ CREATE TABLE `sukien` (
 
 INSERT INTO `sukien` (`ID_SuKien`, `ID_DatLich`, `MaSuKien`, `TenSuKien`, `NgayBatDauThucTe`, `NgayKetThucThucTe`, `DiaDiemThucTe`, `TrangThaiThucTe`, `TongChiPhiThucTe`, `DanhGiaKhachHang`, `NhanXetKhachHang`, `GhiChuQuanLy`, `NgayTao`, `NgayCapNhat`) VALUES
 (1, 2, 'EV202510090002', 'qưeqeqwq', '2025-10-17 07:40:00', '2025-10-17 09:40:00', 'Trung tâm Hội nghị White Palace', 'Đang chuẩn bị', 120000000.00, NULL, NULL, 'oke', '2025-10-09 05:08:30', '2025-10-09 05:08:30'),
-(2, 6, 'EV202510120006', 'Tiệc cuối năm', '2025-12-22 18:00:00', '0000-00-00 00:00:00', 'Phố đi bộ Nguyễn Huệ', 'Đang chuẩn bị', 150000000.00, NULL, NULL, '', '2025-10-11 22:05:07', '2025-10-11 22:05:07');
+(2, 6, 'EV202510120006', 'Tiệc cuối năm', '2025-12-22 18:00:00', '0000-00-00 00:00:00', 'Phố đi bộ Nguyễn Huệ', 'Đang chuẩn bị', 150000000.00, NULL, NULL, '', '2025-10-11 22:05:07', '2025-10-11 22:05:07'),
+(7, 13, NULL, 'Sự kiện cuối năm 2024', '2024-12-31 18:00:00', '2025-01-01 02:00:00', NULL, 'Đang chuẩn bị', 0.00, NULL, NULL, NULL, '2025-10-12 23:40:42', '2025-10-12 23:40:42'),
+(8, 14, NULL, 'Sự kiện cuối năm 2024', '2024-12-31 18:00:00', '2025-01-01 02:00:00', NULL, 'Đang chuẩn bị', 0.00, NULL, NULL, NULL, '2025-10-12 23:47:09', '2025-10-12 23:47:09'),
+(9, 15, NULL, 'Test Event with Location', '2025-01-15 10:00:00', '2025-01-15 12:00:00', NULL, 'Đang chuẩn bị', 0.00, NULL, NULL, NULL, '2025-10-13 00:22:32', '2025-10-13 00:22:32');
 
 -- --------------------------------------------------------
 
@@ -667,23 +704,26 @@ CREATE TABLE `users` (
   `ID_Role` int(11) NOT NULL,
   `TrangThai` enum('Hoạt động','Bị khóa','Chưa xác minh') DEFAULT 'Hoạt động',
   `NgayTao` timestamp NOT NULL DEFAULT current_timestamp(),
-  `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `OnlineStatus` enum('Online','Offline') DEFAULT 'Offline',
+  `LastActivity` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Đang đổ dữ liệu cho bảng `users`
 --
 
-INSERT INTO `users` (`ID_User`, `Email`, `Password`, `FacebookID`, `GoogleID`, `ID_Role`, `TrangThai`, `NgayTao`, `NgayCapNhat`) VALUES
-(3, 'qtv1@gmail.com', '$2y$10$76AL.x2sD9yFnUQ2j6YlYeXXMAFp4HlCvHxNIVl5j8/.DSUmVl3im', NULL, NULL, 1, 'Hoạt động', '2025-09-19 23:54:54', '2025-09-19 23:54:54'),
-(17, 'thanhbinh14062003@gmail.com', '$2y$10$vX5Lacdo5OaAIvtda/0CyOEldWJqSjOVJqr.YKd1O0OwIf9rz8tkS', NULL, NULL, 5, 'Hoạt động', '2025-09-23 20:48:28', '2025-09-23 20:48:28'),
-(29, 'qltc2@gmail.com', '$2y$10$ig.u6SQkmvukGKXF7lFlS.D7ikk0Aja1lZPgJzeGeUJAm5zselWP.', NULL, NULL, 2, 'Hoạt động', '2025-09-24 02:06:23', '2025-09-24 02:06:23'),
-(39, 'nhanvien1@gmail.com', '$2y$10$aFB3cdypIGWJPW343j4vSOP82d5lc.y4FG0QjqTqZu7RIKeb25GIC', NULL, NULL, 4, 'Hoạt động', '2025-09-24 02:11:39', '2025-09-24 02:11:39'),
-(96, 'nhanvien2@gmail.com', '$2y$10$skx3dLcoSSUAt7SNyPDF5u8TNfIVSWGIhvoP6sN22F7LOu7JONQ9q', NULL, NULL, 4, 'Hoạt động', '2025-09-24 10:28:06', '2025-09-24 10:28:06'),
-(98, 'thanhbinhcv14@gmail.com', '$2y$10$a.hXLfW6atu4QLo2uFgdquBCXoCnaSWh2y5g7etJcrE98ciK331IC', NULL, NULL, 3, 'Hoạt động', '2025-09-24 11:37:42', '2025-10-09 05:35:19'),
-(118, 'khachhang1@gmail.com', 'bb08a3fd9986ef13e4b9a1e432b9deee', NULL, NULL, 5, 'Hoạt động', '2025-09-24 18:57:20', '2025-09-30 11:00:38'),
-(119, 'qltc1@gmail.com', '$2y$10$FCLKvilsBjF2A6exn53/OOM9xDm7LffPSZSQhga7Oj4OUYpyyUXYe', NULL, NULL, 2, 'Hoạt động', '2025-09-24 19:17:28', '2025-10-09 02:13:16'),
-(124, 'thaoanh@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-25 02:09:32', '2025-10-09 03:12:13');
+INSERT INTO `users` (`ID_User`, `Email`, `Password`, `FacebookID`, `GoogleID`, `ID_Role`, `TrangThai`, `NgayTao`, `NgayCapNhat`, `OnlineStatus`, `LastActivity`) VALUES
+(3, 'qtv1@gmail.com', '$2y$10$76AL.x2sD9yFnUQ2j6YlYeXXMAFp4HlCvHxNIVl5j8/.DSUmVl3im', NULL, NULL, 1, '', '2025-09-19 23:54:54', '2025-10-16 05:18:10', 'Offline', NULL),
+(17, 'thanhbinh14062003@gmail.com', '$2y$10$vX5Lacdo5OaAIvtda/0CyOEldWJqSjOVJqr.YKd1O0OwIf9rz8tkS', NULL, NULL, 5, 'Hoạt động', '2025-09-23 20:48:28', '2025-09-23 20:48:28', 'Offline', NULL),
+(29, 'qltc2@gmail.com', '$2y$10$ig.u6SQkmvukGKXF7lFlS.D7ikk0Aja1lZPgJzeGeUJAm5zselWP.', NULL, NULL, 2, 'Hoạt động', '2025-09-24 02:06:23', '2025-09-24 02:06:23', 'Offline', NULL),
+(39, 'nhanvien1@gmail.com', '$2y$10$aFB3cdypIGWJPW343j4vSOP82d5lc.y4FG0QjqTqZu7RIKeb25GIC', NULL, NULL, 4, 'Hoạt động', '2025-09-24 02:11:39', '2025-09-24 02:11:39', 'Offline', NULL),
+(96, 'nhanvien2@gmail.com', '$2y$10$skx3dLcoSSUAt7SNyPDF5u8TNfIVSWGIhvoP6sN22F7LOu7JONQ9q', NULL, NULL, 4, 'Hoạt động', '2025-09-24 10:28:06', '2025-09-24 10:28:06', 'Offline', NULL),
+(98, 'thanhbinhcv14@gmail.com', '$2y$10$a.hXLfW6atu4QLo2uFgdquBCXoCnaSWh2y5g7etJcrE98ciK331IC', NULL, NULL, 3, 'Hoạt động', '2025-09-24 11:37:42', '2025-10-09 05:35:19', 'Offline', NULL),
+(118, 'khachhang1@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-24 18:57:20', '2025-10-12 16:20:30', 'Offline', NULL),
+(119, 'qltc1@gmail.com', '$2y$10$FCLKvilsBjF2A6exn53/OOM9xDm7LffPSZSQhga7Oj4OUYpyyUXYe', NULL, NULL, 2, 'Hoạt động', '2025-09-24 19:17:28', '2025-10-09 02:13:16', 'Offline', NULL),
+(124, 'thaoanh@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-25 02:09:32', '2025-10-09 03:12:13', 'Offline', NULL),
+(127, 'nam@gmail.com', '$2y$10$VsRmiMeZRYCA/8btBklIgee8KqV1uXpQyV7NB2mqjeurjow3oQElK', NULL, NULL, 5, 'Hoạt động', '2025-10-12 16:22:19', '2025-10-12 16:22:19', 'Offline', NULL);
 
 --
 -- Chỉ mục cho các bảng đã đổ
@@ -871,7 +911,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT cho bảng `chitietdatsukien`
 --
 ALTER TABLE `chitietdatsukien`
-  MODIFY `ID_CT` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `ID_CT` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
 
 --
 -- AUTO_INCREMENT cho bảng `combo`
@@ -883,7 +923,7 @@ ALTER TABLE `combo`
 -- AUTO_INCREMENT cho bảng `conversations`
 --
 ALTER TABLE `conversations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT cho bảng `danhgia`
@@ -895,7 +935,7 @@ ALTER TABLE `danhgia`
 -- AUTO_INCREMENT cho bảng `datlichsukien`
 --
 ALTER TABLE `datlichsukien`
-  MODIFY `ID_DatLich` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `ID_DatLich` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT cho bảng `diadiem`
@@ -913,7 +953,7 @@ ALTER TABLE `kehoachthuchien`
 -- AUTO_INCREMENT cho bảng `khachhanginfo`
 --
 ALTER TABLE `khachhanginfo`
-  MODIFY `ID_KhachHang` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+  MODIFY `ID_KhachHang` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT cho bảng `lichlamviec`
@@ -931,7 +971,7 @@ ALTER TABLE `loaisukien`
 -- AUTO_INCREMENT cho bảng `messages`
 --
 ALTER TABLE `messages`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=60;
 
 --
 -- AUTO_INCREMENT cho bảng `nhanvieninfo`
@@ -949,7 +989,7 @@ ALTER TABLE `phanquyen`
 -- AUTO_INCREMENT cho bảng `sukien`
 --
 ALTER TABLE `sukien`
-  MODIFY `ID_SuKien` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ID_SuKien` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT cho bảng `thanhtoan`
@@ -967,7 +1007,7 @@ ALTER TABLE `thietbi`
 -- AUTO_INCREMENT cho bảng `users`
 --
 ALTER TABLE `users`
-  MODIFY `ID_User` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=127;
+  MODIFY `ID_User` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=128;
 
 --
 -- Các ràng buộc cho các bảng đã đổ

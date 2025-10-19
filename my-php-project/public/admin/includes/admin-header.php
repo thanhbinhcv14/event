@@ -218,7 +218,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             <?php if ($user['role'] == 3): ?>
             <a href="event-registration.php" class="menu-item <?= $currentPage === 'event-registration' ? 'active' : '' ?>">
                 <i class="fas fa-plus-circle"></i>
-                <span>Đăng ký sự kiện</span>
+                <span>Đăng ký sự kiện cho khách hàng</span>
             </a>
             
             <a href="event-registrations.php" class="menu-item <?= $currentPage === 'event-registrations' ? 'active' : '' ?>">
@@ -230,10 +230,13 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
                 <i class="fas fa-chart-bar"></i>
                 <span>Thống kê báo cáo</span>
             </a>
+            <?php endif; ?>
             
+            <!-- Chat Hỗ trợ - Tất cả role admin/staff -->
+            <?php if (in_array($user['role'], [1, 2, 3, 4])): ?>
             <a href="chat.php" class="menu-item <?= $currentPage === 'chat' ? 'active' : '' ?>">
                 <i class="fas fa-comments"></i>
-                <span>Chat hỗ trợ</span>
+                <span>Chat Hỗ trợ Khách hàng</span>
                 <span class="chat-badge" id="chatBadge" style="display: none;">0</span>
             </a>
             <?php endif; ?>
@@ -270,10 +273,10 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
         <!-- Top Navbar -->
         <nav class="top-navbar">
             <div class="d-flex align-items-center">
-                <button class="toggle-btn" id="sidebarToggle">
-                    <i class="fas fa-bars"></i>
+                <button class="toggle-btn" id="sidebarToggle" title="Thu gọn/ Mở rộng menu">
+                    <i class="fas fa-chevron-left"></i>
                 </button>
-                <button class="toggle-btn d-md-none ms-2" id="mobileToggle">
+                <button class="mobile-toggle-btn d-md-none ms-2" id="mobileToggle" title="Mở menu">
                     <i class="fas fa-bars"></i>
                 </button>
                 <h5 class="mb-0 ms-3 text-gradient"><?= $pageTitle ?></h5>

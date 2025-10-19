@@ -28,6 +28,15 @@ try {
             'role' => $user['ID_Role']
         ];
 
+        // Set user online status
+        try {
+            $stmt = $pdo->prepare("UPDATE users SET OnlineStatus = 'Online', LastActivity = NOW() WHERE ID_User = ?");
+            $stmt->execute([$user['ID_User']]);
+            error_log("User " . $user['ID_User'] . " set online on login");
+        } catch (Exception $e) {
+            error_log("Error setting user online: " . $e->getMessage());
+        }
+
         // Chỉ role 1,2,3,4 mới vào admin
         if (in_array($user['ID_Role'], [1, 2, 3, 4])) {
             $redirect = 'admin/index.php';

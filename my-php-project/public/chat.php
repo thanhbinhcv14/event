@@ -1,6 +1,21 @@
 <?php
 session_start();
 require_once __DIR__ . '/../src/auth/auth.php';
+
+// Check if user is logged in
+if (!isLoggedIn()) {
+    header('Location: login.php');
+    exit;
+}
+
+// Get user role
+$userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? 0;
+
+// Allow admin (1), event manager (3), and customers (5) to use chat
+if (!in_array($userRole, [1, 3, 5])) {
+    echo '<script>alert("Bạn không có quyền sử dụng chat với nhân viên. Chỉ quản trị viên, quản lý sự kiện và khách hàng mới có thể sử dụng tính năng này."); window.location.href = "index.php";</script>';
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -63,8 +78,7 @@ require_once __DIR__ . '/../src/auth/auth.php';
         .chat-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
             color: white;
-            padding: 2rem;
-            text-align: center;
+            padding: 1.5rem 2rem;
             position: relative;
             overflow: hidden;
         }
@@ -85,27 +99,70 @@ require_once __DIR__ . '/../src/auth/auth.php';
             50% { transform: rotate(180deg) scale(1.1); }
         }
         
-        .chat-header h1 {
+        .header-icon {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .header-icon i {
+            font-size: 1.5rem;
+            color: white;
+        }
+        
+        .header-content h1 {
             margin: 0;
-            font-size: 2.5rem;
-            font-weight: 800;
+            font-size: 2rem;
+            font-weight: 700;
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
             position: relative;
             z-index: 1;
-            animation: titleGlow 3s ease-in-out infinite alternate;
         }
         
-        @keyframes titleGlow {
-            0% { text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
-            100% { text-shadow: 0 2px 20px rgba(255, 255, 255, 0.5); }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
         }
         
-        .chat-header p {
-            margin: 1rem 0 0 0;
-            opacity: 0.95;
-            font-size: 1.1rem;
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            opacity: 0.9;
             position: relative;
             z-index: 1;
+        }
+        
+        .btn-home {
+            width: 45px;
+            height: 45px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .btn-home:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+            color: white;
         }
         
         .role-badge {
@@ -138,6 +195,12 @@ require_once __DIR__ . '/../src/auth/auth.php';
             box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
         }
         
+        .role-admin {
+            background: linear-gradient(135deg, #dc3545, #c82333, #bd2130);
+            color: white;
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+        }
+        
         .chat-content {
             display: flex;
             height: 650px;
@@ -160,23 +223,80 @@ require_once __DIR__ . '/../src/auth/auth.php';
         
         .chat-sidebar {
             width: 320px;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
             border-right: 1px solid rgba(222, 226, 230, 0.3);
-            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
             position: relative;
             z-index: 1;
         }
         
-        .chat-sidebar::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%);
-            pointer-events: none;
+        .sidebar-header {
+            padding: 1.5rem 1.5rem 1rem 1.5rem;
+            border-bottom: 1px solid rgba(222, 226, 230, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.8);
+        }
+        
+        .sidebar-header h6 {
+            margin: 0;
+            font-weight: 600;
+            color: #495057;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-new-chat {
+            width: 35px;
+            height: 35px;
+            border: none;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .btn-new-chat:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+        
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         
         .chat-main {
@@ -419,52 +539,195 @@ require_once __DIR__ . '/../src/auth/auth.php';
             display: block;
         }
         
-        .no-messages {
-            text-align: center;
-            color: #6c757d;
-            padding: 2rem;
-        }
-        
-        .connection-status {
-            padding: 0.75rem 1.5rem;
-            text-align: center;
-            font-size: 0.95rem;
-            font-weight: 600;
-            border-radius: 0 0 15px 15px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .connection-status::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            animation: statusShine 3s ease-in-out infinite;
+            text-align: center;
+            padding: 3rem 2rem;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
         }
         
-        @keyframes statusShine {
-            0% { left: -100%; }
-            50% { left: 100%; }
-            100% { left: 100%; }
+        .welcome-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
         }
         
-        .connection-status.connected {
-            background: linear-gradient(135deg, #d4edda, #c3e6cb);
-            color: #155724;
-            box-shadow: 0 2px 10px rgba(21, 87, 36, 0.2);
+        .welcome-icon i {
+            font-size: 2rem;
+            color: white;
         }
         
-        .connection-status.disconnected {
-            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
-            color: #721c24;
-            box-shadow: 0 2px 10px rgba(114, 28, 36, 0.2);
+        .welcome-screen h4 {
+            color: #495057;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+        
+        .welcome-screen p {
+            color: #6c757d;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+        
+        .welcome-actions {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .welcome-actions .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .welcome-actions .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .welcome-info {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .info-item i {
+            color: #667eea;
+        }
+        
+        /* Online status styles */
+        .manager-card.border-success {
+            border-left: 4px solid #28a745 !important;
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.05) 0%, rgba(40, 167, 69, 0.02) 100%);
+        }
+        
+        .manager-card.border-secondary {
+            border-left: 4px solid #6c757d !important;
+            background: linear-gradient(135deg, rgba(108, 117, 125, 0.05) 0%, rgba(108, 117, 125, 0.02) 100%);
+        }
+        
+        .manager-card.border-danger {
+            border-left: 4px solid #dc3545 !important;
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.05) 0%, rgba(220, 53, 69, 0.02) 100%);
+        }
+        
+        .badge.bg-success {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        /* Offline button styles */
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            border: none;
+            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #c82333, #bd2130);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+        }
+        
+        .btn-danger:disabled {
+            background: #6c757d;
+            box-shadow: none;
+            transform: none;
+        }
+        
+        /* Offline status indicator */
+        .status-offline {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            animation: offlinePulse 3s infinite;
+        }
+        
+        @keyframes offlinePulse {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 0.5; }
+        }
+        
+        .notification-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        
+        .user-info {
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .user-info span {
+            position: relative;
+            z-index: 1;
         }
         
         @media (max-width: 768px) {
+            .chat-container {
+                margin: 1rem;
+                border-radius: 15px;
+            }
+            
+            .chat-header {
+                padding: 1rem;
+            }
+            
+            .header-content h1 {
+                font-size: 1.5rem;
+            }
+            
+            .header-icon {
+                width: 45px;
+                height: 45px;
+                margin-right: 0.75rem;
+            }
+            
+            .header-icon i {
+                font-size: 1.2rem;
+            }
+            
+            .btn-home {
+                width: 40px;
+                height: 40px;
+            }
+            
             .chat-content {
                 flex-direction: column;
                 height: auto;
@@ -473,6 +736,25 @@ require_once __DIR__ . '/../src/auth/auth.php';
             .chat-sidebar {
                 width: 100%;
                 height: 200px;
+            }
+            
+            .sidebar-header {
+                padding: 1rem;
+            }
+            
+            .welcome-actions {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            
+            .welcome-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .welcome-info {
+                flex-direction: column;
+                gap: 1rem;
             }
             
             .chat-main {
@@ -487,43 +769,44 @@ require_once __DIR__ . '/../src/auth/auth.php';
             <!-- Header -->
             <div class="chat-header">
                 <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h1><i class="fas fa-comments"></i> Chat Hỗ trợ</h1>
-                        <p>Liên hệ với đội ngũ hỗ trợ của chúng tôi</p>
+                    <div class="d-flex align-items-center">
+                        <div class="header-icon">
+                            <i class="fas fa-comments"></i>
+                        </div>
+                        <div class="header-content">
+                            <h1>Chat Hỗ trợ</h1>
                         <div class="user-info" id="userInfo" style="display: none;">
-                            <small class="text-muted">
-                                <i class="fas fa-user"></i> 
-                                <span id="userName">Đang tải...</span> | 
-                                <span id="userEmail">Đang tải...</span>
+                                <span id="userName">Đang tải...</span>
                                 <span id="userRole" class="role-badge"></span>
-                            </small>
                         </div>
                     </div>
-                    <div>
-                        <a href="index.php" class="btn btn-light">
-                            <i class="fas fa-home"></i> Trang chủ
+                    </div>
+                    <div class="header-actions">
+                        <div class="connection-status" id="connectionStatus">
+                            <i class="fas fa-spinner fa-spin"></i> Đang kết nối...
+                        </div>
+                        <a href="index.php" class="btn-home">
+                            <i class="fas fa-home"></i>
                         </a>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Connection Status -->
-            <div class="connection-status" id="connectionStatus">
-                <i class="fas fa-spinner fa-spin"></i> Đang kết nối...
             </div>
             
             <!-- Chat Content -->
             <div class="chat-content">
                 <!-- Sidebar -->
                 <div class="chat-sidebar">
-                    <div class="p-3">
-                        <h6 class="mb-3"><i class="fas fa-users"></i> Cuộc trò chuyện</h6>
+                    <div class="sidebar-header">
+                        <h6><i class="fas fa-comments"></i> Cuộc trò chuyện</h6>
+                        <button class="btn-new-chat" id="newChatBtn" title="Tạo cuộc trò chuyện mới">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="sidebar-content">
                         <div id="conversationsList">
-                            <div class="text-center">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                                <p class="mt-2">Đang tải...</p>
+                            <div class="loading-state">
+                                <div class="spinner"></div>
+                                <p>Đang tải cuộc trò chuyện...</p>
                             </div>
                         </div>
                     </div>
@@ -533,10 +816,29 @@ require_once __DIR__ . '/../src/auth/auth.php';
                 <div class="chat-main">
                     <!-- Messages -->
                     <div class="chat-messages" id="chatMessages">
-                        <div class="no-messages">
-                            <i class="fas fa-comments fa-3x text-muted mb-3"></i>
-                            <h5>Chào mừng đến với Chat Hỗ trợ!</h5>
-                            <p>Chọn một cuộc trò chuyện để bắt đầu hoặc tạo cuộc trò chuyện mới.</p>
+                        <div class="welcome-screen">
+                            <div class="welcome-icon">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <h4>Chào mừng đến với Chat Hỗ trợ!</h4>
+                            <p>Kết nối trực tiếp với đội ngũ hỗ trợ chuyên nghiệp của chúng tôi</p>
+                            <div class="welcome-actions">
+                            <div class="welcome-info">
+                                <div class="info-item">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <span>Bảo mật cao</span>
+                                </div>
+                                <div class="info-item">
+                                    <i class="fas fa-clock"></i>
+                                    <span>Phản hồi 24/7</span>
+                                </div>
+                                <div class="info-item">
+                                    <i class="fas fa-users"></i>
+                                    <span>Đội ngũ chuyên nghiệp</span>
+                                </div>
+                            </div>
+                            </div>
+                            
                         </div>
                     </div>
                     
@@ -557,6 +859,52 @@ require_once __DIR__ . '/../src/auth/auth.php';
                             </button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manager Selection Modal -->
+    <div class="modal fade" id="managerSelectionModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-user-tie"></i> Chọn Quản lý Sự kiện
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Lọc theo chuyên môn:</h6>
+                            <select class="form-select mb-3" id="specializationFilter">
+                                <option value="">Tất cả chuyên môn</option>
+                                <option value="wedding">Đám cưới</option>
+                                <option value="corporate">Sự kiện doanh nghiệp</option>
+                                <option value="birthday">Tiệc sinh nhật</option>
+                                <option value="conference">Hội nghị</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Lọc theo trạng thái:</h6>
+                            <select class="form-select mb-3" id="statusFilter">
+                                <option value="">Tất cả trạng thái</option>
+                                <option value="online">Đang online</option>
+                                <option value="busy">Bận</option>
+                                <option value="available">Có thể hỗ trợ</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="managersList">
+                        <!-- Managers will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="createAutoConversation()">
+                        <i class="fas fa-magic"></i> Tự động phân bổ
+                    </button>
                 </div>
             </div>
         </div>
@@ -587,198 +935,251 @@ require_once __DIR__ . '/../src/auth/auth.php';
         document.head.appendChild(socketScript);
     </script>
     <script>
-        let socket;
+        let socket = null;
         let currentConversationId = null;
+        let currentUserId = <?php 
+            if (isset($_SESSION['user']['ID_User'])) {
+                echo $_SESSION['user']['ID_User'];
+            } elseif (isset($_SESSION['user']['id'])) {
+                echo $_SESSION['user']['id'];
+            } else {
+                echo 'null';
+            }
+        ?>;
+        let currentUserName = '<?php echo addslashes($_SESSION['user']['HoTen'] ?? $_SESSION['user']['name'] ?? 'Người dùng'); ?>';
+        let currentUserRole = <?php echo $userRole; ?>;
         let conversations = [];
         let isConnected = false;
+        let typingTimeout;
         
-        // Initialize chat
-        $(document).ready(function() {
-            initializeSocket();
-            loadUserInfo();
+        // ✅ Initialize chat
+        $(document).ready(() => {
+            initSocket();
+            setUserOnline(); // Set user online
             loadConversations();
-            setupEventHandlers();
+            setupChatEvents();
+            showUserInfo();
+            startAutoRefresh();
+            
+            // Set user offline when page is closed
+            $(window).on('beforeunload', function() {
+                setUserOffline();
+            });
         });
         
-        // Load user information
-        function loadUserInfo() {
-            // Use session data directly
+        // ✅ Hiển thị thông tin user
+        function showUserInfo() {
             const userData = <?php echo json_encode($_SESSION['user'] ?? []); ?>;
-            
-            console.log('User data:', userData);
             
             if (userData && Object.keys(userData).length > 0) {
                 $('#userName').text(userData.HoTen || userData.Email || 'Người dùng');
-                $('#userEmail').text(userData.Email || '');
                 
                 // Display role badge
                 const role = userData.ID_Role || userData.role;
                 const roleNames = {
                     1: 'Quản trị viên',
-                    2: 'Quản lý tổ chức',
+                    2: 'Quản lý tổ chức', 
                     3: 'Quản lý sự kiện',
                     4: 'Nhân viên',
                     5: 'Khách hàng'
                 };
                 
-                if (role) {
+                if (role && [1, 3, 5].includes(parseInt(role))) {
                     const roleName = roleNames[role] || 'Người dùng';
-                    const roleClass = role == 5 ? 'role-customer' : 'role-event-manager';
+                    let roleClass = '';
+                    if (role == 1) roleClass = 'role-admin';
+                    else if (role == 3) roleClass = 'role-event-manager';
+                    else if (role == 5) roleClass = 'role-customer';
+                    
                     $('#userRole').text(roleName).addClass(roleClass);
                 }
                 
                 $('#userInfo').show();
             } else {
-                console.error('No user session data');
                 $('#userName').text('Người dùng');
-                $('#userEmail').text('Đang tải...');
                 $('#userInfo').show();
-                
-                // Enable input even without user data
-                enableInput();
             }
         }
         
-        // Initialize Socket.IO connection
-        function initializeSocket() {
+        // ✅ Kết nối Socket.IO
+        function initSocket() {
             // Check if Socket.IO is available
             if (typeof io === 'undefined') {
                 console.warn('Socket.IO not loaded, chat will work without real-time features');
                 isConnected = false;
                 updateConnectionStatus('disconnected', 'Chế độ offline - Không có kết nối real-time');
-                
-                // Enable input for offline mode
-                enableInput();
                 return;
             }
             
-            try {
-                socket = io('http://localhost:3000', {
-                    timeout: 3000,
-                    reconnection: false, // Disable reconnection to avoid infinite loops
-                    forceNew: true
-                });
-                
-                socket.on('connect', function() {
-                    console.log('Connected to server');
+        socket = io('http://localhost:3000', {
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 5
+        });
+
+        if (socket && typeof socket.on === 'function') {
+            socket.on('connect', () => {
                     isConnected = true;
-                    updateConnectionStatus('connected', 'Đã kết nối');
-                    
-                    // Join user room
-                    socket.emit('join_user_room', {
-                        userId: getCurrentUserId()
-                    });
+                updateConnectionStatus('connected', 'Đã kết nối realtime');
+                socket.emit('authenticate', {
+                    userId: currentUserId,
+                    userRole: currentUserRole,
+                    userName: currentUserName
                 });
-                
-                socket.on('disconnect', function() {
-                    console.log('Disconnected from server');
+                if (currentConversationId) socket.emit('join_conversation', { conversation_id: currentConversationId });
+            });
+
+            socket.on('disconnect', () => {
                     isConnected = false;
-                    updateConnectionStatus('disconnected', 'Mất kết nối');
-                });
-                
-                socket.on('connect_error', function(error) {
-                    console.error('Connection error:', error);
-                    isConnected = false;
-                    updateConnectionStatus('disconnected', 'Lỗi kết nối - Chế độ offline');
-                });
-                
-                // Set timeout to show offline mode if connection fails
-                setTimeout(function() {
-                    if (!isConnected) {
-                        updateConnectionStatus('disconnected', 'Lỗi kết nối - Chế độ offline');
-                    }
-                }, 5000);
-                
-            } catch (error) {
-                console.error('Socket initialization error:', error);
-                isConnected = false;
-                updateConnectionStatus('disconnected', 'Lỗi khởi tạo - Chế độ offline');
-            }
+                updateConnectionStatus('disconnected', 'Mất kết nối realtime');
+            });
+
+            socket.on('reconnect', () => {
+                isConnected = true;
+                updateConnectionStatus('connected', 'Kết nối lại thành công');
+                socket.emit('authenticate', { userId: currentUserId, userRole: currentUserRole, userName: currentUserName });
+                if (currentConversationId) socket.emit('join_conversation', { conversation_id: currentConversationId });
+            });
             
-            socket.on('new_message', function(data) {
+            // 🟢 Nhận tin nhắn mới realtime
+            socket.on('new_message', data => {
+                console.log('Received new message:', data);
                 if (data.conversation_id === currentConversationId) {
                     addMessageToChat(data, false);
-                }
-                updateConversationPreview(data.conversation_id, data.message);
-            });
-            
-            socket.on('typing', function(data) {
-                if (data.conversation_id === currentConversationId) {
-                    showTypingIndicator(data.user_name);
+                    scrollToBottom();
+                } else {
+                    loadConversations(); // cập nhật preview
                 }
             });
-            
-            socket.on('stop_typing', function(data) {
+
+            // 🟢 Hiển thị "đang nhập..."
+            socket.on('typing', data => {
+                console.log('Received typing indicator:', data);
+                if (data.conversation_id === currentConversationId && data.user_id !== currentUserId) {
+                    $('#typingIndicator').html(`<i class="fas fa-circle fa-xs"></i><i class="fas fa-circle fa-xs"></i><i class="fas fa-circle fa-xs"></i>
+                        <span class="ms-2">${data.user_name} đang nhập...</span>`).fadeIn(150);
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(() => $('#typingIndicator').fadeOut(150), 2000);
+                }
+            });
+
+            // 🟢 Ẩn "đang nhập..."
+            socket.on('stop_typing', data => {
+                console.log('Received stop typing:', data);
+                if (data.conversation_id === currentConversationId && data.user_id !== currentUserId) {
+                    $('#typingIndicator').fadeOut(150);
+                }
+            });
+
+            // Handle broadcast messages
+            socket.on('broadcast_message', data => {
+                console.log('Received broadcast message:', data);
+                if (data.conversation_id === currentConversationId && data.userId !== currentUserId) {
+                    addMessageToChat(data.message, false);
+                    scrollToBottom();
+                }
+            });
+
+            // Handle message read status
+            socket.on('message_read', data => {
+                console.log('Message read status:', data);
                 if (data.conversation_id === currentConversationId) {
-                    hideTypingIndicator();
+                    updateMessageReadStatus(data.message_id);
+                }
+            });
+        } else {
+            console.warn('Socket not available, using fallback mode');
+            isConnected = false;
+            updateConnectionStatus('disconnected', 'Chế độ offline - Socket không khả dụng');
+        }
+        }
+        
+        // ✅ Set user online
+        function setUserOnline() {
+            $.ajax({
+                url: '../src/controllers/chat-controller.php?action=set_user_online',
+                type: 'POST',
+                dataType: 'json',
+                success: function(data) {
+                    if (data.success) {
+                        console.log('User set online successfully');
+                    } else {
+                        console.error('Failed to set user online:', data.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error setting user online:', error);
                 }
             });
         }
         
-        // Load conversations
+        // ✅ Set user offline
+        function setUserOffline() {
+            $.ajax({
+                url: '../src/controllers/chat-controller.php?action=set_user_offline',
+                type: 'POST',
+                dataType: 'json',
+                success: function(data) {
+                    if (data.success) {
+                        console.log('User set offline successfully');
+                    } else {
+                        console.error('Failed to set user offline:', data.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error setting user offline:', error);
+                }
+            });
+        }
+        
+        // ✅ Hiển thị danh sách hội thoại
         function loadConversations() {
-            console.log('Loading conversations...');
-            $.get('src/controllers/chat.php?action=get_conversations', function(data) {
-                console.log('Conversations response:', data);
-                if (data.success) {
-                    conversations = data.conversations || [];
-                    console.log('Conversations loaded:', conversations);
-                    displayConversations();
-                } else {
-                    console.error('Failed to load conversations:', data.error);
-                    $('#conversationsList').html(`
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            Không thể tải danh sách cuộc trò chuyện: ${data.error || 'Unknown error'}
+            $.getJSON('../src/controllers/chat-controller.php?action=get_conversations', res => {
+                if (!res.success) return;
+                const list = res.conversations;
+                let html = '';
+                list.forEach(c => {
+                    const time = new Date(c.updated_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+                    html += `
+                    <div class="conversation-item" data-id="${c.id}" onclick="selectConversation(${c.id})">
+                        <div class="conversation-user">
+                            <span><span class="status-indicator ${c.is_online ? 'status-online' : 'status-offline'}"></span>${c.other_user_name}</span>
+                            ${c.unread_count>0?`<span class="conversation-badge">${c.unread_count}</span>`:''}
                         </div>
-                        <div class="text-center mt-3">
-                            <button class="btn btn-primary btn-sm" onclick="createNewConversation()">
-                                <i class="fas fa-plus"></i> Tạo cuộc trò chuyện mới
-                            </button>
-                        </div>
-                    `);
-                }
-            }, 'json').fail(function(xhr, status, error) {
-                console.error('AJAX Error:', status, error);
-                console.error('Response:', xhr.responseText);
-                
-                // Check if response is HTML (likely an error page)
-                if (xhr.responseText && xhr.responseText.includes('<')) {
+                        <div class="conversation-preview">${c.last_message||'Chưa có tin nhắn'}</div>
+                        <div class="conversation-time">${time}</div>
+                    </div>`;
+                });
+                $('#conversationsList').html(html||'<p class="text-center text-muted">Chưa có cuộc trò chuyện</p>');
+            });
+        }
+        
+        // Show conversation error
+        function showConversationError(errorMessage) {
                     $('#conversationsList').html(`
                         <div class="alert alert-danger">
                             <i class="fas fa-exclamation-circle"></i>
-                            Lỗi server: Phản hồi không hợp lệ từ server
+                    ${errorMessage}
                         </div>
                         <div class="text-center mt-3">
                             <button class="btn btn-primary btn-sm" onclick="createNewConversation()">
                                 <i class="fas fa-plus"></i> Tạo cuộc trò chuyện mới
                             </button>
-                        </div>
-                    `);
-                } else {
-                    $('#conversationsList').html(`
-                        <div class="alert alert-danger">
-                            <i class="fas fa-exclamation-circle"></i>
-                            Lỗi kết nối: ${error}
-                        </div>
-                        <div class="text-center mt-3">
-                            <button class="btn btn-primary btn-sm" onclick="createNewConversation()">
-                                <i class="fas fa-plus"></i> Tạo cuộc trò chuyện mới
+                    <button class="btn btn-outline-secondary btn-sm ms-2" onclick="loadConversations()">
+                        <i class="fas fa-refresh"></i> Thử lại
                             </button>
                         </div>
                     `);
-                }
                 
                 // Enable input for creating new conversation
                 enableInput();
-            });
         }
         
         // Mark messages as read
         function markMessagesAsRead(conversationId) {
             if (!conversationId) return;
             
-            $.post('src/controllers/chat.php?action=mark_as_read', {
+            $.post('../src/controllers/chat-controller.php?action=mark_as_read', {
                 conversation_id: conversationId
             }, function(data) {
                 if (data.success) {
@@ -796,11 +1197,25 @@ require_once __DIR__ . '/../src/auth/auth.php';
                         <p>Chưa có cuộc trò chuyện nào</p>
                         <p class="small text-info mb-3">
                             <i class="fas fa-info-circle"></i> 
-                            Bạn có thể gửi tin nhắn cho quản lý sự kiện. Tin nhắn sẽ được lưu lại và trả lời khi họ online.
+                            Bạn có thể tạo cuộc trò chuyện mới với nhân viên hỗ trợ. Tin nhắn sẽ được lưu lại và trả lời khi họ online.
                         </p>
-                        <button class="btn btn-primary btn-sm" onclick="createNewConversation()">
-                            <i class="fas fa-plus"></i> Tạo cuộc trò chuyện mới
-                        </button>
+                        <div class="conversation-options">
+                            <div class="mb-3">
+                                <h6>Chọn cách liên hệ:</h6>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <button class="btn btn-outline-primary w-100" onclick="createAutoConversation()">
+                                            <i class="fas fa-magic"></i> Tự động phân bổ
+                                        </button>
+                                    </div>
+                                    <div class="col-6">
+                                        <button class="btn btn-outline-success w-100" onclick="showManagerSelection()">
+                                            <i class="fas fa-user-tie"></i> Chọn quản lý
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 `);
                 
@@ -831,20 +1246,18 @@ require_once __DIR__ . '/../src/auth/auth.php';
             $('#conversationsList').html(html);
         }
         
-        // Select conversation
-        function selectConversation(conversationId) {
-            currentConversationId = conversationId;
-            
-            // Update UI
+        // ✅ Khi chọn hội thoại
+        function selectConversation(id) {
+            currentConversationId = id;
             $('.conversation-item').removeClass('active');
-            $(`.conversation-item[data-conversation-id="${conversationId}"]`).addClass('active');
-            
-            // Enable input
-            $('#messageInput').prop('disabled', false);
-            $('#sendButton').prop('disabled', false);
-            
-            // Load messages
-            loadMessages(conversationId);
+            $(`.conversation-item[data-id="${id}"]`).addClass('active');
+            $('#chatInput').show();
+            $('#messageInput,#sendButton').prop('disabled',false);
+            $('#typingIndicator').hide();
+            if (socket && typeof socket.emit === 'function') {
+                socket.emit('join_conversation',{conversation_id:id});
+            }
+            loadMessages(id);
         }
         
         // Enable input when no conversation is selected
@@ -853,38 +1266,32 @@ require_once __DIR__ . '/../src/auth/auth.php';
             $('#sendButton').prop('disabled', false);
         }
         
-        // Load messages for conversation
-        function loadMessages(conversationId) {
-            console.log('loadMessages called with conversationId:', conversationId);
-            
-            $.get(`src/controllers/chat.php?action=get_messages&conversation_id=${conversationId}`, function(data) {
-                console.log('loadMessages response:', data);
-                
-                if (data.success) {
-                    console.log('Messages loaded successfully:', data.messages);
-                    displayMessages(data.messages);
-                    
-                    // Mark messages as read
-                    markMessagesAsRead(conversationId);
-                } else {
-                    console.error('Failed to load messages:', data.error);
+        // ✅ Load tin nhắn
+        function loadMessages(convId){
+            $.getJSON(`../src/controllers/chat-controller.php?action=get_messages&conversation_id=${convId}`, res=>{
+                if(!res.success) return;
+                let html='';
+                res.messages.forEach(m=>{
+                    html+=createMessageHTML(m);
+                });
+                $('#chatMessages').html(html);
+                scrollToBottom();
+            });
+        }
+        
+        // Show message error
+        function showMessageError(errorMessage) {
                     $('#chatMessages').html(`
                         <div class="alert alert-danger">
                             <i class="fas fa-exclamation-circle"></i>
-                            Không thể tải tin nhắn: ${data.error || 'Unknown error'}
+                    ${errorMessage}
                         </div>
-                    `);
-                }
-            }, 'json').fail(function(xhr, status, error) {
-                console.error('AJAX Error loading messages:', status, error);
-                console.error('Response:', xhr.responseText);
-                $('#chatMessages').html(`
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-circle"></i>
-                        Lỗi kết nối: ${error}
+                <div class="text-center mt-3">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="loadMessages(${currentConversationId})">
+                        <i class="fas fa-refresh"></i> Thử lại
+                    </button>
                     </div>
                 `);
-            });
         }
         
         // Display messages
@@ -928,93 +1335,67 @@ require_once __DIR__ . '/../src/auth/auth.php';
             scrollToBottom();
         }
         
-        // Create message HTML
-        function createMessageHTML(message) {
-            // Ensure we have a valid message object
-            if (!message || typeof message !== 'object') {
-                console.error('Invalid message object:', message);
-                return '<div class="message error"><div class="message-content"><div>Invalid message</div></div></div>';
-            }
-            
-            // Get message text safely
-            const messageText = message.MessageText || message.message || message.text || '';
-            
-            // Get timestamp safely
-            const timestamp = message.SentAt || message.created_at || message.timestamp || new Date().toISOString();
-            const time = new Date(timestamp).toLocaleTimeString('vi-VN', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
-            const isSent = message.sender_id == getCurrentUserId();
-            const isRead = message.IsRead == 1;
-            
-            return `
-                <div class="message ${isSent ? 'sent' : 'received'}">
-                    <div class="message-content">
-                        <div>${escapeHtml(messageText)}</div>
-                        <div class="message-time">
-                            ${time}
-                            ${isSent ? (isRead ? ' <i class="fas fa-check-double text-primary"></i>' : ' <i class="fas fa-check text-muted"></i>') : ''}
-                        </div>
-                    </div>
+        // ✅ Tạo HTML tin nhắn
+        function createMessageHTML(m){
+            const isSent=m.sender_id==currentUserId;
+            const time=new Date(m.created_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+            return `<div class="message ${isSent?'sent':'received'}">
+                <div class="message-content">
+                    <div>${escapeHtml(m.message)}</div>
+                    <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
                 </div>
-            `;
+            </div>`;
         }
         
-        // Add message to chat
-        function addMessageToChat(message, isSent) {
-            const messageHTML = createMessageHTML(message);
-            $('#chatMessages .no-messages').remove();
-            $('#chatMessages').append(messageHTML);
-            scrollToBottom();
+        // ✅ Thêm tin nhắn vào khung chat
+        function addMessageToChat(msg,isSent){
+            const html=createMessageHTML(msg);
+            $('#chatMessages').append(html);
         }
         
-        // Setup event handlers
-        function setupEventHandlers() {
-            // Send message
-            $('#sendButton').click(function() {
-                sendMessage();
+        // ✅ Setup chat events
+        function setupChatEvents() {
+            // Welcome screen buttons
+            $('#startAutoChat').click(function() {
+                createConversation('auto');
             });
             
-            $('#messageInput').keypress(function(e) {
-                if (e.which === 13) {
-                    sendMessage();
+            $('#selectManager').click(function() {
+                $('#managerSelectionModal').modal('show');
+            });
+            
+            $('#newChatBtn').click(function() {
+                $('#managerSelectionModal').modal('show');
+            });
+            
+            // ✅ Gửi tin nhắn realtime
+            $('#sendButton').click(sendMessage);
+            $('#messageInput').keypress(e=>{ if(e.which===13) sendMessage(); });
+
+            // ✅ Xử lý typing realtime
+            let typing=false,typingTimer;
+            $('#messageInput').on('input',()=>{
+                if(!currentConversationId) return;
+                if(!typing){
+                    typing=true;
+                    if (socket && typeof socket.emit === 'function') {
+                        socket.emit('typing',{conversation_id:currentConversationId,user_id:currentUserId,user_name:currentUserName});
+                    }
                 }
-            });
-            
-            // Typing indicator
-            let typingTimer;
-            $('#messageInput').on('input', function() {
-                if (currentConversationId && isConnected) {
-                    socket.emit('typing', {
-                        conversation_id: currentConversationId,
-                        user_id: getCurrentUserId()
-                    });
-                    
-                    clearTimeout(typingTimer);
-                    typingTimer = setTimeout(function() {
-                        socket.emit('stop_typing', {
-                            conversation_id: currentConversationId,
-                            user_id: getCurrentUserId()
-                        });
-                    }, 1000);
-                }
+                clearTimeout(typingTimer);
+                typingTimer=setTimeout(()=>{
+                    typing=false;
+                    if (socket && typeof socket.emit === 'function') {
+                        socket.emit('stop_typing',{conversation_id:currentConversationId,user_id:currentUserId});
+                    }
+                },1500);
             });
         }
         
-        // Send message
-        function sendMessage() {
-            const message = $('#messageInput').val().trim();
-            if (!message) {
-                alert('Vui lòng nhập tin nhắn');
-                return;
-            }
-            
-            if (!currentConversationId) {
-                alert('Vui lòng chọn cuộc trò chuyện hoặc tạo cuộc trò chuyện mới');
-                return;
-            }
+        // ✅ Gửi tin nhắn realtime
+        function sendMessage(){
+            const text=$('#messageInput').val().trim();
+            if(!text||!currentConversationId) return;
             
             // Show loading state
             const sendButton = $('#sendButton');
@@ -1022,30 +1403,85 @@ require_once __DIR__ . '/../src/auth/auth.php';
             sendButton.html('<i class="fas fa-spinner fa-spin"></i>');
             sendButton.prop('disabled', true);
             
-            $.post('src/controllers/chat.php?action=send_message', {
-                conversation_id: currentConversationId,
-                message: message
-            }, function(data) {
-                if (data.success) {
-                    $('#messageInput').val('');
-                    addMessageToChat(data.message, true);
-                    
-                    // Refresh conversation list if not connected
-                    if (!isConnected) {
-                        setTimeout(function() {
-                            loadConversations();
-                        }, 1000);
+            $.ajax({
+                url: '../src/controllers/chat-controller.php?action=send_message',
+                method: 'POST',
+                dataType: 'json',
+                timeout: 10000,
+                data: {
+                    conversation_id: currentConversationId,
+                    message: text
+                },
+                success: function(res) {
+                    if (res.success) {
+                        $('#messageInput').val('');
+                        
+                        // Add message immediately for instant feedback
+                        addMessageToChat(res.message, true);
+                        scrollToBottom();
+                        
+                        // Emit real-time events
+                        if (isConnected && socket) {
+                            if (socket && typeof socket.emit === 'function') {
+                                socket.emit('new_message', {
+                                    conversation_id: currentConversationId,
+                                    message: res.message.message || res.message.text,
+                                    user_id: currentUserId,
+                                    user_name: currentUserName
+                                });
+                                
+                                socket.emit('broadcast_message', {
+                                    conversation_id: currentConversationId,
+                                    message: res.message,
+                                    userId: currentUserId,
+                                    timestamp: new Date().toISOString()
+                                });
+                                
+                                socket.emit('stop_typing', {
+                                    conversation_id: currentConversationId,
+                                    user_id: currentUserId
+                                });
+                            }
+                        }
+                        
+                        // Update conversation preview
+                        updateConversationPreview(currentConversationId, res.message.message || res.message.text);
+                        
+                        // Refresh conversation list if not connected
+                        if (!isConnected) {
+                            setTimeout(function() {
+                                loadConversations();
+                            }, 500);
+                        }
+                    } else {
+                        alert('Lỗi khi gửi tin nhắn: ' + res.error);
                     }
-                } else {
-                    alert('Lỗi khi gửi tin nhắn: ' + data.error);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Send message error:', status, error);
+                    console.error('Response:', xhr.responseText);
+                    
+                    let errorMessage = 'Lỗi kết nối server';
+                    
+                    if (xhr.responseText && xhr.responseText.includes('<!doctype')) {
+                        errorMessage = 'Server trả về trang lỗi thay vì JSON';
+                    } else if (status === 'timeout') {
+                        errorMessage = 'Timeout - Server không phản hồi';
+                    } else if (status === 'parsererror') {
+                        errorMessage = 'Lỗi phân tích JSON từ server';
+                    } else if (xhr.status === 500) {
+                        errorMessage = 'Lỗi server nội bộ (500)';
+                    } else if (xhr.status === 404) {
+                        errorMessage = 'Không tìm thấy file controller (404)';
+                    }
+                    
+                    alert('Lỗi gửi tin nhắn: ' + errorMessage);
+                },
+                complete: function() {
+                    // Restore button state
+                    sendButton.html(originalText);
+                    sendButton.prop('disabled', false);
                 }
-            }, 'json').fail(function(xhr, status, error) {
-                console.error('Send message error:', status, error);
-                alert('Lỗi kết nối server. Vui lòng thử lại.');
-            }).always(function() {
-                // Restore button state
-                sendButton.html(originalText);
-                sendButton.prop('disabled', false);
             });
         }
         
@@ -1059,9 +1495,15 @@ require_once __DIR__ . '/../src/auth/auth.php';
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo...';
             button.disabled = true;
             
-            $.post('src/controllers/chat.php?action=create_conversation', {
+            $.ajax({
+                url: '../src/controllers/chat-controller.php?action=create_conversation',
+                method: 'POST',
+                dataType: 'json',
+                timeout: 10000,
+                data: {
                 other_user_id: 'auto' // Let server assign staff
-            }, function(data) {
+                },
+                success: function(data) {
                 if (data.success) {
                     console.log('Conversation created:', data.conversation_id);
                     currentConversationId = data.conversation_id;
@@ -1075,21 +1517,40 @@ require_once __DIR__ . '/../src/auth/auth.php';
                 } else {
                     alert('Lỗi khi tạo cuộc trò chuyện: ' + data.error);
                 }
-            }, 'json').fail(function(xhr, status, error) {
+                },
+                error: function(xhr, status, error) {
                 console.error('Create conversation error:', status, error);
-                alert('Lỗi kết nối server. Vui lòng thử lại.');
-            }).always(function() {
+                    console.error('Response:', xhr.responseText);
+                    
+                    let errorMessage = 'Lỗi kết nối server';
+                    
+                    if (xhr.responseText && xhr.responseText.includes('<!doctype')) {
+                        errorMessage = 'Server trả về trang lỗi thay vì JSON';
+                    } else if (status === 'timeout') {
+                        errorMessage = 'Timeout - Server không phản hồi';
+                    } else if (status === 'parsererror') {
+                        errorMessage = 'Lỗi phân tích JSON từ server';
+                    } else if (xhr.status === 500) {
+                        errorMessage = 'Lỗi server nội bộ (500)';
+                    } else if (xhr.status === 404) {
+                        errorMessage = 'Không tìm thấy file controller (404)';
+                    }
+                    
+                    alert('Lỗi tạo cuộc trò chuyện: ' + errorMessage);
+                },
+                complete: function() {
                 // Restore button state
                 button.innerHTML = originalText;
                 button.disabled = false;
+                }
             });
         }
         
-        // Update connection status
-        function updateConnectionStatus(status, message) {
-            const statusEl = $('#connectionStatus');
-            statusEl.removeClass('connected disconnected').addClass(status);
-            statusEl.html(`<i class="fas fa-${status === 'connected' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`);
+        // ✅ Cập nhật trạng thái kết nối
+        function updateConnectionStatus(status, text) {
+            const el = $('#connectionStatus');
+            el.removeClass('connected disconnected').addClass(status);
+            el.html(`<i class="fas fa-${status === 'connected' ? 'check' : 'exclamation'}-circle"></i> ${text}`);
         }
         
         // Show typing indicator
@@ -1107,6 +1568,340 @@ require_once __DIR__ . '/../src/auth/auth.php';
             $('#typingIndicator').removeClass('show');
         }
         
+        // Update message read status
+        function updateMessageReadStatus(messageId) {
+            $(`.message[data-message-id="${messageId}"] .message-time`).html(function() {
+                return $(this).html().replace('<i class="fas fa-check text-muted"></i>', '<i class="fas fa-check-double text-primary"></i>');
+            });
+        }
+        
+        // ✅ Tự reload hội thoại mỗi 30s khi offline
+        function startAutoRefresh(){
+            setInterval(()=>{
+                if(!isConnected) loadConversations();
+            },30000);
+        }
+        
+        // Real-time message update handler
+        function handleRealTimeMessage(data) {
+            console.log('Handling real-time message:', data);
+            
+            // Add message to current conversation if it matches
+            if (data.conversation_id === currentConversationId) {
+                addMessageToChat(data, false);
+            }
+            
+            // Update conversation preview
+            updateConversationPreview(data.conversation_id, data.message);
+            
+            // Update conversation list
+            loadConversations();
+        }
+        
+        // Enhanced message loading with real-time updates
+        function loadMessagesWithRealTime(conversationId) {
+            console.log('Loading messages with real-time updates for:', conversationId);
+            
+            // Load messages immediately
+            loadMessages(conversationId);
+            
+            // Set up real-time listeners for this conversation
+            if (isConnected && socket && typeof socket.emit === 'function') {
+                socket.emit('join_conversation', { conversation_id: conversationId });
+                
+                // Listen for new messages in this conversation
+                if (socket && typeof socket.on === 'function') {
+                    socket.on('new_message', function(data) {
+                        if (data.conversation_id === conversationId) {
+                            handleRealTimeMessage(data);
+                        }
+                    });
+                }
+            }
+        }
+        
+        // Broadcast message instantly to all connected users
+        function broadcastMessageInstantly(messageData) {
+            if (isConnected && socket) {
+                socket.emit('broadcast_message', {
+                    conversation_id: currentConversationId,
+                    message: messageData,
+                    userId: getCurrentUserId(),
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+        
+        // Handle instant message broadcasting
+        if (socket && typeof socket.on === 'function') {
+            socket.on('broadcast_message', function(data) {
+                console.log('Received broadcast message:', data);
+                if (data.conversation_id === currentConversationId && data.userId !== currentUserId) {
+                    addMessageToChat(data.message, false);
+                }
+                updateConversationPreview(data.conversation_id, data.message.message || data.message.text);
+            });
+        }
+        
+        // Manager selection functions
+        function showManagerSelection() {
+            const modal = new bootstrap.Modal(document.getElementById('managerSelectionModal'));
+            modal.show();
+            loadAvailableManagers();
+        }
+        
+        function loadAvailableManagers() {
+            $.get('../src/controllers/chat-controller.php?action=get_available_managers', function(data) {
+                if (data.success) {
+                    // Ưu tiên hiển thị nhân viên online trước
+                    const onlineManagers = data.managers.filter(manager => manager.is_online);
+                    const offlineManagers = data.managers.filter(manager => !manager.is_online);
+                    const sortedManagers = [...onlineManagers, ...offlineManagers];
+                    
+                    if (sortedManagers.length > 0) {
+                        displayManagers(sortedManagers);
+                    } else {
+                        // Nếu không có manager nào, fallback về admin
+                        loadAdminFallback();
+                    }
+                } else {
+                    // Fallback về admin nếu không load được managers
+                    loadAdminFallback();
+                }
+            }, 'json').fail(function() {
+                // Fallback về admin nếu có lỗi
+                loadAdminFallback();
+            });
+        }
+        
+        function loadAdminFallback() {
+            $('#managersList').html(`
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Không có nhân viên nào online</strong><br>
+                    Bạn sẽ được chuyển đến <strong>Quản trị viên</strong> để được hỗ trợ.
+                </div>
+                <div class="text-center mt-3">
+                    <button class="btn btn-primary" onclick="createConversationWithAdmin()">
+                        <i class="fas fa-user-shield"></i> Chat với Quản trị viên
+                    </button>
+                </div>
+            `);
+        }
+        
+        function createConversationWithAdmin() {
+            // Tạo conversation với admin (role 1)
+            $.post('../src/controllers/chat-controller.php?action=create_conversation', {
+                other_user_id: 'admin' // Server sẽ tự động tìm admin
+            }, function(data) {
+                if (data.success) {
+                    currentConversationId = data.conversation_id;
+                    $('#messageInput').prop('disabled', false);
+                    $('#sendButton').prop('disabled', false);
+                    loadConversations();
+                    loadMessages(data.conversation_id);
+                    
+                    // Đóng modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('managerSelectionModal'));
+                    if (modal) modal.hide();
+                } else {
+                    alert('Lỗi khi tạo cuộc trò chuyện với quản trị viên: ' + data.error);
+                }
+            }, 'json');
+        }
+        
+        function displayManagers(managers) {
+            let html = '';
+            
+            // Hiển thị thống kê online
+            const onlineCount = managers.filter(m => m.is_online).length;
+            const offlineCount = managers.filter(m => !m.is_online).length;
+            const totalCount = managers.length;
+            
+            html += `
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-users"></i>
+                    <strong>${onlineCount}/${totalCount}</strong> nhân viên đang online
+                    ${offlineCount > 0 ? `<br><small class="text-muted"><i class="fas fa-user-slash text-danger"></i> ${offlineCount} nhân viên offline</small>` : ''}
+                </div>
+            `;
+            
+            managers.forEach(manager => {
+                const statusClass = manager.is_online ? 'success' : 'danger';
+                const statusText = manager.is_online ? 'Đang online' : 'Offline';
+                const statusIcon = manager.is_online ? 'fa-circle' : 'fa-circle';
+                const cardClass = manager.is_online ? 'border-success' : 'border-danger';
+                
+                html += `
+                    <div class="card mb-3 manager-card ${cardClass}" data-manager-id="${manager.id}">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <h6 class="card-title mb-1">
+                                        <i class="fas fa-user-tie text-primary"></i>
+                                        ${manager.name}
+                                        ${manager.is_online ? 
+                                            '<span class="badge bg-success ms-2">ONLINE</span>' : 
+                                            '<span class="badge bg-danger ms-2">OFFLINE</span>'
+                                        }
+                                    </h6>
+                                    <p class="card-text text-muted mb-1">
+                                        <i class="fas fa-envelope"></i> ${manager.email}
+                                    </p>
+                                    <p class="card-text text-muted mb-1">
+                                        <i class="fas fa-briefcase"></i> ${manager.specialization || 'Tổng quát'}
+                                    </p>
+                                    <span class="badge bg-${statusClass}">
+                                        <i class="fas ${statusIcon}"></i> ${statusText}
+                                    </span>
+                                    ${!manager.is_online ? 
+                                        '<br><small class="text-muted"><i class="fas fa-info-circle"></i> Tin nhắn sẽ được trả lời khi họ online</small>' : 
+                                        ''
+                                    }
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <button class="btn ${manager.is_online ? 'btn-success' : 'btn-danger'} btn-sm" 
+                                            onclick="selectManager(${manager.id})"
+                                            ${!manager.is_online ? 'title="Nhân viên này đang offline - Tin nhắn sẽ được trả lời khi họ online"' : ''}>
+                                        <i class="fas ${manager.is_online ? 'fa-comments' : 'fa-user-slash'}"></i> 
+                                        ${manager.is_online ? 'Chat ngay' : 'Offline'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Thêm nút fallback về admin nếu không có ai online
+            if (onlineCount === 0) {
+                html += `
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Không có nhân viên nào online</strong><br>
+                        <small class="text-muted">Tất cả nhân viên đang offline. Bạn có thể:</small>
+                        <ul class="mb-2 mt-2">
+                            <li>Chat với nhân viên offline (tin nhắn sẽ được trả lời khi họ online)</li>
+                            <li>Chuyển đến quản trị viên để được hỗ trợ ngay lập tức</li>
+                        </ul>
+                    </div>
+                    <div class="text-center">
+                        <button class="btn btn-primary" onclick="createConversationWithAdmin()">
+                            <i class="fas fa-user-shield"></i> Chat với Quản trị viên
+                        </button>
+                    </div>
+                `;
+            }
+            
+            $('#managersList').html(html);
+        }
+        
+        function selectManager(managerId) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('managerSelectionModal'));
+            modal.hide();
+            
+            // Kiểm tra trạng thái online của manager
+            const managerCard = $(`.manager-card[data-manager-id="${managerId}"]`);
+            const isOnline = managerCard.find('.badge.bg-success').length > 0;
+            
+            if (!isOnline) {
+                // Hiển thị thông báo cho nhân viên offline
+                showNotification('Nhân viên này đang offline. Tin nhắn sẽ được trả lời khi họ online.', 'warning');
+            }
+            
+            // Create conversation with selected manager
+            createConversationWithManager(managerId);
+        }
+        
+        function createConversationWithManager(managerId) {
+            $.post('../src/controllers/chat-controller.php?action=create_conversation', {
+                other_user_id: managerId
+            }, function(data) {
+                if (data.success) {
+                    currentConversationId = data.conversation_id;
+                    $('#messageInput').prop('disabled', false);
+                    $('#sendButton').prop('disabled', false);
+                    loadConversations();
+                    loadMessages(data.conversation_id);
+                } else {
+                    alert('Lỗi khi tạo cuộc trò chuyện: ' + data.error);
+                }
+            }, 'json');
+        }
+        
+        function createAutoConversation() {
+            // Close modal if open
+            const modal = bootstrap.Modal.getInstance(document.getElementById('managerSelectionModal'));
+            if (modal) modal.hide();
+            
+            // Tạo conversation tự động với ưu tiên nhân viên online
+            $.post('../src/controllers/chat-controller.php?action=create_conversation', {
+                other_user_id: 'auto_online' // Server sẽ tìm nhân viên online trước
+            }, function(data) {
+                if (data.success) {
+                    currentConversationId = data.conversation_id;
+                    $('#messageInput').prop('disabled', false);
+                    $('#sendButton').prop('disabled', false);
+                    loadConversations();
+                    loadMessages(data.conversation_id);
+                    
+                    // Hiển thị thông báo về người được chọn
+                    if (data.assigned_staff) {
+                        showNotification(`Đã kết nối với ${data.assigned_staff.name} (${data.assigned_staff.role})`, 'success');
+                    }
+                } else {
+                    // Nếu không tìm được nhân viên online, fallback về admin
+                    createConversationWithAdmin();
+                }
+            }, 'json').fail(function() {
+                // Nếu có lỗi, fallback về admin
+                createConversationWithAdmin();
+            });
+        }
+        
+        function showNotification(message, type = 'info') {
+            let alertClass, icon;
+            
+            switch(type) {
+                case 'success':
+                    alertClass = 'alert-success';
+                    icon = 'fa-check-circle';
+                    break;
+                case 'warning':
+                    alertClass = 'alert-warning';
+                    icon = 'fa-exclamation-triangle';
+                    break;
+                case 'error':
+                    alertClass = 'alert-danger';
+                    icon = 'fa-exclamation-circle';
+                    break;
+                default:
+                    alertClass = 'alert-info';
+                    icon = 'fa-info-circle';
+            }
+            
+            const notification = $(`
+                <div class="alert ${alertClass} alert-dismissible fade show notification-alert" role="alert">
+                    <i class="fas ${icon}"></i> ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `);
+            
+            $('body').prepend(notification);
+            
+            // Tự động ẩn sau 5 giây
+            setTimeout(() => {
+                notification.alert('close');
+            }, 5000);
+        }
+        
+        // Filter managers
+        $('#specializationFilter, #statusFilter').on('change', function() {
+            // Implement filtering logic here
+            console.log('Filter changed');
+        });
+        
         // Update conversation preview
         function updateConversationPreview(conversationId, message) {
             const convEl = $(`.conversation-item[data-conversation-id="${conversationId}"]`);
@@ -1119,10 +1914,10 @@ require_once __DIR__ . '/../src/auth/auth.php';
             }
         }
         
-        // Scroll to bottom
-        function scrollToBottom() {
-            const messagesEl = $('#chatMessages');
-            messagesEl.scrollTop(messagesEl[0].scrollHeight);
+        // ✅ Cuộn xuống cuối
+        function scrollToBottom(){
+            const el=$('#chatMessages');
+            el.scrollTop(el[0].scrollHeight);
         }
         
         // Get current user ID
@@ -1139,31 +1934,26 @@ require_once __DIR__ . '/../src/auth/auth.php';
             ?>;
         }
         
-        // Escape HTML
-        function escapeHtml(text) {
-            // Check if text is undefined or null
-            if (text === undefined || text === null) {
+        // ✅ Escape HTML an toàn
+        function escapeHtml(text){
+            if (!text || typeof text !== 'string') {
                 return '';
             }
-            
-            // Convert to string if not already
-            text = String(text);
-            
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+            return text.replace(/[&<>"']/g, function(m) {
+                const map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                return map[m] || m;
+            });
         }
     </script>
     
     <!-- Socket.IO -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    
-    <!-- Chat Widget -->
-    <?php include 'chat-widget.php'; ?>
+
 </body>
 </html>

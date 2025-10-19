@@ -1,10 +1,20 @@
 <?php
-require_once __DIR__ . '/../../config/database.php';
-require_once __DIR__ . '/../auth/auth.php';
+// Set content type to JSON
+header('Content-Type: application/json');
 
 // Start session only if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+// Include required files
+try {
+    require_once __DIR__ . '/../../config/database.php';
+    require_once __DIR__ . '/../auth/auth.php';
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Lỗi tải file: ' . $e->getMessage()]);
+    exit;
 }
 
 // Check if user is logged in
@@ -28,6 +38,9 @@ try {
     $pdo = getDBConnection();
     $userId = getCurrentUserId();
     
+    // Debug logging
+    error_log("Chat controller - Action: $action, UserId: $userId");
+    
     switch ($action) {
         case 'get_conversations':
             getConversations($pdo, $userId);
@@ -49,17 +62,31 @@ try {
             getAvailableStaff($pdo);
             break;
             
+        case 'get_available_managers':
+            getAvailableManagers($pdo);
+            break;
+            
+        case 'search_conversations':
+            searchConversations($pdo, $userId);
+            break;
+            
+        case 'transfer_chat':
+            transferChat($pdo, $userId);
+            break;
+            
         case 'mark_as_read':
             markAsRead($pdo, $userId);
             break;
             
         default:
-            echo json_encode(['success' => false, 'error' => 'Action không hợp lệ']);
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Action không hợp lệ: ' . $action]);
             break;
     }
     
 } catch (Exception $e) {
     error_log('Chat controller error: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Lỗi server: ' . $e->getMessage()]);
 }
@@ -512,6 +539,126 @@ function markAsRead($pdo, $userId) {
     $stmt->execute([$conversationId, $userId]);
     
     echo json_encode(['success' => true]);
+}
+
+// Get available managers for chat
+function getAvailableManagers($pdo) {
+    $stmt = $pdo->prepare("
+        SELECT u.ID_User as id,
+               COALESCE(nv.HoTen, u.Email) as name,
+               u.Email as email,
+               u.TrangThai,
+               CASE WHEN u.TrangThai = 'Hoạt động' THEN 1 ELSE 0 END as is_online,
+               nv.ChuyenMon as specialization
+        FROM users u
+        LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User
+        WHERE u.ID_Role = 3 AND u.TrangThai = 'Hoạt động'
+        ORDER BY u.TrangThai DESC, COALESCE(nv.HoTen, u.Email) ASC
+    ");
+    $stmt->execute();
+    $managers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    echo json_encode(['success' => true, 'managers' => $managers]);
+}
+
+// Search conversations
+function searchConversations($pdo, $userId) {
+    $query = $_GET['query'] ?? '';
+    
+    if (empty($query)) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu từ khóa tìm kiếm']);
+        return;
+    }
+    
+    $stmt = $pdo->prepare("
+        SELECT 
+            c.id,
+            c.user1_id,
+            c.user2_id,
+            c.updated_at,
+            CASE 
+                WHEN c.user1_id = ? THEN COALESCE(nv2.HoTen, kh2.HoTen, u2.Email)
+                ELSE COALESCE(nv1.HoTen, kh1.HoTen, u1.Email)
+            END as other_user_name,
+            CASE 
+                WHEN c.user1_id = ? THEN u2.ID_User
+                ELSE u1.ID_User
+            END as other_user_id,
+            m.MessageText as last_message,
+            m.SentAt as last_message_time,
+            CASE 
+                WHEN c.user1_id = ? THEN (u2.TrangThai = 'Hoạt động')
+                ELSE (u1.TrangThai = 'Hoạt động')
+            END as is_online
+        FROM conversations c
+        LEFT JOIN users u1 ON c.user1_id = u1.ID_User
+        LEFT JOIN users u2 ON c.user2_id = u2.ID_User
+        LEFT JOIN nhanvieninfo nv1 ON u1.ID_User = nv1.ID_User
+        LEFT JOIN nhanvieninfo nv2 ON u2.ID_User = nv2.ID_User
+        LEFT JOIN khachhanginfo kh1 ON u1.ID_User = kh1.ID_User
+        LEFT JOIN khachhanginfo kh2 ON u2.ID_User = kh2.ID_User
+        LEFT JOIN (
+            SELECT conversation_id, MessageText, SentAt,
+                   ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY SentAt DESC) as rn
+            FROM messages
+        ) m ON c.id = m.conversation_id AND m.rn = 1
+        WHERE (c.user1_id = ? OR c.user2_id = ?)
+        AND (
+            CASE 
+                WHEN c.user1_id = ? THEN COALESCE(nv2.HoTen, kh2.HoTen, u2.Email)
+                ELSE COALESCE(nv1.HoTen, kh1.HoTen, u1.Email)
+            END LIKE ? OR
+            m.MessageText LIKE ?
+        )
+        ORDER BY c.updated_at DESC
+    ");
+    $searchTerm = "%$query%";
+    $stmt->execute([$userId, $userId, $userId, $userId, $userId, $userId, $searchTerm, $searchTerm]);
+    $conversations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    echo json_encode(['success' => true, 'conversations' => $conversations]);
+}
+
+// Transfer chat to another staff member
+function transferChat($pdo, $userId) {
+    $conversationId = $_POST['conversation_id'] ?? '';
+    $transferTo = $_POST['transfer_to'] ?? '';
+    $note = $_POST['note'] ?? '';
+    
+    if (empty($conversationId) || empty($transferTo)) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu thông tin chuyển cuộc trò chuyện']);
+        return;
+    }
+    
+    // Check if user has access to this conversation
+    $stmt = $pdo->prepare("
+        SELECT id FROM conversations 
+        WHERE id = ? AND (user1_id = ? OR user2_id = ?)
+    ");
+    $stmt->execute([$conversationId, $userId, $userId]);
+    
+    if (!$stmt->fetch()) {
+        echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập cuộc trò chuyện này']);
+        return;
+    }
+    
+    // Update conversation with new staff member
+    $stmt = $pdo->prepare("
+        UPDATE conversations 
+        SET user2_id = ?, updated_at = NOW()
+        WHERE id = ?
+    ");
+    $stmt->execute([$transferTo, $conversationId]);
+    
+    // Add transfer notification message
+    $stmt = $pdo->prepare("
+        INSERT INTO messages (conversation_id, sender_id, MessageText, IsRead, SentAt) 
+        VALUES (?, ?, ?, 0, NOW())
+    ");
+    $transferMessage = "Cuộc trò chuyện đã được chuyển cho nhân viên khác. " . ($note ? "Ghi chú: $note" : "");
+    $stmt->execute([$conversationId, $userId, $transferMessage]);
+    
+    echo json_encode(['success' => true, 'message' => 'Đã chuyển cuộc trò chuyện thành công']);
 }
 
 // getCurrentUserId() is already defined in src/auth/auth.php

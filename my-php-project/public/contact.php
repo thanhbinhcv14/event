@@ -447,5 +447,8 @@ require_once __DIR__ . '/../src/auth/auth.php';
             });
         });
     </script>
+    
+    <!-- Chat Widget - AI Assistant -->
+    <?php include 'chat-widget.php'; ?>
 </body>
 </html>

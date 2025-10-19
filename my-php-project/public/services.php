@@ -343,10 +343,34 @@ require_once __DIR__ . '/../src/auth/auth.php';
                 </div>
             </div>
             
-            <!-- Pricing Section -->
+            <!-- Dynamic Pricing Section -->
             <div class="row mt-5">
                 <div class="col-12">
-                    <h2 class="text-center mb-5" style="color: #333; font-weight: 700;">Bảng giá dịch vụ</h2>
+                    <h2 class="text-center mb-5" style="color: #333; font-weight: 700;">Bảng giá dịch vụ (Giá biến động)</h2>
+                    
+                    <!-- Dynamic Pricing Info -->
+                    <div class="alert alert-info mb-4">
+                        <h5><i class="fas fa-info-circle"></i> Giá Biến Động Theo Thời Gian</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Thời gian trong ngày:</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-sun text-warning"></i> Buổi sáng (6:00-12:00): <strong>Giá gốc</strong></li>
+                                    <li><i class="fas fa-cloud-sun text-info"></i> Buổi chiều (12:00-18:00): <strong>+10%</strong></li>
+                                    <li><i class="fas fa-moon text-primary"></i> Buổi tối (18:00-22:00): <strong>+25%</strong></li>
+                                    <li><i class="fas fa-moon text-dark"></i> Ban đêm (22:00-6:00): <strong>+30%</strong></li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Ngày trong tuần:</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-calendar-day text-success"></i> Ngày thường (T2-T6): <strong>Giá gốc</strong></li>
+                                    <li><i class="fas fa-calendar-weekend text-warning"></i> Cuối tuần (T7-CN): <strong>+20%</strong></li>
+                                    <li><i class="fas fa-calendar-check text-danger"></i> Ngày lễ: <strong>+40%</strong></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="col-lg-4 col-md-6 mb-4">
@@ -354,6 +378,9 @@ require_once __DIR__ . '/../src/auth/auth.php';
                         <h3>Gói Cơ bản</h3>
                         <div class="price">2.000.000đ</div>
                         <p>Phù hợp cho sự kiện nhỏ</p>
+                        <div class="alert alert-warning small">
+                            <strong>Lưu ý:</strong> Giá địa điểm có thể tăng 10-40% tùy thời gian
+                        </div>
                         <ul class="service-features mt-3">
                             <li>Tối đa 50 khách</li>
                             <li>Thiết bị cơ bản</li>
@@ -368,6 +395,9 @@ require_once __DIR__ . '/../src/auth/auth.php';
                         <h3>Gói Chuyên nghiệp</h3>
                         <div class="price">5.000.000đ</div>
                         <p>Phù hợp cho sự kiện trung bình</p>
+                        <div class="alert alert-warning small">
+                            <strong>Lưu ý:</strong> Giá địa điểm có thể tăng 10-40% tùy thời gian
+                        </div>
                         <ul class="service-features mt-3">
                             <li>Tối đa 150 khách</li>
                             <li>Thiết bị cao cấp</li>
@@ -382,6 +412,9 @@ require_once __DIR__ . '/../src/auth/auth.php';
                         <h3>Gói Cao cấp</h3>
                         <div class="price">10.000.000đ</div>
                         <p>Phù hợp cho sự kiện lớn</p>
+                        <div class="alert alert-warning small">
+                            <strong>Lưu ý:</strong> Giá địa điểm có thể tăng 10-40% tùy thời gian
+                        </div>
                         <ul class="service-features mt-3">
                             <li>Không giới hạn khách</li>
                             <li>Thiết bị chuyên nghiệp</li>
@@ -390,10 +423,20 @@ require_once __DIR__ . '/../src/auth/auth.php';
                         </ul>
                     </div>
                 </div>
+                
+                <!-- Demo Button -->
+                <div class="col-12 text-center mt-4">
+                    <a href="dynamic-pricing-demo.php" class="btn btn-primary btn-lg">
+                        <i class="fas fa-calculator"></i> Demo Tính Giá Động
+                    </a>
+                </div>
             </div>
         </div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Chat Widget - AI Assistant -->
+    <?php include 'chat-widget.php'; ?>
 </body>
 </html>
