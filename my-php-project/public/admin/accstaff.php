@@ -317,12 +317,15 @@ include 'includes/admin-header.php';
                     url: '../../src/controllers/staffedit.php',
                     type: 'GET',
                     data: function(d) {
-                        d.action = 'list';
+                        d.action = 'get_staff';
                         return $.extend(d, currentFilters);
                     },
                     dataSrc: function(json) {
-                        // Controller trả về array trực tiếp
-                        if (Array.isArray(json)) {
+                        console.log('DataTable response:', json);
+                        // Controller trả về {success: true, staff: [...]}
+                        if (json && json.success && Array.isArray(json.staff)) {
+                            return json.staff;
+                        } else if (Array.isArray(json)) {
                             return json;
                         } else if (json && Array.isArray(json.data)) {
                             return json.data;
@@ -371,7 +374,10 @@ include 'includes/admin-header.php';
                             const statusMap = {
                                 'Hoạt động': { class: 'approved', text: 'Hoạt động' },
                                 'Chưa xác minh': { class: 'pending', text: 'Chưa xác minh' },
-                                'Bị khóa': { class: 'rejected', text: 'Bị khóa' }
+                                'Bị khóa': { class: 'rejected', text: 'Bị khóa' },
+                                'Active': { class: 'approved', text: 'Hoạt động' },
+                                'Inactive': { class: 'rejected', text: 'Bị khóa' },
+                                'Pending': { class: 'pending', text: 'Chưa xác minh' }
                             };
                             const status = statusMap[data] || { class: 'pending', text: data };
                             return `<span class="status-badge status-${status.class}">${status.text}</span>`;
@@ -518,7 +524,7 @@ include 'includes/admin-header.php';
 
         function editStaff(id) {
             const formData = new FormData();
-            formData.append('action', 'get');
+            formData.append('action', 'get_staff_details');
             formData.append('id', id);
             
             AdminPanel.makeAjaxRequest('../../src/controllers/staffedit.php', formData, 'POST')
@@ -560,13 +566,13 @@ include 'includes/admin-header.php';
             modal.show();
 
             const formData = new FormData();
-            formData.append('action', 'get');
+            formData.append('action', 'get_staff_details');
             formData.append('id', id);
             
             AdminPanel.makeAjaxRequest('../../src/controllers/staffedit.php', formData, 'POST')
             .then(response => {
-                if (response && response.ID_User) {
-                    const staff = response;
+                if (response && response.success && response.staff) {
+                    const staff = response.staff;
                     const roleMap = {
                         1: 'Quản trị viên',
                         2: 'Quản lý tổ chức',
@@ -576,9 +582,13 @@ include 'includes/admin-header.php';
                     const statusMap = {
                         'Hoạt động': { class: 'approved', text: 'Hoạt động' },
                         'Chưa xác minh': { class: 'pending', text: 'Chưa xác minh' },
-                        'Bị khóa': { class: 'rejected', text: 'Bị khóa' }
+                        'Bị khóa': { class: 'rejected', text: 'Bị khóa' },
+                        'Active': { class: 'approved', text: 'Hoạt động' },
+                        'Inactive': { class: 'rejected', text: 'Bị khóa' },
+                        'Pending': { class: 'pending', text: 'Chưa xác minh' }
                     };
-                    const status = statusMap[staff.TrangThai] || { class: 'pending', text: staff.TrangThai };
+                    const statusValue = staff.UserStatus || staff.TrangThai || 'Chưa xác định';
+                    const status = statusMap[statusValue] || { class: 'pending', text: statusValue };
                     
                     $('#viewModalBody').html(`
                         <div class="row">
@@ -616,10 +626,11 @@ include 'includes/admin-header.php';
                 }
             })
             .catch(error => {
+                console.error('Error loading staff details:', error);
                 $('#viewModalBody').html(`
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-circle"></i>
-                        Có lỗi xảy ra khi tải chi tiết nhân viên
+                        Không thể tải chi tiết nhân viên: ${error.message || 'Lỗi không xác định'}
                     </div>
                 `);
             });

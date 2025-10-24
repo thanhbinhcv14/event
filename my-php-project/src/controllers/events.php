@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../config/database.php';
 header('Content-Type: application/json');
 
 try {
-    $pdo = getConnection();
+    $pdo = getDBConnection();
     
     $action = $_GET['action'] ?? '';
     
@@ -24,7 +24,7 @@ try {
 
 function getFeaturedEvents($pdo) {
     try {
-        // Lấy các sự kiện đã được duyệt và sắp diễn ra
+        // Lấy các sự kiện đã được duyệt (cả sắp diễn ra và đã hoàn thành)
         $sql = "
             SELECT 
                 d.ID_DatLich,
@@ -40,14 +40,24 @@ function getFeaturedEvents($pdo) {
                 dd.SucChua,
                 dd.GiaThue,
                 dd.HinhAnh,
-                ls.TenLoaiSK,
-                ls.MoTa as MoTaLoaiSK
+                ls.TenLoai as TenLoaiSK,
+                ls.MoTa as MoTaLoaiSK,
+                CASE 
+                    WHEN d.NgayKetThuc < NOW() THEN 'Đã hoàn thành'
+                    WHEN d.NgayBatDau <= NOW() AND d.NgayKetThuc >= NOW() THEN 'Đang diễn ra'
+                    ELSE 'Sắp diễn ra'
+                END as TrangThaiSuKien
             FROM datlichsukien d
             LEFT JOIN diadiem dd ON d.ID_DD = dd.ID_DD
             LEFT JOIN loaisukien ls ON d.ID_LoaiSK = ls.ID_LoaiSK
             WHERE d.TrangThaiDuyet = 'Đã duyệt'
-            AND d.NgayBatDau > NOW()
-            ORDER BY d.NgayBatDau ASC
+            ORDER BY 
+                CASE 
+                    WHEN d.NgayKetThuc < NOW() THEN 3  -- Đã hoàn thành cuối cùng
+                    WHEN d.NgayBatDau <= NOW() AND d.NgayKetThuc >= NOW() THEN 1  -- Đang diễn ra đầu tiên
+                    ELSE 2  -- Sắp diễn ra ở giữa
+                END,
+                d.NgayBatDau DESC
             LIMIT 6
         ";
         

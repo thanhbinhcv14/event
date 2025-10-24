@@ -26,7 +26,7 @@ error_log("Debug - Action: " . $action);
 error_log("Debug - Session data: " . print_r($_SESSION, true));
 
 // For data loading actions, don't require login
-$publicActions = ['get_event_types', 'get_locations_by_type', 'get_equipment_suggestions', 'get_combo_suggestions', 'get_all_equipment', 'get_all_combos', 'get_event_selected_data'];
+$publicActions = ['get_event_types', 'get_locations_by_type', 'get_equipment_suggestions', 'get_combo_suggestions', 'get_all_equipment', 'get_all_combos', 'get_event_selected_data', 'get_event_equipment'];
 
 if (!in_array($action, $publicActions)) {
     // Check if user is logged in for other actions
@@ -204,7 +204,7 @@ try {
             }
             
             // Validate required fields
-            $requiredFields = ['event_name', 'event_date', 'event_time', 'location_id'];
+            $requiredFields = ['event_name', 'event_date', 'event_time', 'event_end_date', 'event_end_time', 'location_id'];
             foreach ($requiredFields as $field) {
                 if (empty($input[$field])) {
                     echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
@@ -212,12 +212,30 @@ try {
                 }
             }
             
-            // Validate date
+            // Validate dates
             $eventDate = $input['event_date'];
+            $eventEndDate = $input['event_end_date'];
             $today = date('Y-m-d');
+            
             if ($eventDate < $today) {
-                echo json_encode(['success' => false, 'error' => 'Ngày tổ chức không được là ngày trong quá khứ']);
+                echo json_encode(['success' => false, 'error' => 'Ngày bắt đầu không được là ngày trong quá khứ']);
                 exit();
+            }
+            
+            if ($eventEndDate < $eventDate) {
+                echo json_encode(['success' => false, 'error' => 'Ngày kết thúc không được trước ngày bắt đầu']);
+                exit();
+            }
+            
+            // Validate time if same date
+            if ($eventDate === $eventEndDate) {
+                $eventTime = $input['event_time'];
+                $eventEndTime = $input['event_end_time'];
+                
+                if ($eventTime >= $eventEndTime) {
+                    echo json_encode(['success' => false, 'error' => 'Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày']);
+                    exit();
+                }
             }
             
             // Get customer ID from user session
@@ -259,7 +277,7 @@ try {
             
             // Prepare event datetime
             $eventDateTime = $input['event_date'] . ' ' . $input['event_time'];
-            $endDateTime = date('Y-m-d H:i:s', strtotime($eventDateTime . ' +2 hours')); // Default 2 hours duration
+            $endDateTime = $input['event_end_date'] . ' ' . $input['event_end_time'];
             
             // Start transaction
             $pdo->beginTransaction();
@@ -598,6 +616,32 @@ try {
                     break;
                 }
                 
+                // Validate dates
+                $eventDate = $input['event_date'];
+                $eventEndDate = $input['event_end_date'];
+                $today = date('Y-m-d');
+                
+                if ($eventDate < $today) {
+                    echo json_encode(['success' => false, 'error' => 'Ngày bắt đầu không được là ngày trong quá khứ']);
+                    break;
+                }
+                
+                if ($eventEndDate < $eventDate) {
+                    echo json_encode(['success' => false, 'error' => 'Ngày kết thúc không được trước ngày bắt đầu']);
+                    break;
+                }
+                
+                // Validate time if same date
+                if ($eventDate === $eventEndDate) {
+                    $eventTime = $input['event_time'];
+                    $eventEndTime = $input['event_end_time'];
+                    
+                    if ($eventTime >= $eventEndTime) {
+                        echo json_encode(['success' => false, 'error' => 'Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày']);
+                        break;
+                    }
+                }
+                
                 // Update event
                 $startDateTime = $input['event_date'] . ' ' . $input['event_time'];
                 $endDateTime = $input['event_end_date'] . ' ' . $input['event_end_time'];
@@ -719,6 +763,58 @@ try {
                     'location' => $location,
                     'equipment' => $equipment,
                     'combo' => $combo
+                ]);
+                
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => 'Lỗi database: ' . $e->getMessage()]);
+            }
+            break;
+            
+        case 'get_event_equipment':
+            $eventId = $_GET['event_id'] ?? null;
+            
+            if (!$eventId) {
+                echo json_encode(['success' => false, 'message' => 'ID sự kiện không hợp lệ']);
+                break;
+            }
+            
+            try {
+                // Get individual equipment
+                $stmt = $pdo->prepare("
+                    SELECT 
+                        ct.*,
+                        tb.TenThietBi,
+                        tb.LoaiThietBi,
+                        tb.HangSX,
+                        tb.GiaThue,
+                        tb.DonViTinh
+                    FROM chitietdatsukien ct
+                    LEFT JOIN thietbi tb ON ct.ID_TB = tb.ID_TB
+                    WHERE ct.ID_DatLich = ? AND ct.ID_TB IS NOT NULL
+                ");
+                $stmt->execute([$eventId]);
+                $individualEquipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Get combo equipment
+                $stmt = $pdo->prepare("
+                    SELECT 
+                        ct.*,
+                        c.TenCombo,
+                        c.MoTa as ComboMoTa,
+                        c.GiaCombo
+                    FROM chitietdatsukien ct
+                    LEFT JOIN combo c ON ct.ID_Combo = c.ID_Combo
+                    WHERE ct.ID_DatLich = ? AND ct.ID_Combo IS NOT NULL
+                ");
+                $stmt->execute([$eventId]);
+                $comboEquipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Combine equipment
+                $equipment = array_merge($individualEquipment, $comboEquipment);
+                
+                echo json_encode([
+                    'success' => true,
+                    'equipment' => $equipment
                 ]);
                 
             } catch (Exception $e) {

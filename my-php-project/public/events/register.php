@@ -613,7 +613,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="eventDate" class="form-label">Ngày tổ chức *</label>
+                                    <label for="eventDate" class="form-label">Ngày bắt đầu *</label>
                                     <input type="date" class="form-control" id="eventDate" name="event_date" required>
                                 </div>
                             </div>
@@ -621,6 +621,21 @@
                                 <div class="form-group">
                                     <label for="eventTime" class="form-label">Giờ bắt đầu *</label>
                                     <input type="time" class="form-control" id="eventTime" name="event_time" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="eventEndDate" class="form-label">Ngày kết thúc *</label>
+                                    <input type="date" class="form-control" id="eventEndDate" name="event_end_date" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="eventEndTime" class="form-label">Giờ kết thúc *</label>
+                                    <input type="time" class="form-control" id="eventEndTime" name="event_end_time" required>
                                 </div>
                             </div>
                         </div>
@@ -747,7 +762,45 @@
         function setMinDate() {
             const today = new Date().toISOString().split('T')[0];
             $('#eventDate').attr('min', today);
+            $('#eventEndDate').attr('min', today);
         }
+        
+        // Auto-set end date when start date changes
+        $('#eventDate').on('change', function() {
+            const startDate = $(this).val();
+            if (startDate) {
+                $('#eventEndDate').attr('min', startDate);
+                // If end date is before start date, set it to start date
+                const endDate = $('#eventEndDate').val();
+                if (endDate && endDate < startDate) {
+                    $('#eventEndDate').val(startDate);
+                }
+            }
+        });
+        
+        // Validate end date when it changes
+        $('#eventEndDate').on('change', function() {
+            const startDate = $('#eventDate').val();
+            const endDate = $(this).val();
+            
+            if (startDate && endDate && endDate < startDate) {
+                showError('Ngày kết thúc không được trước ngày bắt đầu');
+                $(this).focus();
+            }
+        });
+        
+        // Validate end time when it changes (if same date)
+        $('#eventEndTime').on('change', function() {
+            const startDate = $('#eventDate').val();
+            const endDate = $('#eventEndDate').val();
+            const startTime = $('#eventTime').val();
+            const endTime = $(this).val();
+            
+            if (startDate === endDate && startTime && endTime && endTime <= startTime) {
+                showError('Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày');
+                $(this).focus();
+            }
+        });
         
         // Load event data for editing
         function loadEventForEdit(eventId) {
@@ -768,7 +821,7 @@
                             
                             // Fill form fields
                             $('#eventName').val(event.TenSuKien);
-                            $('#eventDescription').val(event.MoTa);
+                            $('#description').val(event.MoTa);
                             $('#eventDate').val(event.NgayBatDau.split(' ')[0]);
                             $('#eventTime').val(event.NgayBatDau.split(' ')[1]);
                             $('#eventEndDate').val(event.NgayKetThuc.split(' ')[0]);
@@ -776,7 +829,6 @@
                             $('#expectedGuests').val(event.SoNguoiDuKien);
                             $('#budget').val(event.NganSach);
                             $('#eventType').val(event.ID_LoaiSK);
-                            $('#notes').val(event.GhiChu);
                             
                             // Update header to show edit mode
                             $('.header-section h1').text('Chỉnh sửa sự kiện');
@@ -910,7 +962,7 @@
         // Validate current step
         function validateCurrentStep() {
             if (currentStep === 1) {
-                const requiredFields = ['eventName', 'eventType', 'eventDate', 'eventTime'];
+                const requiredFields = ['eventName', 'eventType', 'eventDate', 'eventTime', 'eventEndDate', 'eventEndTime'];
                 for (let field of requiredFields) {
                     if (!$(`#${field}`).val()) {
                         showError(`Vui lòng điền đầy đủ thông tin bắt buộc`);
@@ -919,14 +971,31 @@
                     }
                 }
                 
-                // Validate date
+                // Validate dates
                 const eventDate = new Date($('#eventDate').val());
+                const eventEndDate = new Date($('#eventEndDate').val());
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 
                 if (eventDate < today) {
-                    showError('Ngày tổ chức không được là ngày trong quá khứ');
+                    showError('Ngày bắt đầu không được là ngày trong quá khứ');
                     return false;
+                }
+                
+                if (eventEndDate < eventDate) {
+                    showError('Ngày kết thúc không được trước ngày bắt đầu');
+                    return false;
+                }
+                
+                // Validate time if same date
+                if (eventDate.getTime() === eventEndDate.getTime()) {
+                    const eventTime = $('#eventTime').val();
+                    const eventEndTime = $('#eventEndTime').val();
+                    
+                    if (eventTime >= eventEndTime) {
+                        showError('Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày');
+                        return false;
+                    }
                 }
             } else if (currentStep === 2) {
                 if (!selectedLocation) {
@@ -1343,6 +1412,8 @@
             const eventName = $('#eventName').val();
             const eventDate = $('#eventDate').val();
             const eventTime = $('#eventTime').val();
+            const eventEndDate = $('#eventEndDate').val();
+            const eventEndTime = $('#eventEndTime').val();
             
             console.log('Selected location:', selectedLocation);
             console.log('Location price:', locationPriceNum);
@@ -1356,12 +1427,20 @@
                     <span>${eventName}</span>
                 </div>
                 <div class="summary-item">
-                    <span>Ngày:</span>
+                    <span>Ngày bắt đầu:</span>
                     <span>${formatDate(eventDate)}</span>
                 </div>
                 <div class="summary-item">
-                    <span>Giờ:</span>
+                    <span>Giờ bắt đầu:</span>
                     <span>${eventTime}</span>
+                </div>
+                <div class="summary-item">
+                    <span>Ngày kết thúc:</span>
+                    <span>${formatDate(eventEndDate)}</span>
+                </div>
+                <div class="summary-item">
+                    <span>Giờ kết thúc:</span>
+                    <span>${eventEndTime}</span>
                 </div>
                 <div class="summary-item">
                     <span>Địa điểm:</span>
@@ -1475,8 +1554,7 @@
                 event_end_time: $('#eventEndTime').val(),
                 expected_guests: $('#expectedGuests').val(),
                 budget: $('#budget').val(),
-                description: $('#eventDescription').val(),
-                notes: $('#notes').val(),
+                description: $('#description').val(),
                 location_id: selectedLocation ? selectedLocation.ID_DD : null,
                 equipment_ids: selectedEquipment.map(eq => eq.ID_TB),
                 combo_id: selectedCombo ? selectedCombo.ID_Combo : null

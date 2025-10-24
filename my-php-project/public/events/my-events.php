@@ -628,9 +628,24 @@
                     <p class="text-muted">${event.GhiChu}</p>
                 </div>
                 ` : ''}
+                
+                <div class="mt-3">
+                    <h6><i class="fas fa-cogs text-primary"></i> Thiết bị đã đăng ký</h6>
+                    <div id="equipmentDetails_${event.ID_DatLich}">
+                        <div class="text-center">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <small class="text-muted">Đang tải thiết bị...</small>
+                        </div>
+                    </div>
+                </div>
             `);
             
             $('#eventDetailsModal').modal('show');
+            
+            // Load equipment details
+            loadEventEquipment(eventId);
         }
         
         // Edit event
@@ -667,6 +682,78 @@
         // Make payment (placeholder)
         function makePayment(eventId) {
             alert('Chức năng thanh toán sẽ được triển khai trong phiên bản tiếp theo.');
+        }
+        
+        // Load event equipment
+        function loadEventEquipment(eventId) {
+            $.get(`../../src/controllers/event-register.php?action=get_event_equipment&event_id=${eventId}`, function(data) {
+                if (data.success) {
+                    displayEventEquipment(eventId, data.equipment);
+                } else {
+                    $(`#equipmentDetails_${eventId}`).html(`
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Không có thiết bị nào được đăng ký cho sự kiện này.
+                        </div>
+                    `);
+                }
+            }, 'json').fail(function() {
+                $(`#equipmentDetails_${eventId}`).html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Lỗi khi tải thông tin thiết bị.
+                    </div>
+                `);
+            });
+        }
+        
+        // Display event equipment
+        function displayEventEquipment(eventId, equipment) {
+            if (!equipment || equipment.length === 0) {
+                $(`#equipmentDetails_${eventId}`).html(`
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Chưa có thiết bị nào được đăng ký cho sự kiện này.
+                    </div>
+                `);
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table table-sm table-striped">';
+            html += '<thead class="table-dark"><tr><th>Tên thiết bị</th><th>Loại</th><th>Hãng</th><th>Số lượng</th><th>Đơn vị</th><th>Giá</th><th>Ghi chú</th></tr></thead><tbody>';
+            
+            equipment.forEach(item => {
+                if (item.TenCombo) {
+                    // Combo equipment
+                    html += `
+                        <tr>
+                            <td><strong><i class="fas fa-box text-primary"></i> ${item.TenCombo}</strong></td>
+                            <td><span class="badge bg-info">Combo</span></td>
+                            <td>N/A</td>
+                            <td><span class="badge bg-primary">${item.SoLuong || 1}</span></td>
+                            <td>combo</td>
+                            <td><strong class="text-success">${new Intl.NumberFormat('vi-VN').format(item.DonGia || item.GiaCombo || 0)} VNĐ</strong></td>
+                            <td>${item.GhiChu || 'Combo thiết bị'}</td>
+                        </tr>
+                    `;
+                } else {
+                    // Individual equipment
+                    html += `
+                        <tr>
+                            <td><strong><i class="fas fa-cog text-primary"></i> ${item.TenThietBi || 'N/A'}</strong></td>
+                            <td>${item.LoaiThietBi || 'N/A'}</td>
+                            <td>${item.HangSX || 'N/A'}</td>
+                            <td><span class="badge bg-primary">${item.SoLuong || 1}</span></td>
+                            <td>${item.DonViTinh || 'cái'}</td>
+                            <td><strong class="text-success">${new Intl.NumberFormat('vi-VN').format(item.DonGia || item.GiaThue || 0)} VNĐ</strong></td>
+                            <td>${item.GhiChu || 'Thiết bị riêng lẻ'}</td>
+                        </tr>
+                    `;
+                }
+            });
+            
+            html += '</tbody></table></div>';
+            $(`#equipmentDetails_${eventId}`).html(html);
         }
         
         // Show error message

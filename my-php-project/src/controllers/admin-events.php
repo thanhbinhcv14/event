@@ -1,532 +1,691 @@
 <?php
-// Set error reporting to prevent HTML errors from being displayed
-error_reporting(E_ALL);
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
-
-// Set JSON headers first
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
-
 session_start();
+require_once '../../config/database.php';
 
-// Check if user is logged in and is admin
+// Debug session
+error_log("Admin Events Controller - Session data: " . print_r($_SESSION, true));
+error_log("Admin Events Controller - Action: " . ($_GET['action'] ?? $_POST['action'] ?? 'none'));
+
+// Check if user is logged in and has appropriate role
 if (!isset($_SESSION['user'])) {
-    echo json_encode(['success' => false, 'error' => 'Chưa đăng nhập']);
-    exit();
+    echo json_encode(['success' => false, 'message' => 'Chưa đăng nhập', 'debug' => 'No session user']);
+    exit;
 }
 
-$user = $_SESSION['user'];
-$userRole = $user['ID_Role'] ?? $user['role'] ?? null;
-
-// Check if user has admin privileges (role 1 = Admin, role 2 = Quản lý tổ chức, role 3 = Quản lý sự kiện)
+$userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? null;
 if (!in_array($userRole, [1, 2, 3])) {
-    echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
-    exit();
+    echo json_encode(['success' => false, 'message' => 'Không có quyền truy cập', 'debug' => 'Invalid role: ' . $userRole]);
+    exit;
 }
 
-// Check specific permissions for role 3
-$action = $_GET['action'] ?? $_POST['action'] ?? '';
-$restrictedActions = ['approve', 'reject', 'update_registration_status'];
+$action = $_POST['action'] ?? $_GET['action'] ?? '';
 
-if ($userRole == 3 && in_array($action, $restrictedActions)) {
-    echo json_encode(['success' => false, 'error' => 'Role 3 không có quyền duyệt/từ chối sự kiện']);
-    exit();
+switch ($action) {
+    case 'get_events':
+        getEvents();
+        break;
+    case 'get_event_details':
+        getEventDetails();
+        break;
+    case 'update_event':
+        updateEvent();
+        break;
+    case 'delete_event':
+        deleteEvent();
+        break;
+    case 'get_event_equipment':
+        getEventEquipment();
+        break;
+    case 'add_event_equipment':
+        addEventEquipment();
+        break;
+    case 'remove_event_equipment':
+        removeEventEquipment();
+        break;
+    case 'get_registrations':
+        getRegistrations();
+        break;
+    case 'get_registration_stats':
+        getRegistrationStats();
+        break;
+    case 'get_registration_details':
+        getRegistrationDetails();
+        break;
+    case 'update_registration_status':
+        updateRegistrationStatus();
+        break;
+    default:
+        echo json_encode(['success' => false, 'message' => 'Action không hợp lệ']);
+        break;
 }
 
-// Include Socket.IO client
-require_once __DIR__ . '/../socket/socket-client.php';
-
-$action = $_GET['action'] ?? $_POST['action'] ?? '';
-
-try {
-    require_once __DIR__ . '/../../config/database.php';
+function getEvents() {
+    try {
     $pdo = getDBConnection();
     
-    switch ($action) {
-        case 'get_registrations':
-            // Get all event registrations with related information
-            try {
-                $stmt = $pdo->query("
-                    SELECT dl.*, 
-                           d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThue,
-                           ls.TenLoai,
-                           COALESCE(k.HoTen, 'Khách hàng không xác định') as HoTen, 
-                           k.SoDienThoai
+        $stmt = $pdo->prepare("
+            SELECT 
+                dl.ID_DatLich,
+                dl.TenSuKien,
+                dl.MoTa,
+                dl.NgayBatDau,
+                dl.NgayKetThuc,
+                dl.SoNguoiDuKien,
+                dl.NganSach,
+                dl.TrangThaiDuyet,
+                dl.TrangThaiThanhToan,
+                dl.GhiChu,
+                dl.NgayTao,
+                dl.NgayCapNhat,
+                dd.TenDiaDiem,
+                dd.DiaChi,
+                ls.TenLoai as TenLoaiSK,
+                kh.HoTen as TenKhachHang,
+                kh.SoDienThoai
                     FROM datlichsukien dl
-                    LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
                     LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
-                    LEFT JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
+            LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
                     ORDER BY dl.NgayTao DESC
                 ");
-                $registrations = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
-                echo json_encode(['success' => true, 'registrations' => $registrations]);
-            } catch (Exception $e) {
-                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
-            }
-            break;
-            
-        case 'get_registration_details':
-            // Get detailed information about a specific registration
-            $registrationId = $_GET['id'] ?? $_GET['registration_id'] ?? '';
-            
-            if (!$registrationId) {
-                echo json_encode(['success' => false, 'error' => 'Thiếu ID đăng ký']);
-                exit();
-            }
-            
-            try {
-                // Get registration details
-                $stmt = $pdo->prepare("
-                    SELECT dl.*, 
-                           d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThue, d.MoTa as DiaDiemMoTa,
-                           ls.TenLoai, ls.MoTa as LoaiSKMoTa,
-                           k.HoTen, k.SoDienThoai, k.DiaChi as KhachHangDiaChi
-                    FROM datlichsukien dl
-                    LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
-                    LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
-                    LEFT JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
-                    WHERE dl.ID_DatLich = ?
-                ");
-                $stmt->execute([$registrationId]);
-                $registration = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                if (!$registration) {
-                    echo json_encode(['success' => false, 'error' => 'Không tìm thấy đăng ký']);
-                    exit();
-                }
-                
-                // Get equipment details if any (including combos)
-                $stmt = $pdo->prepare("
-                    SELECT 
-                        ct.*,
-                        t.TenThietBi, 
-                        t.LoaiThietBi, 
-                        t.GiaThue, 
-                        t.DonViTinh,
-                        c.TenCombo,
-                        CASE 
-                            WHEN ct.ID_TB IS NOT NULL THEN 'Thiết bị riêng lẻ'
-                            WHEN ct.ID_Combo IS NOT NULL THEN 'Combo thiết bị'
-                            ELSE 'Không xác định'
-                        END as LoaiDat
-                    FROM chitietdatsukien ct
-                    LEFT JOIN thietbi t ON ct.ID_TB = t.ID_TB
-                    LEFT JOIN combo c ON ct.ID_Combo = c.ID_Combo
-                    WHERE ct.ID_DatLich = ?
-                ");
-                $stmt->execute([$registrationId]);
-                $equipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
-                // If we have combos, get the individual equipment in each combo
-                $finalEquipment = [];
-                foreach ($equipment as $item) {
-                    if ($item['ID_Combo'] && !$item['ID_TB']) {
-                        // Get equipment in this combo
-                        $stmt = $pdo->prepare("
-                            SELECT 
-                                cc.SoLuong,
-                                t.TenThietBi,
-                                t.LoaiThietBi,
-                                t.GiaThue,
-                                t.DonViTinh,
-                                c.TenCombo
-                            FROM combochitiet cc
-                            LEFT JOIN thietbi t ON cc.ID_TB = t.ID_TB
-                            LEFT JOIN combo c ON cc.ID_Combo = c.ID_Combo
-                            WHERE cc.ID_Combo = ?
-                        ");
-                        $stmt->execute([$item['ID_Combo']]);
-                        $comboEquipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                        
-                        foreach ($comboEquipment as $comboItem) {
-                            $finalEquipment[] = [
-                                'TenThietBi' => $comboItem['TenThietBi'],
-                                'LoaiThietBi' => $comboItem['LoaiThietBi'],
-                                'SoLuong' => $comboItem['SoLuong'],
-                                'DonGia' => $comboItem['GiaThue'],
-                                'DonViTinh' => $comboItem['DonViTinh'],
-                                'GhiChu' => 'Trong combo: ' . $comboItem['TenCombo']
-                            ];
-                        }
-                    } else {
-                        // Individual equipment
-                        $finalEquipment[] = $item;
-                    }
-                }
-                
-                // Debug logging
-                error_log("Equipment query for registration $registrationId: " . json_encode($finalEquipment));
-                
-                $registration['equipment'] = $finalEquipment;
-                
-                // Generate HTML for the modal
-                $html = generateRegistrationDetailsHTML($registration);
-                
-                echo json_encode(['success' => true, 'html' => $html, 'registration' => $registration]);
-            } catch (Exception $e) {
-                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
-            }
-            break;
-            
-        case 'approve':
-            // Approve registration (alias for update_registration_status)
-            $input = $_POST;
-            $input['action'] = 'update_registration_status';
-            $input['status'] = 'Đã duyệt';
-            $input['registration_id'] = $input['id'] ?? '';
-            unset($input['id']);
-            $_POST = $input;
-            // Fall through to update_registration_status case
-            
-        case 'reject':
-            // Reject registration (alias for update_registration_status)
-            $input = $_POST;
-            $input['action'] = 'update_registration_status';
-            $input['status'] = 'Từ chối';
-            $input['registration_id'] = $input['id'] ?? '';
-            unset($input['id']);
-            $_POST = $input;
-            // Fall through to update_registration_status case
-            
-        case 'update_registration_status':
-            // Update registration approval status
-            $input = json_decode(file_get_contents('php://input'), true);
-            if (!$input) {
-                $input = $_POST;
-            }
-            
-            $registrationId = $input['registration_id'] ?? '';
-            $status = $input['status'] ?? '';
-            $note = $input['note'] ?? '';
-            
-            if (!$registrationId || !$status) {
-                echo json_encode(['success' => false, 'error' => 'Thiếu thông tin bắt buộc']);
-                exit();
-            }
-            
-            if (!in_array($status, ['Chờ duyệt', 'Đã duyệt', 'Từ chối'])) {
-                echo json_encode(['success' => false, 'error' => 'Trạng thái không hợp lệ']);
-                exit();
-            }
-            
-            try {
-                $pdo->beginTransaction();
-                
-                // Update registration status
-                $stmt = $pdo->prepare("
-                    UPDATE datlichsukien 
-                    SET TrangThaiDuyet = ?, GhiChu = ?, NgayCapNhat = CURRENT_TIMESTAMP
-                    WHERE ID_DatLich = ?
-                ");
-                $result = $stmt->execute([$status, $note, $registrationId]);
-                
-                if (!$result) {
-                    throw new Exception('Lỗi khi cập nhật trạng thái');
-                }
-                
-                // If approved, create event record in sukien table
-                if ($status === 'Đã duyệt') {
-                    // Check if event already exists
-                    $stmt = $pdo->prepare("SELECT ID_SuKien FROM sukien WHERE ID_DatLich = ?");
-                    $stmt->execute([$registrationId]);
-                    $existingEvent = $stmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if (!$existingEvent) {
-                        // Create event record
-                        $stmt = $pdo->prepare("
-                            INSERT INTO sukien (
-                                ID_DatLich, MaSuKien, TenSuKien, NgayBatDauThucTe, NgayKetThucThucTe,
-                                DiaDiemThucTe, TrangThaiThucTe, TongChiPhiThucTe, GhiChuQuanLy
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ");
-                        
-                        // Generate event code
-                        $eventCode = 'EV' . date('Ymd') . str_pad($registrationId, 4, '0', STR_PAD_LEFT);
-                        
-                        // Get registration details for event creation
-                        $stmt2 = $pdo->prepare("
-                            SELECT dl.TenSuKien, dl.NgayBatDau, dl.NgayKetThuc, d.TenDiaDiem, d.GiaThue
-                            FROM datlichsukien dl
-                            LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
-                            WHERE dl.ID_DatLich = ?
-                        ");
-                        $stmt2->execute([$registrationId]);
-                        $regDetails = $stmt2->fetch(PDO::FETCH_ASSOC);
-                        
-                        $stmt->execute([
-                            $registrationId,
-                            $eventCode,
-                            $regDetails['TenSuKien'],
-                            $regDetails['NgayBatDau'],
-                            $regDetails['NgayKetThuc'],
-                            $regDetails['TenDiaDiem'],
-                            'Đang chuẩn bị',
-                            $regDetails['GiaThue'] ?? 0,
-                            $note
-                        ]);
-                    }
-                }
-                
-                $pdo->commit();
-                
-                // Send notification to customer
-                $stmt = $pdo->prepare("
-                    SELECT k.HoTen, u.Email
-                    FROM khachhanginfo k
-                    INNER JOIN users u ON k.ID_User = u.ID_User
-                    INNER JOIN datlichsukien dl ON k.ID_KhachHang = dl.ID_KhachHang
-                    WHERE dl.ID_DatLich = ?
-                ");
-                $stmt->execute([$registrationId]);
-                $customer = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                if ($customer) {
-                    notifyRegistrationStatusUpdate($registrationId, $status, $customer['HoTen'], $customer['Email']);
-                }
-                
-                echo json_encode(['success' => true, 'message' => 'Cập nhật trạng thái thành công']);
+        $stmt->execute();
+        $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'events' => $events]);
                 
             } catch (Exception $e) {
-                $pdo->rollBack();
-                echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
-            }
-            break;
-            
-        case 'get_registration_stats':
-            // Get registration statistics
-            try {
-                $stats = [];
-                
-                // Total registrations
-                $stmt = $pdo->query("SELECT COUNT(*) as total FROM datlichsukien");
-                $stats['total'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
-                
-                // Pending registrations
-                $stmt = $pdo->query("SELECT COUNT(*) as pending FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
-                $stats['pending'] = $stmt->fetch(PDO::FETCH_ASSOC)['pending'];
-                
-                // Approved registrations
-                $stmt = $pdo->query("SELECT COUNT(*) as approved FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
-                $stats['approved'] = $stmt->fetch(PDO::FETCH_ASSOC)['approved'];
-                
-                // Rejected registrations
-                $stmt = $pdo->query("SELECT COUNT(*) as rejected FROM datlichsukien WHERE TrangThaiDuyet = 'Từ chối'");
-                $stats['rejected'] = $stmt->fetch(PDO::FETCH_ASSOC)['rejected'];
-                
-                // Recent registrations (last 7 days)
-                $stmt = $pdo->query("
-                    SELECT COUNT(*) as recent 
-                    FROM datlichsukien 
-                    WHERE NgayTao >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-                ");
-                $stats['recent'] = $stmt->fetch(PDO::FETCH_ASSOC)['recent'];
-                
-                echo json_encode(['success' => true, 'stats' => $stats]);
-            } catch (Exception $e) {
-                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
-            }
-            break;
-            
-        case 'get_event_stats':
-            // Get event statistics for dashboard
-            try {
-                $stats = [];
-                
-                // Total events
-                $stmt = $pdo->query("SELECT COUNT(*) as total_events FROM datlichsukien");
-                $stats['total_events'] = $stmt->fetch(PDO::FETCH_ASSOC)['total_events'];
-                
-                // Pending events
-                $stmt = $pdo->query("SELECT COUNT(*) as pending_events FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
-                $stats['pending_events'] = $stmt->fetch(PDO::FETCH_ASSOC)['pending_events'];
-                
-                // Approved events
-                $stmt = $pdo->query("SELECT COUNT(*) as approved_events FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
-                $stats['approved_events'] = $stmt->fetch(PDO::FETCH_ASSOC)['approved_events'];
-                
-                echo json_encode(['success' => true, 'stats' => $stats]);
-            } catch (Exception $e) {
-                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
-            }
-            break;
-            
-        case 'delete_registration':
-            // Delete a registration (soft delete by updating status)
-            $registrationId = $_GET['registration_id'] ?? '';
-            
-            if (!$registrationId) {
-                echo json_encode(['success' => false, 'error' => 'Thiếu ID đăng ký']);
-                exit();
-            }
-            
-            try {
-                $stmt = $pdo->prepare("
-                    UPDATE datlichsukien 
-                    SET TrangThaiDuyet = 'Từ chối', GhiChu = CONCAT(IFNULL(GhiChu, ''), ' [Đã xóa bởi admin]')
-                    WHERE ID_DatLich = ?
-                ");
-                $result = $stmt->execute([$registrationId]);
-                
-                if ($result) {
-                    echo json_encode(['success' => true, 'message' => 'Đã xóa đăng ký thành công']);
-                } else {
-                    echo json_encode(['success' => false, 'error' => 'Lỗi khi xóa đăng ký']);
-                }
-            } catch (Exception $e) {
-                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
-            }
-            break;
-            
-        default:
-            echo json_encode(['success' => false, 'error' => 'Hành động không hợp lệ']);
-            break;
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy danh sách sự kiện: ' . $e->getMessage()]);
     }
-    
-} catch (Exception $e) {
-    echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
 }
 
-// Helper function to generate HTML for registration details
-function generateRegistrationDetailsHTML($registration) {
-    $statusClass = '';
-    $statusIcon = '';
-    switch($registration['TrangThaiDuyet']) {
-        case 'Chờ duyệt':
-            $statusClass = 'warning';
-            $statusIcon = 'fa-clock';
-            break;
-        case 'Đã duyệt':
-            $statusClass = 'success';
-            $statusIcon = 'fa-check-circle';
-            break;
-        case 'Từ chối':
-            $statusClass = 'danger';
-            $statusIcon = 'fa-times-circle';
-            break;
-        default:
-            $statusClass = 'secondary';
-            $statusIcon = 'fa-question';
+function getEventDetails() {
+    try {
+        $pdo = getDBConnection();
+        
+        $eventId = $_GET['event_id'] ?? '';
+        
+        if (empty($eventId)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin sự kiện']);
+            return;
+        }
+        
+                $stmt = $pdo->prepare("
+            SELECT 
+                dl.*,
+                dd.TenDiaDiem,
+                dd.DiaChi,
+                dd.MoTa as DiaDiemMoTa,
+                dd.SucChua,
+                dd.GiaThue,
+                ls.TenLoai as TenLoaiSK,
+                ls.MoTa as LoaiSKMoTa,
+                kh.HoTen as TenKhachHang,
+                kh.SoDienThoai,
+                kh.DiaChi as KhachHangDiaChi,
+                kh.NgaySinh
+                    FROM datlichsukien dl
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+                    LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+            LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+                    WHERE dl.ID_DatLich = ?
+                ");
+        $stmt->execute([$eventId]);
+        $event = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$event) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy sự kiện']);
+            return;
+        }
+        
+        echo json_encode(['success' => true, 'event' => $event]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy chi tiết sự kiện: ' . $e->getMessage()]);
     }
+}
+
+function updateEvent() {
+    try {
+        $pdo = getDBConnection();
+        
+        $eventId = $_POST['event_id'] ?? '';
+        $eventName = $_POST['event_name'] ?? '';
+        $description = $_POST['description'] ?? '';
+        $startDate = $_POST['start_date'] ?? '';
+        $endDate = $_POST['end_date'] ?? '';
+        $locationId = $_POST['location_id'] ?? '';
+        $eventTypeId = $_POST['event_type_id'] ?? '';
+        $expectedGuests = $_POST['expected_guests'] ?? 0;
+        $budget = $_POST['budget'] ?? 0;
+        $notes = $_POST['notes'] ?? '';
+        $status = $_POST['status'] ?? '';
+        
+        if (empty($eventId) || empty($eventName) || empty($startDate) || empty($endDate)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
+            return;
+        }
+        
+                $stmt = $pdo->prepare("
+            UPDATE datlichsukien 
+            SET TenSuKien = ?, MoTa = ?, NgayBatDau = ?, NgayKetThuc = ?, 
+                ID_DD = ?, ID_LoaiSK = ?, SoNguoiDuKien = ?, NganSach = ?, 
+                GhiChu = ?, TrangThaiDuyet = ?, NgayCapNhat = NOW()
+            WHERE ID_DatLich = ?
+        ");
+        $stmt->execute([
+            $eventName, $description, $startDate, $endDate, 
+            $locationId, $eventTypeId, $expectedGuests, $budget, 
+            $notes, $status, $eventId
+        ]);
+        
+        echo json_encode(['success' => true, 'message' => 'Cập nhật sự kiện thành công']);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi cập nhật sự kiện: ' . $e->getMessage()]);
+    }
+}
+
+function deleteEvent() {
+    try {
+        $pdo = getDBConnection();
+        
+        $eventId = $_POST['event_id'] ?? '';
+        
+        if (empty($eventId)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
+            return;
+        }
+        
+        $pdo->beginTransaction();
+        
+        try {
+            // Delete event equipment
+            $stmt = $pdo->prepare("DELETE FROM sukien_thietbi WHERE ID_SuKien = (SELECT ID_SuKien FROM datlichsukien WHERE ID_DatLich = ?)");
+            $stmt->execute([$eventId]);
+            
+            // Delete event staff assignments
+            $stmt = $pdo->prepare("DELETE FROM event_staff_assignments WHERE ID_DatLich = ?");
+            $stmt->execute([$eventId]);
+            
+            // Delete work schedule
+            $stmt = $pdo->prepare("DELETE FROM lichlamviec WHERE ID_DatLich = ?");
+            $stmt->execute([$eventId]);
+            
+            // Delete event
+            $stmt = $pdo->prepare("DELETE FROM datlichsukien WHERE ID_DatLich = ?");
+            $stmt->execute([$eventId]);
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Xóa sự kiện thành công']);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi xóa sự kiện: ' . $e->getMessage()]);
+    }
+}
+
+function getEventEquipment() {
+    try {
+        $pdo = getDBConnection();
+        
+        $eventId = $_GET['event_id'] ?? '';
+        
+        if (empty($eventId)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin sự kiện']);
+            return;
+        }
+        
+        // Get event's ID_SuKien first
+        $stmt = $pdo->prepare("SELECT ID_SuKien FROM datlichsukien WHERE ID_DatLich = ?");
+        $stmt->execute([$eventId]);
+        $event = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$event) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy sự kiện']);
+            return;
+        }
+        
+                        $stmt = $pdo->prepare("
+            SELECT 
+                st.ID_SuKien_ThietBi,
+                t.TenThietBi,
+                t.MoTa,
+                t.GiaThue,
+                t.TrangThai,
+                st.SoLuong,
+                st.GhiChu
+            FROM sukien_thietbi st
+            LEFT JOIN thietbi t ON st.ID_ThietBi = t.ID_ThietBi
+            WHERE st.ID_SuKien = ?
+        ");
+        $stmt->execute([$event['ID_SuKien']]);
+        $equipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'equipment' => $equipment]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy thiết bị sự kiện: ' . $e->getMessage()]);
+    }
+}
+
+function addEventEquipment() {
+    try {
+        $pdo = getDBConnection();
+        
+        $eventId = $_POST['event_id'] ?? '';
+        $equipmentId = $_POST['equipment_id'] ?? '';
+        $quantity = $_POST['quantity'] ?? 1;
+        $notes = $_POST['notes'] ?? '';
+        
+        if (empty($eventId) || empty($equipmentId)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
+            return;
+        }
+        
+        // Get event's ID_SuKien
+        $stmt = $pdo->prepare("SELECT ID_SuKien FROM datlichsukien WHERE ID_DatLich = ?");
+        $stmt->execute([$eventId]);
+        $event = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$event) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy sự kiện']);
+            return;
+        }
+        
+        // Check if equipment is already assigned
+        $stmt = $pdo->prepare("SELECT ID_SuKien_ThietBi FROM sukien_thietbi WHERE ID_SuKien = ? AND ID_ThietBi = ?");
+        $stmt->execute([$event['ID_SuKien'], $equipmentId]);
+        if ($stmt->fetch()) {
+            echo json_encode(['success' => false, 'message' => 'Thiết bị đã được gán cho sự kiện này']);
+            return;
+        }
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO sukien_thietbi (ID_SuKien, ID_ThietBi, SoLuong, GhiChu)
+            VALUES (?, ?, ?, ?)
+        ");
+        $stmt->execute([$event['ID_SuKien'], $equipmentId, $quantity, $notes]);
+        
+        echo json_encode(['success' => true, 'message' => 'Thêm thiết bị thành công']);
+        
+            } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi thêm thiết bị: ' . $e->getMessage()]);
+    }
+}
+
+function removeEventEquipment() {
+    try {
+        $pdo = getDBConnection();
+        
+        $assignmentId = $_POST['assignment_id'] ?? '';
+        
+        if (empty($assignmentId)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
+            return;
+        }
+        
+        $stmt = $pdo->prepare("DELETE FROM sukien_thietbi WHERE ID_SuKien_ThietBi = ?");
+        $stmt->execute([$assignmentId]);
+        
+        echo json_encode(['success' => true, 'message' => 'Xóa thiết bị thành công']);
+        
+            } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi xóa thiết bị: ' . $e->getMessage()]);
+    }
+}
+
+function getRegistrations() {
+    try {
+        error_log("getRegistrations function called");
+        $pdo = getDBConnection();
+        
+        if (!$pdo) {
+            error_log("Database connection failed");
+            echo json_encode(['success' => false, 'message' => 'Lỗi kết nối database']);
+            return;
+        }
+        
+        error_log("Database connection successful");
+        
+                $stmt = $pdo->prepare("
+            SELECT 
+                dl.ID_DatLich,
+                dl.TenSuKien,
+                dl.MoTa,
+                dl.NgayBatDau,
+                dl.NgayKetThuc,
+                dl.SoNguoiDuKien,
+                dl.NganSach,
+                dl.TrangThaiDuyet,
+                dl.TrangThaiThanhToan,
+                dl.GhiChu,
+                dl.NgayTao,
+                dl.NgayCapNhat,
+                dd.TenDiaDiem,
+                dd.DiaChi,
+                ls.TenLoai,
+                kh.HoTen,
+                kh.SoDienThoai
+            FROM datlichsukien dl
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+            LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+            ORDER BY dl.NgayTao DESC
+        ");
+        $stmt->execute();
+        $registrations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        error_log("Found " . count($registrations) . " registrations");
+        if (count($registrations) > 0) {
+            error_log("First registration: " . print_r($registrations[0], true));
+        }
+        
+        $response = ['success' => true, 'registrations' => $registrations];
+        error_log("Sending response: " . json_encode($response));
+        echo json_encode($response);
+                
+            } catch (Exception $e) {
+        error_log("getRegistrations error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy danh sách đăng ký: ' . $e->getMessage()]);
+    }
+            }
+            
+function getRegistrationStats() {
+            try {
+        $pdo = getDBConnection();
+                
+        // Get total registrations
+                $stmt = $pdo->query("SELECT COUNT(*) as total FROM datlichsukien");
+        $total = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+                
+        // Get pending registrations
+                $stmt = $pdo->query("SELECT COUNT(*) as pending FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
+        $pending = $stmt->fetch(PDO::FETCH_ASSOC)['pending'];
+                
+        // Get approved registrations
+                $stmt = $pdo->query("SELECT COUNT(*) as approved FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
+        $approved = $stmt->fetch(PDO::FETCH_ASSOC)['approved'];
+                
+        // Get rejected registrations
+                $stmt = $pdo->query("SELECT COUNT(*) as rejected FROM datlichsukien WHERE TrangThaiDuyet = 'Từ chối'");
+        $rejected = $stmt->fetch(PDO::FETCH_ASSOC)['rejected'];
+        
+        echo json_encode([
+            'success' => true, 
+            'stats' => [
+                'total' => $total,
+                'pending' => $pending,
+                'approved' => $approved,
+                'rejected' => $rejected
+            ]
+        ]);
     
-    $equipmentHtml = '';
-    if (!empty($registration['equipment'])) {
-        $equipmentHtml = '<div class="mt-3">
-            <h6><i class="fas fa-tools"></i> Thiết bị đã đặt</h6>
-            <div class="table-responsive">
+            } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy thống kê: ' . $e->getMessage()]);
+    }
+}
+
+function getRegistrationDetails() {
+    try {
+        $pdo = getDBConnection();
+        
+        $id = $_GET['id'] ?? '';
+        
+        if (empty($id)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin đăng ký']);
+            return;
+        }
+        
+        // Get registration details
+        $stmt = $pdo->prepare("
+            SELECT 
+                dl.*,
+                dd.TenDiaDiem,
+                dd.DiaChi,
+                dd.MoTa as DiaDiemMoTa,
+                dd.SucChua,
+                dd.GiaThue,
+                ls.TenLoai,
+                ls.MoTa as LoaiSKMoTa,
+                kh.HoTen,
+                kh.SoDienThoai,
+                kh.DiaChi as KhachHangDiaChi
+            FROM datlichsukien dl
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+            LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+            WHERE dl.ID_DatLich = ?
+        ");
+        $stmt->execute([$id]);
+        $registration = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$registration) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy đăng ký']);
+            return;
+        }
+        
+        // Get registered equipment
+        $equipment = [];
+        error_log("Getting equipment for registration ID: " . $id);
+        
+        try {
+            // Get equipment from chitietdatsukien table (correct table based on registration process)
+            $equipment = [];
+            
+            // Get individual equipment
+            $stmt = $pdo->prepare("
+                SELECT 
+                    ct.*,
+                    tb.TenThietBi,
+                    tb.LoaiThietBi,
+                    tb.HangSX,
+                    tb.GiaThue,
+                    tb.DonViTinh
+                FROM chitietdatsukien ct
+                LEFT JOIN thietbi tb ON ct.ID_TB = tb.ID_TB
+                WHERE ct.ID_DatLich = ? AND ct.ID_TB IS NOT NULL
+            ");
+            $stmt->execute([$id]);
+            $individualEquipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Get combo equipment
+                $stmt = $pdo->prepare("
+                SELECT 
+                    ct.*,
+                    c.TenCombo,
+                    c.MoTa as ComboMoTa,
+                    c.GiaCombo
+                FROM chitietdatsukien ct
+                LEFT JOIN combo c ON ct.ID_Combo = c.ID_Combo
+                WHERE ct.ID_DatLich = ? AND ct.ID_Combo IS NOT NULL
+            ");
+            $stmt->execute([$id]);
+            $comboEquipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Combine equipment
+            $equipment = array_merge($individualEquipment, $comboEquipment);
+            
+            error_log("Found " . count($equipment) . " equipment items from chitietdatsukien");
+            error_log("Individual equipment: " . count($individualEquipment));
+            error_log("Combo equipment: " . count($comboEquipment));
+    
+} catch (Exception $e) {
+            error_log("Error getting equipment: " . $e->getMessage());
+            $equipment = [];
+        }
+        
+        // Generate HTML
+        $html = '
+        <div class="row">
+            <div class="col-md-6">
+                <h5><i class="fas fa-info-circle text-primary"></i> Thông tin sự kiện</h5>
+                <table class="table table-sm">
+                    <tr><td><strong>Tên sự kiện:</strong></td><td>' . htmlspecialchars($registration['TenSuKien']) . '</td></tr>
+                    <tr><td><strong>Loại sự kiện:</strong></td><td>' . htmlspecialchars($registration['TenLoai']) . '</td></tr>
+                    <tr><td><strong>Mô tả:</strong></td><td>' . htmlspecialchars($registration['MoTa'] ?: 'Không có') . '</td></tr>
+                    <tr><td><strong>Số khách dự kiến:</strong></td><td>' . number_format($registration['SoNguoiDuKien'] ?: 0) . ' người</td></tr>
+                    <tr><td><strong>Ngân sách:</strong></td><td>' . number_format($registration['NganSach'] ?: 0) . ' VNĐ</td></tr>
+                    <tr><td><strong>Ghi chú:</strong></td><td>' . htmlspecialchars($registration['GhiChu'] ?: 'Không có') . '</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5><i class="fas fa-calendar text-success"></i> Thời gian</h5>
+                <table class="table table-sm">
+                    <tr><td><strong>Ngày bắt đầu:</strong></td><td>' . date('d/m/Y H:i', strtotime($registration['NgayBatDau'])) . '</td></tr>
+                    <tr><td><strong>Ngày kết thúc:</strong></td><td>' . date('d/m/Y H:i', strtotime($registration['NgayKetThuc'])) . '</td></tr>
+                    <tr><td><strong>Ngày đăng ký:</strong></td><td>' . date('d/m/Y H:i', strtotime($registration['NgayTao'])) . '</td></tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <h5><i class="fas fa-map-marker-alt text-warning"></i> Địa điểm</h5>
+                <table class="table table-sm">
+                    <tr><td><strong>Tên địa điểm:</strong></td><td>' . htmlspecialchars($registration['TenDiaDiem']) . '</td></tr>
+                    <tr><td><strong>Địa chỉ:</strong></td><td>' . htmlspecialchars($registration['DiaChi']) . '</td></tr>
+                    <tr><td><strong>Sức chứa:</strong></td><td>' . number_format($registration['SucChua'] ?: 0) . ' người</td></tr>
+                    <tr><td><strong>Giá thuê:</strong></td><td>' . number_format($registration['GiaThue'] ?: 0) . ' VNĐ</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5><i class="fas fa-user text-info"></i> Khách hàng</h5>
+                <table class="table table-sm">
+                    <tr><td><strong>Họ tên:</strong></td><td>' . htmlspecialchars($registration['HoTen']) . '</td></tr>
+                    <tr><td><strong>Số điện thoại:</strong></td><td>' . htmlspecialchars($registration['SoDienThoai']) . '</td></tr>
+                    <tr><td><strong>Địa chỉ:</strong></td><td>' . htmlspecialchars($registration['KhachHangDiaChi'] ?: 'Không có') . '</td></tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="row mt-3">
+            <div class="col-12">
+                <h5><i class="fas fa-cogs text-secondary"></i> Thiết bị đã đăng ký</h5>';
+        
+        // Debug info
+        $html .= '<div class="alert alert-info">
+            <small>Debug: Tìm thấy ' . count($equipment) . ' thiết bị cho đăng ký ID: ' . $id . '</small>
+        </div>';
+        
+        if (!empty($equipment)) {
+            $html .= '<div class="table-responsive">
                 <table class="table table-sm table-striped">
                     <thead class="table-dark">
                         <tr>
                             <th>Tên thiết bị</th>
                             <th>Loại</th>
+                            <th>Hãng</th>
                             <th>Số lượng</th>
-                            <th>Đơn giá</th>
-                            <th>Thành tiền</th>
+                            <th>Đơn vị</th>
+                            <th>Giá thuê</th>
+                            <th>Ghi chú</th>
                         </tr>
                     </thead>
                     <tbody>';
         
-        $totalAmount = 0;
-        foreach($registration['equipment'] as $equipment) {
-            $subtotal = $equipment['SoLuong'] * $equipment['DonGia'];
-            $totalAmount += $subtotal;
-            
-            $equipmentHtml .= '<tr>
-                <td>' . htmlspecialchars($equipment['TenThietBi'] ?? 'Không xác định') . '</td>
-                <td>' . htmlspecialchars($equipment['LoaiThietBi'] ?? 'Không xác định') . '</td>
-                <td>' . $equipment['SoLuong'] . ' ' . ($equipment['DonViTinh'] ?? 'cái') . '</td>
-                <td>' . number_format($equipment['DonGia'], 0, ',', '.') . ' VNĐ</td>
-                <td>' . number_format($subtotal, 0, ',', '.') . ' VNĐ</td>
-            </tr>';
-            
-            // Add note if it's from a combo
-            if (!empty($equipment['GhiChu'])) {
-                $equipmentHtml .= '<tr class="table-light">
-                    <td colspan="5" class="text-muted small">
-                        <i class="fas fa-info-circle"></i> ' . htmlspecialchars($equipment['GhiChu']) . '
-                    </td>
-                </tr>';
+            foreach ($equipment as $item) {
+                // Check if it's combo or individual equipment
+                if (!empty($item['TenCombo'])) {
+                    // Combo equipment
+                    $html .= '<tr>
+                        <td><strong><i class="fas fa-box text-primary"></i> ' . htmlspecialchars($item['TenCombo']) . '</strong></td>
+                        <td><span class="badge bg-info">Combo</span></td>
+                        <td>N/A</td>
+                        <td><span class="badge bg-primary">' . ($item['SoLuong'] ?: '1') . '</span></td>
+                        <td>combo</td>
+                        <td><strong class="text-success">' . number_format($item['DonGia'] ?: $item['GiaCombo'] ?: 0) . ' VNĐ</strong></td>
+                        <td>' . htmlspecialchars($item['GhiChu'] ?: 'Combo thiết bị') . '</td>
+                    </tr>';
+                } else {
+                    // Individual equipment
+                    $html .= '<tr>
+                        <td><strong><i class="fas fa-cog text-primary"></i> ' . htmlspecialchars($item['TenThietBi'] ?: 'N/A') . '</strong></td>
+                        <td>' . htmlspecialchars($item['LoaiThietBi'] ?: 'N/A') . '</td>
+                        <td>' . htmlspecialchars($item['HangSX'] ?: 'N/A') . '</td>
+                        <td><span class="badge bg-primary">' . ($item['SoLuong'] ?: '1') . '</span></td>
+                        <td>' . htmlspecialchars($item['DonViTinh'] ?: 'cái') . '</td>
+                        <td><strong class="text-success">' . number_format($item['DonGia'] ?: $item['GiaThue'] ?: 0) . ' VNĐ</strong></td>
+                        <td>' . htmlspecialchars($item['GhiChu'] ?: 'Thiết bị riêng lẻ') . '</td>
+                    </tr>';
+                }
             }
+            
+            $html .= '</tbody>
+                </table>
+            </div>';
+        } else {
+            $html .= '<div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i> Chưa có thiết bị nào được đăng ký cho sự kiện này.
+                <br><small>Debug: Registration ID = ' . $id . '</small>
+            </div>';
         }
         
-        $equipmentHtml .= '<tr class="table-info">
-                <td colspan="4" class="text-end"><strong>Tổng cộng:</strong></td>
-                <td><strong>' . number_format($totalAmount, 0, ',', '.') . ' VNĐ</strong></td>
-            </tr>';
+        $html .= '</div>
+        </div>
         
-        $equipmentHtml .= '</tbody>
-                </table>
+        <div class="row mt-3">
+            <div class="col-12">
+                <h5><i class="fas fa-info-circle text-primary"></i> Trạng thái</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Duyệt:</strong> 
+                        <span class="badge bg-' . ($registration['TrangThaiDuyet'] == 'Đã duyệt' ? 'success' : ($registration['TrangThaiDuyet'] == 'Từ chối' ? 'danger' : 'warning')) . '">
+                            ' . $registration['TrangThaiDuyet'] . '
+                        </span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Thanh toán:</strong> 
+                        <span class="badge bg-' . ($registration['TrangThaiThanhToan'] == 'Đã thanh toán' ? 'success' : 'warning') . '">
+                            ' . $registration['TrangThaiThanhToan'] . '
+                        </span>
+                    </div>
+            </div>
             </div>
         </div>';
-    } else {
-        $equipmentHtml = '<div class="mt-3">
-            <h6><i class="fas fa-tools"></i> Thiết bị đã đặt</h6>
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i> Khách hàng chưa đặt thiết bị nào cho sự kiện này.
-            </div>
-        </div>';
+        
+        echo json_encode(['success' => true, 'html' => $html]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy chi tiết đăng ký: ' . $e->getMessage()]);
     }
-    
-    return '
-    <div class="row">
-        <div class="col-md-6">
-            <h6><i class="fas fa-calendar-alt"></i> Thông tin sự kiện</h6>
-            <table class="table table-sm">
-                <tr><td><strong>Tên sự kiện:</strong></td><td>' . htmlspecialchars($registration['TenSuKien']) . '</td></tr>
-                <tr><td><strong>Loại sự kiện:</strong></td><td>' . htmlspecialchars($registration['TenLoai']) . '</td></tr>
-                <tr><td><strong>Ngày bắt đầu:</strong></td><td>' . date('d/m/Y H:i', strtotime($registration['NgayBatDau'])) . '</td></tr>
-                <tr><td><strong>Ngày kết thúc:</strong></td><td>' . date('d/m/Y H:i', strtotime($registration['NgayKetThuc'])) . '</td></tr>
-                <tr><td><strong>Trạng thái:</strong></td><td><span class="badge bg-' . $statusClass . '"><i class="fas ' . $statusIcon . '"></i> ' . $registration['TrangThaiDuyet'] . '</span></td></tr>
-            </table>
-        </div>
-        <div class="col-md-6">
-            <h6><i class="fas fa-user"></i> Thông tin khách hàng</h6>
-            <table class="table table-sm">
-                <tr><td><strong>Họ tên:</strong></td><td>' . htmlspecialchars($registration['HoTen']) . '</td></tr>
-                <tr><td><strong>Số điện thoại:</strong></td><td>' . htmlspecialchars($registration['SoDienThoai']) . '</td></tr>
-                <tr><td><strong>Địa chỉ:</strong></td><td>' . htmlspecialchars($registration['KhachHangDiaChi'] ?? 'Không có') . '</td></tr>
-            </table>
-        </div>
-    </div>
-    
-    <div class="row mt-3">
-        <div class="col-md-6">
-            <h6><i class="fas fa-map-marker-alt"></i> Thông tin địa điểm</h6>
-            <table class="table table-sm">
-                <tr><td><strong>Tên địa điểm:</strong></td><td>' . htmlspecialchars($registration['TenDiaDiem']) . '</td></tr>
-                <tr><td><strong>Địa chỉ:</strong></td><td>' . htmlspecialchars($registration['DiaChi']) . '</td></tr>
-                <tr><td><strong>Sức chứa:</strong></td><td>' . number_format($registration['SucChua']) . ' người</td></tr>
-                <tr><td><strong>Giá thuê:</strong></td><td>' . number_format($registration['GiaThue'], 0, ',', '.') . ' VNĐ</td></tr>
-            </table>
-        </div>
-        <div class="col-md-6">
-            <h6><i class="fas fa-info-circle"></i> Thông tin khác</h6>
-            <table class="table table-sm">
-                <tr><td><strong>Ngày tạo:</strong></td><td>' . date('d/m/Y H:i', strtotime($registration['NgayTao'])) . '</td></tr>
-                <tr><td><strong>Cập nhật:</strong></td><td>' . date('d/m/Y H:i', strtotime($registration['NgayCapNhat'])) . '</td></tr>
-                <tr><td><strong>Ghi chú:</strong></td><td>' . htmlspecialchars($registration['GhiChu'] ?? 'Không có') . '</td></tr>
-            </table>
-        </div>
-    </div>
-    
-    ' . $equipmentHtml;
 }
 
-// Helper function to send notification about registration status update
-function notifyRegistrationStatusUpdate($registrationId, $status, $customerName, $customerEmail) {
-    // This would integrate with your notification system
-    // For now, we'll just log it
-    error_log("Registration status update notification: ID=$registrationId, Status=$status, Customer=$customerName ($customerEmail)");
-    
-    // You can implement email notification, SMS, or push notification here
-    // Example:
-    // sendEmail($customerEmail, "Cập nhật trạng thái đăng ký sự kiện", "Đăng ký của bạn đã được $status");
+function updateRegistrationStatus() {
+    try {
+        $pdo = getDBConnection();
+        
+        $registrationId = $_POST['registration_id'] ?? '';
+        $status = $_POST['status'] ?? '';
+        $note = $_POST['note'] ?? '';
+        
+        if (empty($registrationId) || empty($status)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
+            return;
+        }
+        
+        // Validate status
+        $validStatuses = ['Chờ duyệt', 'Đã duyệt', 'Từ chối'];
+        if (!in_array($status, $validStatuses)) {
+            echo json_encode(['success' => false, 'message' => 'Trạng thái không hợp lệ']);
+            return;
+        }
+        
+        // Update registration status
+        $stmt = $pdo->prepare("
+            UPDATE datlichsukien 
+            SET TrangThaiDuyet = ?, GhiChu = ?, NgayCapNhat = NOW()
+            WHERE ID_DatLich = ?
+        ");
+        $stmt->execute([$status, $note, $registrationId]);
+        
+        echo json_encode(['success' => true, 'message' => 'Cập nhật trạng thái thành công']);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi cập nhật trạng thái: ' . $e->getMessage()]);
+    }
 }
 ?>

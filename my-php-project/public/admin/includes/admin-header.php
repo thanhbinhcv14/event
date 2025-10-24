@@ -4,16 +4,19 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Include database connection
+require_once '../../config/database.php';
+
 // Check if user is logged in and has admin access
-if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['role'], [1, 2, 3, 4])) {
-    header('Location: ../auth/login.php');
+if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['ID_Role'], [1, 2, 3, 4])) {
+    header('Location: ../login.php');
     exit;
 }
 
 $user = $_SESSION['user'];
-$isAdmin = $user['role'] == 1;
-$isManager = in_array($user['role'], [2, 3]);
-$isStaff = $user['role'] == 4;
+$isAdmin = $user['ID_Role'] == 1;
+$isManager = in_array($user['ID_Role'], [2, 3]);
+$isStaff = $user['ID_Role'] == 4;
 
 // Get current page name
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
@@ -23,11 +26,10 @@ $pageTitles = [
     'index' => 'Dashboard',
     'event-registrations' => 'Duyệt đăng ký sự kiện',
     'event-registration' => 'Đăng ký sự kiện',
-    'event-planning' => 'Lên kế hoạch sự kiện',
+    'event-planning' => 'Lên kế hoạch thực hiện và phân công',
     'staff-assignment' => 'Phân công nhân viên',
-    'work-schedule' => 'Lịch làm việc',
-    'customer-events' => 'Thông tin khách hàng',
-    'work-reports' => 'Báo cáo thực hiện',
+    'staff-schedule' => 'Lịch làm việc',
+    'staff-reports' => 'Báo cáo tiến độ',
     'locations' => 'Quản lý địa điểm',
     'device' => 'Quản lý thiết bị',
     'customeredit_content' => 'Quản lý khách hàng',
@@ -129,7 +131,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             </a>
             
             <!-- Role 1: Admin - Tất cả quyền -->
-            <?php if ($user['role'] == 1): ?>
+            <?php if ($user['ID_Role'] == 1): ?>
             <a href="event-registrations.php" class="menu-item <?= $currentPage === 'event-registrations' ? 'active' : '' ?>">
                 <i class="fas fa-clipboard-list"></i>
                 <span>Duyệt đăng ký sự kiện</span>
@@ -137,12 +139,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             
             <a href="event-planning.php" class="menu-item <?= $currentPage === 'event-planning' ? 'active' : '' ?>">
                 <i class="fas fa-calendar-check"></i>
-                <span>Lên kế hoạch sự kiện</span>
-            </a>
-            
-            <a href="staff-assignment.php" class="menu-item <?= $currentPage === 'staff-assignment' ? 'active' : '' ?>">
-                <i class="fas fa-user-plus"></i>
-                <span>Phân công nhân viên</span>
+                <span>Lên kế hoạch thực hiện và phân công</span>
             </a>
             
             <a href="locations.php" class="menu-item <?= $currentPage === 'locations' ? 'active' : '' ?>">
@@ -172,7 +169,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             <?php endif; ?>
             
             <!-- Role 2: Quản lý tổ chức -->
-            <?php if ($user['role'] == 2): ?>
+            <?php if ($user['ID_Role'] == 2): ?>
             <a href="event-registrations.php" class="menu-item <?= $currentPage === 'event-registrations' ? 'active' : '' ?>">
                 <i class="fas fa-clipboard-list"></i>
                 <span>Duyệt đăng ký sự kiện</span>
@@ -180,12 +177,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             
             <a href="event-planning.php" class="menu-item <?= $currentPage === 'event-planning' ? 'active' : '' ?>">
                 <i class="fas fa-calendar-check"></i>
-                <span>Lên kế hoạch thực hiện</span>
-            </a>
-            
-            <a href="staff-assignment.php" class="menu-item <?= $currentPage === 'staff-assignment' ? 'active' : '' ?>">
-                <i class="fas fa-user-plus"></i>
-                <span>Phân công nhân viên</span>
+                <span>Lên kế hoạch thực hiện và phân công</span>
             </a>
             
             <a href="locations.php" class="menu-item <?= $currentPage === 'locations' ? 'active' : '' ?>">
@@ -212,10 +204,15 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
                 <i class="fas fa-chart-bar"></i>
                 <span>Thống kê báo cáo</span>
             </a>
+            
+            <a href="manager-reports.php" class="menu-item <?= $currentPage === 'manager-reports' ? 'active' : '' ?>">
+                <i class="fas fa-chart-line"></i>
+                <span>Báo cáo từ nhân viên</span>
+            </a>
             <?php endif; ?>
             
             <!-- Role 3: Quản lý sự kiện -->
-            <?php if ($user['role'] == 3): ?>
+            <?php if ($user['ID_Role'] == 3): ?>
             <a href="event-registration.php" class="menu-item <?= $currentPage === 'event-registration' ? 'active' : '' ?>">
                 <i class="fas fa-plus-circle"></i>
                 <span>Đăng ký sự kiện cho khách hàng</span>
@@ -233,7 +230,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             <?php endif; ?>
             
             <!-- Chat Hỗ trợ - Tất cả role admin/staff -->
-            <?php if (in_array($user['role'], [1, 2, 3, 4])): ?>
+            <?php if (in_array($user['ID_Role'], [1, 2, 3, 4])): ?>
             <a href="chat.php" class="menu-item <?= $currentPage === 'chat' ? 'active' : '' ?>">
                 <i class="fas fa-comments"></i>
                 <span>Chat Hỗ trợ Khách hàng</span>
@@ -242,20 +239,15 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             <?php endif; ?>
             
             <!-- Role 4: Nhân viên -->
-            <?php if ($user['role'] == 4): ?>
-            <a href="work-schedule.php" class="menu-item <?= $currentPage === 'work-schedule' ? 'active' : '' ?>">
+            <?php if ($user['ID_Role'] == 4): ?>
+            <a href="staff-schedule.php" class="menu-item <?= $currentPage === 'staff-schedule' ? 'active' : '' ?>">
                 <i class="fas fa-calendar-alt"></i>
                 <span>Lịch làm việc</span>
             </a>
             
-            <a href="customer-events.php" class="menu-item <?= $currentPage === 'customer-events' ? 'active' : '' ?>">
-                <i class="fas fa-users"></i>
-                <span>Thông tin khách hàng</span>
-            </a>
-            
-            <a href="work-reports.php" class="menu-item <?= $currentPage === 'work-reports' ? 'active' : '' ?>">
-                <i class="fas fa-file-alt"></i>
-                <span>Báo cáo thực hiện</span>
+            <a href="staff-reports.php" class="menu-item <?= $currentPage === 'staff-reports' ? 'active' : '' ?>">
+                <i class="fas fa-chart-line"></i>
+                <span>Báo cáo tiến độ</span>
             </a>
             <?php endif; ?>
             
@@ -297,7 +289,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
                                 3 => 'Quản lý sự kiện',
                                 4 => 'Nhân viên'
                             ];
-                            echo $roleNames[$user['role']] ?? 'Người dùng';
+                            echo $roleNames[$user['ID_Role']] ?? 'Người dùng';
                             ?>
                         </small>
                     </div>

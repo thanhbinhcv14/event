@@ -204,16 +204,44 @@ include 'includes/admin-header.php';
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            // Test AJAX call first
+            testAjaxCall();
             initializeDataTable();
             loadStatistics();
             setupEventListeners();
         });
+        
+        function testAjaxCall() {
+            console.log('Testing AJAX call...');
+            $.ajax({
+                url: '../../src/controllers/admin-events.php',
+                type: 'GET',
+                data: { action: 'get_registrations' },
+                dataType: 'json',
+                success: function(response) {
+                    console.log('Direct AJAX test success:', response);
+                    console.log('Response type:', typeof response);
+                    console.log('Has success:', 'success' in response);
+                    console.log('Has registrations:', 'registrations' in response);
+                    if (response.registrations) {
+                        console.log('Registrations type:', typeof response.registrations);
+                        console.log('Is array:', Array.isArray(response.registrations));
+                        console.log('Count:', response.registrations.length);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Direct AJAX test error:', xhr, status, error);
+                    console.error('Response text:', xhr.responseText);
+                }
+            });
+        }
 
         function initializeDataTable() {
             // Check if DataTables is available
             if (typeof $.fn.DataTable === 'undefined') {
                 console.error('DataTables not available');
-                AdminPanel.showError('DataTables không khả dụng');
+                alert('DataTables không khả dụng - sử dụng bảng đơn giản');
+                loadSimpleTable();
                 return;
             }
 
@@ -229,16 +257,37 @@ include 'includes/admin-header.php';
                             return $.extend(d, currentFilters);
                         },
                         dataSrc: function(json) {
-                            if (json.success && json.registrations) {
+                            console.log('AJAX Response:', json);
+                            console.log('Response type:', typeof json);
+                            console.log('Response keys:', Object.keys(json || {}));
+                            
+                            if (json && json.success && Array.isArray(json.registrations)) {
+                                console.log('Found registrations:', json.registrations.length);
                                 return json.registrations;
+                            } else if (json && json.success && json.registrations === null) {
+                                console.log('No registrations found (null)');
+                                return [];
+                            } else if (json && json.success && json.registrations === undefined) {
+                                console.log('No registrations found (undefined)');
+                                return [];
                             } else {
                                 console.error('Invalid data format:', json);
+                                console.error('Success:', json ? json.success : 'undefined');
+                                console.error('Registrations:', json ? json.registrations : 'undefined');
+                                console.error('Message:', json ? json.message : 'undefined');
+                                
+                                // Try to show error message to user
+                                if (json && json.message) {
+                                    alert('Lỗi: ' + json.message);
+                                }
+                                
                                 return [];
                             }
                         },
                         error: function(xhr, error, thrown) {
-                            console.error('DataTable AJAX Error:', error);
-                            AdminPanel.showError('Không thể tải dữ liệu đăng ký sự kiện');
+                            console.error('DataTable AJAX Error:', xhr, error, thrown);
+                            console.error('Response Text:', xhr.responseText);
+                            alert('Lỗi khi tải dữ liệu: ' + error + ' - ' + xhr.responseText);
                         }
                     },
                 columns: [
@@ -254,13 +303,17 @@ include 'includes/admin-header.php';
                     { 
                         data: 'NgayBatDau',
                         render: function(data) {
-                            return AdminPanel.formatDate(data, 'dd/mm/yyyy hh:mm');
+                            if (!data) return '';
+                            const date = new Date(data);
+                            return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
                         }
                     },
                     { 
                         data: 'NgayKetThuc',
                         render: function(data) {
-                            return AdminPanel.formatDate(data, 'dd/mm/yyyy hh:mm');
+                            if (!data) return '';
+                            const date = new Date(data);
+                            return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
                         }
                     },
                     { 
@@ -274,7 +327,9 @@ include 'includes/admin-header.php';
                     { 
                         data: 'NgayTao',
                         render: function(data) {
-                            return AdminPanel.formatDate(data, 'dd/mm/yyyy hh:mm');
+                            if (!data) return '';
+                            const date = new Date(data);
+                            return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
                         }
                     },
                     { 
@@ -314,24 +369,31 @@ include 'includes/admin-header.php';
             });
             } catch (error) {
                 console.error('Error initializing DataTable:', error);
-                AdminPanel.showError('Lỗi khởi tạo bảng dữ liệu');
+                alert('Lỗi khởi tạo DataTable - chuyển sang bảng đơn giản');
+                loadSimpleTable();
             }
         }
 
         function loadStatistics() {
-            AdminPanel.makeAjaxRequest('../../src/controllers/admin-events.php', {
-                action: 'get_registration_stats'
-            })
-            .then(response => {
-                if (response.success) {
-                    $('#totalRegistrations').text(response.stats.total || 0);
-                    $('#pendingRegistrations').text(response.stats.pending || 0);
-                    $('#approvedRegistrations').text(response.stats.approved || 0);
-                    $('#rejectedRegistrations').text(response.stats.rejected || 0);
+            // Use simple jQuery AJAX instead of AdminPanel
+            $.ajax({
+                url: '../../src/controllers/admin-events.php',
+                type: 'GET',
+                data: { action: 'get_registration_stats' },
+                dataType: 'json',
+                success: function(response) {
+                    console.log('Statistics response:', response);
+                    if (response.success) {
+                        $('#totalRegistrations').text(response.stats.total || 0);
+                        $('#pendingRegistrations').text(response.stats.pending || 0);
+                        $('#approvedRegistrations').text(response.stats.approved || 0);
+                        $('#rejectedRegistrations').text(response.stats.rejected || 0);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Statistics load error:', xhr, status, error);
+                    console.error('Response:', xhr.responseText);
                 }
-            })
-            .catch(error => {
-                console.error('Statistics load error:', error);
             });
         }
 
@@ -430,34 +492,38 @@ include 'includes/admin-header.php';
         }
 
         function viewRegistration(id) {
-            AdminPanel.showLoading('#viewModalBody');
+            $('#viewModalBody').html('<div class="text-center"><div class="spinner-border" role="status"></div><p>Đang tải...</p></div>');
             
             const modal = new bootstrap.Modal(document.getElementById('viewModal'));
             modal.show();
 
-            AdminPanel.makeAjaxRequest('../../src/controllers/admin-events.php', {
-                action: 'get_registration_details',
-                id: id
-            })
-            .then(response => {
-                if (response.success) {
-                    $('#viewModalBody').html(response.html);
-                } else {
+            $.ajax({
+                url: '../../src/controllers/admin-events.php',
+                type: 'GET',
+                data: { action: 'get_registration_details', id: id },
+                dataType: 'json',
+                success: function(response) {
+                    console.log('View registration response:', response);
+                    if (response.success) {
+                        $('#viewModalBody').html(response.html);
+                    } else {
+                        $('#viewModalBody').html(`
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle"></i>
+                                ${response.message || 'Không thể tải chi tiết đăng ký'}
+                            </div>
+                        `);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('View registration error:', xhr, status, error);
                     $('#viewModalBody').html(`
                         <div class="alert alert-danger">
                             <i class="fas fa-exclamation-circle"></i>
-                            ${response.message || 'Không thể tải chi tiết đăng ký'}
+                            Có lỗi xảy ra khi tải chi tiết đăng ký
                         </div>
                     `);
                 }
-            })
-            .catch(error => {
-                $('#viewModalBody').html(`
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-circle"></i>
-                        Có lỗi xảy ra khi tải chi tiết đăng ký
-                    </div>
-                `);
             });
         }
 
@@ -479,61 +545,133 @@ include 'includes/admin-header.php';
         }
 
         function approveRegistration(id, note = '') {
-            const formData = new FormData();
-            formData.append('action', 'update_registration_status');
-            formData.append('registration_id', id);
-            formData.append('status', 'Đã duyệt');
-            formData.append('note', note);
-            
-            AdminPanel.makeAjaxRequest('../../src/controllers/admin-events.php', formData, 'POST')
-            .then(response => {
-                if (response.success) {
-                    AdminPanel.showSuccess('Đã duyệt đăng ký thành công');
-                    bootstrap.Modal.getInstance(document.getElementById('actionModal')).hide();
-                    registrationsTable.ajax.reload();
-                    loadStatistics();
-                } else {
-                    AdminPanel.showError(response.message || 'Có lỗi xảy ra khi duyệt đăng ký');
+            $.ajax({
+                url: '../../src/controllers/admin-events.php',
+                type: 'POST',
+                data: {
+                    action: 'update_registration_status',
+                    registration_id: id,
+                    status: 'Đã duyệt',
+                    note: note
+                },
+                dataType: 'json',
+                success: function(response) {
+                    console.log('Approve response:', response);
+                    if (response.success) {
+                        alert('Đã duyệt đăng ký thành công');
+                        bootstrap.Modal.getInstance(document.getElementById('actionModal')).hide();
+                        registrationsTable.ajax.reload();
+                        loadStatistics();
+                    } else {
+                        alert('Lỗi: ' + (response.message || 'Có lỗi xảy ra khi duyệt đăng ký'));
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Approve error:', xhr, status, error);
+                    alert('Có lỗi xảy ra khi duyệt đăng ký');
                 }
-            })
-            .catch(error => {
-                AdminPanel.showError('Có lỗi xảy ra khi duyệt đăng ký');
             });
         }
 
         function rejectRegistration(id, note = '') {
-            const formData = new FormData();
-            formData.append('action', 'update_registration_status');
-            formData.append('registration_id', id);
-            formData.append('status', 'Từ chối');
-            formData.append('note', note);
-            
-            AdminPanel.makeAjaxRequest('../../src/controllers/admin-events.php', formData, 'POST')
-            .then(response => {
-                if (response.success) {
-                    AdminPanel.showSuccess('Đã từ chối đăng ký thành công');
-                    bootstrap.Modal.getInstance(document.getElementById('actionModal')).hide();
-                    registrationsTable.ajax.reload();
-                    loadStatistics();
-                } else {
-                    AdminPanel.showError(response.message || 'Có lỗi xảy ra khi từ chối đăng ký');
+            $.ajax({
+                url: '../../src/controllers/admin-events.php',
+                type: 'POST',
+                data: {
+                    action: 'update_registration_status',
+                    registration_id: id,
+                    status: 'Từ chối',
+                    note: note
+                },
+                dataType: 'json',
+                success: function(response) {
+                    console.log('Reject response:', response);
+                    if (response.success) {
+                        alert('Đã từ chối đăng ký thành công');
+                        bootstrap.Modal.getInstance(document.getElementById('actionModal')).hide();
+                        registrationsTable.ajax.reload();
+                        loadStatistics();
+                    } else {
+                        alert('Lỗi: ' + (response.message || 'Có lỗi xảy ra khi từ chối đăng ký'));
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Reject error:', xhr, status, error);
+                    alert('Có lỗi xảy ra khi từ chối đăng ký');
                 }
-            })
-            .catch(error => {
-                AdminPanel.showError('Có lỗi xảy ra khi từ chối đăng ký');
             });
         }
 
         function refreshData() {
             registrationsTable.ajax.reload();
             loadStatistics();
-            AdminPanel.showSuccess('Đã làm mới dữ liệu');
+            alert('Đã làm mới dữ liệu');
         }
 
         function exportData(format) {
             if (format === 'csv') {
                 registrationsTable.button('.buttons-csv').trigger();
             }
+        }
+
+        // Simple table fallback
+        function loadSimpleTable() {
+            console.log('Loading simple table fallback');
+            $.ajax({
+                url: '../../src/controllers/admin-events.php',
+                type: 'GET',
+                data: { action: 'get_registrations' },
+                dataType: 'json',
+                success: function(response) {
+                    console.log('Simple table response:', response);
+                    if (response.success && response.registrations) {
+                        let html = '';
+                        response.registrations.forEach(function(reg) {
+                            const startDate = new Date(reg.NgayBatDau).toLocaleDateString('vi-VN');
+                            const endDate = new Date(reg.NgayKetThuc).toLocaleDateString('vi-VN');
+                            const createDate = new Date(reg.NgayTao).toLocaleDateString('vi-VN');
+                            
+                            html += `
+                                <tr>
+                                    <td class="text-center">${reg.ID_DatLich}</td>
+                                    <td><strong>${reg.TenSuKien}</strong><br><small class="text-muted">${reg.TenLoai}</small></td>
+                                    <td>${reg.HoTen || 'N/A'}</td>
+                                    <td>${reg.TenDiaDiem || 'N/A'}</td>
+                                    <td>${startDate}</td>
+                                    <td>${endDate}</td>
+                                    <td><span class="badge bg-${reg.TrangThaiDuyet === 'Đã duyệt' ? 'success' : (reg.TrangThaiDuyet === 'Từ chối' ? 'danger' : 'warning')}">${reg.TrangThaiDuyet}</span></td>
+                                    <td>${createDate}</td>
+                                    <td>
+                                        <button class="btn btn-info btn-sm" onclick="viewRegistration(${reg.ID_DatLich})" title="Xem chi tiết">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        ${reg.TrangThaiDuyet === 'Chờ duyệt' && (userRole == 1 || userRole == 2) ? `
+                                            <button class="btn btn-success btn-sm" onclick="showActionModal(${reg.ID_DatLich}, 'approve')" title="Duyệt">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                            <button class="btn btn-danger btn-sm" onclick="showActionModal(${reg.ID_DatLich}, 'reject')" title="Từ chối">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        ` : ''}
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                        
+                        if (html === '') {
+                            html = '<tr><td colspan="9" class="text-center">Không có dữ liệu</td></tr>';
+                        }
+                        
+                        $('#registrationsTable tbody').html(html);
+                    } else {
+                        $('#registrationsTable tbody').html('<tr><td colspan="9" class="text-center">Không có dữ liệu</td></tr>');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Simple table error:', xhr, status, error);
+                    $('#registrationsTable tbody').html('<tr><td colspan="9" class="text-center text-danger">Lỗi khi tải dữ liệu</td></tr>');
+                }
+            });
         }
 
         // Auto refresh every 30 seconds

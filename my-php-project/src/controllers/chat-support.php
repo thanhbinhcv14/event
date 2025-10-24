@@ -129,6 +129,7 @@ function getCustomers($pdo) {
         error_log("Get customers error: " . $e->getMessage());
         echo json_encode(['success' => false, 'error' => 'Không thể tải danh sách khách hàng']);
     }
+
 }
 
 /**

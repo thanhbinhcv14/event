@@ -1,176 +1,353 @@
 <?php
 session_start();
-require_once __DIR__ . '/../../config/database.php';
+require_once '../../config/database.php';
 
-header('Content-Type: application/json');
-
-// Check if user is logged in and has admin privileges
-$userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? null;
-if (!isset($_SESSION['user']) || !in_array($userRole, [1, 2])) {
-    echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
-    exit();
-}
-
-$pdo = getDBConnection();
-$STAFF_ROLES = [2, 3, 4];
-
-// Lấy danh sách nhân viên
-if ((isset($_GET['action']) && $_GET['action'] === 'list') || (isset($_POST['action']) && $_POST['action'] === 'list')) {
-    $stmt = $pdo->prepare("SELECT u.ID_User, u.Email, u.ID_Role, u.TrangThai, u.NgayTao, u.NgayCapNhat, p.RoleName, s.HoTen, s.SoDienThoai, s.DiaChi, s.NgaySinh, s.ChucVu, s.Luong, s.NgayVaoLam
-        FROM users u
-        LEFT JOIN nhanvieninfo s ON u.ID_User = s.ID_User
-        LEFT JOIN phanquyen p ON u.ID_Role = p.ID_Role
-        WHERE u.ID_Role IN (2,3,4)");
-    $stmt->execute();
-    echo json_encode($stmt->fetchAll());
+// Check if user is logged in and has appropriate role
+if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['ID_Role'], [1, 2])) {
+    echo json_encode(['success' => false, 'message' => 'Không có quyền truy cập']);
     exit;
 }
 
-// Lấy thông tin 1 nhân viên
-if ((isset($_GET['action']) && $_GET['action'] === 'get') || (isset($_POST['action']) && $_POST['action'] === 'get')) {
-    $userId = $_POST['id'] ?? $_GET['id'] ?? null;
-    
-    if (!$userId) {
-        echo json_encode(['success' => false, 'error' => 'Thiếu ID nhân viên']);
-        exit;
-    }
-    
-    $stmt = $pdo->prepare("SELECT u.ID_User, u.Email, u.ID_Role, u.TrangThai, u.NgayTao, u.NgayCapNhat, s.HoTen, s.SoDienThoai, s.DiaChi, s.NgaySinh, s.ChucVu, s.Luong, s.NgayVaoLam
-        FROM users u
-        LEFT JOIN nhanvieninfo s ON u.ID_User = s.ID_User
-        WHERE u.ID_User = ? AND u.ID_Role IN (2,3,4)");
-    $stmt->execute([$userId]);
-    $staff = $stmt->fetch();
-    
-    if ($staff) {
-        echo json_encode($staff);
-    } else {
-        echo json_encode(['success' => false, 'error' => 'Không tìm thấy nhân viên']);
-    }
-    exit;
+$action = $_POST['action'] ?? $_GET['action'] ?? '';
+
+switch ($action) {
+    case 'get_staff':
+        getStaff();
+        break;
+    case 'get_staff_details':
+        getStaffDetails();
+        break;
+    case 'add_staff':
+        addStaff();
+        break;
+    case 'update_staff':
+        updateStaff();
+        break;
+    case 'delete_staff':
+        deleteStaff();
+        break;
+    case 'get_staff_assignments':
+        getStaffAssignments();
+        break;
+    case 'get_staff_stats':
+        getStaffStats();
+        break;
+    default:
+        echo json_encode(['success' => false, 'message' => 'Action không hợp lệ']);
+        break;
 }
 
-// Thêm nhân viên
-if (isset($_POST['action']) && $_POST['action'] === 'add') {
-    $email = trim($_POST['email']);
-    $password = $_POST['password'] ?? '';
-    $fullname = trim($_POST['fullname']);
-    $phone = trim($_POST['phone']);
-    $address = trim($_POST['address']);
-    $birthday = $_POST['birthday'] ?? '';
-    $chucVu = trim($_POST['chucvu'] ?? '');
-    $luong = $_POST['luong'] ?? null;
-    $ngayVaoLam = $_POST['ngayvaolam'] ?? null;
-
-    $errors = [];
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Email không hợp lệ';
-    if (strlen($password) < 6) $errors[] = 'Mật khẩu tối thiểu 6 ký tự';
-    if (strlen($fullname) < 2) $errors[] = 'Họ tên quá ngắn';
-    if (!preg_match('/^0\d{9,10}$/', $phone)) $errors[] = 'Số điện thoại không hợp lệ';
-    if (empty($address)) $errors[] = 'Địa chỉ không được để trống';
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $birthday)) $errors[] = 'Ngày sinh không hợp lệ';
-    if ($luong !== null && $luong !== '' && !is_numeric($luong)) $errors[] = 'Lương phải là số';
-    if ($ngayVaoLam && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $ngayVaoLam)) $errors[] = 'Ngày vào làm không hợp lệ';
-
-    if ($errors) {
-        echo json_encode(['success' => false, 'error' => implode(', ', $errors)]);
-        exit;
-    }
-
-    $stmt = $pdo->prepare("INSERT INTO users (Email, Password, ID_Role) VALUES (?, ?, ?)");
-    $stmt->execute([
-        $email,
-        password_hash($password, PASSWORD_DEFAULT),
-        $_POST['role']
-    ]);
-    $userId = $pdo->lastInsertId();
-    $stmt2 = $pdo->prepare("INSERT INTO nhanvieninfo (ID_User, HoTen, SoDienThoai, DiaChi, NgaySinh, ChucVu, Luong, NgayVaoLam) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt2->execute([
-        $userId,
-        $fullname,
-        $phone,
-        $address,
-        $birthday,
-        $chucVu !== '' ? $chucVu : null,
-        $luong !== '' ? $luong : null,
-        $ngayVaoLam ?: null
-    ]);
-    echo json_encode(['success' => true]);
-    exit;
-}
-
-// Sửa nhân viên
-if (isset($_POST['action']) && $_POST['action'] === 'edit') {
-    if (!empty($_POST['password'])) {
-        $stmt = $pdo->prepare("UPDATE users SET Email=?, Password=?, ID_Role=? WHERE ID_User=? AND ID_Role IN (2,3,4)");
-        $stmt->execute([
-            $_POST['email'],
-            password_hash($_POST['password'], PASSWORD_DEFAULT),
-            $_POST['role'],
-            $_POST['id']
-        ]);
-    } else {
-        $stmt = $pdo->prepare("UPDATE users SET Email=?, ID_Role=? WHERE ID_User=? AND ID_Role IN (2,3,4)");
-        $stmt->execute([
-            $_POST['email'],
-            $_POST['role'],
-            $_POST['id']
-        ]);
-    }
-    $stmt2 = $pdo->prepare("UPDATE nhanvieninfo SET HoTen=?, SoDienThoai=?, DiaChi=?, NgaySinh=?, ChucVu=?, Luong=?, NgayVaoLam=? WHERE ID_User=?");
-    $stmt2->execute([
-        $_POST['fullname'],
-        $_POST['phone'],
-        $_POST['address'],
-        $_POST['birthday'],
-        $_POST['chucvu'] ?? null,
-        $_POST['luong'] !== '' ? $_POST['luong'] : null,
-        $_POST['ngayvaolam'] ?? null,
-        $_POST['id']
-    ]);
-    echo json_encode(['success' => true]);
-    exit;
-}
-
-// Xóa nhân viên
-if (isset($_POST['action']) && $_POST['action'] === 'delete') {
-    $stmt2 = $pdo->prepare("DELETE FROM nhanvieninfo WHERE ID_User=?");
-    $stmt2->execute([$_POST['id']]);
-    $stmt = $pdo->prepare("DELETE FROM users WHERE ID_User=? AND ID_Role IN (2,3,4)");
-    $stmt->execute([$_POST['id']]);
-    echo json_encode(['success' => true]);
-    exit;
-}
-
-// Lấy danh sách role nhân viên
-if ((isset($_GET['action']) && $_GET['action'] === 'roles') || (isset($_POST['action']) && $_POST['action'] === 'roles')) {
-    $roles = $pdo->query("SELECT ID_Role, RoleName FROM phanquyen WHERE ID_Role IN (2,3,4)")->fetchAll(PDO::FETCH_ASSOC);
-    echo json_encode($roles);
-    exit;
-}
-
-// Lấy thống kê nhân viên
-if ((isset($_GET['action']) && $_GET['action'] === 'get_staff_stats') || (isset($_POST['action']) && $_POST['action'] === 'get_staff_stats')) {
+function getStaff() {
     try {
-        // Tổng nhân viên
-        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE ID_Role IN (2,3,4)");
-        $stmt->execute();
-        $total = $stmt->fetch()['total'];
+        $pdo = getDBConnection();
         
-        // Nhân viên hoạt động
-        $stmt = $pdo->prepare("SELECT COUNT(*) as active FROM users WHERE ID_Role IN (2,3,4) AND TrangThai = 'Hoạt động'");
+        $stmt = $pdo->prepare("
+            SELECT 
+                nv.ID_NhanVien,
+                nv.ID_User,
+                nv.HoTen,
+                nv.ChucVu,
+                nv.SoDienThoai,
+                nv.DiaChi,
+                nv.NgaySinh,
+                nv.Luong,
+                nv.NgayVaoLam,
+                nv.NgayTao,
+                u.Email,
+                u.ID_Role,
+                u.TrangThai,
+                COUNT(llv.ID_LLV) as SoCongViec
+            FROM nhanvieninfo nv
+            LEFT JOIN users u ON nv.ID_User = u.ID_User
+            LEFT JOIN lichlamviec llv ON nv.ID_NhanVien = llv.ID_NhanVien
+            GROUP BY nv.ID_NhanVien
+            ORDER BY nv.NgayTao DESC
+        ");
         $stmt->execute();
-        $active = $stmt->fetch()['active'];
+        $staff = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Nhân viên chưa xác minh
-        $stmt = $pdo->prepare("SELECT COUNT(*) as pending FROM users WHERE ID_Role IN (2,3,4) AND TrangThai = 'Chưa xác minh'");
-        $stmt->execute();
-        $pending = $stmt->fetch()['pending'];
+        echo json_encode(['success' => true, 'staff' => $staff]);
         
-        // Nhân viên bị khóa
-        $stmt = $pdo->prepare("SELECT COUNT(*) as blocked FROM users WHERE ID_Role IN (2,3,4) AND TrangThai = 'Bị khóa'");
-        $stmt->execute();
-        $blocked = $stmt->fetch()['blocked'];
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy danh sách nhân viên: ' . $e->getMessage()]);
+    }
+}
+
+function getStaffDetails() {
+    try {
+        $pdo = getDBConnection();
+        
+        $staffId = $_GET['staff_id'] ?? $_GET['id'] ?? $_POST['id'] ?? '';
+        
+        if (empty($staffId)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin nhân viên']);
+            return;
+        }
+        
+        $stmt = $pdo->prepare("
+            SELECT 
+                nv.*,
+                u.Email,
+                u.ID_Role,
+                u.TrangThai as UserStatus,
+                u.NgayTao as NgayDangKy
+            FROM nhanvieninfo nv
+            LEFT JOIN users u ON nv.ID_User = u.ID_User
+            WHERE nv.ID_User = ?
+        ");
+        $stmt->execute([$staffId]);
+        $staff = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$staff) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy nhân viên']);
+            return;
+        }
+        
+        echo json_encode($staff);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy chi tiết nhân viên: ' . $e->getMessage()]);
+    }
+}
+
+function addStaff() {
+    try {
+        $pdo = getDBConnection();
+        
+        $email = $_POST['Email'] ?? '';
+        $password = $_POST['MatKhau'] ?? '';
+        $fullName = $_POST['HoTen'] ?? '';
+        $phone = $_POST['SoDienThoai'] ?? '';
+        $address = $_POST['DiaChi'] ?? '';
+        $birthday = $_POST['NgaySinh'] ?? '';
+        $position = $_POST['ChucVu'] ?? '';
+        $salary = $_POST['Luong'] ?? 0;
+        $startDate = $_POST['NgayVaoLam'] ?? '';
+        $role = $_POST['ID_Role'] ?? 4; // Default to staff role
+        
+        if (empty($email) || empty($password) || empty($fullName) || empty($phone)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
+            return;
+        }
+        
+        if (strlen($password) < 6) {
+            echo json_encode(['success' => false, 'message' => 'Mật khẩu phải có ít nhất 6 ký tự']);
+            return;
+        }
+        
+        // Check if email already exists
+        $stmt = $pdo->prepare("SELECT ID_User FROM users WHERE Email = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            echo json_encode(['success' => false, 'message' => 'Email đã được sử dụng']);
+            return;
+        }
+        
+        $pdo->beginTransaction();
+        
+        try {
+            // Insert user
+            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("
+                INSERT INTO users (Email, Password, ID_Role, TrangThai, NgayTao)
+                VALUES (?, ?, ?, 'Hoạt động', NOW())
+            ");
+            $stmt->execute([$email, $hashedPassword, $role]);
+        $userId = $pdo->lastInsertId();
+        
+            // Insert staff info
+            $stmt = $pdo->prepare("
+                INSERT INTO nhanvieninfo (ID_User, HoTen, SoDienThoai, DiaChi, NgaySinh, ChucVu, Luong, NgayVaoLam, TrangThai, NgayTao)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Hoạt động', NOW())
+            ");
+            $stmt->execute([$userId, $fullName, $phone, $address, $birthday, $position, $salary, $startDate]);
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Thêm nhân viên thành công']);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi thêm nhân viên: ' . $e->getMessage()]);
+    }
+}
+
+function updateStaff() {
+    try {
+        $pdo = getDBConnection();
+        
+        $staffId = $_POST['id'] ?? '';
+        $fullName = $_POST['HoTen'] ?? '';
+        $phone = $_POST['SoDienThoai'] ?? '';
+        $address = $_POST['DiaChi'] ?? '';
+        $birthday = $_POST['NgaySinh'] ?? '';
+        $position = $_POST['ChucVu'] ?? '';
+        $salary = $_POST['Luong'] ?? 0;
+        $startDate = $_POST['NgayVaoLam'] ?? '';
+        $status = $_POST['TrangThai'] ?? '';
+        $password = $_POST['MatKhau'] ?? '';
+        
+        if (empty($staffId) || empty($fullName) || empty($phone)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
+            return;
+        }
+        
+        $pdo->beginTransaction();
+        
+        try {
+            // Update staff info
+            $stmt = $pdo->prepare("
+                UPDATE nhanvieninfo 
+                SET HoTen = ?, SoDienThoai = ?, DiaChi = ?, NgaySinh = ?, ChucVu = ?, Luong = ?, NgayVaoLam = ?
+                WHERE ID_User = ?
+            ");
+            $stmt->execute([$fullName, $phone, $address, $birthday, $position, $salary, $startDate, $staffId]);
+            
+            // Update user status and password if provided
+            if (!empty($status) || !empty($password)) {
+                $updateFields = [];
+                $updateValues = [];
+                
+                if (!empty($status)) {
+                    $updateFields[] = "TrangThai = ?";
+                    $updateValues[] = $status;
+                }
+                
+                if (!empty($password)) {
+                    $updateFields[] = "MatKhau = ?";
+                    $updateValues[] = password_hash($password, PASSWORD_DEFAULT);
+                }
+                
+                $updateValues[] = $staffId;
+                
+                $stmt = $pdo->prepare("
+                    UPDATE users 
+                    SET " . implode(', ', $updateFields) . "
+                    WHERE ID_User = ?
+                ");
+                $stmt->execute($updateValues);
+            }
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Cập nhật thông tin nhân viên thành công']);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi cập nhật nhân viên: ' . $e->getMessage()]);
+    }
+}
+
+function deleteStaff() {
+    try {
+        $pdo = getDBConnection();
+        
+        $staffId = $_POST['id'] ?? '';
+        
+        if (empty($staffId)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
+            return;
+        }
+        
+        // Check if staff has assignments
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM lichlamviec WHERE ID_NhanVien = ?");
+        $stmt->execute([$staffId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result['count'] > 0) {
+            echo json_encode(['success' => false, 'message' => 'Không thể xóa nhân viên đã có công việc được phân công']);
+            return;
+        }
+        
+        $pdo->beginTransaction();
+        
+        try {
+            // Delete staff info
+            $stmt = $pdo->prepare("DELETE FROM nhanvieninfo WHERE ID_User = ?");
+            $stmt->execute([$staffId]);
+            
+            // Delete user
+            $stmt = $pdo->prepare("DELETE FROM users WHERE ID_User = ?");
+            $stmt->execute([$staffId]);
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Xóa nhân viên thành công']);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi xóa nhân viên: ' . $e->getMessage()]);
+    }
+}
+
+function getStaffAssignments() {
+    try {
+        $pdo = getDBConnection();
+        
+        $staffId = $_GET['staff_id'] ?? '';
+        
+        if (empty($staffId)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin nhân viên']);
+            return;
+        }
+        
+        $stmt = $pdo->prepare("
+            SELECT 
+                llv.ID_LLV,
+                llv.CongViec,
+                llv.HanHoanThanh,
+                llv.Tiendo,
+                llv.TrangThai,
+                llv.GhiChu,
+                llv.NgayTao,
+                dl.TenSuKien,
+                dl.NgayBatDau,
+                dl.NgayKetThuc,
+                dd.TenDiaDiem
+            FROM lichlamviec llv
+            LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            WHERE llv.ID_NhanVien = ?
+            ORDER BY llv.HanHoanThanh ASC
+        ");
+        $stmt->execute([$staffId]);
+        $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'assignments' => $assignments]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy công việc của nhân viên: ' . $e->getMessage()]);
+    }
+}
+
+function getStaffStats() {
+    try {
+        $pdo = getDBConnection();
+        
+        // Total staff
+        $stmt = $pdo->query("SELECT COUNT(*) FROM nhanvieninfo");
+        $total = $stmt->fetchColumn();
+        
+        // Active staff
+        $stmt = $pdo->query("SELECT COUNT(*) FROM nhanvieninfo nv JOIN users u ON nv.ID_User = u.ID_User WHERE u.TrangThai = 'Hoạt động'");
+        $active = $stmt->fetchColumn();
+        
+        // Pending staff
+        $stmt = $pdo->query("SELECT COUNT(*) FROM nhanvieninfo nv JOIN users u ON nv.ID_User = u.ID_User WHERE u.TrangThai = 'Chưa xác minh'");
+        $pending = $stmt->fetchColumn();
+        
+        // Blocked staff
+        $stmt = $pdo->query("SELECT COUNT(*) FROM nhanvieninfo nv JOIN users u ON nv.ID_User = u.ID_User WHERE u.TrangThai = 'Bị khóa'");
+        $blocked = $stmt->fetchColumn();
         
         echo json_encode([
             'success' => true,
@@ -181,162 +358,9 @@ if ((isset($_GET['action']) && $_GET['action'] === 'get_staff_stats') || (isset(
                 'blocked' => $blocked
             ]
         ]);
+        
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => 'Lỗi thống kê: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy thống kê nhân viên: ' . $e->getMessage()]);
     }
-    exit;
 }
-
-// Thêm nhân viên mới
-if (isset($_POST['action']) && $_POST['action'] === 'add_staff') {
-    try {
-        $input = $_POST;
-        
-        // Validate required fields
-        $requiredFields = ['HoTen', 'Email', 'MatKhau', 'SoDienThoai', 'ID_Role', 'TrangThai'];
-        foreach ($requiredFields as $field) {
-            if (empty($input[$field])) {
-                echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
-                exit();
-            }
-        }
-        
-        // Check if email already exists
-        $stmt = $pdo->prepare("SELECT ID_User FROM users WHERE Email = ?");
-        $stmt->execute([$input['Email']]);
-        if ($stmt->fetch()) {
-            echo json_encode(['success' => false, 'error' => 'Email đã tồn tại']);
-            exit();
-        }
-        
-        // Insert into users table
-        $stmt = $pdo->prepare("INSERT INTO users (Email, Password, ID_Role, TrangThai) VALUES (?, ?, ?, ?)");
-        $stmt->execute([
-            $input['Email'],
-            password_hash($input['MatKhau'], PASSWORD_DEFAULT),
-            $input['ID_Role'],
-            $input['TrangThai']
-        ]);
-        
-        $userId = $pdo->lastInsertId();
-        
-        // Insert into nhanvieninfo table
-        $stmt = $pdo->prepare("INSERT INTO nhanvieninfo (ID_User, HoTen, SoDienThoai, DiaChi, NgaySinh, ChucVu, Luong, NgayVaoLam) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $userId,
-            $input['HoTen'],
-            $input['SoDienThoai'],
-            $input['DiaChi'] ?? '',
-            $input['NgaySinh'] ?? null,
-            $input['ChucVu'] ?? '',
-            $input['Luong'] ?? 0,
-            $input['NgayVaoLam'] ?? null
-        ]);
-        
-        echo json_encode(['success' => true, 'message' => 'Thêm nhân viên thành công']);
-    } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => 'Lỗi thêm nhân viên: ' . $e->getMessage()]);
-    }
-    exit;
-}
-
-// Cập nhật nhân viên
-if (isset($_POST['action']) && $_POST['action'] === 'update_staff') {
-    try {
-        $input = $_POST;
-        $userId = $_POST['id'] ?? $_GET['id'] ?? null;
-        
-        if (!$userId) {
-            echo json_encode(['success' => false, 'error' => 'Thiếu ID nhân viên']);
-            exit();
-        }
-        
-        // Validate required fields
-        $requiredFields = ['HoTen', 'Email', 'SoDienThoai', 'ID_Role', 'TrangThai'];
-        foreach ($requiredFields as $field) {
-            if (empty($input[$field])) {
-                echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
-                exit();
-            }
-        }
-        
-        // Check if email already exists for other users
-        $stmt = $pdo->prepare("SELECT ID_User FROM users WHERE Email = ? AND ID_User != ?");
-        $stmt->execute([$input['Email'], $userId]);
-        if ($stmt->fetch()) {
-            echo json_encode(['success' => false, 'error' => 'Email đã tồn tại']);
-            exit();
-        }
-        
-        // Update users table
-        $updateFields = ['Email', 'ID_Role', 'TrangThai'];
-        $updateValues = [];
-        $updateSql = [];
-        
-        foreach ($updateFields as $field) {
-            $updateSql[] = "{$field} = ?";
-            $updateValues[] = $input[$field];
-        }
-        
-        // Add password if provided
-        if (!empty($input['MatKhau'])) {
-            $updateSql[] = "Password = ?";
-            $updateValues[] = password_hash($input['MatKhau'], PASSWORD_DEFAULT);
-        }
-        
-        $updateValues[] = $userId;
-        
-        $stmt = $pdo->prepare("UPDATE users SET " . implode(', ', $updateSql) . " WHERE ID_User = ?");
-        $stmt->execute($updateValues);
-        
-        // Update nhanvieninfo table
-        $stmt = $pdo->prepare("UPDATE nhanvieninfo SET HoTen = ?, SoDienThoai = ?, DiaChi = ?, NgaySinh = ?, ChucVu = ?, Luong = ?, NgayVaoLam = ? WHERE ID_User = ?");
-        $stmt->execute([
-            $input['HoTen'],
-            $input['SoDienThoai'],
-            $input['DiaChi'] ?? '',
-            $input['NgaySinh'] ?? null,
-            $input['ChucVu'] ?? '',
-            $input['Luong'] ?? 0,
-            $input['NgayVaoLam'] ?? null,
-            $userId
-        ]);
-        
-        echo json_encode(['success' => true, 'message' => 'Cập nhật nhân viên thành công']);
-    } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => 'Lỗi cập nhật nhân viên: ' . $e->getMessage()]);
-    }
-    exit;
-}
-
-// Xóa nhân viên
-if (isset($_POST['action']) && $_POST['action'] === 'delete_staff') {
-    try {
-        $userId = $_POST['id'] ?? $_GET['id'] ?? null;
-        
-        if (!$userId) {
-            echo json_encode(['success' => false, 'error' => 'Thiếu ID nhân viên']);
-            exit();
-        }
-        
-        // Delete from nhanvieninfo first
-        $stmt = $pdo->prepare("DELETE FROM nhanvieninfo WHERE ID_User = ?");
-        $stmt->execute([$userId]);
-        
-        // Delete from users
-        $stmt = $pdo->prepare("DELETE FROM users WHERE ID_User = ? AND ID_Role IN (2,3,4)");
-        $stmt->execute([$userId]);
-        
-        if ($stmt->rowCount() > 0) {
-            echo json_encode(['success' => true, 'message' => 'Xóa nhân viên thành công']);
-        } else {
-            echo json_encode(['success' => false, 'error' => 'Không tìm thấy nhân viên']);
-        }
-    } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => 'Lỗi xóa nhân viên: ' . $e->getMessage()]);
-    }
-    exit;
-}
-
-echo json_encode(['error' => 'Invalid action']);
-exit();
+?>

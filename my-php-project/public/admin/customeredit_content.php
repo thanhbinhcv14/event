@@ -258,12 +258,15 @@ include 'includes/admin-header.php';
                     url: '../../src/controllers/customeredit.php',
                     type: 'GET',
                     data: function(d) {
-                        d.action = 'list';
+                        d.action = 'get_customers';
                         return $.extend(d, currentFilters);
                     },
                     dataSrc: function(json) {
-                        // Controller trả về array trực tiếp, không wrap trong object
-                        if (Array.isArray(json)) {
+                        console.log('DataTable response:', json);
+                        // Controller trả về {success: true, customers: [...]}
+                        if (json && json.success && Array.isArray(json.customers)) {
+                            return json.customers;
+                        } else if (Array.isArray(json)) {
                             return json;
                         } else if (json && Array.isArray(json.data)) {
                             return json.data;
@@ -301,7 +304,10 @@ include 'includes/admin-header.php';
                             const statusMap = {
                                 'Hoạt động': { class: 'approved', text: 'Hoạt động' },
                                 'Chưa xác minh': { class: 'pending', text: 'Chưa xác minh' },
-                                'Bị khóa': { class: 'rejected', text: 'Bị khóa' }
+                                'Bị khóa': { class: 'rejected', text: 'Bị khóa' },
+                                'Active': { class: 'approved', text: 'Hoạt động' },
+                                'Inactive': { class: 'rejected', text: 'Bị khóa' },
+                                'Pending': { class: 'pending', text: 'Chưa xác minh' }
                             };
                             const status = statusMap[data] || { class: 'pending', text: data };
                             return `<span class="status-badge status-${status.class}">${status.text}</span>`;
@@ -438,12 +444,12 @@ include 'includes/admin-header.php';
 
         function editCustomer(id) {
             AdminPanel.makeAjaxRequest('../../src/controllers/customeredit.php', {
-                action: 'get_customer',
+                action: 'get_customer_details',
                 id: id
             })
             .then(response => {
-                if (response.success) {
-                    const customer = response.customer;
+                if (response && response.ID_User) {
+                    const customer = response;
                     $('#customerId').val(customer.ID_User);
                     $('#customerName').val(customer.HoTen);
                     $('#customerEmail').val(customer.Email);
@@ -457,7 +463,7 @@ include 'includes/admin-header.php';
                     const modal = new bootstrap.Modal(document.getElementById('customerModal'));
                     modal.show();
                 } else {
-                    AdminPanel.showError(response.message || 'Không thể tải thông tin khách hàng');
+                    AdminPanel.showError('Không thể tải thông tin khách hàng');
                 }
             })
             .catch(error => {
@@ -472,7 +478,7 @@ include 'includes/admin-header.php';
             modal.show();
 
             AdminPanel.makeAjaxRequest('../../src/controllers/customeredit.php', {
-                action: 'get_customer',
+                action: 'get_customer_details',
                 id: id
             })
             .then(response => {
@@ -482,9 +488,13 @@ include 'includes/admin-header.php';
                     const statusMap = {
                         'Hoạt động': { class: 'approved', text: 'Hoạt động' },
                         'Chưa xác minh': { class: 'pending', text: 'Chưa xác minh' },
-                        'Bị khóa': { class: 'rejected', text: 'Bị khóa' }
+                        'Bị khóa': { class: 'rejected', text: 'Bị khóa' },
+                        'Active': { class: 'approved', text: 'Hoạt động' },
+                        'Inactive': { class: 'rejected', text: 'Bị khóa' },
+                        'Pending': { class: 'pending', text: 'Chưa xác minh' }
                     };
-                    const status = statusMap[customer.TrangThai] || { class: 'pending', text: customer.TrangThai || 'Chưa xác định' };
+                    const statusValue = customer.TrangThai || 'Chưa xác định';
+                    const status = statusMap[statusValue] || { class: 'pending', text: statusValue };
                     
                     $('#viewModalBody').html(`
                         <div class="row">

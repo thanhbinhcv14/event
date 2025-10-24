@@ -623,12 +623,34 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             position: absolute;
             top: 1rem;
             right: 1rem;
-            background: linear-gradient(45deg, #28a745, #20c997);
             color: white;
             padding: 0.25rem 0.75rem;
             border-radius: 20px;
             font-size: 0.75rem;
             font-weight: 600;
+        }
+        
+        .event-status.status-upcoming {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+        }
+        
+        .event-status.status-ongoing {
+            background: linear-gradient(45deg, #ffc107, #e0a800);
+            animation: pulse 2s infinite;
+        }
+        
+        .event-status.status-completed {
+            background: linear-gradient(45deg, #6c757d, #495057);
+        }
+        
+        .event-status.status-default {
+            background: linear-gradient(45deg, #28a745, #20c997);
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
         }
         
         .no-events {
@@ -1691,7 +1713,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         <div class="container">
             <div class="text-center mb-5">
                 <h2 class="display-5 fw-bold">Sự kiện nổi bật</h2>
-                <p class="lead text-muted">Khám phá các sự kiện sắp diễn ra và đăng ký tham gia</p>
+                <p class="lead text-muted">Khám phá các sự kiện đang diễn ra, sắp diễn ra và đã hoàn thành</p>
             </div>
             <div class="row g-4" id="events-container">
                 <!-- Events will be loaded here via JavaScript -->
@@ -2131,19 +2153,36 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         
         // Load featured events
         function loadFeaturedEvents() {
+            console.log('Loading featured events...');
+            console.log('AJAX URL:', 'src/controllers/events.php?action=get_featured_events');
+            
             $.ajax({
                 url: 'src/controllers/events.php?action=get_featured_events',
                 method: 'GET',
                 dataType: 'json',
+                beforeSend: function() {
+                    console.log('AJAX request started...');
+                },
                 success: function(response) {
-                    if (response.success && response.events.length > 0) {
+                    console.log('Events API response:', response);
+                    console.log('Response type:', typeof response);
+                    console.log('Response success:', response.success);
+                    console.log('Response events length:', response.events ? response.events.length : 'undefined');
+                    
+                    if (response.success && response.events && response.events.length > 0) {
+                        console.log('Displaying', response.events.length, 'events');
                         displayEvents(response.events);
                     } else {
+                        console.log('No events found, displaying no events message');
+                        console.log('Reason: success=' + response.success + ', events=' + (response.events ? response.events.length : 'undefined'));
                         displayNoEvents();
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error('Error loading events:', error);
+                    console.error('XHR status:', xhr.status);
+                    console.error('Response text:', xhr.responseText);
+                    console.error('Status:', status);
                     displayNoEvents();
                 }
             });
@@ -2151,14 +2190,16 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         
         // Display events
         function displayEvents(events) {
+            console.log('displayEvents called with:', events);
             const container = $('#events-container');
+            console.log('Container found:', container.length);
             let html = '';
             
             events.forEach(function(event) {
                 html += `
                     <div class="col-lg-4 col-md-6 mb-4">
                         <div class="event-card">
-                            <div class="event-status">Đã duyệt</div>
+                            <div class="event-status status-${getStatusClass(event.TrangThaiSuKien)}">${event.TrangThaiSuKien}</div>
                             <img src="${event.HinhAnhURL}" alt="${event.TenSuKien}" class="event-image">
                             <div class="event-content">
                                 <h3 class="event-title">${event.TenSuKien}</h3>
@@ -2166,7 +2207,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                                 
                                 <div class="event-meta">
                                     <i class="fas fa-calendar-alt"></i>
-                                    <span>${event.NgayBatDau} - ${event.NgayKetThuc}</span>
+                                    <span>${formatDateTime(event.NgayBatDau)} - ${formatDateTime(event.NgayKetThuc)}</span>
                                 </div>
                                 
                                 <div class="event-location">
@@ -2198,7 +2239,23 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                 `;
             });
             
+            console.log('HTML generated:', html.substring(0, 200) + '...');
             container.html(html);
+            console.log('HTML inserted into container');
+        }
+        
+        // Get status class for styling
+        function getStatusClass(status) {
+            switch(status) {
+                case 'Đang diễn ra':
+                    return 'ongoing';
+                case 'Sắp diễn ra':
+                    return 'upcoming';
+                case 'Đã hoàn thành':
+                    return 'completed';
+                default:
+                    return 'default';
+            }
         }
         
         // Display no events message

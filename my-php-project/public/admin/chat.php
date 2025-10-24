@@ -12,10 +12,29 @@ if (!in_array($userRole, [1, 2, 3, 4])) {
 // Get current user info - Handle multiple session structures
 $currentUserId = $_SESSION['user']['ID_User'] ?? $_SESSION['user']['id'] ?? $_SESSION['user_id'] ?? 0;
 $currentUserName = $_SESSION['user']['HoTen'] ?? $_SESSION['user']['name'] ?? $_SESSION['user_name'] ?? 'Admin';
+$currentUserRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? 0;
+
+// Get role name from database
+$currentRoleName = 'Admin'; // Default fallback
+if ($currentUserRole > 0) {
+    try {
+        $pdo = getDBConnection();
+        $stmt = $pdo->prepare("SELECT RoleName FROM phanquyen WHERE ID_Role = ?");
+        $stmt->execute([$currentUserRole]);
+        $roleData = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($roleData) {
+            $currentRoleName = $roleData['RoleName'];
+        }
+    } catch (Exception $e) {
+        error_log("Error getting role name: " . $e->getMessage());
+    }
+}
 
 // Debug logging for current user
 error_log("Admin chat - Current user ID: " . $currentUserId);
 error_log("Admin chat - Current user name: " . $currentUserName);
+error_log("Admin chat - Current user role: " . $currentUserRole);
+error_log("Admin chat - Current role name: " . $currentRoleName);
 error_log("Admin chat - Session data: " . json_encode($_SESSION));
 ?>
 
@@ -77,7 +96,7 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
                             <small class="text-muted">
                                 <i class="fas fa-user-shield"></i> 
                                 <span id="adminName"><?php echo htmlspecialchars($currentUserName); ?></span> | 
-                                <span id="adminRole">Admin</span>
+                                <span id="adminRole"><?php echo htmlspecialchars($currentRoleName); ?></span>
                             </small>
                         </div>
                     </div>

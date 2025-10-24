@@ -1,401 +1,340 @@
 <?php
 session_start();
-require_once __DIR__ . '/../../config/database.php';
+require_once '../../config/database.php';
 
-header('Content-Type: application/json');
-
-// Check if user is logged in and has admin privileges
-if (!isset($_SESSION['user'])) {
-    echo json_encode(['success' => false, 'error' => 'Chưa đăng nhập']);
-    exit();
+// Check if user is logged in and has appropriate role
+if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['ID_Role'], [1, 2, 3])) {
+    echo json_encode(['success' => false, 'message' => 'Không có quyền truy cập']);
+    exit;
 }
 
-$userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? null;
-if (!in_array($userRole, [1, 2, 3])) {
-    echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
-    exit();
+$action = $_POST['action'] ?? $_GET['action'] ?? '';
+
+switch ($action) {
+    case 'get_customers':
+        getCustomers();
+        break;
+    case 'get_customer_details':
+        getCustomerDetails();
+        break;
+    case 'add_customer':
+        addCustomer();
+        break;
+    case 'update_customer':
+        updateCustomer();
+        break;
+    case 'delete_customer':
+        deleteCustomer();
+        break;
+    case 'get_customer_events':
+        getCustomerEvents();
+        break;
+    case 'get_customer_stats':
+        getCustomerStats();
+        break;
+    default:
+        echo json_encode(['success' => false, 'message' => 'Action không hợp lệ']);
+        break;
 }
 
-try {
-    $pdo = getDBConnection();
-    
-    // Chỉ lấy khách hàng (ID_Role = 5)
-    $CUSTOMER_ROLE = 5;
-
-    // Lấy danh sách khách hàng
-    if (isset($_GET['action']) && $_GET['action'] === 'list') {
-        // Kiểm tra xem có bảng khachhanginfo không
-        $checkTable = $pdo->query("SHOW TABLES LIKE 'khachhanginfo'");
-        if ($checkTable->rowCount() == 0) {
-            echo json_encode(['error' => 'Bảng khachhanginfo không tồn tại']);
-            exit;
-        }
+function getCustomers() {
+    try {
+        $pdo = getDBConnection();
         
-        $stmt = $pdo->prepare("SELECT u.ID_User, u.Email, u.NgayTao, u.NgayCapNhat, u.TrangThai, k.HoTen, k.SoDienThoai, k.DiaChi, k.NgaySinh
-            FROM users u
-            LEFT JOIN khachhanginfo k ON u.ID_User = k.ID_User
-            WHERE u.ID_Role = ?
-            ORDER BY u.ID_User DESC");
-        $stmt->execute([$CUSTOMER_ROLE]);
+        $stmt = $pdo->prepare("
+            SELECT 
+                kh.ID_KhachHang,
+                kh.ID_User,
+                kh.HoTen,
+                kh.SoDienThoai,
+                kh.DiaChi,
+                kh.NgaySinh,
+                kh.NgayTao,
+                u.Email,
+                u.TrangThai,
+                COUNT(dl.ID_DatLich) as SoSuKien
+            FROM khachhanginfo kh
+            LEFT JOIN users u ON kh.ID_User = u.ID_User
+            LEFT JOIN datlichsukien dl ON kh.ID_KhachHang = dl.ID_KhachHang
+            GROUP BY kh.ID_KhachHang
+            ORDER BY kh.NgayTao DESC
+        ");
+        $stmt->execute();
         $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Debug: Log số lượng khách hàng
-        error_log("Found " . count($customers) . " customers");
+        echo json_encode(['success' => true, 'customers' => $customers]);
         
-        // Đảm bảo mỗi khách hàng có đủ thông tin
-        foreach ($customers as &$customer) {
-            $customer['TrangThai'] = $customer['TrangThai'] ?: 'Hoạt động';
-            $customer['HoTen'] = $customer['HoTen'] ?: 'Chưa cập nhật';
-            $customer['SoDienThoai'] = $customer['SoDienThoai'] ?: '';
-            $customer['DiaChi'] = $customer['DiaChi'] ?: '';
-        }
-        
-        // Nếu không có khách hàng, tạo dữ liệu mẫu
-        if (count($customers) == 0) {
-            echo json_encode([
-                [
-                    'ID_User' => 1, 
-                    'Email' => 'customer@example.com', 
-                    'HoTen' => 'Khách hàng mẫu', 
-                    'SoDienThoai' => '0123456789', 
-                    'DiaChi' => 'Hà Nội', 
-                    'NgaySinh' => '1990-01-01',
-                    'TrangThai' => 'Hoạt động',
-                    'NgayTao' => date('Y-m-d H:i:s'),
-                    'NgayCapNhat' => date('Y-m-d H:i:s')
-                ]
-            ]);
-        } else {
-            echo json_encode($customers);
-        }
-        exit;
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy danh sách khách hàng: ' . $e->getMessage()]);
     }
-} catch (Exception $e) {
-    http_response_code(500);
-    error_log("Error in customeredit.php: " . $e->getMessage());
-    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
-    exit;
 }
 
-// Lấy thông tin 1 khách hàng
-if (isset($_GET['action']) && $_GET['action'] === 'get' && isset($_GET['id'])) {
-    $stmt = $pdo->prepare("SELECT u.ID_User, u.Email, k.HoTen, k.SoDienThoai, k.DiaChi, k.NgaySinh
-        FROM users u
-        LEFT JOIN khachhanginfo k ON u.ID_User = k.ID_User
-        WHERE u.ID_User = ? AND u.ID_Role = ?");
-    $stmt->execute([$_GET['id'], $CUSTOMER_ROLE]);
-    echo json_encode($stmt->fetch());
-    exit;
-}
-
-// Lấy thông tin chi tiết khách hàng cho modal
-if (isset($_GET['action']) && $_GET['action'] === 'get_customer' && isset($_GET['id'])) {
+function getCustomerDetails() {
     try {
-        $stmt = $pdo->prepare("SELECT u.ID_User, u.Email, u.NgayTao, u.NgayCapNhat, u.TrangThai, k.HoTen, k.SoDienThoai, k.DiaChi, k.NgaySinh
-            FROM users u
-            LEFT JOIN khachhanginfo k ON u.ID_User = k.ID_User
-            WHERE u.ID_User = ? AND u.ID_Role = ?");
-        $stmt->execute([$_GET['id'], $CUSTOMER_ROLE]);
+        $pdo = getDBConnection();
+        
+        $customerId = $_GET['customer_id'] ?? $_GET['id'] ?? $_POST['id'] ?? '';
+        
+        if (empty($customerId)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin khách hàng']);
+            return;
+        }
+        
+        $stmt = $pdo->prepare("
+            SELECT 
+                kh.*,
+                u.Email,
+                u.TrangThai,
+                u.NgayTao as NgayDangKy
+            FROM khachhanginfo kh
+            LEFT JOIN users u ON kh.ID_User = u.ID_User
+            WHERE kh.ID_User = ?
+        ");
+        $stmt->execute([$customerId]);
         $customer = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($customer) {
-            // Đảm bảo có đủ thông tin cần thiết
-            $customer['TrangThai'] = $customer['TrangThai'] ?: 'Hoạt động';
-            $customer['HoTen'] = $customer['HoTen'] ?: 'Chưa cập nhật';
-            $customer['SoDienThoai'] = $customer['SoDienThoai'] ?: '';
-            $customer['DiaChi'] = $customer['DiaChi'] ?: '';
-            echo json_encode(['success' => true, 'customer' => $customer]);
-        } else {
-            echo json_encode(['success' => false, 'error' => 'Không tìm thấy khách hàng']);
+        if (!$customer) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy khách hàng']);
+            return;
         }
+        
+        echo json_encode($customer);
+        
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => 'Lỗi: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy chi tiết khách hàng: ' . $e->getMessage()]);
     }
-    exit;
 }
 
-// Lấy thông tin cá nhân khách hàng từ bảng khachhanginfo
-if (isset($_GET['action']) && $_GET['action'] === 'info' && isset($_GET['id'])) {
-    $stmt = $pdo->prepare("SELECT * FROM khachhanginfo WHERE ID_User = ?");
-    $stmt->execute([$_GET['id']]);
-    echo json_encode($stmt->fetch());
-    exit;
-}
-
-// Thêm khách hàng
-if (isset($_POST['action']) && $_POST['action'] === 'add') {
-    $email = trim($_POST['email']);
-    $password = $_POST['password'] ?? '';
-    $fullname = trim($_POST['fullname']);
-    $phone = trim($_POST['phone']);
-    $address = trim($_POST['address']);
-    $birthday = $_POST['birthday'] ?? '';
-
-    $errors = [];
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Email không hợp lệ';
-    // $action không được định nghĩa ở phạm vi này, kiểm tra trực tiếp độ dài mật khẩu
-    if (strlen($password) < 6) $errors[] = 'Mật khẩu tối thiểu 6 ký tự';
-    if (strlen($fullname) < 2) $errors[] = 'Họ tên quá ngắn';
-    if (!preg_match('/^0\d{9,10}$/', $phone)) $errors[] = 'Số điện thoại không hợp lệ';
-    if (empty($address)) $errors[] = 'Địa chỉ không được để trống';
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $birthday)) $errors[] = 'Ngày sinh không hợp lệ';
-
-    if ($errors) {
-        echo json_encode(['success' => false, 'error' => implode(', ', $errors)]);
-        exit;
-    }
-
-    $stmt = $pdo->prepare("INSERT INTO users (Email, Password, ID_Role) VALUES (?, ?, ?)");
-    $stmt->execute([
-        $email,
-        password_hash($password, PASSWORD_DEFAULT),
-        $CUSTOMER_ROLE
-    ]);
-    $userId = $pdo->lastInsertId();
-    $stmt2 = $pdo->prepare("INSERT INTO khachhanginfo (ID_User, HoTen, SoDienThoai, DiaChi, NgaySinh) VALUES (?, ?, ?, ?, ?)");
-    $stmt2->execute([
-        $userId,
-        $fullname,
-        $phone,
-        $address,
-        $birthday
-    ]);
-    echo json_encode(['success' => true]);
-    exit;
-}
-
-// Sửa khách hàng
-if (isset($_POST['action']) && $_POST['action'] === 'edit') {
-    if (!empty($_POST['password'])) {
-        $stmt = $pdo->prepare("UPDATE users SET Email=?, Password=? WHERE ID_User=? AND ID_Role=?");
-        $stmt->execute([
-            $_POST['email'],
-            password_hash($_POST['password'], PASSWORD_DEFAULT),
-            $_POST['id'],
-            $CUSTOMER_ROLE
-        ]);
-    } else {
-        $stmt = $pdo->prepare("UPDATE users SET Email=? WHERE ID_User=? AND ID_Role=?");
-        $stmt->execute([
-            $_POST['email'],
-            $_POST['id'],
-            $CUSTOMER_ROLE
-        ]);
-    }
-    $stmt2 = $pdo->prepare("UPDATE khachhanginfo SET HoTen=?, SoDienThoai=?, DiaChi=?, NgaySinh=? WHERE ID_User=?");
-    $stmt2->execute([
-        $_POST['fullname'],
-        $_POST['phone'],
-        $_POST['address'],
-        $_POST['birthday'],
-        $_POST['id']
-    ]);
-    echo json_encode(['success' => true]);
-    exit;
-}
-
-// Xóa khách hàng
-// Lấy thống kê khách hàng
-if (isset($_GET['action']) && $_GET['action'] === 'get_customer_stats') {
+function addCustomer() {
     try {
-        // Tổng khách hàng
-        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE ID_Role = ?");
-        $stmt->execute([$CUSTOMER_ROLE]);
+        $pdo = getDBConnection();
+        
+        $email = $_POST['Email'] ?? '';
+        $fullName = $_POST['HoTen'] ?? '';
+        $phone = $_POST['SoDienThoai'] ?? '';
+        $address = $_POST['DiaChi'] ?? '';
+        $birthday = $_POST['NgaySinh'] ?? '';
+        $status = $_POST['TrangThai'] ?? 'Hoạt động';
+        
+        if (empty($email) || empty($fullName) || empty($phone)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
+            return;
+        }
+        
+        // Check if email already exists
+        $stmt = $pdo->prepare("SELECT ID_User FROM users WHERE Email = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            echo json_encode(['success' => false, 'message' => 'Email đã tồn tại']);
+            return;
+        }
+        
+        $pdo->beginTransaction();
+        
+        try {
+            // Create user account
+            $stmt = $pdo->prepare("
+                INSERT INTO users (Email, MatKhau, ID_Role, TrangThai, NgayTao) 
+                VALUES (?, ?, 4, ?, NOW())
+            ");
+            $defaultPassword = password_hash('123456', PASSWORD_DEFAULT); // Default password
+            $stmt->execute([$email, $defaultPassword, $status]);
+            $userId = $pdo->lastInsertId();
+            
+            // Create customer info
+            $stmt = $pdo->prepare("
+                INSERT INTO khachhanginfo (ID_User, HoTen, SoDienThoai, DiaChi, NgaySinh, NgayTao) 
+                VALUES (?, ?, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([$userId, $fullName, $phone, $address, $birthday]);
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Thêm khách hàng thành công']);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi thêm khách hàng: ' . $e->getMessage()]);
+    }
+}
+
+function updateCustomer() {
+    try {
+        $pdo = getDBConnection();
+        
+        $customerId = $_POST['id'] ?? '';
+        $fullName = $_POST['HoTen'] ?? '';
+        $phone = $_POST['SoDienThoai'] ?? '';
+        $address = $_POST['DiaChi'] ?? '';
+        $birthday = $_POST['NgaySinh'] ?? '';
+        $status = $_POST['TrangThai'] ?? '';
+        
+        if (empty($customerId) || empty($fullName) || empty($phone)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
+            return;
+        }
+        
+        $pdo->beginTransaction();
+        
+        try {
+            // Update customer info
+            $stmt = $pdo->prepare("
+                UPDATE khachhanginfo 
+                SET HoTen = ?, SoDienThoai = ?, DiaChi = ?, NgaySinh = ?
+                WHERE ID_KhachHang = ?
+            ");
+            $stmt->execute([$fullName, $phone, $address, $birthday, $customerId]);
+            
+            // Update user status if provided
+            if (!empty($status)) {
+                $stmt = $pdo->prepare("
+                    UPDATE users 
+                    SET TrangThai = ?
+                    WHERE ID_User = (SELECT ID_User FROM khachhanginfo WHERE ID_KhachHang = ?)
+                ");
+                $stmt->execute([$status, $customerId]);
+            }
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Cập nhật thông tin khách hàng thành công']);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi cập nhật khách hàng: ' . $e->getMessage()]);
+    }
+}
+
+function deleteCustomer() {
+    try {
+        $pdo = getDBConnection();
+        
+        $customerId = $_POST['customer_id'] ?? '';
+        
+        if (empty($customerId)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
+            return;
+        }
+        
+        // Check if customer has events
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM datlichsukien WHERE ID_KhachHang = ?");
+        $stmt->execute([$customerId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result['count'] > 0) {
+            echo json_encode(['success' => false, 'message' => 'Không thể xóa khách hàng đã có sự kiện']);
+            return;
+        }
+        
+        $pdo->beginTransaction();
+        
+        try {
+            // Get user ID
+            $stmt = $pdo->prepare("SELECT ID_User FROM khachhanginfo WHERE ID_KhachHang = ?");
+            $stmt->execute([$customerId]);
+            $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($customer) {
+                // Delete customer info
+                $stmt = $pdo->prepare("DELETE FROM khachhanginfo WHERE ID_KhachHang = ?");
+                $stmt->execute([$customerId]);
+                
+                // Delete user
+                $stmt = $pdo->prepare("DELETE FROM users WHERE ID_User = ?");
+                $stmt->execute([$customer['ID_User']]);
+            }
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => 'Xóa khách hàng thành công']);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi xóa khách hàng: ' . $e->getMessage()]);
+    }
+}
+
+function getCustomerEvents() {
+    try {
+        $pdo = getDBConnection();
+        
+        $customerId = $_GET['customer_id'] ?? '';
+        
+        if (empty($customerId)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin khách hàng']);
+            return;
+        }
+        
+        $stmt = $pdo->prepare("
+            SELECT 
+                dl.ID_DatLich,
+                dl.TenSuKien,
+                dl.MoTa,
+                dl.NgayBatDau,
+                dl.NgayKetThuc,
+                dl.TrangThaiDuyet,
+                dl.TrangThaiThanhToan,
+                dl.NganSach,
+                dl.NgayTao,
+                dd.TenDiaDiem,
+                ls.TenLoai as TenLoaiSK
+            FROM datlichsukien dl
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+            WHERE dl.ID_KhachHang = ?
+            ORDER BY dl.NgayTao DESC
+        ");
+        $stmt->execute([$customerId]);
+        $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'events' => $events]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy sự kiện của khách hàng: ' . $e->getMessage()]);
+    }
+}
+
+function getCustomerStats() {
+    try {
+        $pdo = getDBConnection();
+        
+        // Total customers
+        $stmt = $pdo->query("SELECT COUNT(*) FROM khachhanginfo");
         $total = $stmt->fetchColumn();
         
-        // Khách hàng hoạt động
-        $stmt = $pdo->prepare("SELECT COUNT(*) as active FROM users WHERE ID_Role = ? AND (TrangThai = 'Hoạt động' OR TrangThai IS NULL OR TrangThai = '')");
-        $stmt->execute([$CUSTOMER_ROLE]);
+        // Active customers
+        $stmt = $pdo->query("SELECT COUNT(*) FROM khachhanginfo kh JOIN users u ON kh.ID_User = u.ID_User WHERE u.TrangThai = 'Hoạt động'");
         $active = $stmt->fetchColumn();
         
-        // Khách hàng chờ xác thực
-        $stmt = $pdo->prepare("SELECT COUNT(*) as pending FROM users WHERE ID_Role = ? AND TrangThai = 'Chưa xác minh'");
-        $stmt->execute([$CUSTOMER_ROLE]);
+        // Pending customers
+        $stmt = $pdo->query("SELECT COUNT(*) FROM khachhanginfo kh JOIN users u ON kh.ID_User = u.ID_User WHERE u.TrangThai = 'Chưa xác minh'");
         $pending = $stmt->fetchColumn();
         
-        // Khách hàng bị khóa
-        $stmt = $pdo->prepare("SELECT COUNT(*) as blocked FROM users WHERE ID_Role = ? AND TrangThai = 'Bị khóa'");
-        $stmt->execute([$CUSTOMER_ROLE]);
+        // Blocked customers
+        $stmt = $pdo->query("SELECT COUNT(*) FROM khachhanginfo kh JOIN users u ON kh.ID_User = u.ID_User WHERE u.TrangThai = 'Bị khóa'");
         $blocked = $stmt->fetchColumn();
         
         echo json_encode([
             'success' => true,
             'stats' => [
-                'total' => (int)$total,
-                'active' => (int)$active,
-                'pending' => (int)$pending,
-                'blocked' => (int)$blocked
+                'total' => $total,
+                'active' => $active,
+                'pending' => $pending,
+                'blocked' => $blocked
             ]
         ]);
+        
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => 'Lỗi thống kê: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy thống kê khách hàng: ' . $e->getMessage()]);
     }
-    exit;
 }
-
-// Thêm khách hàng mới
-if (isset($_POST['action']) && $_POST['action'] === 'add_customer') {
-    try {
-        $input = $_POST;
-        
-        // Validate required fields
-        $requiredFields = ['HoTen', 'Email', 'SoDienThoai', 'TrangThai'];
-        foreach ($requiredFields as $field) {
-            if (empty($input[$field])) {
-                echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
-                exit();
-            }
-        }
-        
-        // Validate email format
-        if (!filter_var($input['Email'], FILTER_VALIDATE_EMAIL)) {
-            echo json_encode(['success' => false, 'error' => 'Email không hợp lệ']);
-            exit();
-        }
-        
-        // Validate phone format (Vietnamese phone number)
-        if (!preg_match('/^[0-9]{10,11}$/', $input['SoDienThoai'])) {
-            echo json_encode(['success' => false, 'error' => 'Số điện thoại không hợp lệ (10-11 chữ số)']);
-            exit();
-        }
-        
-        // Check if email already exists
-        $stmt = $pdo->prepare("SELECT ID_User FROM users WHERE Email = ?");
-        $stmt->execute([$input['Email']]);
-        if ($stmt->fetch()) {
-            echo json_encode(['success' => false, 'error' => 'Email đã tồn tại']);
-            exit();
-        }
-        
-        // Insert into users table
-        $stmt = $pdo->prepare("INSERT INTO users (Email, Password, ID_Role, TrangThai) VALUES (?, ?, ?, ?)");
-        $stmt->execute([
-            $input['Email'],
-            password_hash('123456', PASSWORD_DEFAULT), // Default password
-            $CUSTOMER_ROLE,
-            $input['TrangThai']
-        ]);
-        
-        $userId = $pdo->lastInsertId();
-        
-        // Insert into khachhanginfo table
-        $stmt = $pdo->prepare("INSERT INTO khachhanginfo (ID_User, HoTen, SoDienThoai, DiaChi, NgaySinh) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $userId,
-            $input['HoTen'],
-            $input['SoDienThoai'],
-            $input['DiaChi'] ?? '',
-            $input['NgaySinh'] ?? null
-        ]);
-        
-        echo json_encode(['success' => true, 'message' => 'Thêm khách hàng thành công']);
-    } catch (Exception $e) {
-        error_log("Error adding customer: " . $e->getMessage());
-        error_log("Input data: " . print_r($input, true));
-        echo json_encode(['success' => false, 'error' => 'Lỗi thêm khách hàng: ' . $e->getMessage()]);
-    }
-    exit;
-}
-
-// Cập nhật khách hàng
-if (isset($_POST['action']) && $_POST['action'] === 'update_customer') {
-    try {
-        $input = $_POST;
-        $userId = $input['id'] ?? null;
-        
-        if (!$userId) {
-            echo json_encode(['success' => false, 'error' => 'Thiếu ID khách hàng']);
-            exit();
-        }
-        
-        // Validate required fields
-        $requiredFields = ['HoTen', 'Email', 'SoDienThoai', 'TrangThai'];
-        foreach ($requiredFields as $field) {
-            if (empty($input[$field])) {
-                echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
-                exit();
-            }
-        }
-        
-        // Validate email format
-        if (!filter_var($input['Email'], FILTER_VALIDATE_EMAIL)) {
-            echo json_encode(['success' => false, 'error' => 'Email không hợp lệ']);
-            exit();
-        }
-        
-        // Validate phone format (Vietnamese phone number)
-        if (!preg_match('/^[0-9]{10,11}$/', $input['SoDienThoai'])) {
-            echo json_encode(['success' => false, 'error' => 'Số điện thoại không hợp lệ (10-11 chữ số)']);
-            exit();
-        }
-        
-        // Check if email already exists for other users
-        $stmt = $pdo->prepare("SELECT ID_User FROM users WHERE Email = ? AND ID_User != ?");
-        $stmt->execute([$input['Email'], $userId]);
-        if ($stmt->fetch()) {
-            echo json_encode(['success' => false, 'error' => 'Email đã tồn tại']);
-            exit();
-        }
-        
-        // Update users table
-        $stmt = $pdo->prepare("UPDATE users SET Email = ?, TrangThai = ? WHERE ID_User = ? AND ID_Role = ?");
-        $stmt->execute([$input['Email'], $input['TrangThai'], $userId, $CUSTOMER_ROLE]);
-        
-        // Update khachhanginfo table
-        $stmt = $pdo->prepare("UPDATE khachhanginfo SET HoTen = ?, SoDienThoai = ?, DiaChi = ?, NgaySinh = ? WHERE ID_User = ?");
-        $stmt->execute([
-            $input['HoTen'],
-            $input['SoDienThoai'],
-            $input['DiaChi'] ?? '',
-            $input['NgaySinh'] ?? null,
-            $userId
-        ]);
-        
-        echo json_encode(['success' => true, 'message' => 'Cập nhật khách hàng thành công']);
-    } catch (Exception $e) {
-        error_log("Error updating customer: " . $e->getMessage());
-        error_log("Input data: " . print_r($input, true));
-        echo json_encode(['success' => false, 'error' => 'Lỗi cập nhật khách hàng: ' . $e->getMessage()]);
-    }
-    exit;
-}
-
-// Xóa khách hàng
-if (isset($_POST['action']) && $_POST['action'] === 'delete_customer') {
-    try {
-        $userId = $_POST['id'] ?? null;
-        
-        if (!$userId) {
-            echo json_encode(['success' => false, 'error' => 'Thiếu ID khách hàng']);
-            exit();
-        }
-        
-        // Delete from khachhanginfo first
-        $stmt = $pdo->prepare("DELETE FROM khachhanginfo WHERE ID_User = ?");
-        $stmt->execute([$userId]);
-        
-        // Delete from users
-        $stmt = $pdo->prepare("DELETE FROM users WHERE ID_User = ? AND ID_Role = ?");
-        $stmt->execute([$userId, $CUSTOMER_ROLE]);
-        
-        if ($stmt->rowCount() > 0) {
-            echo json_encode(['success' => true, 'message' => 'Xóa khách hàng thành công']);
-        } else {
-            echo json_encode(['success' => false, 'error' => 'Không tìm thấy khách hàng']);
-        }
-    } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => 'Lỗi xóa khách hàng: ' . $e->getMessage()]);
-    }
-    exit;
-}
-
-if (isset($_POST['action']) && $_POST['action'] === 'delete') {
-    $stmt2 = $pdo->prepare("DELETE FROM khachhanginfo WHERE ID_User=?");
-    $stmt2->execute([$_POST['id']]);
-    $stmt = $pdo->prepare("DELETE FROM users WHERE ID_User=? AND ID_Role=?");
-    $stmt->execute([$_POST['id'], $CUSTOMER_ROLE]);
-    echo json_encode(['success' => true]);
-    exit;
-}
-
-echo json_encode(['error' => 'Invalid action']);
+?>
