@@ -11,7 +11,7 @@ session_start();
 
 // Try to include database config
 try {
-    $dbPath = __DIR__ . '/../../config/database.php';
+    $dbPath = __DIR__ . '/../config/database.php';
     if (!file_exists($dbPath)) {
         throw new Exception('File database.php không tồn tại tại: ' . $dbPath);
     }

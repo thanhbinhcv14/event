@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../../config/database.php';
+require_once __DIR__ . '/../../config/database.php';
 
 // Check if user is logged in and has appropriate role
 if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['ID_Role'], [1, 2])) {
@@ -93,9 +93,9 @@ function getStaffDetails() {
                 u.NgayTao as NgayDangKy
             FROM nhanvieninfo nv
             LEFT JOIN users u ON nv.ID_User = u.ID_User
-            WHERE nv.ID_User = ?
+            WHERE nv.ID_NhanVien = ? OR nv.ID_User = ?
         ");
-        $stmt->execute([$staffId]);
+        $stmt->execute([$staffId, $staffId]);
         $staff = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$staff) {
@@ -103,7 +103,7 @@ function getStaffDetails() {
             return;
         }
         
-        echo json_encode($staff);
+        echo json_encode(['success' => true, 'data' => $staff]);
         
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy chi tiết nhân viên: ' . $e->getMessage()]);
@@ -157,8 +157,8 @@ function addStaff() {
         
             // Insert staff info
             $stmt = $pdo->prepare("
-                INSERT INTO nhanvieninfo (ID_User, HoTen, SoDienThoai, DiaChi, NgaySinh, ChucVu, Luong, NgayVaoLam, TrangThai, NgayTao)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Hoạt động', NOW())
+                INSERT INTO nhanvieninfo (ID_User, HoTen, SoDienThoai, DiaChi, NgaySinh, ChucVu, Luong, NgayVaoLam, NgayTao)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ");
             $stmt->execute([$userId, $fullName, $phone, $address, $birthday, $position, $salary, $startDate]);
             
@@ -217,7 +217,7 @@ function updateStaff() {
                 }
                 
                 if (!empty($password)) {
-                    $updateFields[] = "MatKhau = ?";
+                    $updateFields[] = "Password = ?";
                     $updateValues[] = password_hash($password, PASSWORD_DEFAULT);
                 }
                 

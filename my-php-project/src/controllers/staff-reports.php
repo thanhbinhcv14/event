@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../../config/database.php';
+require_once __DIR__ . '/../../config/database.php';
 
 // Check if user is logged in and has role 4 (Staff)
 if (!isset($_SESSION['user']) || $_SESSION['user']['ID_Role'] != 4) {

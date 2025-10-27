@@ -1,6 +1,6 @@
 <?php
-require_once '../../config/database.php';
-require_once '../../src/auth/auth.php';
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../auth/auth.php';
 
 // Start session
 session_start();
@@ -10,13 +10,14 @@ header('Content-Type: application/json');
 
 // Check if user is logged in and has role 2
 if (!isLoggedIn()) {
+    error_log("Event Planning API: User not logged in. Session data: " . print_r($_SESSION, true));
     http_response_code(401);
     echo json_encode(['success' => false, 'error' => 'Chưa đăng nhập']);
     exit;
 }
 
 $user = getCurrentUser();
-if (!in_array($user['ID_Role'], [2, 3])) {
+if (!in_array($user['ID_Role'], [1, 2, 3])) {
     http_response_code(403);
     echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
     exit;
@@ -69,6 +70,10 @@ try {
             
         case 'get_approved_events':
             getApprovedEvents($pdo);
+            break;
+            
+        case 'get_plans':
+            getPlans($pdo);
             break;
             
         case 'auto_approve_events':
@@ -538,6 +543,39 @@ function getApprovedEvents($pdo) {
         echo json_encode(['success' => false, 'error' => 'Lỗi khi lấy danh sách sự kiện: ' . $e->getMessage()]);
     }
 }
+
+function getPlans($pdo) {
+    try {
+        $sql = "
+            SELECT 
+                kht.id_kehoach,
+                kht.id_sukien,
+                kht.ten_kehoach,
+                kht.noidung,
+                kht.ngay_batdau,
+                kht.ngay_ketthuc,
+                kht.trangthai,
+                s.ID_DatLich,
+                dl.TenSuKien
+            FROM kehoachthuchien kht
+            LEFT JOIN sukien s ON kht.id_sukien = s.ID_SuKien
+            LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+            ORDER BY kht.ngay_batdau ASC
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+        $plans = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'plans' => $plans]);
+        
+    } catch (Exception $e) {
+        error_log("Get Plans Error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Lỗi khi lấy danh sách kế hoạch: ' . $e->getMessage()]);
+    }
+}
+
+
 
 function autoApproveEvents($pdo) {
     try {

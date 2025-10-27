@@ -1,6 +1,6 @@
 <?php
 return [
-    'callback' => 'http://localhost/event/my-php-project/public/social-callback.php',
+    'callback' => 'http://localhost/event/my-php-project/social-callback.php',
     'providers' => [
         'Google' => [
             'enabled' => true,

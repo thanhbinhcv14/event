@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../../config/database.php';
+require_once __DIR__ . '/../../config/database.php';
 
 // Debug session
 error_log("Admin Events Controller - Session data: " . print_r($_SESSION, true));
@@ -72,6 +72,7 @@ function getEvents() {
                 dl.NgayKetThuc,
                 dl.SoNguoiDuKien,
                 dl.NganSach,
+                dl.TongTien,
                 dl.TrangThaiDuyet,
                 dl.TrangThaiThanhToan,
                 dl.GhiChu,
@@ -116,7 +117,9 @@ function getEventDetails() {
                 dd.DiaChi,
                 dd.MoTa as DiaDiemMoTa,
                 dd.SucChua,
-                dd.GiaThue,
+                dd.GiaThueGio,
+                dd.GiaThueNgay,
+                dd.LoaiThue,
                 ls.TenLoai as TenLoaiSK,
                 ls.MoTa as LoaiSKMoTa,
                 kh.HoTen as TenKhachHang,
@@ -328,7 +331,7 @@ function removeEventEquipment() {
             return;
         }
         
-        $stmt = $pdo->prepare("DELETE FROM sukien_thietbi WHERE ID_SuKien_ThietBi = ?");
+        $stmt = $pdo->prepare("DELETE FROM sukien_thietbi WHERE ID_SuKien = ? AND ID_TB = ?");
         $stmt->execute([$assignmentId]);
         
         echo json_encode(['success' => true, 'message' => 'Xóa thiết bị thành công']);
@@ -360,6 +363,7 @@ function getRegistrations() {
                 dl.NgayKetThuc,
                 dl.SoNguoiDuKien,
                 dl.NganSach,
+                dl.TongTien,
                 dl.TrangThaiDuyet,
                 dl.TrangThaiThanhToan,
                 dl.GhiChu,
@@ -448,7 +452,9 @@ function getRegistrationDetails() {
                 dd.DiaChi,
                 dd.MoTa as DiaDiemMoTa,
                 dd.SucChua,
-                dd.GiaThue,
+                dd.GiaThueGio,
+                dd.GiaThueNgay,
+                dd.LoaiThue,
                 ls.TenLoai,
                 ls.MoTa as LoaiSKMoTa,
                 kh.HoTen,
@@ -549,7 +555,9 @@ function getRegistrationDetails() {
                     <tr><td><strong>Tên địa điểm:</strong></td><td>' . htmlspecialchars($registration['TenDiaDiem']) . '</td></tr>
                     <tr><td><strong>Địa chỉ:</strong></td><td>' . htmlspecialchars($registration['DiaChi']) . '</td></tr>
                     <tr><td><strong>Sức chứa:</strong></td><td>' . number_format($registration['SucChua'] ?: 0) . ' người</td></tr>
-                    <tr><td><strong>Giá thuê:</strong></td><td>' . number_format($registration['GiaThue'] ?: 0) . ' VNĐ</td></tr>
+                    <tr><td><strong>Giá thuê/giờ:</strong></td><td>' . number_format($registration['GiaThueGio'] ?: 0) . ' VNĐ</td></tr>
+                    <tr><td><strong>Giá thuê/ngày:</strong></td><td>' . number_format($registration['GiaThueNgay'] ?: 0) . ' VNĐ</td></tr>
+                    <tr><td><strong>Loại thuê:</strong></td><td>' . htmlspecialchars($registration['LoaiThue'] ?: 'Chưa xác định') . '</td></tr>
                 </table>
             </div>
             <div class="col-md-6">
@@ -563,13 +571,27 @@ function getRegistrationDetails() {
         </div>
         
         <div class="row mt-3">
+            <div class="col-md-6">
+                <h5><i class="fas fa-money-bill-wave text-success"></i> Thông tin giá tiền</h5>
+                <table class="table table-sm">
+                    <tr><td><strong>Tổng tiền:</strong></td><td><span class="badge bg-success fs-6">' . number_format($registration['TongTien'] ?: 0) . ' VNĐ</span></td></tr>
+                    <tr><td><strong>Ngân sách:</strong></td><td>' . number_format($registration['NganSach'] ?: 0) . ' VNĐ</td></tr>
+                    <tr><td><strong>Trạng thái thanh toán:</strong></td><td><span class="badge bg-' . ($registration['TrangThaiThanhToan'] === 'Đã thanh toán đủ' ? 'success' : ($registration['TrangThaiThanhToan'] === 'Đã đặt cọc' ? 'warning' : 'secondary')) . '">' . htmlspecialchars($registration['TrangThaiThanhToan']) . '</span></td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5><i class="fas fa-info-circle text-primary"></i> Thông tin sự kiện</h5>
+                <table class="table table-sm">
+                    <tr><td><strong>Loại sự kiện:</strong></td><td>' . htmlspecialchars($registration['TenLoai']) . '</td></tr>
+                    <tr><td><strong>Số người dự kiến:</strong></td><td>' . number_format($registration['SoNguoiDuKien'] ?: 0) . ' người</td></tr>
+                    <tr><td><strong>Trạng thái duyệt:</strong></td><td><span class="badge bg-' . ($registration['TrangThaiDuyet'] === 'Đã duyệt' ? 'success' : ($registration['TrangThaiDuyet'] === 'Từ chối' ? 'danger' : 'warning')) . '">' . htmlspecialchars($registration['TrangThaiDuyet']) . '</span></td></tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="row mt-3">
             <div class="col-12">
                 <h5><i class="fas fa-cogs text-secondary"></i> Thiết bị đã đăng ký</h5>';
-        
-        // Debug info
-        $html .= '<div class="alert alert-info">
-            <small>Debug: Tìm thấy ' . count($equipment) . ' thiết bị cho đăng ký ID: ' . $id . '</small>
-        </div>';
         
         if (!empty($equipment)) {
             $html .= '<div class="table-responsive">
@@ -674,15 +696,122 @@ function updateRegistrationStatus() {
             return;
         }
         
-        // Update registration status
-        $stmt = $pdo->prepare("
-            UPDATE datlichsukien 
-            SET TrangThaiDuyet = ?, GhiChu = ?, NgayCapNhat = NOW()
-            WHERE ID_DatLich = ?
-        ");
-        $stmt->execute([$status, $note, $registrationId]);
+        // Start transaction
+        $pdo->beginTransaction();
         
-        echo json_encode(['success' => true, 'message' => 'Cập nhật trạng thái thành công']);
+        try {
+            // Update registration status
+            $stmt = $pdo->prepare("
+                UPDATE datlichsukien 
+                SET TrangThaiDuyet = ?, GhiChu = ?, NgayCapNhat = NOW()
+                WHERE ID_DatLich = ?
+            ");
+            $stmt->execute([$status, $note, $registrationId]);
+            
+            // If status is 'Đã duyệt', create event in sukien table
+            if ($status === 'Đã duyệt') {
+                // Check if event already exists in sukien table
+                $checkStmt = $pdo->prepare("SELECT ID_SuKien FROM sukien WHERE ID_DatLich = ?");
+                $checkStmt->execute([$registrationId]);
+                
+                if (!$checkStmt->fetch()) {
+                    // Get registration details
+                    $regStmt = $pdo->prepare("
+                        SELECT dl.*, dd.TenDiaDiem, dd.DiaChi, dd.GiaThueGio, dd.GiaThueNgay, dd.LoaiThue,
+                               ls.TenLoai, ls.GiaCoBan
+                        FROM datlichsukien dl
+                        LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+                        LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+                        WHERE dl.ID_DatLich = ?
+                    ");
+                    $regStmt->execute([$registrationId]);
+                    $registration = $regStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($registration) {
+                        // Generate event code
+                        $eventCode = 'EV' . date('Ymd') . str_pad($registrationId, 4, '0', STR_PAD_LEFT);
+                        
+                        // Calculate total cost
+                        $totalCost = 0;
+                        
+                        // Add event type cost
+                        if ($registration['GiaCoBan']) {
+                            $totalCost += floatval($registration['GiaCoBan']);
+                        }
+                        
+                        // Add location rental cost
+                        if ($registration['GiaThueGio'] || $registration['GiaThueNgay']) {
+                            $startDate = new DateTime($registration['NgayBatDau']);
+                            $endDate = new DateTime($registration['NgayKetThuc']);
+                            $durationHours = $startDate->diff($endDate)->h + ($startDate->diff($endDate)->days * 24);
+                            $durationDays = $startDate->diff($endDate)->days + ($durationHours > 0 ? 1 : 0);
+                            
+                            if ($registration['LoaiThue'] === 'Theo giờ' && $registration['GiaThueGio']) {
+                                $totalCost += $durationHours * floatval($registration['GiaThueGio']);
+                            } elseif ($registration['LoaiThue'] === 'Theo ngày' && $registration['GiaThueNgay']) {
+                                $totalCost += $durationDays * floatval($registration['GiaThueNgay']);
+                            } elseif ($registration['LoaiThue'] === 'Cả hai') {
+                                $hourlyPrice = $durationHours * floatval($registration['GiaThueGio'] ?? 0);
+                                $dailyPrice = $durationDays * floatval($registration['GiaThueNgay'] ?? 0);
+                                $totalCost += min($hourlyPrice, $dailyPrice);
+                            }
+                        }
+                        
+                        // Add equipment cost
+                        $equipStmt = $pdo->prepare("
+                            SELECT SUM(ct.DonGia * ct.SoLuong) as total_equipment_cost
+                            FROM chitietdatsukien ct
+                            WHERE ct.ID_DatLich = ? AND (ct.ID_TB IS NOT NULL OR ct.ID_Combo IS NOT NULL)
+                        ");
+                        $equipStmt->execute([$registrationId]);
+                        $equipmentResult = $equipStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($equipmentResult && $equipmentResult['total_equipment_cost']) {
+                            $totalCost += floatval($equipmentResult['total_equipment_cost']);
+                        }
+                        
+                        // Insert into sukien table
+                        $insertStmt = $pdo->prepare("
+                            INSERT INTO sukien (
+                                ID_DatLich, MaSuKien, TenSuKien, NgayBatDauThucTe, NgayKetThucThucTe,
+                                DiaDiemThucTe, TrangThaiThucTe, TongChiPhiThucTe, GhiChuQuanLy
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ");
+                        
+                        $insertStmt->execute([
+                            $registrationId,
+                            $eventCode,
+                            $registration['TenSuKien'],
+                            $registration['NgayBatDau'],
+                            $registration['NgayKetThuc'],
+                            $registration['TenDiaDiem'] . ($registration['DiaChi'] ? ' - ' . $registration['DiaChi'] : ''),
+                            'Đang chuẩn bị',
+                            $totalCost,
+                            'Sự kiện được duyệt tự động từ đăng ký ID: ' . $registrationId . ($note ? ' - Ghi chú: ' . $note : '')
+                        ]);
+                        
+                        $eventId = $pdo->lastInsertId();
+                        
+                        // Log the creation
+                        error_log("Created event ID: $eventId for registration ID: $registrationId with code: $eventCode");
+                    }
+                }
+            }
+            
+            // Commit transaction
+            $pdo->commit();
+            
+            $message = 'Cập nhật trạng thái thành công';
+            if ($status === 'Đã duyệt') {
+                $message .= ' và đã tạo sự kiện để quản lý';
+            }
+            
+            echo json_encode(['success' => true, 'message' => $message]);
+            
+        } catch (Exception $e) {
+            // Rollback transaction on error
+            $pdo->rollback();
+            throw $e;
+        }
         
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Lỗi khi cập nhật trạng thái: ' . $e->getMessage()]);

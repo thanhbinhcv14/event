@@ -26,7 +26,7 @@ error_log("Debug - Action: " . $action);
 error_log("Debug - Session data: " . print_r($_SESSION, true));
 
 // For data loading actions, don't require login
-$publicActions = ['get_event_types', 'get_locations_by_type', 'get_equipment_suggestions', 'get_combo_suggestions', 'get_all_equipment', 'get_all_combos', 'get_event_selected_data', 'get_event_equipment'];
+$publicActions = ['get_event_types', 'get_locations_by_type', 'get_all_locations', 'get_equipment_suggestions', 'get_combo_suggestions', 'get_all_equipment', 'get_all_combos', 'get_event_selected_data', 'get_event_equipment'];
 
 if (!in_array($action, $publicActions)) {
     // Check if user is logged in for other actions
@@ -120,6 +120,35 @@ try {
                 }
                 
                 echo json_encode(['success' => true, 'locations' => $locations]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
+            }
+            break;
+            
+        case 'get_all_locations':
+            // Get all active locations
+            try {
+                $stmt = $pdo->prepare("
+                    SELECT 
+                        ID_DD,
+                        TenDiaDiem,
+                        DiaChi,
+                        SucChua,
+                        GiaThueGio,
+                        GiaThueNgay,
+                        LoaiThue,
+                        LoaiDiaDiem,
+                        MoTa,
+                        HinhAnh
+                    FROM diadiem
+                    WHERE TrangThaiHoatDong = 'Hoạt động'
+                    ORDER BY TenDiaDiem ASC
+                ");
+                $stmt->execute();
+                $locations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                echo json_encode(['success' => true, 'locations' => $locations]);
+                
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
             }
@@ -238,6 +267,10 @@ try {
                 }
             }
             
+            // Debug: Log input data
+            error_log("Debug - Input data: " . print_r($input, true));
+            error_log("Debug - Total price: " . ($input['total_price'] ?? 'NOT SET'));
+            
             // Get customer ID from user session
             $stmt = $pdo->prepare("SELECT ID_KhachHang FROM khachhanginfo WHERE ID_User = ?");
             $stmt->execute([$userId]);
@@ -283,12 +316,28 @@ try {
             $pdo->beginTransaction();
             
             try {
+                // Debug: Log values before insert
+                error_log("Debug - About to insert TongTien: " . ($input['total_price'] ?? 0));
+                error_log("Debug - Budget: " . ($input['budget'] ?? 'NULL'));
+                error_log("Debug - Location rental type: " . ($input['location_rental_type'] ?? 'NOT SET'));
+                
+                // Convert rental type to database format
+                $loaiThueApDung = null;
+                if (isset($input['location_rental_type'])) {
+                    if ($input['location_rental_type'] === 'hour') {
+                        $loaiThueApDung = 'Theo giờ';
+                    } elseif ($input['location_rental_type'] === 'day') {
+                        $loaiThueApDung = 'Theo ngày';
+                    }
+                }
+                error_log("Debug - Converted LoaiThueApDung: " . ($loaiThueApDung ?? 'NULL'));
+                
                 // Insert into datlichsukien table
                 $sql = "INSERT INTO datlichsukien (
                     ID_KhachHang, TenSuKien, MoTa, NgayBatDau, NgayKetThuc, 
-                    ID_DD, ID_LoaiSK, SoNguoiDuKien, NganSach, 
-                    TrangThaiDuyet, TrangThaiThanhToan, GhiChu
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    ID_DD, ID_LoaiSK, SoNguoiDuKien, NganSach, TongTien,
+                    TrangThaiDuyet, TrangThaiThanhToan, GhiChu, LoaiThueApDung
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 
                 $stmt = $pdo->prepare($sql);
                 $result = $stmt->execute([
@@ -301,9 +350,11 @@ try {
                     $eventTypeId,
                     $input['expected_guests'] ?? null,
                     $input['budget'] ?? null,
+                    $input['total_price'] ?? 0,
                     'Chờ duyệt',
                     'Chưa thanh toán',
-                    'Đăng ký từ website'
+                    'Đăng ký từ website',
+                    $loaiThueApDung
                 ]);
                 
                 if (!$result) {
@@ -369,12 +420,19 @@ try {
             // Get user's registered events
             try {
                 $stmt = $pdo->prepare("
-                    SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThue,
-                           ls.TenLoai, k.HoTen, k.SoDienThoai
+                    SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue,
+                           ls.TenLoai, ls.GiaCoBan, k.HoTen, k.SoDienThoai,
+                           COALESCE(equipment_total.TongGiaThietBi, 0) as TongGiaThietBi
                     FROM datlichsukien dl
                     INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
                     LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
                     LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+                    LEFT JOIN (
+                        SELECT ID_DatLich, SUM(DonGia * SoLuong) as TongGiaThietBi
+                        FROM chitietdatsukien
+                        WHERE ID_TB IS NOT NULL OR ID_Combo IS NOT NULL
+                        GROUP BY ID_DatLich
+                    ) equipment_total ON dl.ID_DatLich = equipment_total.ID_DatLich
                     WHERE k.ID_User = ?
                     ORDER BY dl.NgayBatDau DESC
                 ");
@@ -646,6 +704,17 @@ try {
                 $startDateTime = $input['event_date'] . ' ' . $input['event_time'];
                 $endDateTime = $input['event_end_date'] . ' ' . $input['event_end_time'];
                 
+                // Convert rental type to database format
+                $loaiThueApDung = null;
+                if (isset($input['location_rental_type'])) {
+                    if ($input['location_rental_type'] === 'hour') {
+                        $loaiThueApDung = 'Theo giờ';
+                    } elseif ($input['location_rental_type'] === 'day') {
+                        $loaiThueApDung = 'Theo ngày';
+                    }
+                }
+                error_log("Debug - Update LoaiThueApDung: " . ($loaiThueApDung ?? 'NULL'));
+                
                 $stmt = $pdo->prepare("
                     UPDATE datlichsukien SET
                         TenSuKien = ?,
@@ -654,9 +723,11 @@ try {
                         NgayKetThuc = ?,
                         SoNguoiDuKien = ?,
                         NganSach = ?,
+                        TongTien = ?,
                         MoTa = ?,
                         GhiChu = ?,
-                        ID_DD = ?
+                        ID_DD = ?,
+                        LoaiThueApDung = ?
                     WHERE ID_DatLich = ?
                 ");
                 
@@ -667,9 +738,11 @@ try {
                     $endDateTime,
                     $input['expected_guests'],
                     $input['budget'],
+                    $input['total_price'] ?? 0,
                     $input['description'],
                     $input['notes'],
                     $input['location_id'],
+                    $loaiThueApDung,
                     $editId
                 ]);
                 
@@ -729,9 +802,10 @@ try {
             }
             
             try {
-                // Get event location
+                // Get event location with applied rental type
                 $stmt = $pdo->prepare("
-                    SELECT d.* FROM diadiem d
+                    SELECT d.*, dl.LoaiThueApDung 
+                    FROM diadiem d
                     INNER JOIN datlichsukien dl ON d.ID_DD = dl.ID_DD
                     WHERE dl.ID_DatLich = ?
                 ");
@@ -822,6 +896,14 @@ try {
             }
             break;
             
+        case 'register_event_for_existing_customer':
+            registerEventForExistingCustomer();
+            break;
+            
+        case 'register_event_for_customer':
+            registerEventForCustomer();
+            break;
+            
         default:
             echo json_encode(['success' => false, 'error' => 'Hành động không hợp lệ']);
             break;
@@ -860,5 +942,324 @@ function getGeneralEquipmentSuggestions($eventType, $pdo) {
     }
     
     return $equipmentSuggestions;
+}
+
+function registerEventForExistingCustomer() {
+    global $pdo;
+    
+    try {
+        // Get JSON input
+        $input = json_decode(file_get_contents('php://input'), true);
+        
+        if (!$input) {
+            echo json_encode(['success' => false, 'message' => 'Dữ liệu không hợp lệ']);
+            return;
+        }
+        
+        // Validate required fields
+        $requiredFields = ['customer_id', 'event', 'location'];
+        foreach ($requiredFields as $field) {
+            if (!isset($input[$field])) {
+                echo json_encode(['success' => false, 'message' => "Thiếu thông tin: {$field}"]);
+                return;
+            }
+        }
+        
+        $customerId = $input['customer_id'];
+        $event = $input['event'];
+        $locationId = $input['location'];
+        $equipment = $input['equipment'] ?? [];
+        $adminNotes = $input['adminNotes'] ?? '';
+        
+        // Validate customer exists
+        $stmt = $pdo->prepare("SELECT ID_KhachHang FROM khachhanginfo WHERE ID_KhachHang = ?");
+        $stmt->execute([$customerId]);
+        if (!$stmt->fetch()) {
+            echo json_encode(['success' => false, 'message' => 'Khách hàng không tồn tại']);
+            return;
+        }
+        
+        // Validate event data
+        if (empty($event['name']) || empty($event['type']) || empty($event['startDate']) || empty($event['endDate'])) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin sự kiện bắt buộc']);
+            return;
+        }
+        
+        // Start transaction
+        $pdo->beginTransaction();
+        
+        try {
+            // 1. Calculate total cost
+            $totalCost = calculateTotalCost($event, $locationId, $equipment, $input['location_rental_type'] ?? null);
+            
+        // 2. Create event registration
+        $eventId = createEventRegistration($event, $customerId, $locationId, $totalCost, $adminNotes, $input['location_rental_type'] ?? null);
+            
+            // 3. Add equipment to registration
+            if (!empty($equipment)) {
+                addEquipmentToRegistration($eventId, $equipment);
+            }
+            
+            // 4. Commit transaction
+            $pdo->commit();
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Đăng ký sự kiện thành công',
+                'event_id' => $eventId,
+                'total_cost' => $totalCost
+            ]);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi đăng ký sự kiện: ' . $e->getMessage()]);
+    }
+}
+
+function registerEventForCustomer() {
+    global $pdo;
+    
+    try {
+        // Get JSON input
+        $input = json_decode(file_get_contents('php://input'), true);
+        
+        if (!$input) {
+            echo json_encode(['success' => false, 'message' => 'Dữ liệu không hợp lệ']);
+            return;
+        }
+        
+        // Validate required fields
+        $requiredFields = ['customer', 'event', 'location'];
+        foreach ($requiredFields as $field) {
+            if (!isset($input[$field])) {
+                echo json_encode(['success' => false, 'message' => "Thiếu thông tin: {$field}"]);
+                return;
+            }
+        }
+        
+        $customer = $input['customer'];
+        $event = $input['event'];
+        $locationId = $input['location'];
+        $equipment = $input['equipment'] ?? [];
+        $adminNotes = $input['adminNotes'] ?? '';
+        
+        // Validate customer data
+        if (empty($customer['name']) || empty($customer['phone'])) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin khách hàng bắt buộc']);
+            return;
+        }
+        
+        // Validate event data
+        if (empty($event['name']) || empty($event['type']) || empty($event['startDate']) || empty($event['endDate'])) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin sự kiện bắt buộc']);
+            return;
+        }
+        
+        // Start transaction
+        $pdo->beginTransaction();
+        
+        try {
+            // 1. Create or get customer
+            $customerId = createOrGetCustomer($customer);
+            
+            // 2. Calculate total cost
+            $totalCost = calculateTotalCost($event, $locationId, $equipment);
+            
+            // 3. Create event registration
+            $eventId = createEventRegistration($event, $customerId, $locationId, $totalCost, $adminNotes);
+            
+            // 4. Add equipment to registration
+            if (!empty($equipment)) {
+                addEquipmentToRegistration($eventId, $equipment);
+            }
+            
+            // 5. Commit transaction
+            $pdo->commit();
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Đăng ký sự kiện thành công',
+                'event_id' => $eventId,
+                'total_cost' => $totalCost
+            ]);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi đăng ký sự kiện: ' . $e->getMessage()]);
+    }
+}
+
+function createOrGetCustomer($customerData) {
+    global $pdo;
+    
+    // Check if customer already exists by phone
+    $stmt = $pdo->prepare("SELECT ID_KhachHang FROM khachhanginfo WHERE SoDienThoai = ?");
+    $stmt->execute([$customerData['phone']]);
+    $existingCustomer = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($existingCustomer) {
+        // Update existing customer info
+        $stmt = $pdo->prepare("
+            UPDATE khachhanginfo 
+            SET HoTen = ?, Email = ?, DiaChi = ?, NgaySinh = ?, GhiChu = ?
+            WHERE ID_KhachHang = ?
+        ");
+        $stmt->execute([
+            $customerData['name'],
+            $customerData['email'] ?? null,
+            $customerData['address'] ?? null,
+            $customerData['birthday'] ?? null,
+            $customerData['notes'] ?? null,
+            $existingCustomer['ID_KhachHang']
+        ]);
+        
+        return $existingCustomer['ID_KhachHang'];
+    } else {
+        // Create new customer
+        $stmt = $pdo->prepare("
+            INSERT INTO khachhanginfo (HoTen, SoDienThoai, Email, DiaChi, NgaySinh, GhiChu, NgayTao)
+            VALUES (?, ?, ?, ?, ?, ?, NOW())
+        ");
+        $stmt->execute([
+            $customerData['name'],
+            $customerData['phone'],
+            $customerData['email'] ?? null,
+            $customerData['address'] ?? null,
+            $customerData['birthday'] ?? null,
+            $customerData['notes'] ?? null
+        ]);
+        
+        return $pdo->lastInsertId();
+    }
+}
+
+function calculateTotalCost($eventData, $locationId, $equipment, $locationRentalType = null) {
+    global $pdo;
+    
+    $totalCost = 0;
+    
+    // 1. Event type cost
+    $stmt = $pdo->prepare("SELECT GiaCoBan FROM loaisukien WHERE ID_LoaiSK = ?");
+    $stmt->execute([$eventData['type']]);
+    $eventType = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($eventType && $eventType['GiaCoBan']) {
+        $totalCost += floatval($eventType['GiaCoBan']);
+    }
+    
+    // 2. Location cost
+    if ($locationId) {
+        $stmt = $pdo->prepare("SELECT GiaThueGio, GiaThueNgay, LoaiThue FROM diadiem WHERE ID_DD = ?");
+        $stmt->execute([$locationId]);
+        $location = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($location) {
+            $startDate = new DateTime($eventData['startDate']);
+            $endDate = new DateTime($eventData['endDate']);
+            $durationHours = $startDate->diff($endDate)->h + ($startDate->diff($endDate)->days * 24);
+            $durationDays = $startDate->diff($endDate)->days + ($durationHours > 0 ? 1 : 0);
+            
+            // Priority: User's selection > Database default
+            if ($locationRentalType) {
+                // User has explicitly chosen rental type
+                if ($locationRentalType === 'hour' && $location['GiaThueGio']) {
+                    $totalCost += $durationHours * floatval($location['GiaThueGio']);
+                } elseif ($locationRentalType === 'day' && $location['GiaThueNgay']) {
+                    $totalCost += $durationDays * floatval($location['GiaThueNgay']);
+                }
+            } elseif ($location['LoaiThue'] === 'Theo giờ' && $location['GiaThueGio']) {
+                $totalCost += $durationHours * floatval($location['GiaThueGio']);
+            } elseif ($location['LoaiThue'] === 'Theo ngày' && $location['GiaThueNgay']) {
+                $totalCost += $durationDays * floatval($location['GiaThueNgay']);
+            } elseif ($location['LoaiThue'] === 'Cả hai') {
+                // Default to daily rental for better UX
+                $totalCost += $durationDays * floatval($location['GiaThueNgay'] ?? 0);
+            }
+        }
+    }
+    
+    // 3. Equipment cost
+    foreach ($equipment as $item) {
+        $itemCost = $item['price'] * $item['quantity'];
+        $totalCost += $itemCost;
+    }
+    
+    return $totalCost;
+}
+
+function createEventRegistration($eventData, $customerId, $locationId, $totalCost, $adminNotes, $locationRentalType = null) {
+    global $pdo;
+    
+    // Convert location_rental_type to database enum values
+    $loaiThueApDung = null;
+    if ($locationRentalType === 'hour') {
+        $loaiThueApDung = 'Theo giờ';
+    } elseif ($locationRentalType === 'day') {
+        $loaiThueApDung = 'Theo ngày';
+    }
+    
+    $stmt = $pdo->prepare("
+        INSERT INTO datlichsukien (
+            TenSuKien, MoTa, NgayBatDau, NgayKetThuc, SoNguoiDuKien, 
+            NganSach, TongTien, TrangThaiDuyet, TrangThaiThanhToan, 
+            GhiChu, NgayTao, ID_KhachHang, ID_DD, ID_LoaiSK, LoaiThueApDung
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Chờ duyệt', 'Chưa thanh toán', ?, NOW(), ?, ?, ?, ?)
+    ");
+    
+    $stmt->execute([
+        $eventData['name'],
+        $eventData['description'] ?? null,
+        $eventData['startDate'],
+        $eventData['endDate'],
+        $eventData['expectedGuests'] ?? 50,
+        $eventData['budget'] ?? 0,
+        $totalCost,
+        $adminNotes,
+        $customerId,
+        $locationId,
+        $eventData['type'],
+        $loaiThueApDung
+    ]);
+    
+    return $pdo->lastInsertId();
+}
+
+function addEquipmentToRegistration($eventId, $equipment) {
+    global $pdo;
+    
+    foreach ($equipment as $item) {
+        if ($item['type'] === 'equipment') {
+            $stmt = $pdo->prepare("
+                INSERT INTO chitietdatsukien (ID_DatLich, ID_TB, SoLuong, DonGia, GhiChu)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $eventId,
+                $item['id'],
+                $item['quantity'],
+                $item['price'],
+                "Thiết bị: {$item['name']}"
+            ]);
+        } elseif ($item['type'] === 'combo') {
+            $stmt = $pdo->prepare("
+                INSERT INTO chitietdatsukien (ID_DatLich, ID_Combo, SoLuong, DonGia, GhiChu)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $eventId,
+                $item['id'],
+                $item['quantity'],
+                $item['price'],
+                "Combo: {$item['name']}"
+            ]);
+        }
+    }
 }
 ?>

@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../../config/database.php';
+require_once __DIR__ . '/../../config/database.php';
 
 // Check if user is logged in and has appropriate role
 if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['ID_Role'], [1, 2, 3])) {
@@ -87,7 +87,9 @@ function getEventDetails() {
                 dd.DiaChi,
                 dd.MoTa as DiaDiemMoTa,
                 dd.SucChua,
-                dd.GiaThue,
+                dd.GiaThueGio,
+                dd.GiaThueNgay,
+                dd.LoaiThue,
                 ls.TenLoai as TenLoaiSK,
                 ls.MoTa as LoaiSKMoTa,
                 kh.HoTen as TenKhachHang,

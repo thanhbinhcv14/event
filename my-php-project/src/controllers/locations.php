@@ -76,7 +76,7 @@ try {
             }
             
             // Validate sort column
-            $allowedSortColumns = ['TenDiaDiem', 'DiaChi', 'SucChua', 'NgayTao', 'GiaThue'];
+            $allowedSortColumns = ['TenDiaDiem', 'DiaChi', 'SucChua', 'NgayTao', 'GiaThueGio', 'GiaThueNgay'];
             if (!in_array($sortBy, $allowedSortColumns)) {
                 $sortBy = 'TenDiaDiem';
             }
@@ -118,7 +118,7 @@ try {
             error_log("Add location - Received data: " . json_encode($input));
             error_log("Add location - FILES data: " . json_encode($_FILES));
             
-            $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'DiaChi', 'SucChua'];
+            $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'DiaChi', 'SucChua', 'LoaiThue'];
             foreach ($requiredFields as $field) {
                 if (empty($input[$field])) {
                     echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
@@ -182,8 +182,8 @@ try {
             }
             
             $stmt = $pdo->prepare("
-                INSERT INTO diadiem (TenDiaDiem, LoaiDiaDiem, DiaChi, SucChua, MoTa, GiaThue, TrangThaiHoatDong, HinhAnh) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO diadiem (TenDiaDiem, LoaiDiaDiem, DiaChi, SucChua, GiaThueGio, GiaThueNgay, LoaiThue, MoTa, TrangThaiHoatDong, HinhAnh) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             
             $stmt->execute([
@@ -191,8 +191,10 @@ try {
                 $input['LoaiDiaDiem'] ?? 'Trong nhà',
                 $input['DiaChi'],
                 $input['SucChua'],
+                $input['GiaThueGio'] ?? null,
+                $input['GiaThueNgay'] ?? null,
+                $input['LoaiThue'] ?? 'Cả hai',
                 $input['MoTa'] ?? '',
-                $input['GiaThue'] ?? 0,
                 $input['TrangThaiHoatDong'] ?? 'Hoạt động',
                 $imageName
             ]);
@@ -213,7 +215,7 @@ try {
                 exit();
             }
             
-            $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'DiaChi', 'SucChua'];
+            $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'DiaChi', 'SucChua', 'LoaiThue'];
             foreach ($requiredFields as $field) {
                 if (empty($input[$field])) {
                     echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
@@ -225,6 +227,13 @@ try {
             $allowedTypes = ['Trong nhà', 'Ngoài trời'];
             if (!in_array($input['LoaiDiaDiem'], $allowedTypes)) {
                 echo json_encode(['success' => false, 'error' => 'Loại địa điểm không hợp lệ']);
+                break;
+            }
+            
+            // Validate LoaiThue
+            $allowedRentTypes = ['Theo giờ', 'Theo ngày', 'Cả hai'];
+            if (!in_array($input['LoaiThue'], $allowedRentTypes)) {
+                echo json_encode(['success' => false, 'error' => 'Loại thuê không hợp lệ']);
                 break;
             }
             
@@ -292,7 +301,7 @@ try {
             if ($imageName) {
                 $stmt = $pdo->prepare("
                     UPDATE diadiem 
-                    SET TenDiaDiem = ?, LoaiDiaDiem = ?, DiaChi = ?, SucChua = ?, MoTa = ?, GiaThue = ?, TrangThaiHoatDong = ?, HinhAnh = ?
+                    SET TenDiaDiem = ?, LoaiDiaDiem = ?, DiaChi = ?, SucChua = ?, GiaThueGio = ?, GiaThueNgay = ?, LoaiThue = ?, MoTa = ?, TrangThaiHoatDong = ?, HinhAnh = ?
                     WHERE ID_DD = ?
                 ");
                 
@@ -301,8 +310,10 @@ try {
                     $input['LoaiDiaDiem'] ?? 'Trong nhà',
                     $input['DiaChi'],
                     $input['SucChua'],
+                    $input['GiaThueGio'] ?? null,
+                    $input['GiaThueNgay'] ?? null,
+                    $input['LoaiThue'] ?? 'Cả hai',
                     $input['MoTa'] ?? '',
-                    $input['GiaThue'] ?? 0,
                     $input['TrangThaiHoatDong'] ?? 'Hoạt động',
                     $imageName,
                     $locationId
@@ -311,7 +322,7 @@ try {
                 // Nếu không có hình ảnh mới, chỉ cập nhật thông tin khác
                 $stmt = $pdo->prepare("
                     UPDATE diadiem 
-                    SET TenDiaDiem = ?, LoaiDiaDiem = ?, DiaChi = ?, SucChua = ?, MoTa = ?, GiaThue = ?, TrangThaiHoatDong = ?
+                    SET TenDiaDiem = ?, LoaiDiaDiem = ?, DiaChi = ?, SucChua = ?, GiaThueGio = ?, GiaThueNgay = ?, LoaiThue = ?, MoTa = ?, TrangThaiHoatDong = ?
                     WHERE ID_DD = ?
                 ");
                 
@@ -320,8 +331,10 @@ try {
                     $input['LoaiDiaDiem'] ?? 'Trong nhà',
                     $input['DiaChi'],
                     $input['SucChua'],
+                    $input['GiaThueGio'] ?? null,
+                    $input['GiaThueNgay'] ?? null,
+                    $input['LoaiThue'] ?? 'Cả hai',
                     $input['MoTa'] ?? '',
-                    $input['GiaThue'] ?? 0,
                     $input['TrangThaiHoatDong'] ?? 'Hoạt động',
                     $locationId
                 ]);

@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../../config/database.php';
+require_once __DIR__ . '/../../config/database.php';
 
 // Check if user is logged in and has appropriate role
 if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['ID_Role'], [1, 2, 3])) {
@@ -52,7 +52,8 @@ function getCustomers() {
                 kh.NgayTao,
                 u.Email,
                 u.TrangThai,
-                COUNT(dl.ID_DatLich) as SoSuKien
+                COUNT(dl.ID_DatLich) as event_count,
+                MAX(dl.NgayTao) as last_event_date
             FROM khachhanginfo kh
             LEFT JOIN users u ON kh.ID_User = u.ID_User
             LEFT JOIN datlichsukien dl ON kh.ID_KhachHang = dl.ID_KhachHang
@@ -98,7 +99,7 @@ function getCustomerDetails() {
             return;
         }
         
-        echo json_encode($customer);
+        echo json_encode(['success' => true, 'customer' => $customer]);
         
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy chi tiết khách hàng: ' . $e->getMessage()]);
@@ -134,8 +135,8 @@ function addCustomer() {
         try {
             // Create user account
             $stmt = $pdo->prepare("
-                INSERT INTO users (Email, MatKhau, ID_Role, TrangThai, NgayTao) 
-                VALUES (?, ?, 4, ?, NOW())
+                INSERT INTO users (Email, Password, ID_Role, TrangThai, NgayTao) 
+                VALUES (?, ?, 5, ?, NOW())
             ");
             $defaultPassword = password_hash('123456', PASSWORD_DEFAULT); // Default password
             $stmt->execute([$email, $defaultPassword, $status]);
@@ -165,17 +166,29 @@ function updateCustomer() {
     try {
         $pdo = getDBConnection();
         
-        $customerId = $_POST['id'] ?? '';
+        $userId = $_POST['id'] ?? '';
         $fullName = $_POST['HoTen'] ?? '';
         $phone = $_POST['SoDienThoai'] ?? '';
         $address = $_POST['DiaChi'] ?? '';
         $birthday = $_POST['NgaySinh'] ?? '';
         $status = $_POST['TrangThai'] ?? '';
         
-        if (empty($customerId) || empty($fullName) || empty($phone)) {
+        if (empty($userId) || empty($fullName) || empty($phone)) {
             echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
             return;
         }
+        
+        // First, get the customer info to find ID_KhachHang
+        $stmt = $pdo->prepare("SELECT ID_KhachHang FROM khachhanginfo WHERE ID_User = ?");
+        $stmt->execute([$userId]);
+        $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$customer) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy khách hàng']);
+            return;
+        }
+        
+        $khachHangId = $customer['ID_KhachHang'];
         
         $pdo->beginTransaction();
         
@@ -186,16 +199,16 @@ function updateCustomer() {
                 SET HoTen = ?, SoDienThoai = ?, DiaChi = ?, NgaySinh = ?
                 WHERE ID_KhachHang = ?
             ");
-            $stmt->execute([$fullName, $phone, $address, $birthday, $customerId]);
+            $stmt->execute([$fullName, $phone, $address, $birthday, $khachHangId]);
             
             // Update user status if provided
             if (!empty($status)) {
                 $stmt = $pdo->prepare("
                     UPDATE users 
                     SET TrangThai = ?
-                    WHERE ID_User = (SELECT ID_User FROM khachhanginfo WHERE ID_KhachHang = ?)
+                    WHERE ID_User = ?
                 ");
-                $stmt->execute([$status, $customerId]);
+                $stmt->execute([$status, $userId]);
             }
             
             $pdo->commit();
@@ -215,16 +228,28 @@ function deleteCustomer() {
     try {
         $pdo = getDBConnection();
         
-        $customerId = $_POST['customer_id'] ?? '';
+        $customerId = $_POST['customer_id'] ?? $_POST['id'] ?? '';
         
         if (empty($customerId)) {
             echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
             return;
         }
         
+        // First, get the customer info to find ID_KhachHang
+        $stmt = $pdo->prepare("SELECT ID_KhachHang, ID_User FROM khachhanginfo WHERE ID_User = ?");
+        $stmt->execute([$customerId]);
+        $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$customer) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy khách hàng']);
+            return;
+        }
+        
+        $khachHangId = $customer['ID_KhachHang'];
+        
         // Check if customer has events
         $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM datlichsukien WHERE ID_KhachHang = ?");
-        $stmt->execute([$customerId]);
+        $stmt->execute([$khachHangId]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($result['count'] > 0) {
@@ -235,20 +260,13 @@ function deleteCustomer() {
         $pdo->beginTransaction();
         
         try {
-            // Get user ID
-            $stmt = $pdo->prepare("SELECT ID_User FROM khachhanginfo WHERE ID_KhachHang = ?");
-            $stmt->execute([$customerId]);
-            $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+            // Delete customer info
+            $stmt = $pdo->prepare("DELETE FROM khachhanginfo WHERE ID_KhachHang = ?");
+            $stmt->execute([$khachHangId]);
             
-            if ($customer) {
-                // Delete customer info
-                $stmt = $pdo->prepare("DELETE FROM khachhanginfo WHERE ID_KhachHang = ?");
-                $stmt->execute([$customerId]);
-                
-                // Delete user
-                $stmt = $pdo->prepare("DELETE FROM users WHERE ID_User = ?");
-                $stmt->execute([$customer['ID_User']]);
-            }
+            // Delete user
+            $stmt = $pdo->prepare("DELETE FROM users WHERE ID_User = ?");
+            $stmt->execute([$customerId]);
             
             $pdo->commit();
             echo json_encode(['success' => true, 'message' => 'Xóa khách hàng thành công']);

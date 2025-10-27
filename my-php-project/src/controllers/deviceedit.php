@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once __DIR__ . '/../../config/database.php';
 
 header('Content-Type: application/json');
@@ -27,8 +29,14 @@ try {
             
         case 'get':
             // Lấy thông tin thiết bị theo ID
+            error_log("Device Controller - POST data: " . print_r($_POST, true));
+            error_log("Device Controller - GET data: " . print_r($_GET, true));
+            
             $deviceId = $_POST['id'] ?? $_GET['id'] ?? null;
+            error_log("Device Controller - Device ID: " . $deviceId);
+            
             if (!$deviceId) {
+                error_log("Device Controller - Missing device ID");
                 echo json_encode(['success' => false, 'error' => 'Thiếu ID thiết bị']);
                 break;
             }
@@ -38,8 +46,10 @@ try {
             $device = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($device) {
+                error_log("Device Controller - Device found: " . $device['TenThietBi']);
                 echo json_encode(['success' => true, 'device' => $device]);
             } else {
+                error_log("Device Controller - Device not found with ID: " . $deviceId);
                 echo json_encode(['success' => false, 'error' => 'Không tìm thấy thiết bị']);
             }
             break;
@@ -78,8 +88,8 @@ try {
             }
             
             $stmt = $pdo->prepare("
-                INSERT INTO thietbi (TenThietBi, LoaiThietBi, HangSX, SoLuong, DonViTinh, GiaThue, MoTa, HinhAnh) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO thietbi (TenThietBi, LoaiThietBi, HangSX, SoLuong, DonViTinh, GiaThue, MoTa, HinhAnh, TrangThai, NgayTao, NgayCapNhat) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
             ");
             
             $stmt->execute([
@@ -90,7 +100,8 @@ try {
                 $input['DonViTinh'] ?? 'Cái',
                 $input['GiaThue'],
                 $input['MoTa'] ?? null,
-                $imageName
+                $imageName,
+                $input['TrangThai'] ?? 'Sẵn sàng'
             ]);
             
             echo json_encode(['success' => true, 'message' => 'Thêm thiết bị thành công']);
@@ -148,7 +159,7 @@ try {
             $stmt = $pdo->prepare("
                 UPDATE thietbi 
                 SET TenThietBi = ?, LoaiThietBi = ?, HangSX = ?, SoLuong = ?, 
-                    DonViTinh = ?, GiaThue = ?, MoTa = ?, HinhAnh = ?
+                    DonViTinh = ?, GiaThue = ?, MoTa = ?, HinhAnh = ?, TrangThai = ?, NgayCapNhat = NOW()
                 WHERE ID_TB = ?
             ");
             
@@ -161,6 +172,7 @@ try {
                 $input['GiaThue'],
                 $input['MoTa'] ?? null,
                 $imageName,
+                $input['TrangThai'] ?? 'Sẵn sàng',
                 $deviceId
             ]);
             
@@ -195,9 +207,19 @@ try {
                 break;
             }
             
+            // Lấy tên ảnh để xóa file
+            $stmt = $pdo->prepare("SELECT HinhAnh FROM thietbi WHERE ID_TB = ?");
+            $stmt->execute([$deviceId]);
+            $imageToDelete = $stmt->fetchColumn();
+
             $stmt = $pdo->prepare("DELETE FROM thietbi WHERE ID_TB = ?");
             $stmt->execute([$deviceId]);
             
+            // Xóa file ảnh nếu có
+            if ($imageToDelete && file_exists('../../img/thietbi/' . $imageToDelete)) {
+                unlink('../../img/thietbi/' . $imageToDelete);
+            }
+
             echo json_encode(['success' => true, 'message' => 'Xóa thiết bị thành công']);
             break;
             
@@ -231,5 +253,7 @@ try {
     }
     
 } catch (Exception $e) {
+    error_log("Device Controller Error: " . $e->getMessage());
     echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
 }
+?>

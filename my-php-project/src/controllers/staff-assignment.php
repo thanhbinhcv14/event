@@ -1,6 +1,6 @@
 <?php
-require_once '../../config/database.php';
-require_once '../../src/auth/auth.php';
+require_once __DIR__ . '/../../config/database.php';
+require_once '../src/auth/auth.php';
 
 // Start session
 session_start();
@@ -90,7 +90,7 @@ function getAssignments($pdo) {
             FROM lichlamviec llv
             JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
             JOIN nhanvieninfo nv ON llv.ID_NhanVien = nv.ID_NhanVien
-            LEFT JOIN diadiem dd ON dl.ID_DiaDiem = dd.ID_DiaDiem
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
             WHERE dl.TrangThaiDuyet = 'Đã duyệt'
             ORDER BY llv.NgayTao DESC
         ";
@@ -133,7 +133,7 @@ function getEvents($pdo) {
                 dd.DiaChi,
                 ls.TenLoai as TenLoaiSK
             FROM datlichsukien dl
-            LEFT JOIN diadiem dd ON dl.ID_DiaDiem = dd.ID_DiaDiem
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
             LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
             WHERE dl.TrangThaiDuyet = 'Đã duyệt'
             ORDER BY dl.NgayBatDau ASC
@@ -307,7 +307,7 @@ function getAssignment($pdo) {
             FROM lichlamviec llv
             JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
             JOIN nhanvieninfo nv ON llv.ID_NhanVien = nv.ID_NhanVien
-            LEFT JOIN diadiem dd ON dl.ID_DiaDiem = dd.ID_DiaDiem
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
             WHERE llv.ID_LLV = ?
         ";
         

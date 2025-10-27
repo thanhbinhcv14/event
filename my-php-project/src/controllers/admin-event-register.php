@@ -1,8 +1,32 @@
 <?php
-session_start();
-require_once '../../config/database.php';
+// Start output buffering to prevent any unwanted output
+ob_start();
 
-$action = $_POST['action'] ?? $_GET['action'] ?? '';
+// Set JSON headers first
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+session_start();
+require_once __DIR__ . '/../../config/database.php';
+
+// Get action from GET, POST, or JSON body
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
+$jsonInput = null;
+
+// If no action found and request is POST with JSON, try to get from JSON body
+if (empty($action) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $jsonInput = file_get_contents('php://input');
+    $input = json_decode($jsonInput, true);
+    if ($input && isset($input['action'])) {
+        $action = $input['action'];
+    }
+}
 
 // Check if user is logged in and has appropriate role (only for sensitive actions)
 $sensitiveActions = ['approve_registration', 'reject_registration'];
@@ -49,6 +73,9 @@ switch ($action) {
         break;
     case 'register_event':
         registerEvent();
+        break;
+    case 'register_event_for_existing_customer':
+        registerEventForExistingCustomer();
         break;
     default:
         echo json_encode(['success' => false, 'message' => 'Action không hợp lệ']);
@@ -112,7 +139,9 @@ function getRegistrationDetails() {
                 dd.DiaChi,
                 dd.MoTa as DiaDiemMoTa,
                 dd.SucChua,
-                dd.GiaThue,
+                dd.GiaThueGio,
+                dd.GiaThueNgay,
+                dd.LoaiThue,
                 ls.TenLoai as TenLoaiSK,
                 ls.MoTa as LoaiSKMoTa,
                 kh.HoTen as TenKhachHang,
@@ -209,9 +238,13 @@ function getCustomers() {
                 u.Email,
                 kh.SoDienThoai,
                 kh.DiaChi,
-                u.ID_User
+                u.ID_User,
+                COUNT(dl.ID_DatLich) as event_count,
+                MAX(dl.NgayTao) as last_event_date
             FROM khachhanginfo kh
             LEFT JOIN users u ON kh.ID_User = u.ID_User
+            LEFT JOIN datlichsukien dl ON kh.ID_KhachHang = dl.ID_KhachHang
+            GROUP BY kh.ID_KhachHang
             ORDER BY kh.HoTen ASC
         ");
         $stmt->execute();
@@ -232,7 +265,8 @@ function getEventTypes() {
             SELECT 
                 ID_LoaiSK,
                 TenLoai,
-                MoTa
+                MoTa,
+                GiaCoBan
             FROM loaisukien
             ORDER BY TenLoai ASC
         ");
@@ -256,7 +290,9 @@ function getLocations() {
                 TenDiaDiem,
                 DiaChi,
                 SucChua,
-                GiaThue,
+                GiaThueGio,
+                GiaThueNgay,
+                LoaiThue,
                 LoaiDiaDiem,
                 HinhAnh
             FROM diadiem
@@ -289,7 +325,9 @@ function getLocationsByType() {
                 dd.TenDiaDiem,
                 dd.DiaChi,
                 dd.SucChua,
-                dd.GiaThue,
+                dd.GiaThueGio,
+                dd.GiaThueNgay,
+                dd.LoaiThue,
                 dd.LoaiDiaDiem,
                 dd.HinhAnh
             FROM diadiem dd
@@ -531,6 +569,217 @@ function registerEvent() {
         
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Lỗi khi đăng ký sự kiện: ' . $e->getMessage()]);
+    }
+}
+
+function registerEventForExistingCustomer() {
+    global $jsonInput;
+    try {
+        $pdo = getDBConnection();
+        
+        // Get JSON input
+        $input = json_decode($jsonInput ?? '', true);
+        
+        if (!$input) {
+            echo json_encode(['success' => false, 'message' => 'Dữ liệu không hợp lệ']);
+            return;
+        }
+        
+        // Validate required fields
+        $requiredFields = ['customer_id', 'event', 'location'];
+        foreach ($requiredFields as $field) {
+            if (!isset($input[$field])) {
+                echo json_encode(['success' => false, 'message' => "Thiếu thông tin: {$field}"]);
+                return;
+            }
+        }
+        
+        $customerId = $input['customer_id'];
+        $event = $input['event'];
+        $locationId = $input['location'];
+        $equipment = $input['equipment'] ?? [];
+        $adminNotes = $input['adminNotes'] ?? '';
+        
+        // Validate customer exists
+        $stmt = $pdo->prepare("SELECT ID_KhachHang FROM khachhanginfo WHERE ID_KhachHang = ?");
+        $stmt->execute([$customerId]);
+        if (!$stmt->fetch()) {
+            echo json_encode(['success' => false, 'message' => 'Khách hàng không tồn tại']);
+            return;
+        }
+        
+        // Validate event data
+        if (empty($event['name']) || empty($event['type']) || empty($event['startDate']) || empty($event['endDate'])) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin sự kiện bắt buộc']);
+            return;
+        }
+        
+        // Start transaction
+        $pdo->beginTransaction();
+        
+        try {
+            // 1. Calculate total cost
+            $totalCost = calculateTotalCost($event, $locationId, $equipment, $input['location_rental_type'] ?? null);
+            
+            // 2. Create event registration
+            $eventId = createEventRegistration($event, $customerId, $locationId, $totalCost, $adminNotes, $input['location_rental_type'] ?? null);
+            
+            // 3. Add equipment to registration
+            if (!empty($equipment)) {
+                error_log("DEBUG: Adding equipment to registration ID: " . $eventId);
+                error_log("DEBUG: Equipment data: " . json_encode($equipment));
+                addEquipmentToRegistration($eventId, $equipment);
+            } else {
+                error_log("DEBUG: No equipment to add for registration ID: " . $eventId);
+            }
+            
+            // 4. Commit transaction
+            $pdo->commit();
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Đăng ký sự kiện thành công',
+                'event_id' => $eventId,
+                'total_cost' => $totalCost
+            ]);
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi đăng ký sự kiện: ' . $e->getMessage()]);
+    }
+}
+
+function calculateTotalCost($eventData, $locationId, $equipment, $locationRentalType = null) {
+    $pdo = getDBConnection();
+    $totalCost = 0;
+    
+    // 1. Event type cost
+    $stmt = $pdo->prepare("SELECT GiaCoBan FROM loaisukien WHERE ID_LoaiSK = ?");
+    $stmt->execute([$eventData['type']]);
+    $eventType = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($eventType && $eventType['GiaCoBan']) {
+        $totalCost += floatval($eventType['GiaCoBan']);
+    }
+    
+    // 2. Location cost
+    if ($locationId) {
+        $stmt = $pdo->prepare("SELECT GiaThueGio, GiaThueNgay, LoaiThue FROM diadiem WHERE ID_DD = ?");
+        $stmt->execute([$locationId]);
+        $location = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($location) {
+            $startDate = new DateTime($eventData['startDate']);
+            $endDate = new DateTime($eventData['endDate']);
+            $durationHours = $startDate->diff($endDate)->h + ($startDate->diff($endDate)->days * 24);
+            $durationDays = $startDate->diff($endDate)->days + ($durationHours > 0 ? 1 : 0);
+            
+            // Priority: User's selection > Database default
+            if ($locationRentalType) {
+                // User has explicitly chosen rental type
+                if ($locationRentalType === 'hour' && $location['GiaThueGio']) {
+                    $totalCost += $durationHours * floatval($location['GiaThueGio']);
+                } elseif ($locationRentalType === 'day' && $location['GiaThueNgay']) {
+                    $totalCost += $durationDays * floatval($location['GiaThueNgay']);
+                }
+            } elseif ($location['LoaiThue'] === 'Theo giờ' && $location['GiaThueGio']) {
+                $totalCost += $durationHours * floatval($location['GiaThueGio']);
+            } elseif ($location['LoaiThue'] === 'Theo ngày' && $location['GiaThueNgay']) {
+                $totalCost += $durationDays * floatval($location['GiaThueNgay']);
+            } elseif ($location['LoaiThue'] === 'Cả hai') {
+                // Default to daily rental for better UX
+                $totalCost += $durationDays * floatval($location['GiaThueNgay'] ?? 0);
+            }
+        }
+    }
+    
+    // 3. Equipment cost
+    foreach ($equipment as $item) {
+        $itemCost = $item['price'] * $item['quantity'];
+        $totalCost += $itemCost;
+    }
+    
+    return $totalCost;
+}
+
+function createEventRegistration($eventData, $customerId, $locationId, $totalCost, $adminNotes, $locationRentalType = null) {
+    $pdo = getDBConnection();
+    
+    // Convert location_rental_type to database enum values
+    $loaiThueApDung = null;
+    if ($locationRentalType === 'hour') {
+        $loaiThueApDung = 'Theo giờ';
+    } elseif ($locationRentalType === 'day') {
+        $loaiThueApDung = 'Theo ngày';
+    }
+    
+    $stmt = $pdo->prepare("
+        INSERT INTO datlichsukien (
+            TenSuKien, MoTa, NgayBatDau, NgayKetThuc, SoNguoiDuKien, 
+            NganSach, TongTien, TrangThaiDuyet, TrangThaiThanhToan, 
+            GhiChu, NgayTao, ID_KhachHang, ID_DD, ID_LoaiSK, LoaiThueApDung
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Chờ duyệt', 'Chưa thanh toán', ?, NOW(), ?, ?, ?, ?)
+    ");
+    
+    $stmt->execute([
+        $eventData['name'],
+        $eventData['description'] ?? null,
+        $eventData['startDate'],
+        $eventData['endDate'],
+        $eventData['expectedGuests'] ?? 50,
+        $eventData['budget'] ?? 0,
+        $totalCost,
+        $adminNotes,
+        $customerId,
+        $locationId,
+        $eventData['type'],
+        $loaiThueApDung
+    ]);
+    
+    return $pdo->lastInsertId();
+}
+
+function addEquipmentToRegistration($eventId, $equipment) {
+    $pdo = getDBConnection();
+    
+    error_log("DEBUG: addEquipmentToRegistration called with eventId: " . $eventId);
+    error_log("DEBUG: Equipment array: " . json_encode($equipment));
+    
+    foreach ($equipment as $item) {
+        error_log("DEBUG: Processing equipment item: " . json_encode($item));
+        
+        if ($item['type'] === 'equipment') {
+            error_log("DEBUG: Adding individual equipment ID: " . $item['id']);
+            $stmt = $pdo->prepare("
+                INSERT INTO chitietdatsukien (ID_DatLich, ID_TB, SoLuong, GhiChu)
+                VALUES (?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $eventId,
+                $item['id'],
+                $item['quantity'],
+                "Giá: " . number_format($item['price']) . " VNĐ, Tổng: " . number_format($item['price'] * $item['quantity']) . " VNĐ"
+            ]);
+            error_log("DEBUG: Individual equipment added successfully");
+        } elseif ($item['type'] === 'combo') {
+            error_log("DEBUG: Adding combo equipment ID: " . $item['id']);
+            $stmt = $pdo->prepare("
+                INSERT INTO chitietdatsukien (ID_DatLich, ID_Combo, SoLuong, GhiChu)
+                VALUES (?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $eventId,
+                $item['id'],
+                $item['quantity'],
+                "Giá: " . number_format($item['price']) . " VNĐ, Tổng: " . number_format($item['price'] * $item['quantity']) . " VNĐ"
+            ]);
+            error_log("DEBUG: Combo equipment added successfully");
+        } else {
+            error_log("DEBUG: Unknown equipment type: " . $item['type']);
+        }
     }
 }
 ?>
