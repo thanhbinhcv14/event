@@ -11,7 +11,7 @@ session_start();
 
 // Try to include database config
 try {
-    $dbPath = __DIR__ . '/../config/database.php';
+    $dbPath = __DIR__ . '/../../config/database.php';
     if (!file_exists($dbPath)) {
         throw new Exception('File database.php không tồn tại tại: ' . $dbPath);
     }
@@ -86,9 +86,12 @@ function getAssignments() {
         $staff = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$staff) {
+            error_log("ERROR: Staff not found for user ID: " . $userId);
             echo json_encode(['success' => false, 'message' => 'Không tìm thấy thông tin nhân viên']);
             return;
         }
+        
+        error_log("DEBUG: Staff found - ID: " . $staff['ID_NhanVien']);
         
         // Get assignments from both lichlamviec and chitietkehoach
         $assignments = [];
@@ -103,7 +106,7 @@ function getAssignments() {
                        llv.TrangThai,
                        llv.GhiChu,
                        llv.CongViec,
-                       llv.HanHoanThanh,
+                       llv.NgayKetThuc as HanHoanThanh,
                        llv.Tiendo,
                        llv.ThoiGianBatDauThucTe,
                        llv.ThoiGianKetThucThucTe,
@@ -137,16 +140,16 @@ function getAssignments() {
                        ck.NgayBatDau,
                        ck.NgayKetThuc,
                        ck.TrangThai,
-                       ck.GhiChu,
+                       ck.MoTa as GhiChu,
                        ck.TenBuoc as CongViec,
                        ck.NgayKetThuc as HanHoanThanh,
                        '0' as Tiendo,
-                       ck.ThoiGianBatDauThucTe,
-                       ck.ThoiGianKetThucThucTe,
-                       ck.TienDoPhanTram,
-                       ck.ThoiGianLamViec,
-                       ck.ChamTienDo,
-                       ck.GhiChuTienDo,
+                       NULL as ThoiGianBatDauThucTe,
+                       NULL as ThoiGianKetThucThucTe,
+                       NULL as TienDoPhanTram,
+                       NULL as ThoiGianLamViec,
+                       NULL as ChamTienDo,
+                       NULL as GhiChuTienDo,
                        COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
                        COALESCE(dl.NgayBatDau, ck.NgayBatDau) as EventStartDate,
                        COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
@@ -202,18 +205,30 @@ function updateAssignmentStatus() {
         $newStatus = $_POST['newStatus'] ?? '';
         $progress = $_POST['progress'] ?? '';
         $note = $_POST['note'] ?? '';
+        $sourceTable = $_POST['sourceTable'] ?? 'lichlamviec';
         
         if (empty($assignmentId) || empty($newStatus)) {
             echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
             return;
         }
         
-        $stmt = $pdo->prepare("
-            UPDATE lichlamviec 
-            SET TrangThai = ?, Tiendo = ?, GhiChu = ?, NgayCapNhat = NOW()
-            WHERE ID_LLV = ?
-        ");
-        $stmt->execute([$newStatus, $progress, $note, $assignmentId]);
+        if ($sourceTable === 'chitietkehoach') {
+            // Update chitietkehoach table
+            $stmt = $pdo->prepare("
+                UPDATE chitietkehoach 
+                SET TrangThai = ?
+                WHERE ID_ChiTiet = ?
+            ");
+            $stmt->execute([$newStatus, $assignmentId]);
+        } else {
+            // Update lichlamviec table
+            $stmt = $pdo->prepare("
+                UPDATE lichlamviec 
+                SET TrangThai = ?, Tiendo = ?, GhiChu = ?, NgayCapNhat = NOW()
+                WHERE ID_LLV = ?
+            ");
+            $stmt->execute([$newStatus, $progress, $note, $assignmentId]);
+        }
         
         echo json_encode(['success' => true, 'message' => 'Cập nhật trạng thái thành công']);
         
@@ -352,7 +367,7 @@ function startWork() {
         if ($sourceTable === 'chitietkehoach') {
             $sql = "
                 UPDATE chitietkehoach 
-                SET TrangThai = 'Đang thực hiện'
+                SET TrangThai = 'Đang làm'
                 WHERE ID_ChiTiet = ?
             ";
         } else {
@@ -379,33 +394,7 @@ function startWork() {
             return;
         }
         
-        // Try to update additional fields if they exist
-        try {
-            if ($sourceTable === 'chitietkehoach') {
-                $sql2 = "
-                    UPDATE chitietkehoach 
-                    SET ThoiGianBatDauThucTe = ?, 
-                        GhiChuTienDo = ?
-                    WHERE ID_ChiTiet = ?
-                ";
-            } else {
-                $sql2 = "
-                    UPDATE lichlamviec 
-                    SET ThoiGianBatDauThucTe = ?, 
-                        GhiChuTienDo = ?
-                    WHERE ID_LLV = ?
-                ";
-            }
-            
-            $stmt2 = $pdo->prepare($sql2);
-            $stmt2->execute([$currentTime, $note, $assignmentId]);
-            error_log("DEBUG: startWork - Additional fields updated successfully");
-        } catch (Exception $e) {
-            error_log("DEBUG: startWork - Could not update additional fields: " . $e->getMessage());
-            // Continue anyway, basic update was successful
-        }
-        
-        error_log("DEBUG: startWork - Success");
+        // Success response
         header('Content-Type: application/json');
         echo json_encode(['success' => true, 'message' => 'Bắt đầu làm việc thành công']);
         

@@ -1443,7 +1443,7 @@ try {
                         
                         <div class="mb-3">
                             <label for="editStepStaff" class="form-label">Nhân viên phụ trách</label>
-                            <select class="form-select" id="editStepStaff" name="stepStaff">
+                            <select class="form-select" id="editStepStaff" name="staffId">
                                 <option value="">Chọn nhân viên</option>
                             </select>
                         </div>
@@ -1622,20 +1622,22 @@ try {
             if (!eventPlansContainer) return;
             
             console.log('Loading plans for event:', eventId);
-            console.log('All existing plans:', existingPlans);
             
-            // Filter plans for this specific event - use ID_DatLich
-            const eventPlans = existingPlans.filter(plan => plan.ID_DatLich == eventId);
-            
-            console.log('Filtered plans for event', eventId, ':', eventPlans);
-            
-            if (eventPlans.length === 0) {
-                eventPlansContainer.innerHTML = '<small class="text-muted">Chưa có kế hoạch</small>';
-                return;
-            }
-            
-            let html = '';
-            eventPlans.forEach(plan => {
+            // Load plans for this specific event from backend
+            fetch(`../src/controllers/event-planning.php?action=get_plans&event_id=${eventId}`, {
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Plans data for event', eventId, ':', data);
+                
+                if (!data.success || !data.plans || data.plans.length === 0) {
+                    eventPlansContainer.innerHTML = '<small class="text-muted">Chưa có kế hoạch</small>';
+                    return;
+                }
+                
+                let html = '';
+                data.plans.forEach(plan => {
                 // Handle both date and datetime formats
                 let startDate, endDate;
                 try {
@@ -1659,30 +1661,30 @@ try {
                                   plan.TrangThai === 'Đang thực hiện' ? 'warning' : 'secondary';
                 
                 html += `
-                    <div class="event-plan-item mb-2 p-3 border rounded">
+                    <div class="event-plan-item mb-3 p-3 border rounded shadow-sm bg-white">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="flex-grow-1">
-                                <div class="d-flex align-items-center gap-2 mb-1">
-                                    <strong class="text-primary">${escapeHtml(plan.ten_kehoach)}</strong>
-                                    <span class="badge bg-${statusClass}">${escapeHtml(plan.TrangThai)}</span>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <strong class="text-primary fs-6">${escapeHtml(plan.TenKeHoach)}</strong>
+                                    <span class="badge bg-${statusClass} px-2 py-1">${escapeHtml(plan.TrangThai)}</span>
                                 </div>
-                                <div class="text-muted mb-1">
-                                    <i class="fas fa-calendar"></i>
+                                <div class="text-muted mb-2 small">
+                                    <i class="fas fa-calendar text-success me-1"></i>
                                     ${startDate} - ${endDate}
                                 </div>
-                                ${plan.NoiDung ? `<div class="text-muted mb-1"><i class=\"fas fa-file-lines\"></i> ${escapeHtml(plan.NoiDung)}</div>` : ''}
-                                <div class="text-muted"><i class="fas fa-user"></i> ${escapeHtml(plan.TenNhanVien || plan.ten_nhanvien || 'Chưa phân công')}</div>
+                                ${plan.NoiDung ? `<div class="text-muted mb-2 small"><i class="fas fa-file-lines text-info me-1"></i> ${escapeHtml(plan.NoiDung)}</div>` : ''}
+                                <div class="text-muted small">
+                                    <i class="fas fa-user text-warning me-1"></i> 
+                                    ${plan.TenNhanVien ? `
+                                        <span class="fw-bold text-dark">${escapeHtml(plan.TenNhanVien)}</span>
+                                        ${plan.ChucVu ? `<small class="text-muted ms-1">- ${escapeHtml(plan.ChucVu)}</small>` : ''}
+                                    ` : '<span class="text-muted">Chưa phân công</span>'}
+                                </div>
                             </div>
-                            <div class="ms-2 d-flex flex-column align-items-end">
-                                <button class="btn btn-sm btn-outline-primary mb-2"
-                                        onclick="openEditPlanFromButton(this)"
-                                        data-plan-id="${plan.ID_KeHoach || ''}"
-                                        data-plan-name="${escapeHtml(plan.ten_kehoach || '')}"
-                                        data-plan-content="${escapeHtml(plan.NoiDung || '')}"
-                                        data-start="${plan.NgayBatDau || ''}"
-                                        data-end="${plan.NgayKetThuc || ''}"
-                                        data-status="${plan.TrangThai || 'Chưa bắt đầu'}">
-                                    <i class="fas fa-edit"></i>
+                            <div class="ms-3 d-flex flex-column align-items-end">
+                                <button class="btn btn-sm btn-outline-primary mb-2 px-3"
+                                        onclick="editPlan(${plan.ID_KeHoach || ''})">
+                                    <i class="fas fa-edit me-1"></i>Chỉnh sửa
                                 </button>
                             </div>
                         </div>
@@ -1690,7 +1692,12 @@ try {
             });
             
             eventPlansContainer.innerHTML = html;
-        }
+        })
+        .catch(error => {
+            console.error('Error loading event plans:', error);
+            eventPlansContainer.innerHTML = '<small class="text-danger">Lỗi khi tải kế hoạch</small>';
+        });
+    }
         
         // Display plans in the UI
         function displayPlans() {
@@ -1790,6 +1797,54 @@ try {
 
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
+        }
+
+        function editPlan(planId) {
+            console.log('Editing plan:', planId);
+            
+            // Fetch plan data from database
+            fetch(`../src/controllers/event-planning.php?action=get_plan&plan_id=${planId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.plan) {
+                        const plan = data.plan;
+                        console.log('Plan data loaded:', plan);
+                        
+                        // Fill edit plan modal
+                        document.getElementById('editPlanId').value = plan.ID_KeHoach || '';
+                        document.getElementById('editPlanName').value = plan.TenKeHoach || '';
+                        document.getElementById('editPlanContent').value = plan.NoiDung || '';
+                        
+                        // Split datetime
+                        const startDate = plan.NgayBatDau ? plan.NgayBatDau.split(' ')[0] : '';
+                        const startTime = plan.NgayBatDau ? plan.NgayBatDau.split(' ')[1] : '08:00';
+                        const endDate = plan.NgayKetThuc ? plan.NgayKetThuc.split(' ')[0] : '';
+                        const endTime = plan.NgayKetThuc ? plan.NgayKetThuc.split(' ')[1] : '17:00';
+                        
+                        document.getElementById('editStartDate').value = startDate;
+                        document.getElementById('editStartTime').value = startTime;
+                        document.getElementById('editEndDate').value = endDate;
+                        document.getElementById('editEndTime').value = endTime;
+                        document.getElementById('editStatus').value = plan.TrangThai || 'Chưa bắt đầu';
+                        
+                        // Load staff options and set selected staff
+                        loadStaffOptions().then(() => {
+                            if (plan.ID_NhanVien) {
+                                document.getElementById('editAssignedStaff').value = plan.ID_NhanVien;
+                            }
+                        });
+                        
+                        // Show modal
+                        const modal = new bootstrap.Modal(document.getElementById('editPlanModal'));
+                        modal.show();
+                    } else {
+                        alert('Không thể tải thông tin kế hoạch: ' + (data.error || 'Lỗi không xác định'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading plan:', error);
+                    alert('Có lỗi xảy ra khi tải thông tin kế hoạch');
+                });
         }
 
         // Read data-* from button to open modal safely
@@ -2164,71 +2219,60 @@ try {
                                                 <div class="col-md-8">
                                                     ${step.MoTa ? `
                                                     <div class="mb-3">
-                                                        <h6 class="text-primary"><i class="fas fa-info-circle"></i> Mô tả chi tiết</h6>
-                                                        <p class="text-muted">${step.MoTa}</p>
+                                                        <h6 class="text-primary"><i class="fas fa-info-circle"></i> Mô tả</h6>
+                                                        <p class="text-muted mb-0">${step.MoTa}</p>
                                                     </div>
                                                     ` : ''}
                                                     
                                                     <div class="row mb-3">
                                                         <div class="col-md-6">
-                                                            <h6 class="text-success"><i class="fas fa-calendar-alt"></i> Thời gian thực hiện</h6>
-                                                            <p class="mb-1">
-                                                                <strong>Bắt đầu:</strong> ${new Date(step.NgayBatDau).toLocaleString('vi-VN')}
-                                                            </p>
-                                                            <p class="mb-0">
-                                                                <strong>Kết thúc:</strong> ${new Date(step.NgayKetThuc).toLocaleString('vi-VN')}
-                                                            </p>
+                                                            <h6 class="text-success"><i class="fas fa-calendar-alt"></i> Thời gian</h6>
+                                                            <p class="mb-1"><strong>Bắt đầu:</strong> ${new Date(step.NgayBatDau).toLocaleString('vi-VN')}</p>
+                                                            <p class="mb-0"><strong>Kết thúc:</strong> ${new Date(step.NgayKetThuc).toLocaleString('vi-VN')}</p>
                                                         </div>
                                                         <div class="col-md-6">
-                                                            <h6 class="text-info"><i class="fas fa-user-tie"></i> Thông tin nhân viên</h6>
+                                                            <h6 class="text-info"><i class="fas fa-user-tie"></i> Nhân viên</h6>
                                                             ${step.TenNhanVien ? `
-                                                            <p class="mb-1">
-                                                                <strong>Người phụ trách:</strong> ${step.TenNhanVien}
-                                                            </p>
-                                                            ` : '<p class="text-muted">Chưa phân công nhân viên</p>'}
+                                                            <div class="d-flex align-items-center">
+                                                                <div>
+                                                                    <p class="mb-1"><strong>${step.TenNhanVien}</strong></p>
+                                                                    ${step.ChucVu ? `<p class="mb-0 text-secondary small"><i class="fas fa-briefcase me-1"></i>${step.ChucVu}</p>` : ''}
+                                                                </div>
+                                                            </div>
+                                                            ` : `
+                                                            <div class="text-center text-muted">
+                                                                <i class="fas fa-user-slash fa-2x mb-2"></i>
+                                                                <p class="mb-0">Chưa phân công nhân viên</p>
+                                                                <small>Click "Chỉnh sửa" để phân công</small>
+                                                            </div>
+                                                            `}
                                                         </div>
                                                     </div>
                                                     
                                                     ${step.GhiChu ? `
                                                     <div class="mb-3">
                                                         <h6 class="text-warning"><i class="fas fa-sticky-note"></i> Ghi chú</h6>
-                                                        <div class="alert alert-light">
+                                                        <div class="alert alert-light py-2">
                                                             <p class="mb-0">${step.GhiChu}</p>
                                                         </div>
                                                     </div>
                                                     ` : ''}
-                                                    
-                                                    <div class="mb-3">
-                                                        <h6 class="text-secondary"><i class="fas fa-info"></i> Thông tin bổ sung</h6>
-                                                        <div class="row">
-                                                            <div class="col-md-6">
-                                                                <small class="text-muted">
-                                                                    <strong>ID Bước:</strong> ${step.ID_ChiTiet}
-                                                                </small>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <small class="text-muted">
-                                                                    <strong>ID Kế hoạch:</strong> ${step.ID_KeHoach}
-                                                                </small>
-                                                            </div>
-                                                        </div>
-                                                    </div>
                                                 </div>
                                                 
                                                 <div class="col-md-4">
                                                     <div class="text-center">
                                                         <h6 class="text-primary mb-3">Thao tác</h6>
                                                         <div class="d-grid gap-2">
-                                                            <button class="btn btn-outline-success btn-sm" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Hoàn thành')" title="Đánh dấu hoàn thành">
+                                                            <button class="btn btn-outline-success btn-sm" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Hoàn thành')" title="Hoàn thành">
                                                                 <i class="fas fa-check me-1"></i>Hoàn thành
                                                             </button>
-                                                            <button class="btn btn-outline-warning btn-sm" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Đang thực hiện')" title="Đang thực hiện">
+                                                            <button class="btn btn-outline-warning btn-sm" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Đang thực hiện')" title="Đang làm">
                                                                 <i class="fas fa-play me-1"></i>Đang làm
                                                             </button>
                                                             <button class="btn btn-outline-info btn-sm" onclick="editStep(${step.ID_ChiTiet})" title="Chỉnh sửa">
                                                                 <i class="fas fa-edit me-1"></i>Chỉnh sửa
                                                             </button>
-                                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteStep(${step.ID_ChiTiet})" title="Xóa bước">
+                                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteStep(${step.ID_ChiTiet})" title="Xóa">
                                                                 <i class="fas fa-trash me-1"></i>Xóa
                                                             </button>
                                                         </div>
@@ -2257,10 +2301,19 @@ try {
             
             // Fetch step details
             fetch(`../src/controllers/event-planning.php?action=get_step&step_id=${stepId}`)
-                .then(response => response.json())
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response ok:', response.ok);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('Step data response:', data);
                     if (data.success && data.step) {
                         const step = data.step;
+                        console.log('Step object:', step);
                         
                         // Fill edit step modal
                         document.getElementById('editStepId').value = step.ID_ChiTiet;
@@ -2277,7 +2330,6 @@ try {
                         document.getElementById('editStepStartTime').value = startTime;
                         document.getElementById('editStepEndDate').value = endDate;
                         document.getElementById('editStepEndTime').value = endTime;
-                        document.getElementById('editStepNote').value = step.GhiChu || '';
                         
                         // Load staff options and set selected staff
                         loadStaffOptionsForSteps().then(() => {
@@ -2290,25 +2342,52 @@ try {
                         const modal = new bootstrap.Modal(document.getElementById('editStepModal'));
                         modal.show();
                     } else {
+                        console.error('Failed to load step data:', data);
                         alert('Không thể tải thông tin bước thực hiện: ' + (data.error || 'Lỗi không xác định'));
                     }
                 })
                 .catch(error => {
                     console.error('Error loading step:', error);
-                    alert('Có lỗi xảy ra khi tải thông tin bước thực hiện');
+                    alert('Có lỗi xảy ra khi tải thông tin bước thực hiện: ' + error.message);
                 });
         }
 
         function submitEditStep() {
-            const stepId = document.getElementById('editStepId').value;
-            const stepName = document.getElementById('editStepName').value;
-            const stepDescription = document.getElementById('editStepDescription').value;
-            const stepStartDate = document.getElementById('editStepStartDate').value;
-            const stepStartTime = document.getElementById('editStepStartTime').value;
-            const stepEndDate = document.getElementById('editStepEndDate').value;
-            const stepEndTime = document.getElementById('editStepEndTime').value;
-            const stepStaff = document.getElementById('editStepStaff').value;
-            const stepNote = document.getElementById('editStepNote').value;
+            const stepIdElement = document.getElementById('editStepId');
+            const stepNameElement = document.getElementById('editStepName');
+            const stepDescriptionElement = document.getElementById('editStepDescription');
+            const stepStartDateElement = document.getElementById('editStepStartDate');
+            const stepStartTimeElement = document.getElementById('editStepStartTime');
+            const stepEndDateElement = document.getElementById('editStepEndDate');
+            const stepEndTimeElement = document.getElementById('editStepEndTime');
+            const stepStaffElement = document.getElementById('editStepStaff');
+            
+            // Check if all elements exist
+            if (!stepIdElement || !stepNameElement || !stepDescriptionElement || 
+                !stepStartDateElement || !stepStartTimeElement || 
+                !stepEndDateElement || !stepEndTimeElement || !stepStaffElement) {
+                console.error('Missing form elements:', {
+                    stepIdElement: !!stepIdElement,
+                    stepNameElement: !!stepNameElement,
+                    stepDescriptionElement: !!stepDescriptionElement,
+                    stepStartDateElement: !!stepStartDateElement,
+                    stepStartTimeElement: !!stepStartTimeElement,
+                    stepEndDateElement: !!stepEndDateElement,
+                    stepEndTimeElement: !!stepEndTimeElement,
+                    stepStaffElement: !!stepStaffElement
+                });
+                alert('Có lỗi với form. Vui lòng thử lại.');
+                return;
+            }
+            
+            const stepId = stepIdElement.value;
+            const stepName = stepNameElement.value;
+            const stepDescription = stepDescriptionElement.value;
+            const stepStartDate = stepStartDateElement.value;
+            const stepStartTime = stepStartTimeElement.value;
+            const stepEndDate = stepEndDateElement.value;
+            const stepEndTime = stepEndTimeElement.value;
+            const stepStaff = stepStaffElement.value;
             
             if (!stepName.trim()) {
                 alert('Vui lòng nhập tên bước');
@@ -2331,36 +2410,68 @@ try {
             formData.append('stepStartDateTime', startDateTime);
             formData.append('stepEndDateTime', endDateTime);
             formData.append('staffId', stepStaff);
-            formData.append('note', stepNote);
+            
+            console.log('Sending update step data:', {
+                action: 'update_step',
+                stepId: stepId,
+                stepName: stepName,
+                stepDescription: stepDescription,
+                stepStartDateTime: startDateTime,
+                stepEndDateTime: endDateTime,
+                staffId: stepStaff
+            });
             
             fetch('../src/controllers/event-planning.php', {
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                console.log('Response headers:', response.headers);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.text().then(text => {
+                    console.log('Raw response text:', text);
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error('JSON parse error:', e);
+                        throw new Error('Invalid JSON response: ' + text);
+                    }
+                });
+            })
             .then(data => {
+                console.log('Update step response:', data);
                 if (data.success) {
                     const modal = bootstrap.Modal.getInstance(document.getElementById('editStepModal'));
                     modal.hide();
                     alert('Cập nhật bước thực hiện thành công');
                     
                     // Reload steps for current plan
-                    const currentPlanId = document.getElementById('stepPlanId').value;
-                    if (currentPlanId) {
-                        loadSteps(currentPlanId);
+                    const stepPlanIdElement = document.getElementById('stepPlanId');
+                    if (stepPlanIdElement) {
+                        const currentPlanId = stepPlanIdElement.value;
+                        if (currentPlanId) {
+                            loadSteps(currentPlanId);
+                        }
+                    } else {
+                        console.warn('stepPlanId element not found, skipping step reload');
                     }
                 } else {
+                    console.error('Update step failed:', data);
                     alert('Lỗi: ' + (data.error || 'Không xác định'));
                 }
             })
             .catch(error => {
                 console.error('Error updating step:', error);
-                alert('Có lỗi xảy ra khi cập nhật bước thực hiện');
+                alert('Có lỗi xảy ra khi cập nhật bước thực hiện: ' + error.message);
             });
         }
 
         function loadStaffOptionsForSteps() {
-            fetch('../src/controllers/event-planning.php?action=get_staff_list', {
+            return fetch('../src/controllers/event-planning.php?action=get_staff_list', {
                 credentials: 'same-origin'
             })
                 .then(handleFetchResponse)
@@ -2388,14 +2499,31 @@ try {
                     
                     return Promise.resolve();
                 })
-                .catch(error => console.error('Error loading staff:', error));
+                .catch(error => {
+                    console.error('Error loading staff:', error);
+                    return Promise.reject(error);
+                });
         }
 
         function addStep() {
             const form = document.getElementById('addStepForm');
+            const stepEventIdElement = document.getElementById('stepEventId');
+            
+            if (!form) {
+                console.error('addStepForm not found');
+                alert('Có lỗi với form. Vui lòng thử lại.');
+                return;
+            }
+            
+            if (!stepEventIdElement) {
+                console.error('stepEventId element not found');
+                alert('Có lỗi với form. Vui lòng thử lại.');
+                return;
+            }
+            
             const formData = new FormData(form);
             formData.append('action', 'add_event_step');
-            formData.append('eventId', document.getElementById('stepEventId').value);
+            formData.append('eventId', stepEventIdElement.value);
             
             // Get date and time values
             const startDate = formData.get('stepStartDate');
@@ -2420,6 +2548,10 @@ try {
                 return;
             }
 
+            // Get staff value from form
+            const stepStaff = formData.get('staffId');
+            formData.set('stepStaff', stepStaff);
+            
             fetch('../src/controllers/event-planning.php', {
                 method: 'POST',
                 body: formData,

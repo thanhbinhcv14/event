@@ -491,58 +491,98 @@ try {
     <div class="modal fade" id="progressReportModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Gửi báo cáo tiến độ</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-paper-plane"></i>
+                        Gửi báo cáo tiến độ cho quản lý
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Hướng dẫn:</strong> Chọn quản lý và công việc để báo cáo tiến độ. Báo cáo sẽ được gửi đến quản lý để theo dõi.
+                    </div>
+                    
                     <form id="progressReportForm">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">Chọn quản lý:</label>
+                                    <label class="form-label">
+                                        <i class="fas fa-user-tie text-primary"></i>
+                                        Chọn quản lý: <span class="text-danger">*</span>
+                                    </label>
                                     <select class="form-select" id="managerSelect" required>
                                         <option value="">-- Chọn quản lý --</option>
                                     </select>
+                                    <div class="form-text">Chỉ hiển thị các quản lý (Role 2)</div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">Chọn công việc:</label>
+                                    <label class="form-label">
+                                        <i class="fas fa-tasks text-success"></i>
+                                        Chọn công việc: <span class="text-danger">*</span>
+                                    </label>
                                     <select class="form-select" id="taskSelect" required>
                                         <option value="">-- Chọn công việc --</option>
                                     </select>
+                                    <div class="form-text">Công việc được giao cho bạn</div>
                                 </div>
                             </div>
                         </div>
+                        
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">Tiến độ (%):</label>
+                                    <label class="form-label">
+                                        <i class="fas fa-percentage text-warning"></i>
+                                        Tiến độ (%): <span class="text-danger">*</span>
+                                    </label>
                                     <input type="number" class="form-control" id="progressInput" min="0" max="100" required>
+                                    <div class="form-text">Nhập phần trăm hoàn thành (0-100%)</div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">Trạng thái:</label>
+                                    <label class="form-label">
+                                        <i class="fas fa-flag text-info"></i>
+                                        Trạng thái:
+                                    </label>
                                     <select class="form-select" id="statusSelect">
                                         <option value="">-- Chọn trạng thái --</option>
+                                        <option value="Chưa bắt đầu">Chưa bắt đầu</option>
                                         <option value="Đang thực hiện">Đang thực hiện</option>
                                         <option value="Hoàn thành">Hoàn thành</option>
                                         <option value="Báo sự cố">Báo sự cố</option>
                                     </select>
+                                    <div class="form-text">Cập nhật trạng thái công việc</div>
                                 </div>
                             </div>
                         </div>
+                        
                         <div class="mb-3">
-                            <label class="form-label">Ghi chú:</label>
-                            <textarea class="form-control" id="notesInput" rows="3" placeholder="Mô tả chi tiết về tiến độ công việc..."></textarea>
+                            <label class="form-label">
+                                <i class="fas fa-comment-alt text-secondary"></i>
+                                Ghi chú chi tiết:
+                            </label>
+                            <textarea class="form-control" id="notesInput" rows="4" placeholder="Mô tả chi tiết về tiến độ công việc, những gì đã hoàn thành, khó khăn gặp phải, kế hoạch tiếp theo..."></textarea>
+                            <div class="form-text">Mô tả chi tiết để quản lý hiểu rõ tình hình công việc</div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Lưu ý:</strong> Báo cáo sẽ được lưu vào hệ thống và quản lý có thể xem lại lịch sử báo cáo của bạn.
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="button" class="btn btn-primary" onclick="submitProgressReport()">Gửi báo cáo</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Hủy
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="submitProgressReport()">
+                        <i class="fas fa-paper-plane"></i> Gửi báo cáo
+                    </button>
                 </div>
             </div>
         </div>
@@ -1052,29 +1092,68 @@ try {
         }
 
         function loadTasks() {
-            // Load tasks from staff-schedule.php
-            fetch('../src/controllers/staff-schedule.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'action=get_assignments'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const select = document.getElementById('taskSelect');
-                    select.innerHTML = '<option value="">-- Chọn công việc --</option>';
-                    data.assignments.forEach(task => {
-                        const option = document.createElement('option');
-                        option.value = `${task.ID_LLV}_${task.source_table}`;
-                        option.textContent = `${task.NhiemVu} (${task.TenSuKien})`;
-                        select.appendChild(option);
+            // Load tasks from both lichlamviec and chitietkehoach
+            Promise.all([
+                // Load from lichlamviec
+                fetch('../src/controllers/staff-schedule.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'action=get_assignments'
+                }).then(response => response.json()),
+                
+                // Load from chitietkehoach (via event-planning.php)
+                fetch('../src/controllers/event-planning.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'action=get_staff_tasks'
+                }).then(response => response.json()).catch(() => ({ success: true, tasks: [] }))
+            ])
+            .then(([scheduleData, planningData]) => {
+                const select = document.getElementById('taskSelect');
+                select.innerHTML = '<option value="">-- Chọn công việc --</option>';
+                
+                let taskCount = 0;
+                
+                // Add tasks from lichlamviec
+                if (scheduleData.success && scheduleData.assignments) {
+                    scheduleData.assignments.forEach(task => {
+                        if (task.source_table === 'lichlamviec') {
+                            const option = document.createElement('option');
+                            option.value = `${task.ID_LLV}_lichlamviec`;
+                            option.textContent = `${task.NhiemVu} (${task.TenSuKien || 'N/A'})`;
+                            select.appendChild(option);
+                            taskCount++;
+                        }
                     });
+                }
+                
+                // Add tasks from chitietkehoach
+                if (planningData.success && planningData.tasks) {
+                    planningData.tasks.forEach(task => {
+                        const option = document.createElement('option');
+                        option.value = `${task.ID_ChiTiet}_chitietkehoach`;
+                        option.textContent = `${task.TenBuoc} (${task.TenSuKien || 'N/A'})`;
+                        select.appendChild(option);
+                        taskCount++;
+                    });
+                }
+                
+                if (taskCount === 0) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'Không có công việc nào';
+                    option.disabled = true;
+                    select.appendChild(option);
                 }
             })
             .catch(error => {
                 console.error('Error loading tasks:', error);
+                const select = document.getElementById('taskSelect');
+                select.innerHTML = '<option value="">Lỗi khi tải danh sách công việc</option>';
             });
         }
 

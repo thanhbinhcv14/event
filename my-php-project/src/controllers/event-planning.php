@@ -27,6 +27,8 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 // Debug action
 error_log("Event Planning Action: " . $action);
+error_log("All GET data: " . json_encode($_GET));
+error_log("All POST data: " . json_encode($_POST));
 
 try {
     $pdo = getDBConnection();
@@ -66,6 +68,13 @@ try {
             
         case 'get_event_steps':
             getEventSteps($pdo);
+            break;
+            
+        case 'get_staff_tasks':
+        getStaffTasks($pdo);
+        break;
+    case 'get_plan_steps':
+            getPlanSteps($pdo);
             break;
             
         case 'add_event_step':
@@ -479,6 +488,39 @@ function getPlanDetails($pdo) {
     }
 }
 
+function getPlanSteps($pdo) {
+    try {
+        $planId = $_GET['plan_id'] ?? '';
+        
+        if (empty($planId)) {
+            echo json_encode(['success' => false, 'error' => 'Thiếu thông tin kế hoạch']);
+            return;
+        }
+        
+        $sql = "
+            SELECT 
+                c.*,
+                nv.HoTen as TenNhanVien,
+                nv.ChucVu,
+                nv.SoDienThoai
+            FROM chitietkehoach c
+            LEFT JOIN nhanvieninfo nv ON c.ID_NhanVien = nv.ID_NhanVien
+            WHERE c.ID_KeHoach = ?
+            ORDER BY c.NgayBatDau ASC
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$planId]);
+        $steps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'steps' => $steps]);
+        
+    } catch (Exception $e) {
+        error_log("Get Plan Steps Error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Lỗi khi lấy danh sách bước: ' . $e->getMessage()]);
+    }
+}
+
 function getEventSteps($pdo) {
     try {
         $eventId = $_GET['event_id'] ?? '';
@@ -491,7 +533,9 @@ function getEventSteps($pdo) {
         $sql = "
             SELECT 
                 c.*,
-                nv.HoTen as TenNhanVien
+                nv.HoTen as TenNhanVien,
+                nv.ChucVu,
+                nv.SoDienThoai
             FROM chitietkehoach c
             LEFT JOIN kehoachthuchien k ON c.ID_KeHoach = k.ID_KeHoach
             LEFT JOIN sukien s ON k.ID_SuKien = s.ID_SuKien
@@ -503,6 +547,12 @@ function getEventSteps($pdo) {
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$eventId, $eventId]);
         $steps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        error_log("DEBUG: getEventSteps - eventId: $eventId");
+        error_log("DEBUG: getEventSteps - steps count: " . count($steps));
+        if (!empty($steps)) {
+            error_log("DEBUG: getEventSteps - first step: " . json_encode($steps[0]));
+        }
         
         echo json_encode(['success' => true, 'steps' => $steps]);
         
@@ -550,6 +600,16 @@ function getApprovedEvents($pdo) {
 
 function getPlans($pdo) {
     try {
+        $eventId = $_GET['event_id'] ?? '';
+        
+        $whereClause = '';
+        $params = [];
+        
+        if (!empty($eventId)) {
+            $whereClause = 'WHERE dl.ID_DatLich = ?';
+            $params[] = $eventId;
+        }
+        
         $sql = "
             SELECT 
                 kht.ID_KeHoach,
@@ -559,16 +619,22 @@ function getPlans($pdo) {
                 kht.NgayBatDau,
                 kht.NgayKetThuc,
                 kht.TrangThai,
+                kht.ID_NhanVien,
                 s.ID_DatLich,
-                dl.TenSuKien
+                dl.TenSuKien,
+                nv.HoTen as TenNhanVien,
+                nv.ChucVu,
+                nv.SoDienThoai
             FROM kehoachthuchien kht
             LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
             LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+            LEFT JOIN nhanvieninfo nv ON kht.ID_NhanVien = nv.ID_NhanVien
+            {$whereClause}
             ORDER BY kht.NgayBatDau ASC
         ";
         
         $stmt = $pdo->prepare($sql);
-        $stmt->execute();
+        $stmt->execute($params);
         $plans = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         echo json_encode(['success' => true, 'plans' => $plans]);
@@ -1050,7 +1116,12 @@ function getStepById($pdo) {
     try {
         $stepId = $_GET['step_id'] ?? '';
         
+        error_log("=== GET STEP BY ID DEBUG ===");
+        error_log("step_id from GET: '$stepId'");
+        error_log("All GET data: " . json_encode($_GET));
+        
         if (empty($stepId)) {
+            error_log("Step ID is empty");
             echo json_encode([
                 'success' => false,
                 'error' => 'Thiếu thông tin bước'
@@ -1061,15 +1132,25 @@ function getStepById($pdo) {
         $sql = "
             SELECT 
                 c.*,
-                nv.HoTen as TenNhanVien
+                nv.HoTen as TenNhanVien,
+                nv.ChucVu,
+                nv.SoDienThoai
             FROM chitietkehoach c
             LEFT JOIN nhanvieninfo nv ON c.ID_NhanVien = nv.ID_NhanVien
             WHERE c.ID_ChiTiet = ?
         ";
         
+        error_log("SQL Query: " . $sql);
+        error_log("Executing with stepId: " . $stepId);
+        
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$stepId]);
         $step = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        error_log("Step found: " . ($step ? 'YES' : 'NO'));
+        if ($step) {
+            error_log("Step data: " . json_encode($step));
+        }
         
         if ($step) {
             echo json_encode([
@@ -1085,6 +1166,7 @@ function getStepById($pdo) {
         
     } catch (Exception $e) {
         error_log("Get Step By ID Error: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
         echo json_encode([
             'success' => false,
             'error' => 'Lỗi khi lấy thông tin bước: ' . $e->getMessage()
@@ -1100,7 +1182,6 @@ function updateStepById($pdo) {
         $startDateTime = $_POST['stepStartDateTime'] ?? '';
         $endDateTime = $_POST['stepEndDateTime'] ?? '';
         $staffId = $_POST['staffId'] ?? '';
-        $note = $_POST['note'] ?? '';
         
         error_log("=== UPDATE STEP DEBUG ===");
         error_log("stepId: '$stepId'");
@@ -1109,7 +1190,8 @@ function updateStepById($pdo) {
         error_log("startDateTime: '$startDateTime'");
         error_log("endDateTime: '$endDateTime'");
         error_log("staffId: '$staffId'");
-        error_log("note: '$note'");
+        error_log("staffId type: " . gettype($staffId));
+        error_log("staffId empty check: " . (empty($staffId) ? 'EMPTY' : 'NOT EMPTY'));
         
         if (empty($stepId) || empty($stepName) || empty($startDateTime) || empty($endDateTime)) {
             $missing = [];
@@ -1129,7 +1211,7 @@ function updateStepById($pdo) {
         $sql = "
             UPDATE chitietkehoach 
             SET TenBuoc = ?, MoTa = ?, NgayBatDau = ?, NgayKetThuc = ?, 
-                ID_NhanVien = ?, GhiChu = ?
+                ID_NhanVien = ?
             WHERE ID_ChiTiet = ?
         ";
         
@@ -1140,16 +1222,20 @@ function updateStepById($pdo) {
             $startDateTime,
             $endDateTime,
             $staffId ?: null,
-            $note,
             $stepId
         ]);
         
+        error_log("Update result: " . ($result ? 'SUCCESS' : 'FAILED'));
+        error_log("Rows affected: " . $stmt->rowCount());
+        
         if ($result) {
+            error_log("Update step SUCCESS - returning success response");
             echo json_encode([
                 'success' => true,
                 'message' => 'Cập nhật bước thành công'
             ]);
         } else {
+            error_log("Update step FAILED - returning error response");
             echo json_encode([
                 'success' => false,
                 'error' => 'Lỗi khi cập nhật bước'
@@ -1185,6 +1271,9 @@ function addEventStep($pdo) {
         error_log("endDate: '$endDate'");
         error_log("endTime: '$endTime'");
         error_log("staffId: '$staffId'");
+        error_log("staffId after null coalescing: " . ($staffId ?: 'NULL'));
+        error_log("staffId type: " . gettype($staffId));
+        error_log("staffId empty check: " . (empty($staffId) ? 'EMPTY' : 'NOT EMPTY'));
         
         if (empty($eventId) || empty($stepName) || empty($startDate) || empty($startTime) || empty($endDate) || empty($endTime)) {
             $missing = [];
@@ -1252,6 +1341,21 @@ function addEventStep($pdo) {
             $staffId ?: null
         ]);
         
+        error_log("Insert result: " . ($result ? 'SUCCESS' : 'FAILED'));
+        error_log("Rows affected: " . $stmt->rowCount());
+        
+        // Verify the inserted data
+        if ($result) {
+            $lastId = $pdo->lastInsertId();
+            error_log("Last inserted ID: " . $lastId);
+            
+            // Check what was actually inserted
+            $checkStmt = $pdo->prepare("SELECT * FROM chitietkehoach WHERE ID_ChiTiet = ?");
+            $checkStmt->execute([$lastId]);
+            $insertedData = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            error_log("Inserted data: " . json_encode($insertedData));
+        }
+        
         if ($result) {
             echo json_encode([
                 'success' => true,
@@ -1270,6 +1374,58 @@ function addEventStep($pdo) {
             'success' => false,
             'error' => 'Lỗi khi thêm bước thực hiện: ' . $e->getMessage()
         ]);
+    }
+}
+
+function getStaffTasks($pdo) {
+    try {
+        // Check if user is logged in and has role 4 (Staff)
+        if (!isset($_SESSION['user']) || $_SESSION['user']['ID_Role'] != 4) {
+            echo json_encode(['success' => false, 'message' => 'Không có quyền truy cập']);
+            return;
+        }
+        
+        $userId = $_SESSION['user']['ID_User'];
+        
+        // Get staff info
+        $stmt = $pdo->prepare("
+            SELECT ID_NhanVien FROM nhanvieninfo WHERE ID_User = ?
+        ");
+        $stmt->execute([$userId]);
+        $staff = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$staff) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy thông tin nhân viên']);
+            return;
+        }
+        
+        $staffId = $staff['ID_NhanVien'];
+        
+        // Get tasks from chitietkehoach
+        $stmt = $pdo->prepare("
+            SELECT 
+                ck.ID_ChiTiet,
+                ck.TenBuoc,
+                ck.TrangThai,
+                ck.MoTa,
+                ck.NgayBatDau,
+                ck.NgayKetThuc,
+                dl.TenSuKien,
+                dd.TenDiaDiem
+            FROM chitietkehoach ck
+            LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
+            LEFT JOIN datlichsukien dl ON kht.ID_DatLich = dl.ID_DatLich
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            WHERE ck.ID_NhanVien = ?
+            ORDER BY ck.NgayBatDau DESC
+        ");
+        $stmt->execute([$staffId]);
+        $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'tasks' => $tasks]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy danh sách công việc: ' . $e->getMessage()]);
     }
 }
 

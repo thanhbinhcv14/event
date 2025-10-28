@@ -410,6 +410,54 @@ function submitProgressReport() {
             return;
         }
         
+        // Validate manager exists and has role 2
+        $stmt = $pdo->prepare("
+            SELECT nv.ID_NhanVien, u.ID_Role 
+            FROM nhanvieninfo nv 
+            JOIN users u ON nv.ID_User = u.ID_User 
+            WHERE nv.ID_NhanVien = ? AND u.ID_Role = 2
+        ");
+        $stmt->execute([$managerId]);
+        $manager = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$manager) {
+            echo json_encode(['success' => false, 'message' => 'Quản lý không hợp lệ hoặc không có quyền']);
+            return;
+        }
+        
+        // Validate task exists and belongs to staff
+        $taskExists = false;
+        if ($taskType === 'lichlamviec') {
+            $stmt = $pdo->prepare("SELECT ID_LLV FROM lichlamviec WHERE ID_LLV = ? AND ID_NhanVien = ?");
+            $stmt->execute([$taskId, $staffId]);
+            $taskExists = $stmt->fetch() !== false;
+        } elseif ($taskType === 'chitietkehoach') {
+            $stmt = $pdo->prepare("SELECT ID_ChiTiet FROM chitietkehoach WHERE ID_ChiTiet = ? AND ID_NhanVien = ?");
+            $stmt->execute([$taskId, $staffId]);
+            $taskExists = $stmt->fetch() !== false;
+        }
+        
+        if (!$taskExists) {
+            echo json_encode(['success' => false, 'message' => 'Công việc không tồn tại hoặc không thuộc về bạn']);
+            return;
+        }
+        
+        // Create table if not exists
+        $createTableSQL = "
+            CREATE TABLE IF NOT EXISTS baocaotiendo (
+                ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
+                ID_NhanVien INT NOT NULL,
+                ID_QuanLy INT NOT NULL,
+                ID_Task INT NOT NULL,
+                LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
+                TienDo INT DEFAULT 0,
+                GhiChu TEXT,
+                TrangThai VARCHAR(50),
+                NgayBaoCao DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ";
+        $pdo->exec($createTableSQL);
+        
         // Insert progress report
         $stmt = $pdo->prepare("
             INSERT INTO baocaotiendo (
@@ -447,10 +495,10 @@ function submitProgressReport() {
                 } elseif ($taskType === 'chitietkehoach') {
                     $updateStmt = $pdo->prepare("
                         UPDATE chitietkehoach 
-                        SET TrangThai = ?, TienDoPhanTram = ?, NgayCapNhat = NOW() 
+                        SET TrangThai = ?, NgayCapNhat = NOW() 
                         WHERE ID_ChiTiet = ? AND ID_NhanVien = ?
                     ");
-                    $updateStmt->execute([$status, $progress, $taskId, $staffId]);
+                    $updateStmt->execute([$status, $taskId, $staffId]);
                 }
             }
             
@@ -482,6 +530,22 @@ function getProgressReports() {
         }
         
         $staffId = $staff['ID_NhanVien'];
+        
+        // Create table if not exists
+        $createTableSQL = "
+            CREATE TABLE IF NOT EXISTS baocaotiendo (
+                ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
+                ID_NhanVien INT NOT NULL,
+                ID_QuanLy INT NOT NULL,
+                ID_Task INT NOT NULL,
+                LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
+                TienDo INT DEFAULT 0,
+                GhiChu TEXT,
+                TrangThai VARCHAR(50),
+                NgayBaoCao DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ";
+        $pdo->exec($createTableSQL);
         
         // Get progress reports
         $stmt = $pdo->prepare("

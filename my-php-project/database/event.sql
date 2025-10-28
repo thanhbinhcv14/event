@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 28, 2025 lúc 12:49 PM
+-- Thời gian đã tạo: Th10 28, 2025 lúc 03:54 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -20,6 +20,24 @@ SET time_zone = "+00:00";
 --
 -- Cơ sở dữ liệu: `event`
 --
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `baocaotiendo`
+--
+
+CREATE TABLE `baocaotiendo` (
+  `ID_BaoCao` int(11) NOT NULL,
+  `ID_NhanVien` int(11) NOT NULL,
+  `ID_QuanLy` int(11) NOT NULL,
+  `ID_Task` int(11) NOT NULL,
+  `LoaiTask` enum('lichlamviec','chitietkehoach') NOT NULL,
+  `TienDo` int(11) DEFAULT 0,
+  `GhiChu` text DEFAULT NULL,
+  `TrangThai` varchar(50) DEFAULT NULL,
+  `NgayBaoCao` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -81,7 +99,8 @@ CREATE TABLE `chitietkehoach` (
 --
 
 INSERT INTO `chitietkehoach` (`ID_ChiTiet`, `ID_KeHoach`, `TenBuoc`, `MoTa`, `ID_NhanVien`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`) VALUES
-(2, 1, 'Chuẩn bị các thiết bị trong combo', '', NULL, '2025-10-28 08:00:00', '2025-10-28 17:00:00', '');
+(2, 1, 'Chuẩn bị các thiết bị trong combo', '', 5, '2025-10-28 08:00:00', '2025-10-28 17:00:00', 'Đang làm'),
+(4, 1, 'Chuẩn bị các phụ kiện trang trí ', '', 5, '2025-10-28 08:00:00', '2025-10-28 10:00:00', '');
 
 -- --------------------------------------------------------
 
@@ -413,7 +432,7 @@ CREATE TABLE `kehoachthuchien` (
 --
 
 INSERT INTO `kehoachthuchien` (`ID_KeHoach`, `ID_SuKien`, `TenKeHoach`, `NoiDung`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `ID_NhanVien`, `NgayTao`) VALUES
-(1, 11, 'Thực hiện tiệc sinh nhật', 'Làm theo note khách', '2025-10-28 00:00:00', '2025-10-29 00:00:00', 'Chưa bắt đầu', 7, '2025-10-28 18:28:34');
+(1, 11, 'Thực hiện tiệc sinh nhật', 'Làm theo note khách', '2025-10-28 00:00:00', '2025-10-29 00:00:00', 'Đang thực hiện', 7, '2025-10-28 18:28:34');
 
 -- --------------------------------------------------------
 
@@ -752,10 +771,10 @@ INSERT INTO `users` (`ID_User`, `Email`, `Password`, `FacebookID`, `GoogleID`, `
 (3, 'qtv1@gmail.com', '$2y$10$76AL.x2sD9yFnUQ2j6YlYeXXMAFp4HlCvHxNIVl5j8/.DSUmVl3im', NULL, NULL, 1, 'Hoạt động', '2025-09-19 23:54:54', '2025-10-26 08:00:32', 'Offline', '2025-10-26 08:00:31'),
 (17, 'thanhbinh14062003@gmail.com', '$2y$10$vX5Lacdo5OaAIvtda/0CyOEldWJqSjOVJqr.YKd1O0OwIf9rz8tkS', NULL, NULL, 5, 'Hoạt động', '2025-09-23 20:48:28', '2025-10-26 09:20:07', 'Online', '2025-10-26 09:20:07'),
 (29, 'qltc2@gmail.com', '$2y$10$ig.u6SQkmvukGKXF7lFlS.D7ikk0Aja1lZPgJzeGeUJAm5zselWP.', NULL, NULL, 2, 'Hoạt động', '2025-09-24 02:06:23', '2025-09-24 02:06:23', 'Offline', NULL),
-(39, 'nhanvien1@gmail.com', '$2y$10$aFB3cdypIGWJPW343j4vSOP82d5lc.y4FG0QjqTqZu7RIKeb25GIC', NULL, NULL, 4, 'Hoạt động', '2025-09-24 02:11:39', '2025-10-26 06:39:06', 'Offline', '2025-10-26 04:31:16'),
-(96, 'nhanvien2@gmail.com', '$2y$10$skx3dLcoSSUAt7SNyPDF5u8TNfIVSWGIhvoP6sN22F7LOu7JONQ9q', NULL, NULL, 4, 'Hoạt động', '2025-09-24 10:28:06', '2025-09-24 10:28:06', 'Offline', NULL),
+(39, 'nhanvien1@gmail.com', '$2y$10$aFB3cdypIGWJPW343j4vSOP82d5lc.y4FG0QjqTqZu7RIKeb25GIC', NULL, NULL, 4, 'Hoạt động', '2025-09-24 02:11:39', '2025-10-28 13:17:26', 'Offline', '2025-10-28 12:58:30'),
+(96, 'nhanvien2@gmail.com', '$2y$10$skx3dLcoSSUAt7SNyPDF5u8TNfIVSWGIhvoP6sN22F7LOu7JONQ9q', NULL, NULL, 4, 'Hoạt động', '2025-09-24 10:28:06', '2025-10-28 13:17:31', 'Online', '2025-10-28 13:17:31'),
 (118, 'khachhang1@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-24 18:57:20', '2025-10-12 16:20:30', 'Offline', NULL),
-(119, 'qltc1@gmail.com', '$2y$10$FCLKvilsBjF2A6exn53/OOM9xDm7LffPSZSQhga7Oj4OUYpyyUXYe', NULL, NULL, 2, 'Hoạt động', '2025-09-24 19:17:28', '2025-10-28 11:21:00', 'Online', '2025-10-28 11:21:00'),
+(119, 'qltc1@gmail.com', '$2y$10$FCLKvilsBjF2A6exn53/OOM9xDm7LffPSZSQhga7Oj4OUYpyyUXYe', NULL, NULL, 2, 'Hoạt động', '2025-09-24 19:17:28', '2025-10-28 12:52:23', 'Online', '2025-10-28 12:52:23'),
 (124, 'thaoanh@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-25 02:09:32', '2025-10-09 03:12:13', 'Offline', NULL),
 (129, 'thanhbinhcv14@gmail.com', '$2y$10$1vfLe/IHU2NCclc2S9sqq.7nQwDpwD/rFfXa.Pe72mg9hu5yDyzRu', NULL, NULL, 2, 'Hoạt động', '2025-10-25 09:07:59', '2025-10-26 07:59:55', 'Online', '2025-10-26 07:59:55'),
 (130, 'nam', '$2y$10$ECe7qP2VhD2pcLBsGS6FH.WZHEFCNxftLX5LyEVtlTiFdXbxod9D2', NULL, NULL, 5, 'Hoạt động', '2025-10-26 01:27:44', '2025-10-26 01:27:44', 'Offline', NULL);
@@ -779,6 +798,14 @@ CREATE TABLE `webhook_logs` (
 --
 -- Chỉ mục cho các bảng đã đổ
 --
+
+--
+-- Chỉ mục cho bảng `baocaotiendo`
+--
+ALTER TABLE `baocaotiendo`
+  ADD PRIMARY KEY (`ID_BaoCao`),
+  ADD KEY `ID_NhanVien` (`ID_NhanVien`),
+  ADD KEY `ID_QuanLy` (`ID_QuanLy`);
 
 --
 -- Chỉ mục cho bảng `chitietdatsukien`
@@ -975,6 +1002,12 @@ ALTER TABLE `webhook_logs`
 --
 
 --
+-- AUTO_INCREMENT cho bảng `baocaotiendo`
+--
+ALTER TABLE `baocaotiendo`
+  MODIFY `ID_BaoCao` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT cho bảng `chitietdatsukien`
 --
 ALTER TABLE `chitietdatsukien`
@@ -984,7 +1017,7 @@ ALTER TABLE `chitietdatsukien`
 -- AUTO_INCREMENT cho bảng `chitietkehoach`
 --
 ALTER TABLE `chitietkehoach`
-  MODIFY `ID_ChiTiet` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ID_ChiTiet` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT cho bảng `combo`
@@ -1103,6 +1136,13 @@ ALTER TABLE `webhook_logs`
 --
 -- Các ràng buộc cho các bảng đã đổ
 --
+
+--
+-- Các ràng buộc cho bảng `baocaotiendo`
+--
+ALTER TABLE `baocaotiendo`
+  ADD CONSTRAINT `baocaotiendo_ibfk_1` FOREIGN KEY (`ID_NhanVien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE CASCADE,
+  ADD CONSTRAINT `baocaotiendo_ibfk_2` FOREIGN KEY (`ID_QuanLy`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `chitietdatsukien`

@@ -11,7 +11,18 @@ if ($user['ID_Role'] != 4) {
 try {
     $pdo = getDBConnection();
     $userId = $_SESSION['user']['ID_User'];
+    $userEmail = $_SESSION['user']['Email'] ?? null;
     
+    error_log("DEBUG: User ID from session: " . $userId);
+    error_log("DEBUG: User role from session: " . ($_SESSION['user']['ID_Role'] ?? 'N/A'));
+    
+    // Initialize default values
+    $staffInfo = null;
+    $assignments = [];
+    $lichlamviec_assignments = [];
+    $chitietkehoach_assignments = [];
+    
+    // Primary lookup by users.ID_User linkage
     $stmt = $pdo->prepare("
         SELECT 
             nv.ID_NhanVien,
@@ -22,98 +33,226 @@ try {
         FROM nhanvieninfo nv
         JOIN users u ON nv.ID_User = u.ID_User
         WHERE nv.ID_User = ?
+        LIMIT 1
     ");
     $stmt->execute([$userId]);
     $staffInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Fallback lookup by users.Email if linkage is missing
+    if (!$staffInfo && $userEmail) {
+        error_log("DEBUG: Trying fallback lookup by email: " . $userEmail);
+        $stmt = $pdo->prepare("
+            SELECT 
+                nv.ID_NhanVien,
+                nv.HoTen,
+                nv.ChucVu,
+                nv.SoDienThoai,
+                u.Email
+            FROM nhanvieninfo nv
+            JOIN users u ON nv.ID_User = u.ID_User
+            WHERE u.Email = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$userEmail]);
+        $staffInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($staffInfo) {
+            error_log("DEBUG: Fallback lookup successful - Staff ID: " . $staffInfo['ID_NhanVien']);
+        } else {
+            error_log("DEBUG: Fallback lookup failed");
+        }
+    }
     
     if (!$staffInfo) {
-        header('Location: login.php');
-        exit;
+        error_log("ERROR: Staff info not found for user ID: " . $userId);
+        $staffInfo = ['ID_NhanVien' => null, 'HoTen' => 'Nhân viên', 'ChucVu' => 'Staff', 'Email' => ''];
+    } else {
+        error_log("DEBUG: Staff info found - ID: " . $staffInfo['ID_NhanVien'] . ", Name: " . $staffInfo['HoTen']);
+        
+        // Check if this staff has any assignments
+        $checkStmt = $pdo->prepare("SELECT COUNT(*) as count FROM chitietkehoach WHERE ID_NhanVien = ?");
+        $checkStmt->execute([$staffInfo['ID_NhanVien']]);
+        $assignmentCount = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        error_log("DEBUG: Direct check - chitietkehoach assignments for staff " . $staffInfo['ID_NhanVien'] . ": " . $assignmentCount['count']);
     }
     
     // Get assignments from both lichlamviec and chitietkehoach
     $assignments = [];
     
-    // First, try to get from lichlamviec
-    $stmt = $pdo->prepare("
-        SELECT 
-            llv.ID_LLV,
-            llv.NhiemVu,
-            llv.NgayBatDau,
-            llv.NgayKetThuc,
-            llv.TrangThai,
-            llv.GhiChu,
-            llv.CongViec,
-            llv.HanHoanThanh,
-            llv.Tiendo,
-            llv.ThoiGianBatDauThucTe,
-            llv.ThoiGianKetThucThucTe,
-            llv.TienDoPhanTram,
-            llv.ThoiGianLamViec,
-            llv.ChamTienDo,
-            llv.GhiChuTienDo,
-            COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
-            COALESCE(dl.NgayBatDau, llv.NgayBatDau) as EventStartDate,
-            COALESCE(dl.NgayKetThuc, llv.NgayKetThuc) as EventEndDate,
-            COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
-            COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
-            COALESCE(kht.TenKeHoach, llv.NhiemVu) as ten_kehoach,
-            COALESCE(kht.NoiDung, llv.GhiChu) as kehoach_noidung,
-            COALESCE(kht.TrangThai, llv.TrangThai) as kehoach_trangthai,
-            'lichlamviec' as source_table
-        FROM lichlamviec llv
-        LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
-        LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-        LEFT JOIN kehoachthuchien kht ON llv.ID_KeHoach = kht.ID_KeHoach
-        WHERE llv.ID_NhanVien = ?
-        ORDER BY llv.NgayBatDau ASC
-    ");
-    $stmt->execute([$staffInfo['ID_NhanVien']]);
-    $lichlamviec_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Then, try to get from chitietkehoach
-    $stmt = $pdo->prepare("
-        SELECT 
-            ck.ID_ChiTiet as ID_LLV,
-            ck.TenBuoc as NhiemVu,
-            ck.NgayBatDau,
-            ck.NgayKetThuc,
-            ck.TrangThai,
-            ck.GhiChu,
-            ck.TenBuoc as CongViec,
-            ck.NgayKetThuc as HanHoanThanh,
-            '0' as Tiendo,
-            ck.ThoiGianBatDauThucTe,
-            ck.ThoiGianKetThucThucTe,
-            ck.TienDoPhanTram,
-            ck.ThoiGianLamViec,
-            ck.ChamTienDo,
-            ck.GhiChuTienDo,
-            COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
-            COALESCE(dl.NgayBatDau, ck.NgayBatDau) as EventStartDate,
-            COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
-            COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
-            COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
-            COALESCE(kht.TenKeHoach, ck.TenBuoc) as ten_kehoach,
-            COALESCE(kht.NoiDung, ck.MoTa) as kehoach_noidung,
-            COALESCE(kht.TrangThai, ck.TrangThai) as kehoach_trangthai,
-            'chitietkehoach' as source_table
-        FROM chitietkehoach ck
-        LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
-        LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
-        LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
-        LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-        WHERE ck.ID_NhanVien = ?
-        ORDER BY ck.NgayBatDau ASC
-    ");
-    $stmt->execute([$staffInfo['ID_NhanVien']]);
-    $chitietkehoach_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Combine both results
-    $assignments = array_merge($lichlamviec_assignments, $chitietkehoach_assignments);
+    if ($staffInfo && $staffInfo['ID_NhanVien']) {
+        // First, try to get from lichlamviec
+        $stmt = $pdo->prepare("
+            SELECT 
+                llv.ID_LLV,
+                llv.NhiemVu,
+                llv.NgayBatDau,
+                llv.NgayKetThuc,
+                llv.TrangThai,
+                llv.GhiChu,
+                llv.CongViec,
+                llv.NgayKetThuc as HanHoanThanh,
+                llv.Tiendo,
+                NULL as ThoiGianBatDauThucTe,
+                NULL as ThoiGianKetThucThucTe,
+                NULL as TienDoPhanTram,
+                NULL as ThoiGianLamViec,
+                NULL as ChamTienDo,
+                NULL as GhiChuTienDo,
+                COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+                COALESCE(dl.NgayBatDau, llv.NgayBatDau) as EventStartDate,
+                COALESCE(dl.NgayKetThuc, llv.NgayKetThuc) as EventEndDate,
+                COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
+                COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
+                COALESCE(kht.TenKeHoach, llv.NhiemVu) as ten_kehoach,
+                COALESCE(kht.NoiDung, llv.GhiChu) as kehoach_noidung,
+                COALESCE(kht.TrangThai, llv.TrangThai) as kehoach_trangthai,
+                'lichlamviec' as source_table
+            FROM lichlamviec llv
+            LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            LEFT JOIN kehoachthuchien kht ON llv.ID_KeHoach = kht.ID_KeHoach
+            WHERE llv.ID_NhanVien = ?
+            ORDER BY llv.NgayBatDau ASC
+        ");
+        $stmt->execute([$staffInfo['ID_NhanVien']]);
+        $lichlamviec_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Then, try to get from chitietkehoach
+        $stmt = $pdo->prepare("
+            SELECT 
+                ck.ID_ChiTiet as ID_LLV,
+                ck.TenBuoc as NhiemVu,
+                ck.NgayBatDau,
+                ck.NgayKetThuc,
+                ck.TrangThai,
+                ck.MoTa as GhiChu,
+                ck.TenBuoc as CongViec,
+                ck.NgayKetThuc as HanHoanThanh,
+                '0' as Tiendo,
+                NULL as ThoiGianBatDauThucTe,
+                NULL as ThoiGianKetThucThucTe,
+                NULL as TienDoPhanTram,
+                NULL as ThoiGianLamViec,
+                NULL as ChamTienDo,
+                NULL as GhiChuTienDo,
+                COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+                COALESCE(dl.NgayBatDau, ck.NgayBatDau) as EventStartDate,
+                COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
+                COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
+                COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
+                COALESCE(kht.TenKeHoach, ck.TenBuoc) as ten_kehoach,
+                COALESCE(kht.NoiDung, ck.MoTa) as kehoach_noidung,
+                COALESCE(kht.TrangThai, ck.TrangThai) as kehoach_trangthai,
+                'chitietkehoach' as source_table
+            FROM chitietkehoach ck
+            LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            WHERE ck.ID_NhanVien = ?
+            ORDER BY ck.NgayBatDau ASC
+        ");
+        $stmt->execute([$staffInfo['ID_NhanVien']]);
+        $chitietkehoach_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Combine both results
+        $assignments = array_merge($lichlamviec_assignments, $chitietkehoach_assignments);
+        
+        error_log("DEBUG: Found " . count($lichlamviec_assignments) . " lichlamviec assignments");
+        error_log("DEBUG: Found " . count($chitietkehoach_assignments) . " chitietkehoach assignments");
+        error_log("DEBUG: Total assignments: " . count($assignments));
+        
+        // Debug: Log first assignment if exists
+        if (!empty($chitietkehoach_assignments)) {
+            error_log("DEBUG: First chitietkehoach assignment: " . json_encode($chitietkehoach_assignments[0]));
+        }
+    } else {
+        error_log("WARNING: No staff ID found, using fallback by user/email to fetch assignments");
+        // Fallback: fetch by users link (ID_User/Email) via subqueries/joins
+        // lichlamviec via subselect of staff IDs mapped to this user
+        $stmt = $pdo->prepare("
+            SELECT 
+                llv.ID_LLV,
+                llv.NhiemVu,
+                llv.NgayBatDau,
+                llv.NgayKetThuc,
+                llv.TrangThai,
+                llv.GhiChu,
+                llv.CongViec,
+                llv.NgayKetThuc as HanHoanThanh,
+                llv.Tiendo,
+                NULL as ThoiGianBatDauThucTe,
+                NULL as ThoiGianKetThucThucTe,
+                NULL as TienDoPhanTram,
+                NULL as ThoiGianLamViec,
+                NULL as ChamTienDo,
+                NULL as GhiChuTienDo,
+                COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+                COALESCE(dl.NgayBatDau, llv.NgayBatDau) as EventStartDate,
+                COALESCE(dl.NgayKetThuc, llv.NgayKetThuc) as EventEndDate,
+                COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
+                COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
+                COALESCE(kht.TenKeHoach, llv.NhiemVu) as ten_kehoach,
+                COALESCE(kht.NoiDung, llv.GhiChu) as kehoach_noidung,
+                COALESCE(kht.TrangThai, llv.TrangThai) as kehoach_trangthai,
+                'lichlamviec' as source_table
+            FROM lichlamviec llv
+            LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            LEFT JOIN kehoachthuchien kht ON llv.ID_KeHoach = kht.ID_KeHoach
+            WHERE llv.ID_NhanVien IN (
+                SELECT nv.ID_NhanVien FROM nhanvieninfo nv JOIN users u ON nv.ID_User = u.ID_User
+                WHERE u.ID_User = ? OR u.Email = ?
+            )
+            ORDER BY llv.NgayBatDau ASC
+        ");
+        $stmt->execute([$userId, $userEmail]);
+        $lichlamviec_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // chitietkehoach via join to nv->users by user
+        $stmt = $pdo->prepare("
+            SELECT 
+                ck.ID_ChiTiet as ID_LLV,
+                ck.TenBuoc as NhiemVu,
+                ck.NgayBatDau,
+                ck.NgayKetThuc,
+                ck.TrangThai,
+                ck.MoTa as GhiChu,
+                ck.TenBuoc as CongViec,
+                ck.NgayKetThuc as HanHoanThanh,
+                '0' as Tiendo,
+                NULL as ThoiGianBatDauThucTe,
+                NULL as ThoiGianKetThucThucTe,
+                NULL as TienDoPhanTram,
+                NULL as ThoiGianLamViec,
+                NULL as ChamTienDo,
+                NULL as GhiChuTienDo,
+                COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+                COALESCE(dl.NgayBatDau, ck.NgayBatDau) as EventStartDate,
+                COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
+                COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
+                COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
+                COALESCE(kht.TenKeHoach, ck.TenBuoc) as ten_kehoach,
+                COALESCE(kht.NoiDung, ck.MoTa) as kehoach_noidung,
+                COALESCE(kht.TrangThai, ck.TrangThai) as kehoach_trangthai,
+                'chitietkehoach' as source_table
+            FROM chitietkehoach ck
+            JOIN nhanvieninfo nv ON ck.ID_NhanVien = nv.ID_NhanVien
+            JOIN users u ON nv.ID_User = u.ID_User
+            LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            WHERE u.ID_User = ? OR u.Email = ?
+            ORDER BY ck.NgayBatDau ASC
+        ");
+        $stmt->execute([$userId, $userEmail]);
+        $chitietkehoach_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $assignments = array_merge($lichlamviec_assignments, $chitietkehoach_assignments);
+    }
     
     // Debug: Log assignments query
-    error_log("DEBUG: Staff Schedule - Staff ID: " . $staffInfo['ID_NhanVien']);
+    error_log("DEBUG: Staff Schedule - Staff ID: " . ($staffInfo['ID_NhanVien'] ?? 'N/A'));
     error_log("DEBUG: Staff Schedule - lichlamviec assignments: " . count($lichlamviec_assignments));
     error_log("DEBUG: Staff Schedule - chitietkehoach assignments: " . count($chitietkehoach_assignments));
     error_log("DEBUG: Staff Schedule - Total assignments: " . count($assignments));
@@ -135,7 +274,9 @@ try {
     
 } catch (Exception $e) {
     $assignments = [];
-    $staffInfo = ['HoTen' => 'Nhân viên', 'ChucVu' => 'Staff'];
+    $lichlamviec_assignments = [];
+    $chitietkehoach_assignments = [];
+    $staffInfo = ['ID_NhanVien' => null, 'HoTen' => 'Nhân viên', 'ChucVu' => 'Staff', 'Email' => ''];
     error_log("Error fetching staff assignments: " . $e->getMessage());
     echo "<!-- Error: " . $e->getMessage() . " -->";
 }
@@ -144,42 +285,105 @@ try {
 <style>
         .stats-card {
             background: white;
-            border-radius: 10px;
-            padding: 20px;
+            border-radius: 15px;
+            padding: 25px;
             text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
             border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stats-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
         }
         
         .stats-number {
-            font-size: 2rem;
+            font-size: 2.5rem;
             font-weight: bold;
             color: #667eea;
+            margin-bottom: 8px;
         }
         
         .stats-label {
             color: #6c757d;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             margin-top: 5px;
+            font-weight: 500;
+        }
+        
+        .stats-card .fas {
+            font-size: 2.2rem;
+            margin-bottom: 15px;
+            opacity: 0.8;
         }
         
         .assignment-card {
             border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            margin-bottom: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
             transition: all 0.3s ease;
             background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
         }
         
         .assignment-card:hover {
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
         }
         
         .assignment-header {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px 10px 0 0;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
             border-bottom: 1px solid #e0e0e0;
+            position: relative;
+        }
+        
+        .assignment-header::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .assignment-header h5 {
+            color: #2c3e50;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+        }
+        
+        .assignment-header h5 i {
+            color: #667eea;
+            margin-right: 8px;
+        }
+        
+        .assignment-header p {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+        
+        .assignment-header p i {
+            color: #667eea;
+            margin-right: 6px;
+            width: 16px;
         }
         
         .status-badge {
@@ -211,65 +415,274 @@ try {
         
         .timeline {
             position: relative;
-            padding-left: 30px;
+            padding-left: 40px;
         }
         
         .timeline::before {
             content: '';
             position: absolute;
-            left: 15px;
+            left: 20px;
             top: 0;
             bottom: 0;
-            width: 2px;
-            background: #667eea;
+            width: 3px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
         }
         
         .timeline-item {
             position: relative;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
         }
         
         .timeline-item::before {
             content: '';
             position: absolute;
-            left: -23px;
-            top: 5px;
-            width: 12px;
-            height: 12px;
+            left: -32px;
+            top: 8px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
             background: #667eea;
-            border: 3px solid white;
+            border: 4px solid white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            z-index: 2;
         }
         
         .timeline-item.completed::before {
             background: #28a745;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
         }
         
         .timeline-item.in-progress::before {
             background: #ffc107;
+            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
         }
         
         .timeline-item.issue::before {
             background: #dc3545;
+            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
         }
         
         .event-info {
-            background: #e3f2fd;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 10px 0;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #2196f3;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1);
+        }
+        
+        .event-info h6 {
+            color: #1976d2;
+            font-weight: 600;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+        
+        .event-info h6 i {
+            color: #2196f3;
+            margin-right: 8px;
+        }
+        
+        .event-info p {
+            color: #424242;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        
+        .event-info p strong {
+            color: #1976d2;
+            font-weight: 600;
         }
         
         .action-buttons {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             flex-wrap: wrap;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .action-buttons .btn {
+            border-radius: 8px;
+            font-weight: 500;
+            padding: 8px 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-width: 120px;
+            text-align: center;
+        }
+        
+        .action-buttons .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .action-buttons .btn i {
+            margin-right: 5px;
+        }
+        
+        .card-body {
+            padding: 25px;
+            background: #fafbfc;
+        }
+        
+        .card-body h6 {
+            color: #495057;
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+        }
+        
+        .card-body h6 i {
+            color: #6c757d;
+            margin-right: 6px;
+        }
+        
+        .card-body p {
+            color: #6c757d;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 10px;
         }
         
         .modal-content {
-            border-radius: 15px;
+            border-radius: 20px;
             border: none;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom: none;
+            padding: 20px 25px;
+        }
+        
+        .modal-header .modal-title {
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+        
+        .modal-header .modal-title i {
+            margin-right: 10px;
+        }
+        
+        .modal-header .btn-close {
+            filter: invert(1);
+            opacity: 0.8;
+        }
+        
+        .modal-header .btn-close:hover {
+            opacity: 1;
+        }
+        
+        .modal-body {
+            padding: 25px;
+            background: #fafbfc;
+        }
+        
+        .modal-footer {
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            padding: 15px 25px;
+        }
+        
+        .modal-footer .btn {
+            border-radius: 8px;
+            font-weight: 500;
+            padding: 8px 20px;
+        }
+        
+        /* Modal content styling */
+        .modal-body .card {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .modal-body .card-header {
+            border-radius: 12px 12px 0 0;
+            border-bottom: none;
+            padding: 15px 20px;
+        }
+        
+        .modal-body .card-body {
+            padding: 20px;
+        }
+        
+        .modal-body .card-header h6 {
+            margin: 0;
+            font-weight: 600;
+        }
+        
+        .modal-body .card-header i {
+            margin-right: 8px;
+        }
+        
+        .modal-body .alert {
+            border-radius: 8px;
+            border: none;
+        }
+        
+        .modal-body .table {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .modal-body .badge {
+            font-size: 0.8rem;
+            padding: 6px 10px;
+        }
+        
+        /* Status indicators */
+        .status-indicator {
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        
+        .alert.border-warning {
+            border-left: 4px solid #ffc107 !important;
+        }
+        
+        .alert.border-success {
+            border-left: 4px solid #198754 !important;
+        }
+        
+        .alert.border-danger {
+            border-left: 4px solid #dc3545 !important;
+        }
+        
+        .alert.border-secondary {
+            border-left: 4px solid #6c757d !important;
+        }
+        
+        /* Timer animation for "Đang làm việc" */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        .status-working .badge {
+            animation: pulse 2s infinite;
         }
     </style>
 
@@ -296,9 +709,9 @@ try {
                         </div>
                         <div class="flex-grow-1 ms-3">
                             <div class="stats-number">
-                                <?= count(array_filter($assignments, function($a) { return $a['TrangThai'] == 'Chưa làm'; })) ?>
+                                <?= count(array_filter($assignments, function($a) { return $a['TrangThai'] == 'Chưa làm' || $a['TrangThai'] == 'Chưa bắt đầu'; })) ?>
                             </div>
-                            <div class="stats-label">Chưa làm</div>
+                            <div class="stats-label">Chưa bắt đầu</div>
                         </div>
                     </div>
                 </div>
@@ -311,9 +724,9 @@ try {
                         </div>
                         <div class="flex-grow-1 ms-3">
                             <div class="stats-number">
-                                <?= count(array_filter($assignments, function($a) { return $a['TrangThai'] == 'Đang làm'; })) ?>
+                                <?= count(array_filter($assignments, function($a) { return $a['TrangThai'] == 'Đang làm' || $a['TrangThai'] == 'Đang thực hiện'; })) ?>
                             </div>
-                            <div class="stats-label">Đang làm</div>
+                            <div class="stats-label">Đang làm việc</div>
                         </div>
                     </div>
                 </div>
@@ -329,6 +742,21 @@ try {
                                 <?= count(array_filter($assignments, function($a) { return $a['TrangThai'] == 'Hoàn thành'; })) ?>
                             </div>
                             <div class="stats-label">Hoàn thành</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="stats-number">
+                                <?= count(array_filter($assignments, function($a) { return $a['TrangThai'] == 'Báo sự cố'; })) ?>
+                            </div>
+                            <div class="stats-label">Báo sự cố</div>
                         </div>
                     </div>
                 </div>
@@ -362,6 +790,14 @@ try {
                     <?php endif; ?>
                     <div class="alert alert-info mt-3">
                         <small>Debug: Tìm kiếm công việc cho nhân viên ID: <?= $staffInfo['ID_NhanVien'] ?? 'N/A' ?></small>
+                        <br><small>Lịch làm việc: <?= count($lichlamviec_assignments) ?> công việc</small>
+                        <br><small>Chi tiết kế hoạch: <?= count($chitietkehoach_assignments) ?> công việc</small>
+                        <br><small>Tổng cộng: <?= count($assignments) ?> công việc</small>
+                        <br><small>User ID: <?= $userId ?? 'N/A' ?></small>
+                        <br><small>User Email: <?= $userEmail ?? 'N/A' ?></small>
+                        <?php if (!empty($chitietkehoach_assignments)): ?>
+                        <br><small>First chitietkehoach: <?= htmlspecialchars(json_encode($chitietkehoach_assignments[0])) ?></small>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php else: ?>
@@ -450,27 +886,53 @@ try {
                                 <!-- Timer and Progress Section -->
                                 <?php if ($assignment['TrangThai'] == 'Chưa bắt đầu' || $assignment['TrangThai'] == 'Chưa làm'): ?>
                                 <div class="mb-3">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <h6><i class="fas fa-clock"></i> Bắt đầu làm việc</h6>
-                                        <button class="btn btn-success btn-sm" onclick="startWork(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
-                                        <i class="fas fa-play"></i>
-                                            Bắt đầu làm việc
-                                    </button>
+                                    <div class="alert alert-secondary border-secondary">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-clock text-secondary"></i>
+                                                <strong class="text-secondary">CHƯA BẮT ĐẦU</strong>
+                                                <span class="badge bg-secondary text-white ms-2">
+                                                    <i class="fas fa-hourglass-start"></i> 
+                                                    Chờ bắt đầu
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-secondary text-white">
+                                                    <i class="fas fa-info-circle"></i> 
+                                                    Sử dụng các nút bên dưới để cập nhật trạng thái
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
                                 <?php elseif ($assignment['TrangThai'] == 'Đang thực hiện' || $assignment['TrangThai'] == 'Đang làm'): ?>
                                 <div class="mb-3">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <h6><i class="fas fa-stopwatch"></i> Đang làm việc</h6>
-                                        <div class="d-flex gap-2">
-                                            <button class="btn btn-info btn-sm" onclick="updateProgress(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
-                                        <i class="fas fa-percentage"></i>
-                                        Cập nhật tiến độ
-                                    </button>
-                                            <button class="btn btn-success btn-sm" onclick="completeWork(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
-                                                <i class="fas fa-check"></i>
-                                                Hoàn thành
-                                            </button>
+                                    <div class="alert alert-warning border-warning status-working">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-play-circle text-warning"></i>
+                                                <strong class="text-warning">ĐANG LÀM VIỆC</strong>
+                                                <span class="badge bg-warning text-dark ms-2">
+                                                    <i class="fas fa-clock"></i> 
+                                                    <?php 
+                                                    if (isset($assignment['ThoiGianBatDauThucTe']) && $assignment['ThoiGianBatDauThucTe']) {
+                                                        $startTime = strtotime($assignment['ThoiGianBatDauThucTe']);
+                                                        $currentTime = time();
+                                                        $elapsedTime = $currentTime - $startTime;
+                                                        $hours = floor($elapsedTime / 3600);
+                                                        $minutes = floor(($elapsedTime % 3600) / 60);
+                                                        echo $hours . 'h ' . $minutes . 'm';
+                                                    } else {
+                                                        echo 'Chưa bắt đầu';
+                                                    }
+                                                    ?>
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-info-circle"></i> 
+                                                    Sử dụng các nút bên dưới để cập nhật trạng thái
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                     
@@ -527,12 +989,28 @@ try {
                                 </div>
                                 <?php elseif ($assignment['TrangThai'] == 'Hoàn thành'): ?>
                                 <div class="mb-3">
-                                    <div class="alert alert-success">
-                                        <i class="fas fa-check-circle"></i>
-                                        <strong>Đã hoàn thành</strong>
-                                        <?php if (isset($assignment['ChamTienDo']) && $assignment['ChamTienDo']): ?>
-                                        <span class="badge bg-warning ms-2">Chậm tiến độ</span>
-                                        <?php endif; ?>
+                                    <div class="alert alert-success border-success">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-check-circle text-success"></i>
+                                                <strong class="text-success">ĐÃ HOÀN THÀNH</strong>
+                                                <?php if (isset($assignment['ChamTienDo']) && $assignment['ChamTienDo']): ?>
+                                                <span class="badge bg-warning text-dark ms-2">
+                                                    <i class="fas fa-exclamation-triangle"></i> Chậm tiến độ
+                                                </span>
+                                                <?php else: ?>
+                                                <span class="badge bg-success text-white ms-2">
+                                                    <i class="fas fa-trophy"></i> Đúng hạn
+                                                </span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div>
+                                                <button class="btn btn-outline-info btn-sm" onclick="viewTaskDetails(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
+                                                    <i class="fas fa-eye"></i>
+                                                    Xem chi tiết
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                     
                                     <!-- Thời gian làm việc hoàn thành -->
@@ -601,19 +1079,76 @@ try {
                                     </div>
                                     <?php endif; ?>
                                 </div>
+                                <?php elseif ($assignment['TrangThai'] == 'Báo sự cố'): ?>
+                                <div class="mb-3">
+                                    <div class="alert alert-danger border-danger">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-exclamation-triangle text-danger"></i>
+                                                <strong class="text-danger">BÁO SỰ CỐ</strong>
+                                                <span class="badge bg-danger text-white ms-2">
+                                                    <i class="fas fa-warning"></i> 
+                                                    Cần hỗ trợ
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <button class="btn btn-outline-warning btn-sm" onclick="viewTaskDetails(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
+                                                    <i class="fas fa-eye"></i>
+                                                    Xem chi tiết
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Thông tin sự cố -->
+                                    <?php if (isset($assignment['GhiChuTienDo']) && $assignment['GhiChuTienDo']): ?>
+                                    <div class="mt-2">
+                                        <div class="alert alert-warning">
+                                            <i class="fas fa-info-circle"></i>
+                                            <strong>Mô tả sự cố:</strong> <?= htmlspecialchars($assignment['GhiChuTienDo']) ?>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
+                                </div>
                                 <?php endif; ?>
                                 
                                 <!-- Action Buttons -->
                                 <div class="action-buttons">
+                                    <!-- Debug: Show current status -->
+                                    <div class="alert alert-info mb-2">
+                                        <small><strong>Debug:</strong> Trạng thái hiện tại: "<?= $assignment['TrangThai'] ?>" | ID: <?= $assignment['ID_LLV'] ?> | Source: <?= $assignment['source_table'] ?? 'lichlamviec' ?></small>
+                                    </div>
+                                    
+                                    <?php if ($assignment['TrangThai'] == 'Chưa bắt đầu' || $assignment['TrangThai'] == 'Chưa làm'): ?>
+                                    <!-- Only show "Bắt đầu làm việc" button for "Chưa bắt đầu" status -->
+                                    <button class="btn btn-primary btn-sm" onclick="startWork(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
+                                        <i class="fas fa-play"></i>
+                                        Bắt đầu làm việc
+                                    </button>
+                                    <?php else: ?>
+                                    <!-- Show all buttons after starting work -->
+                                    <?php if ($assignment['TrangThai'] == 'Đang thực hiện' || $assignment['TrangThai'] == 'Đang làm'): ?>
+                                    <button class="btn btn-info btn-sm" onclick="updateProgress(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
+                                        <i class="fas fa-percentage"></i>
+                                        Cập nhật tiến độ
+                                    </button>
+                                    <?php endif; ?>
+                                    
+                                    <button class="btn btn-success btn-sm" onclick="showCompleteWorkModal(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>', '<?= htmlspecialchars($assignment['NhiemVu'] ?? $assignment['TenBuoc'] ?? 'Công việc') ?>')">
+                                        <i class="fas fa-check"></i>
+                                        Hoàn thành & Báo cáo
+                                    </button>
+                                    
                                     <button class="btn btn-danger btn-sm" onclick="reportIssue(<?= $assignment['ID_LLV'] ?>)">
                                         <i class="fas fa-exclamation-triangle"></i>
                                         Báo sự cố
                                     </button>
                                     
-                                    <button class="btn btn-outline-info btn-sm" onclick="viewDetails(<?= $assignment['ID_LLV'] ?>)">
+                                    <button class="btn btn-outline-info btn-sm" onclick="viewTaskDetails(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?>')">
                                         <i class="fas fa-eye"></i>
                                         Chi tiết
                                     </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -637,6 +1172,7 @@ try {
                     <form id="updateStatusForm">
                         <input type="hidden" id="assignmentId" name="assignmentId">
                         <input type="hidden" id="newStatus" name="newStatus">
+                        <input type="hidden" id="sourceTable" name="sourceTable">
                         
                         <div class="mb-3">
                             <label for="progress" class="form-label">Tiến độ (%)</label>
@@ -793,42 +1329,102 @@ try {
 
     <!-- Complete Work Modal -->
     <div class="modal fade" id="completeWorkModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
+                <div class="modal-header bg-success text-white">
                     <h5 class="modal-title">
-                        <i class="fas fa-check"></i>
-                        Hoàn thành công việc
+                        <i class="fas fa-check-circle"></i>
+                        Hoàn thành công việc & Báo cáo tiến độ
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Thông báo:</strong> Khi hoàn thành công việc, bạn cần báo cáo tiến độ cho quản lý (Role 2).
+                    </div>
+                    
                     <form id="completeWorkForm">
                         <input type="hidden" id="completeWorkId" name="assignmentId">
                         <input type="hidden" id="completeWorkTable" name="sourceTable">
+                        <input type="hidden" id="completeWorkTaskName" name="taskName">
                         
-                        <div class="mb-3">
-                            <label for="finalProgress" class="form-label">Tiến độ cuối cùng (%)</label>
-                            <input type="number" class="form-control" id="finalProgress" name="progress" min="0" max="100" value="100" required>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="finalProgress" class="form-label">
+                                        <i class="fas fa-percentage text-success"></i>
+                                        Tiến độ cuối cùng (%): <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="number" class="form-control" id="finalProgress" name="progress" min="0" max="100" value="100" required>
+                                    <div class="form-text">Nhập phần trăm hoàn thành (thường là 100%)</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="managerSelectComplete" class="form-label">
+                                        <i class="fas fa-user-tie text-primary"></i>
+                                        Chọn quản lý báo cáo: <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select" id="managerSelectComplete" name="managerId" required>
+                                        <option value="">-- Chọn quản lý --</option>
+                                    </select>
+                                    <div class="form-text">Chọn quản lý để gửi báo cáo tiến độ</div>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="mb-3">
-                            <label for="completeWorkNote" class="form-label">Ghi chú hoàn thành</label>
-                            <textarea class="form-control" id="completeWorkNote" name="note" rows="3" placeholder="Mô tả kết quả công việc..."></textarea>
+                            <label for="completeWorkNote" class="form-label">
+                                <i class="fas fa-comment-alt text-info"></i>
+                                Ghi chú hoàn thành:
+                            </label>
+                            <textarea class="form-control" id="completeWorkNote" name="note" rows="4" placeholder="Mô tả chi tiết kết quả công việc, những gì đã hoàn thành, khó khăn gặp phải..."></textarea>
+                            <div class="form-text">Mô tả chi tiết để quản lý hiểu rõ kết quả công việc</div>
                         </div>
                         
                         <div class="alert alert-warning" id="lateProgressAlert" style="display: none;">
                             <i class="fas fa-exclamation-triangle"></i>
-                            <strong>Cảnh báo:</strong> Bạn đang hoàn thành sau thời hạn yêu cầu. Điều này sẽ được ghi nhận là chậm tiến độ.
+                            <strong>Cảnh báo:</strong> Công việc này đã quá hạn! Vui lòng giải thích lý do trong ghi chú.
+                        </div>
+                        
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i>
+                            <strong>Xác nhận:</strong> Sau khi hoàn thành, công việc sẽ được đánh dấu là "Hoàn thành" và báo cáo tiến độ sẽ được gửi đến quản lý.
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="button" class="btn btn-success" onclick="saveCompleteWork()">
-                        <i class="fas fa-check"></i>
-                        Hoàn thành
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Hủy
                     </button>
+                    <button type="button" class="btn btn-success" onclick="submitCompleteWorkWithReport()">
+                        <i class="fas fa-check"></i>
+                        Hoàn thành & Báo cáo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Details Modal -->
+    <div class="modal fade" id="taskDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-tasks"></i>
+                        Chi tiết công việc
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="taskDetailsContent">
+                        <!-- Task details will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
                 </div>
             </div>
         </div>
@@ -878,10 +1474,11 @@ try {
     </style>
 
     <script>
-        function updateStatus(assignmentId, status) {
+        function updateStatus(assignmentId, status, sourceTable = 'lichlamviec') {
             try {
                 document.getElementById('assignmentId').value = assignmentId;
                 document.getElementById('newStatus').value = status;
+                document.getElementById('sourceTable').value = sourceTable;
                 
                 const modal = new bootstrap.Modal(document.getElementById('updateStatusModal'));
                 modal.show();
@@ -914,6 +1511,137 @@ try {
             } catch (error) {
                 console.error('Error opening update progress modal:', error);
                 alert('Có lỗi xảy ra khi mở modal cập nhật tiến độ');
+            }
+        }
+
+        function showCompleteWorkModal(assignmentId, sourceTable, taskName) {
+            try {
+                console.log('=== SHOW COMPLETE WORK MODAL DEBUG ===');
+                console.log('assignmentId:', assignmentId);
+                console.log('sourceTable:', sourceTable);
+                console.log('taskName:', taskName);
+                
+                // Set form values
+                document.getElementById('completeWorkId').value = assignmentId;
+                document.getElementById('completeWorkTable').value = sourceTable;
+                document.getElementById('completeWorkTaskName').value = taskName;
+                
+                // Load managers for progress report
+                loadManagersForCompleteWork();
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('completeWorkModal'));
+                modal.show();
+                
+            } catch (error) {
+                console.error('Error opening complete work modal:', error);
+                alert('Có lỗi xảy ra khi mở modal hoàn thành công việc');
+            }
+        }
+        
+        function loadManagersForCompleteWork() {
+            fetch('../src/controllers/staff-reports.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'action=get_managers'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const select = document.getElementById('managerSelectComplete');
+                    select.innerHTML = '<option value="">-- Chọn quản lý --</option>';
+                    data.managers.forEach(manager => {
+                        const option = document.createElement('option');
+                        option.value = manager.ID_NhanVien;
+                        option.textContent = `${manager.HoTen} (${manager.ChucVu})`;
+                        select.appendChild(option);
+                    });
+                } else {
+                    console.error('Error loading managers:', data.message);
+                    alert('Lỗi khi tải danh sách quản lý: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading managers:', error);
+                alert('Có lỗi xảy ra khi tải danh sách quản lý');
+            });
+        }
+        
+        function submitCompleteWorkWithReport() {
+            try {
+                const assignmentId = document.getElementById('completeWorkId').value;
+                const sourceTable = document.getElementById('completeWorkTable').value;
+                const taskName = document.getElementById('completeWorkTaskName').value;
+                const progress = document.getElementById('finalProgress').value;
+                const managerId = document.getElementById('managerSelectComplete').value;
+                const note = document.getElementById('completeWorkNote').value;
+                
+                if (!assignmentId || !sourceTable || !progress || !managerId) {
+                    alert('Vui lòng điền đầy đủ thông tin bắt buộc');
+                    return;
+                }
+                
+                // Show loading
+                const submitBtn = document.querySelector('#completeWorkModal .btn-success');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+                submitBtn.disabled = true;
+                
+                // First complete the work
+                fetch('../src/controllers/staff-schedule.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=complete_work&assignmentId=${assignmentId}&sourceTable=${sourceTable}&progress=${progress}&note=${encodeURIComponent(note)}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Then submit progress report
+                        const formData = new FormData();
+                        formData.append('action', 'submit_progress_report');
+                        formData.append('manager_id', managerId);
+                        formData.append('task_id', assignmentId);
+                        formData.append('task_type', sourceTable);
+                        formData.append('progress', progress);
+                        formData.append('status', 'Hoàn thành');
+                        formData.append('notes', note);
+                        
+                        return fetch('../src/controllers/staff-reports.php', {
+                            method: 'POST',
+                            body: formData
+                        });
+                    } else {
+                        throw new Error(data.message || 'Lỗi khi hoàn thành công việc');
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Hoàn thành công việc và báo cáo tiến độ thành công!');
+                        bootstrap.Modal.getInstance(document.getElementById('completeWorkModal')).hide();
+                        // Reload page to show updated status
+                        location.reload();
+                    } else {
+                        throw new Error(data.message || 'Lỗi khi gửi báo cáo tiến độ');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Có lỗi xảy ra: ' + error.message);
+                })
+                .finally(() => {
+                    // Restore button
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                });
+                
+            } catch (error) {
+                console.error('Error submitting complete work with report:', error);
+                alert('Có lỗi xảy ra khi hoàn thành công việc');
             }
         }
 
@@ -972,7 +1700,7 @@ try {
                 const formData = new FormData(form);
                 formData.append('action', 'update_assignment_status');
                 
-                fetch('src/controllers/staff-schedule.php', {
+                fetch('../src/controllers/staff-schedule.php', {
                     method: 'POST',
                     body: formData
                 })
@@ -1001,27 +1729,194 @@ try {
         }
 
         function saveStartWork() {
-            const form = document.getElementById('startWorkForm');
-            const formData = new FormData(form);
-            formData.append('action', 'start_work');
-            
-            fetch('src/controllers/staff-schedule.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Bắt đầu làm việc thành công');
-                    location.reload();
-                } else {
-                    alert('Lỗi: ' + data.message);
+            try {
+                const form = document.getElementById('startWorkForm');
+                if (!form) {
+                    alert('Không tìm thấy form bắt đầu làm việc');
+                    return;
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
+                
+                const formData = new FormData(form);
+                formData.append('action', 'start_work');
+                
+                // Debug logs
+                console.log('=== SAVE START WORK DEBUG ===');
+                console.log('Form data:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(key + ': ' + value);
+                }
+                
+                fetch('../src/controllers/staff-schedule.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response URL:', response.url);
+                    return response.text(); // Get raw response first
+                })
+                .then(text => {
+                    console.log('Raw response:', text);
+                    try {
+                        const data = JSON.parse(text);
+                        console.log('Parsed data:', data);
+                        
+                        if (data.success) {
+                            alert('Bắt đầu làm việc thành công');
+                            bootstrap.Modal.getInstance(document.getElementById('startWorkModal')).hide();
+                            
+                            // Update UI dynamically without reload
+                            updateTaskStatusAfterStart(assignmentId, sourceTable);
+                        } else {
+                            alert('Lỗi: ' + data.message);
+                        }
+                    } catch (e) {
+                        console.error('JSON parse error:', e);
+                        console.error('Raw response was:', text);
+                        alert('Lỗi: Không thể phân tích phản hồi từ server');
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    alert('Có lỗi xảy ra khi bắt đầu làm việc: ' + error.message);
+                });
+            } catch (error) {
+                console.error('Error in saveStartWork:', error);
                 alert('Có lỗi xảy ra khi bắt đầu làm việc');
-            });
+            }
+        }
+
+        function updateTaskStatusAfterStart(assignmentId, sourceTable) {
+            try {
+                // Find the task card by assignment ID
+                const taskCards = document.querySelectorAll('.timeline-item');
+                let targetCard = null;
+                
+                for (let card of taskCards) {
+                    const buttons = card.querySelectorAll('button[onclick*="startWork"]');
+                    for (let button of buttons) {
+                        const onclickAttr = button.getAttribute('onclick');
+                        if (onclickAttr && onclickAttr.includes(assignmentId)) {
+                            targetCard = card;
+                            break;
+                        }
+                    }
+                    if (targetCard) break;
+                }
+                
+                if (!targetCard) {
+                    console.error('Could not find task card for assignment ID:', assignmentId);
+                    return;
+                }
+                
+                // Update status badge
+                const statusBadge = targetCard.querySelector('.status-badge');
+                if (statusBadge) {
+                    console.log('Updating status badge from:', statusBadge.textContent, 'to: Đang làm');
+                    statusBadge.textContent = 'Đang làm';
+                    statusBadge.className = 'status-badge status-đang-làm';
+                }
+                
+                // Update status alert section
+                const statusAlert = targetCard.querySelector('.alert');
+                if (statusAlert) {
+                    statusAlert.className = 'alert alert-warning border-warning status-working';
+                    statusAlert.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-play-circle text-warning"></i>
+                                <strong class="text-warning">ĐANG LÀM VIỆC</strong>
+                                <span class="badge bg-warning text-dark ms-2">
+                                    <i class="fas fa-clock"></i> 
+                                    Bắt đầu làm việc
+                                </span>
+                            </div>
+                            <div>
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Sử dụng các nút bên dưới để cập nhật trạng thái
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Update action buttons
+                const actionButtons = targetCard.querySelector('.action-buttons');
+                if (actionButtons) {
+                    console.log('Updating action buttons for assignment:', assignmentId, 'sourceTable:', sourceTable);
+                    actionButtons.innerHTML = `
+                        <button class="btn btn-info btn-sm" onclick="updateProgress(${assignmentId}, '${sourceTable}')">
+                            <i class="fas fa-percentage"></i>
+                            Cập nhật tiến độ
+                        </button>
+                        
+                        <button class="btn btn-success btn-sm" onclick="showCompleteWorkModal(${assignmentId}, '${sourceTable}', 'Công việc')">
+                            <i class="fas fa-check"></i>
+                            Hoàn thành & Báo cáo
+                        </button>
+                        
+                        <button class="btn btn-danger btn-sm" onclick="reportIssue(${assignmentId})">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Báo sự cố
+                        </button>
+                        
+                        <button class="btn btn-outline-info btn-sm" onclick="viewTaskDetails(${assignmentId}, '${sourceTable}')">
+                            <i class="fas fa-eye"></i>
+                            Chi tiết
+                        </button>
+                    `;
+                }
+                
+                // Update statistics
+                updateStatistics();
+                
+                console.log('Task status updated successfully for assignment:', assignmentId);
+                
+            } catch (error) {
+                console.error('Error updating task status:', error);
+                // Fallback to reload if dynamic update fails
+                location.reload();
+            }
+        }
+        
+        function updateStatistics() {
+            try {
+                // Count tasks by status
+                const taskCards = document.querySelectorAll('.timeline-item');
+                let notStarted = 0;
+                let inProgress = 0;
+                let completed = 0;
+                let reported = 0;
+                
+                taskCards.forEach(card => {
+                    const statusBadge = card.querySelector('.status-badge');
+                    if (statusBadge) {
+                        const status = statusBadge.textContent.trim();
+                        if (status === 'Chưa bắt đầu' || status === 'Chưa làm') {
+                            notStarted++;
+                        } else if (status === 'Đang làm' || status === 'Đang thực hiện') {
+                            inProgress++;
+                        } else if (status === 'Hoàn thành') {
+                            completed++;
+                        } else if (status === 'Báo sự cố') {
+                            reported++;
+                        }
+                    }
+                });
+                
+                // Update statistics display
+                const statsElements = document.querySelectorAll('.stats-number');
+                if (statsElements.length >= 4) {
+                    statsElements[0].textContent = notStarted;
+                    statsElements[1].textContent = inProgress;
+                    statsElements[2].textContent = completed;
+                    statsElements[3].textContent = reported;
+                }
+                
+            } catch (error) {
+                console.error('Error updating statistics:', error);
+            }
         }
 
         function saveProgressUpdate() {
@@ -1029,7 +1924,7 @@ try {
             const formData = new FormData(form);
             formData.append('action', 'update_progress');
             
-            fetch('src/controllers/staff-schedule.php', {
+            fetch('../src/controllers/staff-schedule.php', {
                 method: 'POST',
                 body: formData
             })
@@ -1060,7 +1955,7 @@ try {
                 console.log(key + ': ' + value);
             }
             
-            fetch('src/controllers/staff-schedule.php', {
+            fetch('../src/controllers/staff-schedule.php', {
                 method: 'POST',
                 body: formData
             })
@@ -1114,7 +2009,7 @@ try {
             const formData = new FormData(form);
             formData.append('action', 'report_issue');
             
-            fetch('src/controllers/staff-schedule.php', {
+            fetch('../src/controllers/staff-schedule.php', {
                 method: 'POST',
                 body: formData
             })
@@ -1131,6 +2026,160 @@ try {
                 console.error('Error:', error);
                 alert('Có lỗi xảy ra khi báo sự cố');
             });
+        }
+
+        function viewTaskDetails(assignmentId, sourceTable) {
+            console.log('=== VIEW TASK DETAILS DEBUG ===');
+            console.log('assignmentId:', assignmentId);
+            console.log('sourceTable:', sourceTable);
+            
+            // Get assignment data from current page
+            const assignment = getAssignmentData(assignmentId, sourceTable);
+            
+            if (!assignment) {
+                alert('Không tìm thấy thông tin công việc');
+                return;
+            }
+            
+            // Show loading in modal
+            document.getElementById('taskDetailsContent').innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Đang tải chi tiết công việc...</p>
+                </div>
+            `;
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('taskDetailsModal'));
+            modal.show();
+            
+            // Display task details
+            displayTaskDetails(assignment);
+        }
+        
+        function getAssignmentData(assignmentId, sourceTable) {
+            // Find assignment data from current page
+            const assignmentCards = document.querySelectorAll('.assignment-card');
+            for (let card of assignmentCards) {
+                const buttons = card.querySelectorAll('button[onclick*="' + assignmentId + '"]');
+                if (buttons.length > 0) {
+                    // Extract data from the card
+                    const title = card.querySelector('h5').textContent.trim();
+                    const timeInfo = card.querySelectorAll('p');
+                    const startTime = timeInfo[0] ? timeInfo[0].textContent.replace(/.*?(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}).*/, '$1') : '';
+                    const endTime = timeInfo[0] ? timeInfo[0].textContent.replace(/.*?(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})$/, '$1') : '';
+                    const deadline = timeInfo[1] ? timeInfo[1].textContent.replace(/.*?(\d{2}\/\d{2}\/\d{4})$/, '$1') : '';
+                    
+                    // Get event info
+                    const eventInfo = card.querySelector('.event-info');
+                    const eventName = eventInfo ? eventInfo.querySelector('p:nth-child(2)')?.textContent.replace('Sự kiện: ', '') : '';
+                    const location = eventInfo ? eventInfo.querySelector('p:nth-child(3)')?.textContent.replace('Địa điểm: ', '') : '';
+                    const address = eventInfo ? eventInfo.querySelector('p:nth-child(4)')?.textContent.replace('Địa chỉ: ', '') : '';
+                    const eventTime = eventInfo ? eventInfo.querySelector('p:nth-child(5)')?.textContent.replace('Thời gian sự kiện: ', '') : '';
+                    
+                    // Get plan content
+                    const planContent = card.querySelector('.card-body p')?.textContent || '';
+                    
+                    return {
+                        id: assignmentId,
+                        title: title,
+                        startTime: startTime,
+                        endTime: endTime,
+                        deadline: deadline,
+                        eventName: eventName,
+                        location: location,
+                        address: address,
+                        eventTime: eventTime,
+                        planContent: planContent,
+                        sourceTable: sourceTable
+                    };
+                }
+            }
+            return null;
+        }
+        
+        function displayTaskDetails(assignment) {
+            const content = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-tasks"></i>
+                                    Thông tin công việc
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Tên công việc:</strong> ${assignment.title}</p>
+                                <p><strong>Thời gian bắt đầu:</strong> ${assignment.startTime}</p>
+                                <p><strong>Thời gian kết thúc:</strong> ${assignment.endTime}</p>
+                                <p><strong>Hạn hoàn thành:</strong> ${assignment.deadline}</p>
+                                <p><strong>Nguồn dữ liệu:</strong> 
+                                    <span class="badge bg-${assignment.sourceTable === 'chitietkehoach' ? 'info' : 'secondary'}">
+                                        ${assignment.sourceTable === 'chitietkehoach' ? 'Chi tiết kế hoạch' : 'Lịch làm việc'}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-calendar-check"></i>
+                                    Thông tin sự kiện
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Tên sự kiện:</strong> ${assignment.eventName || 'Không xác định'}</p>
+                                <p><strong>Địa điểm:</strong> ${assignment.location || 'Không xác định'}</p>
+                                <p><strong>Địa chỉ:</strong> ${assignment.address || 'Không xác định'}</p>
+                                <p><strong>Thời gian sự kiện:</strong> ${assignment.eventTime || 'Không xác định'}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                ${assignment.planContent ? `
+                <div class="card mb-3">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-clipboard-list"></i>
+                            Nội dung kế hoạch
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <p>${assignment.planContent}</p>
+                    </div>
+                </div>
+                ` : ''}
+                
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0">
+                            <i class="fas fa-info-circle"></i>
+                            Hướng dẫn thực hiện
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-lightbulb"></i> Lưu ý quan trọng:</h6>
+                            <ul class="mb-0">
+                                <li>Kiểm tra kỹ thời gian và địa điểm trước khi bắt đầu</li>
+                                <li>Chuẩn bị đầy đủ thiết bị và dụng cụ cần thiết</li>
+                                <li>Liên hệ với khách hàng nếu có thay đổi</li>
+                                <li>Cập nhật tiến độ thường xuyên</li>
+                                <li>Báo cáo ngay khi có sự cố xảy ra</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('taskDetailsContent').innerHTML = content;
         }
 
         function viewDetails(assignmentId) {
@@ -1153,8 +2202,8 @@ try {
             
             // Fetch event details
             console.log('Fetching event details for assignmentId:', assignmentId);
-            console.log('Fetch URL:', 'src/controllers/staff-schedule.php');
-            fetch('src/controllers/staff-schedule.php', {
+            console.log('Fetch URL:', '../src/controllers/staff-schedule.php');
+            fetch('../src/controllers/staff-schedule.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
