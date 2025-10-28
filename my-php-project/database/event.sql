@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 28, 2025 lúc 08:04 PM
+-- Thời gian đã tạo: Th10 28, 2025 lúc 11:57 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -41,6 +41,13 @@ CREATE TABLE `baocaosuco` (
   `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Đang đổ dữ liệu cho bảng `baocaosuco`
+--
+
+INSERT INTO `baocaosuco` (`ID_BaoCao`, `ID_NhanVien`, `ID_QuanLy`, `ID_Task`, `LoaiTask`, `TieuDe`, `MoTa`, `MucDo`, `TrangThai`, `NgayBaoCao`, `NgayCapNhat`) VALUES
+(1, 4, 3, 4, 'lichlamviec', 'Báo sự cố: Dọn dẹp trang thiết bị', 'Dọn dẹp nhiều thiết bị và trang trí ', 'Trung bình', 'Mới', '2025-10-28 19:27:30', '2025-10-28 19:27:30');
+
 -- --------------------------------------------------------
 
 --
@@ -65,7 +72,8 @@ CREATE TABLE `baocaotiendo` (
 
 INSERT INTO `baocaotiendo` (`ID_BaoCao`, `ID_NhanVien`, `ID_QuanLy`, `ID_Task`, `LoaiTask`, `TienDo`, `GhiChu`, `TrangThai`, `NgayBaoCao`) VALUES
 (1, 5, 7, 2, 'chitietkehoach', 100, 'Đã hoàn thành', 'Hoàn thành', '2025-10-28 22:17:53'),
-(2, 5, 7, 2, 'chitietkehoach', 100, 'Đã hoàn thành', 'Hoàn thành', '2025-10-28 22:20:00');
+(7, 4, 3, 4, 'lichlamviec', 100, '', 'Hoàn thành', '2025-10-29 03:00:06'),
+(9, 5, 3, 5, 'lichlamviec', 100, '', 'Hoàn thành', '2025-10-29 03:13:21');
 
 -- --------------------------------------------------------
 
@@ -91,8 +99,6 @@ CREATE TABLE `chitietdatsukien` (
 --
 
 INSERT INTO `chitietdatsukien` (`ID_CT`, `ID_DatLich`, `ID_TB`, `ID_Combo`, `SoLuong`, `DonGia`, `GhiChu`, `NgayTao`, `NgayCapNhat`) VALUES
-(1, 4, NULL, 5, 1, 10000000.00, 'Combo thiết bị', '2025-10-09 07:22:08', '2025-10-09 07:22:08'),
-(2, 5, NULL, 5, 1, 10000000.00, 'Combo thiết bị', '2025-10-09 08:22:58', '2025-10-09 08:22:58'),
 (22, 6, 6, NULL, 1, 1800000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16'),
 (23, 6, 14, NULL, 1, 400000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16'),
 (24, 6, 4, NULL, 1, 2000000.00, NULL, '2025-10-11 21:58:16', '2025-10-11 21:58:16'),
@@ -128,7 +134,10 @@ CREATE TABLE `chitietkehoach` (
 
 INSERT INTO `chitietkehoach` (`ID_ChiTiet`, `ID_KeHoach`, `TenBuoc`, `MoTa`, `ID_NhanVien`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`) VALUES
 (2, 1, 'Chuẩn bị các thiết bị trong combo', '', 5, '2025-10-28 08:00:00', '2025-10-28 17:00:00', 'Hoàn thành'),
-(4, 1, 'Chuẩn bị các phụ kiện trang trí ', '', 5, '2025-10-28 08:00:00', '2025-10-28 10:00:00', '');
+(4, 1, 'Chuẩn bị các phụ kiện trang trí ', '', 5, '2025-10-28 08:00:00', '2025-10-28 10:00:00', 'Hoàn thành'),
+(5, 1, 'Gỡ rạp ', '', 4, '2025-10-29 23:00:00', '2025-10-30 12:00:00', 'Hoàn thành'),
+(6, 1, 'Dọn dẹp trang thiết bị', '', 4, '2025-10-30 01:00:00', '2025-10-30 02:00:00', 'Hoàn thành'),
+(7, 1, 'Dọn dẹp thiết bị trong combo', '', 5, '2025-10-31 08:00:00', '2025-10-31 09:00:00', 'Hoàn thành');
 
 -- --------------------------------------------------------
 
@@ -328,6 +337,13 @@ CREATE TABLE `danhgia` (
   `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Đang đổ dữ liệu cho bảng `danhgia`
+--
+
+INSERT INTO `danhgia` (`ID_DanhGia`, `ID_SuKien`, `ID_KhachHang`, `DiemDanhGia`, `NoiDung`, `ThoiGianDanhGia`, `DanhGiaDiaDiem`, `DanhGiaThietBi`, `DanhGiaNhanVien`, `LoaiDanhGia`, `TrangThai`, `GhiChu`, `NgayTao`, `NgayCapNhat`) VALUES
+(1, 20, 5, 5, 'Dịch vụ tốt, nhiệt tình', '2025-10-28 22:32:28', 0, 0, 0, 'Sự kiện', 'Hiển thị', NULL, '2025-10-28 22:20:10', '2025-10-28 22:32:28');
+
 -- --------------------------------------------------------
 
 --
@@ -362,18 +378,12 @@ CREATE TABLE `datlichsukien` (
 --
 
 INSERT INTO `datlichsukien` (`ID_DatLich`, `ID_KhachHang`, `TenSuKien`, `MoTa`, `NgayBatDau`, `NgayKetThuc`, `ID_DD`, `ID_LoaiSK`, `SoNguoiDuKien`, `NganSach`, `TongTien`, `TienCoc`, `TienConLai`, `TienCocYeuCau`, `TrangThaiDuyet`, `TrangThaiThanhToan`, `GhiChu`, `NgayTao`, `NgayCapNhat`, `LoaiThueApDung`) VALUES
-(1, 5, 'ádasdas', 'qseqwe', '2025-10-09 07:35:00', '2025-10-09 09:35:00', 9, 6, 300, 400000.00, 0.00, 0.00, 0.00, 0.00, 'Từ chối', 'Chưa thanh toán', 'ngày hôm nay bị trùng lịch. xin cảm ơn ', '2025-10-08 12:36:39', '2025-10-09 05:09:01', NULL),
-(2, 5, 'qưeqeqwq', 'qưeqeq', '2025-10-17 07:40:00', '2025-10-17 09:40:00', 1, 1, 500, 400000.00, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', 'oke', '2025-10-08 12:39:26', '2025-10-09 05:08:30', NULL),
-(4, 5, 'seqeqqw', '12313', '2025-10-17 12:22:00', '2025-10-17 14:22:00', 4, 3, 2233, 22333.00, 0.00, 0.00, 0.00, 0.00, 'Từ chối', 'Chưa thanh toán', 'ko hợp lí', '2025-10-09 07:22:08', '2025-10-09 07:23:37', NULL),
-(5, 5, '321312', '1313', '2025-10-15 13:01:00', '2025-10-15 15:01:00', 8, 3, 2444, 400000.00, 0.00, 0.00, 0.00, 0.00, 'Chờ duyệt', 'Chưa thanh toán', 'Đăng ký từ website', '2025-10-09 08:22:58', '2025-10-09 08:22:58', NULL),
-(6, 17, 'Tiệc cuối năm', NULL, '2025-12-22 18:00:00', '0000-00-00 00:00:00', 9, 6, 200, 20000000000.00, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-11 21:53:38', '2025-10-11 22:05:07', NULL),
-(13, 17, 'Sự kiện cuối năm 2024', '', '2024-12-31 18:00:00', '2025-01-01 02:00:00', 1, 6, NULL, NULL, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-12 23:40:42', '2025-10-12 23:40:42', NULL),
-(14, 17, 'Sự kiện cuối năm 2024', '', '2024-12-31 18:00:00', '2025-01-01 02:00:00', 1, 6, NULL, NULL, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-12 23:47:09', '2025-10-12 23:47:09', NULL),
-(15, 17, 'Test Event with Location', 'Test event description', '2025-01-15 10:00:00', '2025-01-15 12:00:00', 1, 6, 50, 1000000.00, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', 'Test notes', '2025-10-13 00:22:32', '2025-10-13 00:22:32', NULL),
+(6, 17, 'Tiệc cuối năm', NULL, '2025-12-22 18:00:00', '2025-10-23 19:00:00', 9, 6, 200, 20000000000.00, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-11 21:53:38', '2025-10-28 20:52:43', NULL),
+(13, 17, 'Sự kiện cuối năm 2024', '', '2024-12-31 18:00:00', '2025-01-01 02:00:00', 1, 6, 200, 1240000000.00, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-12 23:40:42', '2025-10-28 20:33:51', NULL),
 (16, 5, 'lieen hoan', '', '2025-10-14 12:00:00', '2025-10-14 14:00:00', 2, 2, 123, 123.00, 0.00, 0.00, 0.00, 0.00, 'Chờ duyệt', 'Chưa thanh toán', 'Đăng ký từ website', '2025-10-13 01:35:12', '2025-10-13 01:35:12', NULL),
 (17, 5, 'Hội nghị đàm thoại', 'Hội nghị đàm thoại', '2025-10-27 06:00:00', '2025-10-27 22:00:00', 1, 1, 500, 10000000.00, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-26 04:36:43', '2025-10-26 09:01:03', NULL),
-(18, 5, 'Đá banh', '123', '2025-10-27 09:00:00', '2025-10-27 22:10:00', 7, 5, 123, 123.00, 115000000.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-26 05:16:00', '2025-10-26 08:47:51', NULL),
-(20, 5, 'Sinh Nhật 23', '', '2025-10-29 18:20:00', '2025-10-29 23:20:00', 1, 4, 100, 0.00, 42000000.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-26 09:18:30', '2025-10-26 09:19:09', NULL),
+(18, 5, 'Đá banh', '', '2025-10-27 09:00:00', '2025-10-27 22:10:00', 7, 5, 123, 130000000.00, 115000000.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-26 05:16:00', '2025-10-28 20:33:21', NULL),
+(20, 5, 'Sinh Nhật 23', '', '2025-10-29 18:20:00', '2025-10-29 23:20:00', 1, 4, 100, 100000000.00, 42000000.00, 12600000.00, 29400000.00, 0.00, 'Đã duyệt', 'Đã thanh toán đủ', '', '2025-10-26 09:18:30', '2025-10-28 21:57:14', NULL),
 (21, 5, 'Hội nghị đàm thoại', 'Hội nghị', '2025-10-27 10:00:00', '2025-10-28 10:00:00', 1, 1, 500, 10000000.00, 132000000.00, 0.00, 0.00, 0.00, 'Chờ duyệt', 'Chưa thanh toán', NULL, '2025-10-26 11:10:40', '2025-10-26 11:21:59', NULL);
 
 -- --------------------------------------------------------
@@ -460,7 +470,7 @@ CREATE TABLE `kehoachthuchien` (
 --
 
 INSERT INTO `kehoachthuchien` (`ID_KeHoach`, `ID_SuKien`, `TenKeHoach`, `NoiDung`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `ID_NhanVien`, `NgayTao`) VALUES
-(1, 11, 'Thực hiện tiệc sinh nhật', 'Làm theo note khách', '2025-10-28 00:00:00', '2025-10-29 00:00:00', 'Đang thực hiện', 7, '2025-10-28 18:28:34');
+(1, 11, 'Thực hiện tiệc sinh nhật', 'Làm theo note khách', '2025-10-28 00:00:00', '2025-10-29 00:00:00', 'Hoàn thành', 7, '2025-10-28 18:28:34');
 
 -- --------------------------------------------------------
 
@@ -512,6 +522,15 @@ CREATE TABLE `lichlamviec` (
   `ThoiGianHoanThanh` datetime DEFAULT NULL,
   `TienDo` varchar(50) DEFAULT '0%'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `lichlamviec`
+--
+
+INSERT INTO `lichlamviec` (`ID_LLV`, `ID_DatLich`, `ID_NhanVien`, `NhiemVu`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `GhiChu`, `NgayTao`, `NgayCapNhat`, `ID_KeHoach`, `ID_ChiTiet`, `CongViec`, `ThoiGianHoanThanh`, `TienDo`) VALUES
+(3, 20, 4, 'Gỡ rạp ', '2025-10-29 23:00:00', '2025-10-30 12:00:00', 'Hoàn thành', '', '2025-10-28 18:15:43', '2025-10-28 18:29:35', NULL, 5, '', '2025-10-28 19:29:35', '100'),
+(4, 20, 4, 'Dọn dẹp trang thiết bị', '2025-10-30 01:00:00', '2025-10-30 02:00:00', 'Hoàn thành', 'Dọn dẹp nhiều thiết bị và trang trí ', '2025-10-28 19:21:46', '2025-10-28 20:00:06', NULL, 6, '', '2025-10-28 21:00:06', '100'),
+(5, 20, 5, 'Dọn dẹp thiết bị trong combo', '2025-10-31 08:00:00', '2025-10-31 09:00:00', 'Hoàn thành', '', '2025-10-28 20:05:17', '2025-10-28 20:13:21', NULL, 7, '', '2025-10-28 21:13:21', '100');
 
 -- --------------------------------------------------------
 
@@ -620,17 +639,17 @@ CREATE TABLE `payment_config` (
 --
 
 INSERT INTO `payment_config` (`id`, `payment_method`, `config_key`, `config_value`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'Momo', 'partner_code', 'MOMO_PARTNER_CODE', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
-(2, 'Momo', 'access_key', 'MOMO_ACCESS_KEY', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
-(3, 'Momo', 'secret_key', 'MOMO_SECRET_KEY', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
-(4, 'Momo', 'endpoint', 'https://test-payment.momo.vn/v2/gateway/api/create', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
-(5, 'Momo', 'return_url', 'http://localhost/event/my-php-project/payment/callback.php', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
-(6, 'Momo', 'notify_url', 'http://localhost/event/my-php-project/payment/webhook.php', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
-(7, 'Banking', 'bank_code', 'ICB', 1, '2025-10-25 05:50:48', '2025-10-28 11:56:41'),
-(8, 'Banking', 'account_number', '100872918542', 1, '2025-10-25 05:50:48', '2025-10-28 11:56:41'),
-(9, 'Banking', 'account_name', 'BUI THANH BINH', 1, '2025-10-25 05:50:48', '2025-10-28 11:56:41'),
-(10, 'Banking', 'bank_name', 'VietinBank', 1, '2025-10-25 05:50:48', '2025-10-28 11:56:41'),
-(11, 'Banking', 'qr_code', NULL, 1, '2025-10-25 05:50:48', '2025-10-28 11:55:23');
+(1, 'Momo', 'partner_code', 'MOMO_PARTNER_CODE', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
+(2, 'Momo', 'access_key', 'MOMO_ACCESS_KEY', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
+(3, 'Momo', 'secret_key', 'MOMO_SECRET_KEY', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
+(4, 'Momo', 'endpoint', 'https://test-payment.momo.vn/v2/gateway/api/create', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
+(5, 'Momo', 'return_url', 'http://localhost/event/my-php-project/payment/callback.php', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
+(6, 'Momo', 'notify_url', 'http://localhost/event/my-php-project/payment/webhook.php', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
+(7, 'Banking', 'bank_code', 'VCB', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
+(8, 'Banking', 'account_number', 'BANK_ACCOUNT_NUMBER', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
+(9, 'Banking', 'account_name', 'BANK_ACCOUNT_NAME', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
+(10, 'Banking', 'bank_name', 'Vietcombank', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
+(11, 'Banking', 'qr_code', 'BANK_QR_CODE_URL', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48');
 
 -- --------------------------------------------------------
 
@@ -647,6 +666,15 @@ CREATE TABLE `payment_history` (
   `description` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `payment_history`
+--
+
+INSERT INTO `payment_history` (`id`, `payment_id`, `action`, `old_status`, `new_status`, `description`, `created_at`) VALUES
+(1, 1, 'created', 'Chưa thanh toán', 'Đang xử lý', 'Tạo thanh toán Đặt cọc - Chuyển khoản - TXN202510282254488259', '2025-10-28 21:54:48'),
+(2, 1, 'status_update', 'Đang xử lý', 'Thành công', 'Cập nhật trạng thái từ Đang xử lý thành Thành công', '2025-10-28 22:00:13'),
+(3, 1, 'status_update', 'Thành công', 'Thành công', 'Cập nhật trạng thái từ Thành công thành Thành công', '2025-10-28 22:00:24');
 
 -- --------------------------------------------------------
 
@@ -701,13 +729,10 @@ CREATE TABLE `sukien` (
 --
 
 INSERT INTO `sukien` (`ID_SuKien`, `ID_DatLich`, `MaSuKien`, `TenSuKien`, `NgayBatDauThucTe`, `NgayKetThucThucTe`, `DiaDiemThucTe`, `TrangThaiThucTe`, `TongChiPhiThucTe`, `DanhGiaKhachHang`, `NhanXetKhachHang`, `GhiChuQuanLy`, `NgayTao`, `NgayCapNhat`) VALUES
-(1, 2, 'EV202510090002', 'qưeqeqwq', '2025-10-17 07:40:00', '2025-10-17 09:40:00', 'Trung tâm Hội nghị White Palace', 'Đang chuẩn bị', 120000000.00, NULL, NULL, 'oke', '2025-10-09 05:08:30', '2025-10-09 05:08:30'),
-(2, 6, 'EV202510120006', 'Tiệc cuối năm', '2025-12-22 18:00:00', '0000-00-00 00:00:00', 'Phố đi bộ Nguyễn Huệ', 'Đang chuẩn bị', 150000000.00, NULL, NULL, '', '2025-10-11 22:05:07', '2025-10-11 22:05:07'),
-(7, 13, NULL, 'Sự kiện cuối năm 2024', '2024-12-31 18:00:00', '2025-01-01 02:00:00', NULL, 'Đang chuẩn bị', 0.00, NULL, NULL, NULL, '2025-10-12 23:40:42', '2025-10-12 23:40:42'),
-(8, 14, NULL, 'Sự kiện cuối năm 2024', '2024-12-31 18:00:00', '2025-01-01 02:00:00', NULL, 'Đang chuẩn bị', 0.00, NULL, NULL, NULL, '2025-10-12 23:47:09', '2025-10-12 23:47:09'),
-(9, 15, NULL, 'Test Event with Location', '2025-01-15 10:00:00', '2025-01-15 12:00:00', NULL, 'Đang chuẩn bị', 0.00, NULL, NULL, NULL, '2025-10-13 00:22:32', '2025-10-13 00:22:32'),
-(10, 17, 'EV202510260017', 'Hội nghị đàm thoại', '2025-10-27 06:00:00', '2025-10-27 22:00:00', 'Trung tâm Hội nghị White Palace - 194 Hoàng Văn Thụ, Quận Phú Nhuận, TP.HCM', 'Đang chuẩn bị', 92150000.00, NULL, NULL, 'Sự kiện được duyệt tự động từ đăng ký ID: 17', '2025-10-26 09:01:03', '2025-10-26 09:01:03'),
-(11, 20, 'EV202510260020', 'Sinh Nhật 23', '2025-10-29 18:20:00', '2025-10-29 23:20:00', 'Trung tâm Hội nghị White Palace - 194 Hoàng Văn Thụ, Quận Phú Nhuận, TP.HCM', 'Đang chuẩn bị', 42000000.00, NULL, NULL, 'Sự kiện được duyệt tự động từ đăng ký ID: 20', '2025-10-26 09:19:09', '2025-10-26 09:19:09');
+(2, 6, 'EV202510120006', 'Tiệc cuối năm', '2025-12-22 18:00:00', '2025-10-23 19:00:00', 'Phố đi bộ Nguyễn Huệ', 'Hoàn thành', 150000000.00, NULL, NULL, '', '2025-10-11 22:05:07', '2025-10-28 22:06:32'),
+(7, 13, NULL, 'Sự kiện cuối năm 2024', '2024-12-31 18:00:00', '2025-01-01 02:00:00', NULL, 'Hoàn thành', 0.00, NULL, NULL, NULL, '2025-10-12 23:40:42', '2025-10-28 22:07:00'),
+(10, 17, 'EV202510260017', 'Hội nghị đàm thoại', '2025-10-27 06:00:00', '2025-10-27 22:00:00', 'Trung tâm Hội nghị White Palace - 194 Hoàng Văn Thụ, Quận Phú Nhuận, TP.HCM', 'Hoàn thành', 92150000.00, NULL, NULL, 'Sự kiện được duyệt tự động từ đăng ký ID: 17', '2025-10-26 09:01:03', '2025-10-28 22:06:41'),
+(11, 20, 'EV202510260020', 'Sinh Nhật 23', '2025-10-29 18:20:00', '2025-10-29 23:20:00', 'Trung tâm Hội nghị White Palace - 194 Hoàng Văn Thụ, Quận Phú Nhuận, TP.HCM', 'Hoàn thành', 42000000.00, NULL, NULL, 'Sự kiện được duyệt tự động từ đăng ký ID: 20', '2025-10-26 09:19:09', '2025-10-28 22:02:50');
 
 -- --------------------------------------------------------
 
@@ -726,6 +751,13 @@ CREATE TABLE `thanhtoan` (
   `NgayThanhToan` timestamp NOT NULL DEFAULT current_timestamp(),
   `GhiChu` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `thanhtoan`
+--
+
+INSERT INTO `thanhtoan` (`ID_ThanhToan`, `ID_DatLich`, `SoTien`, `LoaiThanhToan`, `PhuongThuc`, `TrangThai`, `MaGiaoDich`, `NgayThanhToan`, `GhiChu`) VALUES
+(1, 20, 12600000.00, 'Đặt cọc', 'Chuyển khoản', 'Thành công', 'TXN202510282254488259', '2025-10-28 21:54:48', 'Thanh toán Đặt cọc cho sự kiện: Sinh Nhật 23');
 
 -- --------------------------------------------------------
 
@@ -797,14 +829,14 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`ID_User`, `Email`, `Password`, `FacebookID`, `GoogleID`, `ID_Role`, `TrangThai`, `NgayTao`, `NgayCapNhat`, `OnlineStatus`, `LastActivity`) VALUES
 (3, 'qtv1@gmail.com', '$2y$10$76AL.x2sD9yFnUQ2j6YlYeXXMAFp4HlCvHxNIVl5j8/.DSUmVl3im', NULL, NULL, 1, 'Hoạt động', '2025-09-19 23:54:54', '2025-10-26 08:00:32', 'Offline', '2025-10-26 08:00:31'),
-(17, 'thanhbinh14062003@gmail.com', '$2y$10$vX5Lacdo5OaAIvtda/0CyOEldWJqSjOVJqr.YKd1O0OwIf9rz8tkS', NULL, NULL, 5, 'Hoạt động', '2025-09-23 20:48:28', '2025-10-26 09:20:07', 'Online', '2025-10-26 09:20:07'),
+(17, 'thanhbinh14062003@gmail.com', '$2y$10$vX5Lacdo5OaAIvtda/0CyOEldWJqSjOVJqr.YKd1O0OwIf9rz8tkS', NULL, NULL, 5, 'Hoạt động', '2025-09-23 20:48:28', '2025-10-28 22:56:50', 'Offline', '2025-10-28 22:54:26'),
 (29, 'qltc2@gmail.com', '$2y$10$ig.u6SQkmvukGKXF7lFlS.D7ikk0Aja1lZPgJzeGeUJAm5zselWP.', NULL, NULL, 2, 'Hoạt động', '2025-09-24 02:06:23', '2025-09-24 02:06:23', 'Offline', NULL),
-(39, 'nhanvien1@gmail.com', '$2y$10$aFB3cdypIGWJPW343j4vSOP82d5lc.y4FG0QjqTqZu7RIKeb25GIC', NULL, NULL, 4, 'Hoạt động', '2025-09-24 02:11:39', '2025-10-28 13:17:26', 'Offline', '2025-10-28 12:58:30'),
-(96, 'nhanvien2@gmail.com', '$2y$10$skx3dLcoSSUAt7SNyPDF5u8TNfIVSWGIhvoP6sN22F7LOu7JONQ9q', NULL, NULL, 4, 'Hoạt động', '2025-09-24 10:28:06', '2025-10-28 13:17:31', 'Online', '2025-10-28 13:17:31'),
+(39, 'nhanvien1@gmail.com', '$2y$10$aFB3cdypIGWJPW343j4vSOP82d5lc.y4FG0QjqTqZu7RIKeb25GIC', NULL, NULL, 4, 'Hoạt động', '2025-09-24 02:11:39', '2025-10-28 19:27:02', 'Offline', '2025-10-28 19:27:01'),
+(96, 'nhanvien2@gmail.com', '$2y$10$skx3dLcoSSUAt7SNyPDF5u8TNfIVSWGIhvoP6sN22F7LOu7JONQ9q', NULL, NULL, 4, 'Hoạt động', '2025-09-24 10:28:06', '2025-10-28 20:15:30', 'Offline', '2025-10-28 20:04:00'),
 (118, 'khachhang1@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-24 18:57:20', '2025-10-12 16:20:30', 'Offline', NULL),
-(119, 'qltc1@gmail.com', '$2y$10$FCLKvilsBjF2A6exn53/OOM9xDm7LffPSZSQhga7Oj4OUYpyyUXYe', NULL, NULL, 2, 'Hoạt động', '2025-09-24 19:17:28', '2025-10-28 15:34:32', 'Online', '2025-10-28 15:34:32'),
+(119, 'qltc1@gmail.com', '$2y$10$FCLKvilsBjF2A6exn53/OOM9xDm7LffPSZSQhga7Oj4OUYpyyUXYe', NULL, NULL, 2, 'Hoạt động', '2025-09-24 19:17:28', '2025-10-28 22:50:59', 'Offline', '2025-10-28 21:59:56'),
 (124, 'thaoanh@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-25 02:09:32', '2025-10-09 03:12:13', 'Offline', NULL),
-(129, 'thanhbinhcv14@gmail.com', '$2y$10$1vfLe/IHU2NCclc2S9sqq.7nQwDpwD/rFfXa.Pe72mg9hu5yDyzRu', NULL, NULL, 2, 'Hoạt động', '2025-10-25 09:07:59', '2025-10-26 07:59:55', 'Online', '2025-10-26 07:59:55'),
+(129, 'thanhbinhcv14@gmail.com', '$2y$10$1vfLe/IHU2NCclc2S9sqq.7nQwDpwD/rFfXa.Pe72mg9hu5yDyzRu', NULL, NULL, 3, 'Hoạt động', '2025-10-25 09:07:59', '2025-10-28 20:16:31', 'Online', '2025-10-26 07:59:55'),
 (130, 'nam', '$2y$10$ECe7qP2VhD2pcLBsGS6FH.WZHEFCNxftLX5LyEVtlTiFdXbxod9D2', NULL, NULL, 5, 'Hoạt động', '2025-10-26 01:27:44', '2025-10-26 01:27:44', 'Offline', NULL);
 
 -- --------------------------------------------------------
@@ -1041,13 +1073,13 @@ ALTER TABLE `webhook_logs`
 -- AUTO_INCREMENT cho bảng `baocaosuco`
 --
 ALTER TABLE `baocaosuco`
-  MODIFY `ID_BaoCao` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_BaoCao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT cho bảng `baocaotiendo`
 --
 ALTER TABLE `baocaotiendo`
-  MODIFY `ID_BaoCao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ID_BaoCao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT cho bảng `chitietdatsukien`
@@ -1059,7 +1091,7 @@ ALTER TABLE `chitietdatsukien`
 -- AUTO_INCREMENT cho bảng `chitietkehoach`
 --
 ALTER TABLE `chitietkehoach`
-  MODIFY `ID_ChiTiet` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `ID_ChiTiet` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT cho bảng `combo`
@@ -1077,7 +1109,7 @@ ALTER TABLE `conversations`
 -- AUTO_INCREMENT cho bảng `danhgia`
 --
 ALTER TABLE `danhgia`
-  MODIFY `ID_DanhGia` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_DanhGia` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT cho bảng `datlichsukien`
@@ -1107,7 +1139,7 @@ ALTER TABLE `khachhanginfo`
 -- AUTO_INCREMENT cho bảng `lichlamviec`
 --
 ALTER TABLE `lichlamviec`
-  MODIFY `ID_LLV` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `ID_LLV` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT cho bảng `loaisukien`
@@ -1137,7 +1169,7 @@ ALTER TABLE `payment_config`
 -- AUTO_INCREMENT cho bảng `payment_history`
 --
 ALTER TABLE `payment_history`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT cho bảng `phanquyen`
@@ -1155,7 +1187,7 @@ ALTER TABLE `sukien`
 -- AUTO_INCREMENT cho bảng `thanhtoan`
 --
 ALTER TABLE `thanhtoan`
-  MODIFY `ID_ThanhToan` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_ThanhToan` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT cho bảng `thietbi`
@@ -1265,7 +1297,7 @@ ALTER TABLE `lichlamviec`
   ADD CONSTRAINT `fk_llv_ct` FOREIGN KEY (`ID_ChiTiet`) REFERENCES `chitietkehoach` (`ID_ChiTiet`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_llv_datlich` FOREIGN KEY (`ID_DatLich`) REFERENCES `datlichsukien` (`ID_DatLich`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_llv_nhanvien` FOREIGN KEY (`ID_NhanVien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `lichlamviec_ibfk_1` FOREIGN KEY (`ID_KeHoach`) REFERENCES `kehoachthuchien` (`ID_KeHoach`) ON DELETE SET NULL ON UPDATE CASCADE;
+  ADD CONSTRAINT `lichlamviec_ibfk_1` FOREIGN KEY (`id_kehoach`) REFERENCES `kehoachthuchien` (`ID_KeHoach`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `messages`

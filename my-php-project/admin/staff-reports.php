@@ -489,7 +489,7 @@ try {
 
     <!-- Progress Report Modal -->
     <div class="modal fade" id="progressReportModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">
@@ -608,24 +608,6 @@ try {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <style>
-        /* Remove modal backdrop completely */
-        .modal-backdrop {
-            display: none !important;
-        }
-        
-        /* Ensure body doesn't get locked when modal is open */
-        body.modal-open {
-            overflow: auto !important;
-            padding-right: 0 !important;
-        }
-        
-        /* Optional: Add a subtle overlay effect if you want some visual indication */
-        .modal.show {
-            background-color: rgba(0, 0, 0, 0.1);
-        }
-    </style>
 
     <script>
         // Hide loading overlay

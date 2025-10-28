@@ -1488,6 +1488,15 @@ try {
                 }
         });
         
+        // Auto refresh steps every 30 seconds to sync with staff updates
+        setInterval(function() {
+            const currentEventId = document.getElementById('stepEventId')?.value;
+            if (currentEventId) {
+                console.log('Auto-refreshing steps for event:', currentEventId);
+                loadSteps(currentEventId);
+            }
+        }, 30000);
+        
         // Load page data - using PHP data directly for now
         function loadPageData() {
             console.log('Loading page data from PHP variables');

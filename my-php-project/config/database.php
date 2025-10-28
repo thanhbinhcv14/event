@@ -14,9 +14,7 @@
 //     $conn->set_charset("utf8mb4");
 //     return $conn;
 // }
-?> 
 
-<?php
 require_once __DIR__ . '/config.php';
 
 function getDBConnection() {

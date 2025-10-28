@@ -1,5 +1,11 @@
+
+
 RewriteEngine On
 RewriteBase /
+
+# Allow direct access to controller files
+RewriteCond %{REQUEST_URI} ^/src/controllers/.*\.php$
+RewriteRule ^(.*)$ - [L]
 
 # Redirect Trailing Slashes...
 RewriteCond %{REQUEST_FILENAME} !-d

@@ -334,8 +334,10 @@ function reportIssue() {
         
         // Get manager ID (Role 2) for this staff
         $stmt = $pdo->prepare("
-            SELECT ID_NhanVien FROM nhanvieninfo 
-            WHERE ID_Role = 2 
+            SELECT nv.ID_NhanVien 
+            FROM nhanvieninfo nv 
+            JOIN users u ON nv.ID_User = u.ID_User 
+            WHERE u.ID_Role = 2 
             LIMIT 1
         ");
         $stmt->execute();
@@ -462,22 +464,54 @@ function startWork() {
                 SET TrangThai = 'Đang làm'
                 WHERE ID_ChiTiet = ?
             ";
+            $stmt = $pdo->prepare($sql);
+            $result = $stmt->execute([$assignmentId]);
         } else {
             $sql = "
                 UPDATE lichlamviec 
                 SET TrangThai = 'Đang làm'
                 WHERE ID_LLV = ?
             ";
+            $stmt = $pdo->prepare($sql);
+            $result = $stmt->execute([$assignmentId]);
+            
+            // If updating lichlamviec, also update corresponding chitietkehoach
+            if ($result) {
+                try {
+                    // Get the corresponding chitietkehoach ID
+                    $stmt = $pdo->prepare("SELECT ID_ChiTiet FROM lichlamviec WHERE ID_LLV = ?");
+                    $stmt->execute([$assignmentId]);
+                    $chitietId = $stmt->fetchColumn();
+                    
+                    if ($chitietId) {
+                        // Update chitietkehoach status
+                        $stmt = $pdo->prepare("UPDATE chitietkehoach SET TrangThai = 'Đang làm' WHERE ID_ChiTiet = ?");
+                        $stmt->execute([$chitietId]);
+                        error_log("DEBUG: startWork - Updated chitietkehoach ID: " . $chitietId);
+                    }
+                } catch (Exception $e) {
+                    error_log("ERROR: startWork - Failed to update chitietkehoach: " . $e->getMessage());
+                }
+            }
         }
         
         error_log("DEBUG: startWork - SQL: " . $sql);
         error_log("DEBUG: startWork - Params: " . json_encode([$assignmentId]));
-        
-        $stmt = $pdo->prepare($sql);
-        $result = $stmt->execute([$assignmentId]);
-        
         error_log("DEBUG: startWork - Update result: " . ($result ? 'true' : 'false'));
         error_log("DEBUG: startWork - Rows affected: " . $stmt->rowCount());
+        
+        // Additional debug: Check current status before update
+        if ($sourceTable === 'chitietkehoach') {
+            $checkStmt = $pdo->prepare("SELECT TrangThai FROM chitietkehoach WHERE ID_ChiTiet = ?");
+            $checkStmt->execute([$assignmentId]);
+            $currentStatus = $checkStmt->fetchColumn();
+            error_log("DEBUG: startWork - Current chitietkehoach status: " . $currentStatus);
+        } else {
+            $checkStmt = $pdo->prepare("SELECT TrangThai FROM lichlamviec WHERE ID_LLV = ?");
+            $checkStmt->execute([$assignmentId]);
+            $currentStatus = $checkStmt->fetchColumn();
+            error_log("DEBUG: startWork - Current lichlamviec status: " . $currentStatus);
+        }
         
         if (!$result) {
             error_log("ERROR: startWork - Failed to execute update");
@@ -586,12 +620,82 @@ function completeWork() {
             return;
         }
         
+        // If updating lichlamviec, also update corresponding chitietkehoach
+        if ($sourceTable === 'lichlamviec') {
+            try {
+                // Get the corresponding chitietkehoach ID
+                $stmt = $pdo->prepare("SELECT ID_ChiTiet FROM lichlamviec WHERE ID_LLV = ?");
+                $stmt->execute([$assignmentId]);
+                $chitietId = $stmt->fetchColumn();
+                
+                if ($chitietId) {
+                    // Update chitietkehoach status
+                    $stmt = $pdo->prepare("UPDATE chitietkehoach SET TrangThai = 'Hoàn thành' WHERE ID_ChiTiet = ?");
+                    $stmt->execute([$chitietId]);
+                    error_log("DEBUG: completeWork - Updated chitietkehoach ID: " . $chitietId);
+                }
+            } catch (Exception $e) {
+                error_log("ERROR: completeWork - Failed to update chitietkehoach: " . $e->getMessage());
+            }
+        }
+        
+        // Send progress report to manager
+        try {
+            // Get staff ID
+            $userId = $_SESSION['user']['ID_User'];
+            $stmt = $pdo->prepare("SELECT ID_NhanVien FROM nhanvieninfo WHERE ID_User = ?");
+            $stmt->execute([$userId]);
+            $staffId = $stmt->fetchColumn();
+            
+            if ($staffId) {
+                // Get manager ID (Role 2)
+                $stmt = $pdo->prepare("SELECT nv.ID_NhanVien FROM nhanvieninfo nv JOIN users u ON nv.ID_User = u.ID_User WHERE u.ID_Role = 2 LIMIT 1");
+                $stmt->execute();
+                $managerId = $stmt->fetchColumn();
+                
+                if ($managerId) {
+                    // Create baocaotiendo table if not exists
+                    $pdo->exec("
+                        CREATE TABLE IF NOT EXISTS baocaotiendo (
+                            ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
+                            ID_NhanVien INT NOT NULL,
+                            ID_QuanLy INT NOT NULL,
+                            ID_Task INT NOT NULL,
+                            LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
+                            TienDo INT NOT NULL DEFAULT 0,
+                            GhiChu TEXT,
+                            TrangThai ENUM('Đang xử lý', 'Hoàn thành') DEFAULT 'Hoàn thành',
+                            NgayBaoCao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            NgayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            FOREIGN KEY (ID_NhanVien) REFERENCES nhanvieninfo(ID_NhanVien),
+                            FOREIGN KEY (ID_QuanLy) REFERENCES nhanvieninfo(ID_NhanVien)
+                        )
+                    ");
+                    
+                    // Insert progress report
+                    $stmt = $pdo->prepare("
+                        INSERT INTO baocaotiendo (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, TienDo, GhiChu, TrangThai)
+                        VALUES (?, ?, ?, ?, ?, ?, 'Hoàn thành')
+                    ");
+                    $stmt->execute([$staffId, $managerId, $assignmentId, $sourceTable, $progress, $note]);
+                    
+                    error_log("DEBUG: completeWork - Progress report sent to manager");
+                }
+            }
+        } catch (Exception $e) {
+            error_log("ERROR: completeWork - Failed to send progress report: " . $e->getMessage());
+        }
+        
         $message = 'Hoàn thành công việc thành công';
         if ($isLate) {
             $message .= ' (Chậm tiến độ)';
         }
         
         error_log("DEBUG: completeWork - Success: " . $message);
+        
+        // Check and update event status if all steps are completed
+        checkAndUpdateEventStatus($pdo, $assignmentId, $sourceTable);
+        
         echo json_encode(['success' => true, 'message' => $message, 'isLate' => $isLate]);
         
     } catch (Exception $e) {
@@ -823,6 +927,110 @@ function getEventDetails() {
         ob_clean();
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy chi tiết sự kiện: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * Check and update event status if all steps are completed
+ */
+function checkAndUpdateEventStatus($pdo, $assignmentId, $sourceTable) {
+    try {
+        error_log("DEBUG: checkAndUpdateEventStatus - assignmentId: " . $assignmentId . ", sourceTable: " . $sourceTable);
+        
+        // Get event ID from the completed step
+        $eventId = null;
+        
+        if ($sourceTable === 'chitietkehoach') {
+            // Get event ID from chitietkehoach -> kehoachthuchien -> sukien
+            $stmt = $pdo->prepare("
+                SELECT s.ID_SuKien 
+                FROM chitietkehoach ctk
+                JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+                JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+                WHERE ctk.ID_ChiTiet = ?
+            ");
+            $stmt->execute([$assignmentId]);
+            $eventId = $stmt->fetchColumn();
+        } else if ($sourceTable === 'lichlamviec') {
+            // Get event ID from lichlamviec -> datlichsukien
+            $stmt = $pdo->prepare("
+                SELECT ID_DatLich 
+                FROM lichlamviec 
+                WHERE ID_LLV = ?
+            ");
+            $stmt->execute([$assignmentId]);
+            $datLichId = $stmt->fetchColumn();
+            
+            if ($datLichId) {
+                // Get event ID from datlichsukien -> sukien
+                $stmt = $pdo->prepare("
+                    SELECT s.ID_SuKien 
+                    FROM datlichsukien dl
+                    JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+                    WHERE dl.ID_DatLich = ?
+                ");
+                $stmt->execute([$datLichId]);
+                $eventId = $stmt->fetchColumn();
+            }
+        }
+        
+        if (!$eventId) {
+            error_log("DEBUG: checkAndUpdateEventStatus - No event ID found");
+            return;
+        }
+        
+        error_log("DEBUG: checkAndUpdateEventStatus - Event ID: " . $eventId);
+        
+        // Check if all steps for this event are completed
+        $stmt = $pdo->prepare("
+            SELECT 
+                COUNT(*) as total_steps,
+                SUM(CASE WHEN TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_steps
+            FROM (
+                SELECT TrangThai FROM chitietkehoach ctk
+                JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+                WHERE kht.ID_SuKien = ?
+                
+                UNION ALL
+                
+                SELECT TrangThai FROM lichlamviec llv
+                JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
+                JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+                WHERE s.ID_SuKien = ?
+            ) as all_steps
+        ");
+        $stmt->execute([$eventId, $eventId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $totalSteps = $result['total_steps'];
+        $completedSteps = $result['completed_steps'];
+        
+        error_log("DEBUG: checkAndUpdateEventStatus - Total steps: " . $totalSteps . ", Completed: " . $completedSteps);
+        
+        // If all steps are completed, update event status
+        if ($totalSteps > 0 && $totalSteps == $completedSteps) {
+            error_log("DEBUG: checkAndUpdateEventStatus - All steps completed, updating event status");
+            
+            // Update event status to completed
+            $stmt = $pdo->prepare("UPDATE sukien SET TrangThai = 'Hoàn thành' WHERE ID_SuKien = ?");
+            $stmt->execute([$eventId]);
+            
+            // Also update datlichsukien status if exists
+            $stmt = $pdo->prepare("
+                UPDATE datlichsukien dl
+                JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+                SET dl.TrangThai = 'Hoàn thành'
+                WHERE s.ID_SuKien = ?
+            ");
+            $stmt->execute([$eventId]);
+            
+            error_log("DEBUG: checkAndUpdateEventStatus - Event status updated to 'Hoàn thành'");
+        } else {
+            error_log("DEBUG: checkAndUpdateEventStatus - Not all steps completed yet");
+        }
+        
+    } catch (Exception $e) {
+        error_log("ERROR: checkAndUpdateEventStatus - Exception: " . $e->getMessage());
     }
 }
 ?>

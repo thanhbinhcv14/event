@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo - Hệ thống đánh giá</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .demo-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin: 2rem auto;
+            max-width: 800px;
+            overflow: hidden;
+        }
+        
+        .demo-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .demo-content {
+            padding: 2rem;
+        }
+        
+        .rating-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .rating-title {
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        
+        .star-rating {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 1rem;
+        }
+        
+        .star {
+            font-size: 2rem;
+            color: #ddd;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .star:hover,
+        .star.active {
+            color: #ffc107;
+        }
+        
+        .comment-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .btn-submit {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            padding: 12px 30px;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+        
+        .btn-submit:hover {
+            transform: translateY(-2px);
+        }
+        
+        .success-message {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="demo-container">
+            <div class="demo-header">
+                <h1><i class="fas fa-star"></i> Demo Hệ thống Đánh giá</h1>
+                <p>Sự kiện: Sinh Nhật 23 - Trung tâm Hội nghị White Palace</p>
+            </div>
+            
+            <div class="demo-content">
+                <div id="successMessage" class="success-message" style="display: none;">
+                    <i class="fas fa-check-circle"></i> <span id="successText"></span>
+                </div>
+                
+                <form id="reviewForm">
+                    <!-- Overall Rating -->
+                    <div class="rating-section">
+                        <div class="rating-title">
+                            <i class="fas fa-star"></i>
+                            Đánh giá tổng thể (Bắt buộc)
+                        </div>
+                        <div class="star-rating" data-rating="overall">
+                            <i class="fas fa-star star" data-value="1"></i>
+                            <i class="fas fa-star star" data-value="2"></i>
+                            <i class="fas fa-star star" data-value="3"></i>
+                            <i class="fas fa-star star" data-value="4"></i>
+                            <i class="fas fa-star star" data-value="5"></i>
+                        </div>
+                        <input type="hidden" name="overall_rating" value="0">
+                        <small class="text-muted">Nhấp vào sao để chọn điểm (1-5 sao)</small>
+                    </div>
+                    
+                    <!-- Comment Section -->
+                    <div class="comment-section">
+                        <div class="rating-title">
+                            <i class="fas fa-comment"></i>
+                            Nội dung đánh giá
+                        </div>
+                        <textarea 
+                            name="comment" 
+                            class="form-control" 
+                            rows="5" 
+                            placeholder="Hãy chia sẻ trải nghiệm của bạn về sự kiện này..."
+                            maxlength="1000"
+                        ></textarea>
+                        <small class="text-muted">Tối đa 1000 ký tự</small>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn-submit">
+                            <i class="fas fa-paper-plane"></i>
+                            Gửi đánh giá
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Star rating functionality
+        document.querySelectorAll('.star-rating').forEach(rating => {
+            const stars = rating.querySelectorAll('.star');
+            const hiddenInput = rating.parentElement.querySelector('input[type="hidden"]');
+            
+            stars.forEach((star, index) => {
+                star.addEventListener('click', () => {
+                    const value = index + 1;
+                    hiddenInput.value = value;
+                    
+                    // Update star display
+                    stars.forEach((s, i) => {
+                        s.classList.toggle('active', i < value);
+                    });
+                });
+                
+                star.addEventListener('mouseenter', () => {
+                    stars.forEach((s, i) => {
+                        s.classList.toggle('active', i <= index);
+                    });
+                });
+            });
+            
+            rating.addEventListener('mouseleave', () => {
+                const currentValue = parseInt(hiddenInput.value) || 0;
+                stars.forEach((s, i) => {
+                    s.classList.toggle('active', i < currentValue);
+                });
+            });
+        });
+        
+        // Form submission
+        document.getElementById('reviewForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const overallRating = formData.get('overall_rating');
+            const comment = formData.get('comment');
+            
+            if (overallRating == 0) {
+                alert('Vui lòng chọn điểm đánh giá tổng thể!');
+                return;
+            }
+            
+            if (!comment.trim()) {
+                alert('Vui lòng nhập nội dung đánh giá!');
+                return;
+            }
+            
+            // Show loading
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+            submitBtn.disabled = true;
+            
+            // Simulate API call
+            setTimeout(() => {
+                // Show success message
+                document.getElementById('successText').textContent = 
+                    `Đánh giá thành công! Bạn đã đánh giá ${overallRating}/5 sao với nội dung: "${comment.substring(0, 50)}${comment.length > 50 ? '...' : ''}"`;
+                document.getElementById('successMessage').style.display = 'block';
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                // Reset form after 3 seconds
+                setTimeout(() => {
+                    this.reset();
+                    document.querySelectorAll('.star').forEach(star => {
+                        star.classList.remove('active');
+                    });
+                    document.getElementById('successMessage').style.display = 'none';
+                }, 3000);
+                
+                // Reset button
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }, 1500);
+        });
+    </script>
+</body>
+</html>

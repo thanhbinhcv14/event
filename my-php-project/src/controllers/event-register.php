@@ -423,20 +423,18 @@ try {
                     SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue,
                            ls.TenLoai, ls.GiaCoBan, k.HoTen, k.SoDienThoai,
                            COALESCE(equipment_total.TongGiaThietBi, 0) as TongGiaThietBi,
-                           dl.TrangThaiThanhToan,
-                           t.ID_ThanhToan, t.SoTien, t.LoaiThanhToan, t.PhuongThuc, t.TrangThai as PaymentStatus,
-                           t.NgayThanhToan, t.GhiChu as PaymentNote
+                           s.TrangThaiThucTe as TrangThaiSuKien
                     FROM datlichsukien dl
                     INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
                     LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
                     LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+                    LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
                     LEFT JOIN (
                         SELECT ID_DatLich, SUM(DonGia * SoLuong) as TongGiaThietBi
                         FROM chitietdatsukien
                         WHERE ID_TB IS NOT NULL OR ID_Combo IS NOT NULL
                         GROUP BY ID_DatLich
                     ) equipment_total ON dl.ID_DatLich = equipment_total.ID_DatLich
-                    LEFT JOIN thanhtoan t ON dl.ID_DatLich = t.ID_DatLich
                     WHERE k.ID_User = ?
                     ORDER BY dl.NgayBatDau DESC
                 ");

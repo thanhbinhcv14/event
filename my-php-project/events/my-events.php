@@ -1,3 +1,15 @@
+<?php
+session_start();
+require_once '../config/database.php';
+
+// Check if user is logged in
+if (!isset($_SESSION['user'])) {
+    header('Location: ../login.php');
+    exit;
+}
+
+$user = $_SESSION['user'];
+?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -92,7 +104,7 @@
         }
         
         .status-badge {
-            padding: 0.5rem;
+            padding: 0.5rem 1rem;
             border-radius: 20px;
             font-size: 0.9rem;
             font-weight: 600;
@@ -173,6 +185,360 @@
         .btn-outline-primary:hover {
             background: #667eea;
             border-color: #667eea;
+        }
+        
+        .btn-review {
+            background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%);
+            border: none;
+            color: white;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+        }
+        
+        .btn-review:hover {
+            background: linear-gradient(135deg, #ff8c00 0%, #ff6b35 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4);
+            color: white;
+        }
+        
+        .btn-review:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 10px rgba(255, 193, 7, 0.3);
+        }
+        
+        .btn-review i {
+            margin-right: 5px;
+            animation: starPulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes starPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        /* Tooltip styling */
+        .btn-review[title] {
+            position: relative;
+        }
+        
+        .btn-review[title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+            margin-bottom: 5px;
+            animation: tooltipFadeIn 0.3s ease;
+        }
+        
+        .btn-review[title]:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            margin-bottom: -5px;
+        }
+        
+        @keyframes tooltipFadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(5px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        
+        /* Review Modal Styles */
+        .modal-content {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .review-form {
+            padding: 1rem 0;
+        }
+        
+        .rating-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .rating-title {
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+        
+        .star-rating {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .star {
+            font-size: 1.8rem;
+            color: #ddd;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .star:hover,
+        .star.active {
+            color: #ffc107;
+            transform: scale(1.1);
+        }
+        
+        .comment-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .comment-title {
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+        
+        .btn-submit-review {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            padding: 10px 25px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .btn-submit-review:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn-submit-review:disabled {
+            opacity: 0.6;
+            transform: none;
+        }
+        
+        .success-message-modal {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border: 1px solid #c3e6cb;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: #155724;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            animation: slideInDown 0.5s ease-out;
+        }
+        
+        .success-message-modal i {
+            color: #28a745;
+            margin-right: 0.5rem;
+        }
+        
+        .success-message-modal strong {
+            font-size: 1.1rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        @keyframes slideInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Event Details Modal Styles */
+        .event-details-content {
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .event-image-section {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+        
+        .event-main-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .event-status-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .event-info-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .event-info-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .event-info-item i {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            margin-right: 1rem;
+            font-size: 1.1rem;
+        }
+        
+        .event-info-content {
+            flex-grow: 1;
+        }
+        
+        .event-info-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-bottom: 0.25rem;
+        }
+        
+        .event-info-value {
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+        
+        .reviews-section {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid #e9ecef;
+        }
+        
+        .review-item {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #28a745;
+        }
+        
+        .review-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .review-rating {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .review-stars {
+            color: #ffc107;
+            font-size: 1.2rem;
+        }
+        
+        .review-author {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .review-time {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        
+        .review-content {
+            color: #555;
+            line-height: 1.6;
+            font-style: italic;
+        }
+        
+        .equipment-section {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid #e9ecef;
+        }
+        
+        .equipment-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 0.75rem;
+        }
+        
+        .equipment-image {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-right: 1rem;
+        }
+        
+        .equipment-info {
+            flex-grow: 1;
+        }
+        
+        .equipment-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+        
+        .equipment-details {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .equipment-price {
+            font-weight: 600;
+            color: #28a745;
         }
         
         .empty-state {
@@ -452,7 +818,6 @@
                             <select class="form-select" id="paymentFilter">
                                 <option value="">Tất cả</option>
                                 <option value="Chưa thanh toán">Chưa thanh toán</option>
-                                <option value="Chờ thanh toán">Chờ thanh toán</option>
                                 <option value="Đã đặt cọc">Đã đặt cọc</option>
                                 <option value="Đã thanh toán đủ">Đã thanh toán đủ</option>
                             </select>
@@ -533,11 +898,120 @@
         </div>
     </div>
 
+    <!-- MoMo Payment Modal -->
+    <div class="modal fade" id="momoPaymentModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-mobile-alt"></i> Thanh toán qua MoMo
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <div class="momo-logo mb-3">
+                            <i class="fas fa-mobile-alt fa-4x text-danger"></i>
+                        </div>
+                        <h4 class="text-danger">MoMo Wallet</h4>
+                        <p class="text-muted">Thanh toán nhanh chóng và bảo mật</p>
+                    </div>
+                    
+                    <div class="payment-info-card">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-shield-alt text-success"></i> Bảo mật cao</h6>
+                                <ul class="text-start">
+                                    <li>Mã hóa SSL 256-bit</li>
+                                    <li>Xác thực 2 lớp</li>
+                                    <li>Bảo vệ thông tin cá nhân</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-bolt text-warning"></i> Thanh toán nhanh</h6>
+                                <ul class="text-start">
+                                    <li>Xử lý trong vài giây</li>
+                                    <li>Xác nhận ngay lập tức</li>
+                                    <li>Không cần nhập thông tin</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Hướng dẫn:</strong>
+                        <ol class="text-start mt-2 mb-0">
+                            <li>Nhấn "Xác nhận thanh toán"</li>
+                            <li>Hệ thống sẽ chuyển hướng đến MoMo Gateway</li>
+                            <li>Đăng nhập và xác nhận thanh toán trên MoMo</li>
+                            <li>Quay lại trang web sau khi hoàn thành</li>
+                        </ol>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-danger btn-lg" onclick="confirmMoMoPayment()">
+                        <i class="fas fa-mobile-alt"></i> Xác nhận thanh toán MoMo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Event Details Modal -->
+    <div class="modal fade" id="eventDetailsModal" tabindex="-1" aria-labelledby="eventDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="modal-title" id="eventDetailsModalLabel">
+                        <i class="fas fa-info-circle"></i> Chi tiết sự kiện
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="eventDetailsModalBody">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Review Modal -->
+    <div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="modal-title" id="reviewModalLabel">
+                        <i class="fas fa-star"></i> Đánh giá sự kiện
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="reviewModalBody">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
+        // Pass user data from PHP to JavaScript
+        const currentUser = <?= json_encode($user) ?>;
+        console.log('Current user:', currentUser);
+        
         let allEvents = [];
         let filteredEvents = [];
         
@@ -810,17 +1284,8 @@
             
             let html = '';
             filteredEvents.forEach(event => {
-                // Debug logging for payment status
-                console.log('Event payment status debug:', {
-                    eventId: event.ID_DatLich,
-                    eventName: event.TenSuKien,
-                    TrangThaiThanhToan: event.TrangThaiThanhToan,
-                    TrangThaiDuyet: event.TrangThaiDuyet
-                });
-                
                 const statusClass = getStatusClass(event.TrangThaiDuyet);
-                const paymentClass = getPaymentClass(event);
-                const paymentStatusText = getPaymentStatusText(event);
+                const paymentClass = getPaymentClass(event.TrangThaiThanhToan);
                 const eventDate = formatDateTime(event.NgayBatDau);
                 const priceText = getLocationPriceText(event);
                 const priceBreakdown = getEventPriceBreakdown(event);
@@ -833,7 +1298,7 @@
                                 <h3 class="event-title">${event.TenSuKien}</h3>
                                 <div class="d-flex gap-2 mt-2">
                                     <span class="status-badge ${statusClass}">${event.TrangThaiDuyet}</span>
-                                    <span class="status-badge ${paymentClass}">${paymentStatusText}</span>
+                                    <span class="status-badge ${paymentClass}">${event.TrangThaiThanhToan}</span>
                                 </div>
                             </div>
                             <div class="text-end">
@@ -894,7 +1359,17 @@
                                 <i class="fas fa-times"></i> Hủy
                             </button>
                             ` : ''}
-                            ${getPaymentButton(event)}
+                            ${event.TrangThaiDuyet === 'Đã duyệt' && event.TrangThaiThanhToan === 'Chưa thanh toán' ? `
+                            <button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
+                                <i class="fas fa-credit-card"></i> Thanh toán
+                            </button>
+                            ` : ''}
+                            ${event.TrangThaiSuKien === 'Hoàn thành' && event.TrangThaiThanhToan === 'Đã thanh toán đủ' ? `
+                            <button class="btn btn-review btn-sm" onclick="openReviewModal(${event.ID_DatLich}, '${event.TenSuKien}')" 
+                                    title="Đánh giá sự kiện đã hoàn thành">
+                                <i class="fas fa-star"></i> Đánh giá
+                            </button>
+                            ` : ''}
                             </div>
                     </div>
                 `;
@@ -911,8 +1386,7 @@
             
             filteredEvents = allEvents.filter(event => {
                 const matchesStatus = !statusFilter || event.TrangThaiDuyet === statusFilter;
-                const paymentStatus = getPaymentStatusText(event);
-                const matchesPayment = !paymentFilter || paymentStatus === paymentFilter;
+                const matchesPayment = !paymentFilter || event.TrangThaiThanhToan === paymentFilter;
                 const matchesSearch = !searchTerm || 
                     event.TenSuKien.toLowerCase().includes(searchTerm) ||
                     (event.TenDiaDiem && event.TenDiaDiem.toLowerCase().includes(searchTerm));
@@ -928,10 +1402,7 @@
             const total = allEvents.length;
             const pending = allEvents.filter(e => e.TrangThaiDuyet === 'Chờ duyệt').length;
             const approved = allEvents.filter(e => e.TrangThaiDuyet === 'Đã duyệt').length;
-            const paid = allEvents.filter(e => {
-                const paymentStatus = getPaymentStatusText(e);
-                return paymentStatus === 'Đã thanh toán đủ' || paymentStatus === 'Đã đặt cọc';
-            }).length;
+            const paid = allEvents.filter(e => e.TrangThaiThanhToan === 'Đã thanh toán đủ').length;
             
             $('#totalEvents').text(total);
             $('#pendingEvents').text(pending);
@@ -949,129 +1420,13 @@
             }
         }
         
-        // Get payment class based on both event status and payment data
-        function getPaymentClass(event) {
-            // If there's payment data, use it to determine status
-            if (event.ID_ThanhToan && event.ID_ThanhToan > 0 && event.PaymentStatus) {
-                switch(event.PaymentStatus) {
-                    case 'Thành công':
-                        return event.LoaiThanhToan === 'Đặt cọc' ? 'status-approved' : 'status-paid';
-                    case 'Đang xử lý':
-                        return 'status-pending';
-                    case 'Thất bại':
-                    case 'Đã hủy':
-                        return 'status-rejected';
-                    default:
-                        return 'status-pending';
-                }
-            }
-            
-            // Fallback to event payment status
-            const payment = event.TrangThaiThanhToan;
-            if (!payment || payment === null || payment === undefined || payment === '') {
-                return 'status-pending';
-            }
-            
+        // Get payment class
+        function getPaymentClass(payment) {
             switch(payment) {
                 case 'Chưa thanh toán': return 'status-pending';
-                case 'Chờ thanh toán': return 'status-pending';
                 case 'Đã đặt cọc': return 'status-approved';
                 case 'Đã thanh toán đủ': return 'status-paid';
-                default: 
-                    console.warn('Unknown payment status:', payment);
-                    return 'status-pending';
-            }
-        }
-        
-        // Get payment status text based on both event status and payment data
-        function getPaymentStatusText(event) {
-            // If there's payment data, use it to determine status
-            if (event.ID_ThanhToan && event.ID_ThanhToan > 0 && event.PaymentStatus) {
-                switch(event.PaymentStatus) {
-                    case 'Thành công':
-                        return event.LoaiThanhToan === 'Đặt cọc' ? 'Đã đặt cọc' : 'Đã thanh toán đủ';
-                    case 'Đang xử lý':
-                        return 'Chờ thanh toán';
-                    case 'Thất bại':
-                        return 'Thanh toán thất bại';
-                    case 'Đã hủy':
-                        return 'Đã hủy thanh toán';
-                    default:
-                        return 'Chưa thanh toán';
-                }
-            }
-            
-            // Fallback to event payment status
-            return event.TrangThaiThanhToan || 'Chưa thanh toán';
-        }
-        
-        // Get payment button based on both event status and payment data
-        function getPaymentButton(event) {
-            // Only show payment button for approved events
-            if (event.TrangThaiDuyet !== 'Đã duyệt') {
-                return '';
-            }
-            
-            // If there's payment data, use it to determine button
-            if (event.ID_ThanhToan && event.ID_ThanhToan > 0 && event.PaymentStatus) {
-                switch(event.PaymentStatus) {
-                    case 'Thành công':
-                        if (event.LoaiThanhToan === 'Đặt cọc') {
-                            return `<button class="btn btn-info btn-sm" disabled>
-                                <i class="fas fa-hand-holding-usd"></i> Đã đặt cọc
-                            </button>`;
-                        } else {
-                            return `<button class="btn btn-success btn-sm" disabled>
-                                <i class="fas fa-check-circle"></i> Đã thanh toán đủ
-                            </button>`;
-                        }
-                    case 'Đang xử lý':
-                        return `<div class="btn-group" role="group">
-                            <button class="btn btn-warning btn-sm" disabled>
-                                <i class="fas fa-clock"></i> Đang xử lý
-                            </button>
-                            <button class="btn btn-outline-danger btn-sm" onclick="cancelPayment(${event.ID_DatLich})" title="Hủy thanh toán">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>`;
-                    case 'Thất bại':
-                        return `<button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
-                            <i class="fas fa-credit-card"></i> Thanh toán lại
-                        </button>`;
-                    case 'Đã hủy':
-                        return `<button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
-                            <i class="fas fa-credit-card"></i> Thanh toán
-                        </button>`;
-                    default:
-                        return `<button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
-                            <i class="fas fa-credit-card"></i> Thanh toán
-                        </button>`;
-                }
-            }
-            
-            // Fallback to event payment status
-            const paymentStatus = event.TrangThaiThanhToan || 'Chưa thanh toán';
-            switch(paymentStatus) {
-                case 'Chưa thanh toán':
-                    return `<button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
-                        <i class="fas fa-credit-card"></i> Thanh toán
-                    </button>`;
-                case 'Chờ thanh toán':
-                    return `<button class="btn btn-warning btn-sm" disabled>
-                        <i class="fas fa-clock"></i> Chờ xác nhận
-                    </button>`;
-                case 'Đã đặt cọc':
-                    return `<button class="btn btn-info btn-sm" disabled>
-                        <i class="fas fa-hand-holding-usd"></i> Đã đặt cọc
-                    </button>`;
-                case 'Đã thanh toán đủ':
-                    return `<button class="btn btn-success btn-sm" disabled>
-                        <i class="fas fa-check-circle"></i> Đã thanh toán đủ
-                    </button>`;
-                default:
-                    return `<button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
-                        <i class="fas fa-credit-card"></i> Thanh toán
-                    </button>`;
+                default: return 'status-pending';
             }
         }
         
@@ -1132,7 +1487,7 @@
                             <tr><td><strong>Tổng giá:</strong></td><td><span class="text-success fw-bold">${new Intl.NumberFormat('vi-VN').format(priceBreakdown.totalPrice)} VNĐ</span></td></tr>
                             <tr><td><strong>Ngân sách:</strong></td><td>${budget} VNĐ</td></tr>
                             <tr><td><strong>Trạng thái duyệt:</strong></td><td><span class="status-badge ${getStatusClass(event.TrangThaiDuyet)}">${event.TrangThaiDuyet}</span></td></tr>
-                            <tr><td><strong>Trạng thái thanh toán:</strong></td><td><span class="status-badge ${getPaymentClass(event)}">${getPaymentStatusText(event)}</span></td></tr>
+                            <tr><td><strong>Trạng thái thanh toán:</strong></td><td><span class="status-badge ${getPaymentClass(event.TrangThaiThanhToan)}">${event.TrangThaiThanhToan}</span></td></tr>
                         </table>
                     </div>
                     <div class="col-md-6">
@@ -1196,7 +1551,7 @@
                     success: function(response) {
                         if (response.success) {
                             alert('Hủy sự kiện thành công!');
-                            loadMyEvents(); // Reload the events list
+                            loadEvents(); // Reload the events list
                         } else {
                             alert('Lỗi: ' + response.message);
                         }
@@ -1263,6 +1618,15 @@
                     <h6><i class="fas fa-credit-card text-primary"></i> Chọn phương thức thanh toán</h6>
                     <div class="row">
                         <div class="col-md-4">
+                            <div class="card payment-method-card" data-method="momo">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-mobile-alt fa-3x text-danger mb-3"></i>
+                                    <h6>Ví MoMo</h6>
+                                    <small class="text-muted">Thanh toán qua ví điện tử</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
                             <div class="card payment-method-card" data-method="banking">
                                 <div class="card-body text-center">
                                     <i class="fas fa-university fa-3x text-primary mb-3"></i>
@@ -1280,15 +1644,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="card payment-method-card" data-method="sepay">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-university fa-3x text-info mb-3"></i>
-                                    <h6>SePay</h6>
-                                    <small class="text-muted">Thanh toán qua SePay</small>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 
@@ -1297,7 +1652,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="paymentType" id="depositPayment" value="deposit">
+                                <input class="form-check-input" type="radio" name="paymentType" id="depositPayment" value="deposit" checked>
                                 <label class="form-check-label" for="depositPayment">
                                     <strong>Đặt cọc</strong> - ${new Intl.NumberFormat('vi-VN').format(depositAmount)} VNĐ
                                     <br><small class="text-muted">Thanh toán 30% để giữ chỗ</small>
@@ -1306,7 +1661,7 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="paymentType" id="fullPayment" value="full" checked>
+                                <input class="form-check-input" type="radio" name="paymentType" id="fullPayment" value="full">
                                 <label class="form-check-label" for="fullPayment">
                                     <strong>Thanh toán đủ</strong> - ${new Intl.NumberFormat('vi-VN').format(totalAmount)} VNĐ
                                     <br><small class="text-muted">Thanh toán toàn bộ số tiền</small>
@@ -1318,6 +1673,40 @@
                 
                 <div class="mt-4" id="paymentDetails" style="display: none;">
                     <h6><i class="fas fa-info-circle text-primary"></i> Thông tin thanh toán</h6>
+                    <div id="momoDetails" class="payment-details" style="display: none;">
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-mobile-alt"></i> Thanh toán qua MoMo Gateway</h6>
+                            <div class="text-center">
+                                <div class="momo-logo-small mb-3">
+                                    <i class="fas fa-mobile-alt fa-2x text-danger"></i>
+                                </div>
+                                <h6 class="text-danger">MoMo Wallet</h6>
+                                <p class="text-muted mb-3">Thanh toán nhanh chóng và bảo mật qua MoMo Gateway</p>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6><i class="fas fa-shield-alt text-success"></i> Bảo mật</h6>
+                                        <ul class="text-start small">
+                                            <li>Mã hóa SSL 256-bit</li>
+                                            <li>Xác thực 2 lớp</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6><i class="fas fa-bolt text-warning"></i> Tốc độ</h6>
+                                        <ul class="text-start small">
+                                            <li>Xử lý trong vài giây</li>
+                                            <li>Xác nhận ngay lập tức</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-warning mt-3">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Lưu ý:</strong> Sau khi nhấn "Xác nhận thanh toán", bạn sẽ được chuyển hướng đến trang thanh toán MoMo để hoàn tất giao dịch.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div id="bankingDetails" class="payment-details" style="display: none;">
                         <div class="alert alert-primary">
                             <h6><i class="fas fa-university"></i> Thông tin chuyển khoản</h6>
@@ -1340,12 +1729,6 @@
                             </ul>
                         </div>
                     </div>
-                    <div id="sepayDetails" class="payment-details" style="display: none;">
-                        <div class="alert alert-info">
-                            <h6><i class="fas fa-university"></i> Thanh toán qua SePay</h6>
-                            <p class="mb-0">Thanh toán nhanh chóng và bảo mật qua SePay</p>
-                        </div>
-                    </div>
                 </div>
             `);
             
@@ -1355,9 +1738,6 @@
             
             // Setup payment method selection
             setupPaymentMethodSelection();
-
-            // Default preference: ưu tiên Thanh toán đủ khi mới mở modal
-            $('#fullPayment').prop('checked', true);
         }
         
         // Setup payment method selection
@@ -1368,41 +1748,41 @@
                 
                 const method = $(this).data('method');
                 
-                $('.payment-details').hide();
-                $(`#${method}Details`).show();
-                $('#paymentDetails').show();
-                
-                if (method === 'cash') {
-                    // Tiền mặt cho phép cả đặt cọc và thanh toán đủ
-                    $('#depositPayment').prop('disabled', false);
-                    $('#fullPayment').prop('disabled', false);
-                } else if (method === 'banking') {
-                    // Chuyển khoản cho phép cả đặt cọc và thanh toán đủ
-                    $('#depositPayment').prop('disabled', false);
-                    $('#fullPayment').prop('disabled', false);
-                } else if (method === 'sepay') {
-                    // SePay cho phép cả đặt cọc và thanh toán đủ
-                    $('#depositPayment').prop('disabled', false);
-                    $('#fullPayment').prop('disabled', false);
+                if (method === 'momo') {
+                    // Show MoMo payment modal
+                    $('#momoPaymentModal').modal('show');
+                } else {
+                    $('.payment-details').hide();
+                    $(`#${method}Details`).show();
+                    $('#paymentDetails').show();
                 }
             });
         }
         
+        // Confirm MoMo payment
+        function confirmMoMoPayment() {
+            // Close MoMo payment modal
+            $('#momoPaymentModal').modal('hide');
+            
+            // Set MoMo type to gateway (online only)
+            $('#paymentModal').data('momoType', 'gateway');
+            
+            // Show payment details
+            $('.payment-details').hide();
+            $('#momoDetails').show();
+            $('#paymentDetails').show();
+        }
         
         // Process payment
         function processPayment() {
             const event = $('#paymentModal').data('event');
             const paymentMethod = $('.payment-method-card.border-primary').data('method');
-            let paymentType = $('input[name="paymentType"]:checked').val();
+            const paymentType = $('input[name="paymentType"]:checked').val();
             
             if (!paymentMethod) {
                 alert('Vui lòng chọn phương thức thanh toán');
                 return;
             }
-
-            // Enforce business rules on the client-side
-            // Cash, banking, and sepay allow both deposit and full payment
-            // Only momo and zalo are restricted to deposit only
             
             const priceBreakdown = getEventPriceBreakdown(event);
             const totalEventPrice = priceBreakdown.totalPrice || event.TongTien || 0;
@@ -1434,9 +1814,9 @@
                 // Choose payment API based on method
                 let apiAction, apiData;
                 
-                if (paymentMethod === 'sepay') {
-                    // Use SePay API
-                    apiAction = 'create_sepay_payment';
+                if (paymentMethod === 'momo') {
+                    // Use MoMo official API (Gateway only)
+                    apiAction = 'create_momo_payment';
                     apiData = {
                         action: apiAction,
                         event_id: event.ID_DatLich,
@@ -1461,52 +1841,31 @@
                     method: 'POST',
                     data: apiData,
                     dataType: 'json',
-                   success: function(response) {
-                       if (response.success) {
-                           if (response.fallback) {
-                               // SePay không khả dụng, hiển thị thông báo và QR code
-                               alert(response.message);
-                               if (response.qr_code) {
-                                   showQRCodeModal({
-                                       qr_code: response.qr_code,
-                                       amount: response.amount,
-                                       transaction_id: response.transaction_id || response.payment_code,
-                                       payment_method: 'banking'
-                                   });
-                               }
-                               $('#paymentModal').modal('hide');
-                               loadMyEvents();
-                           } else if (paymentMethod === 'sepay' && response.pay_url) {
-                               // Redirect to SePay Gateway
-                               $('#paymentModalFooter').html(`
-                                   <div class="text-center">
-                                       <div class="alert alert-info">
-                                           <i class="fas fa-university"></i>
-                                           <strong>Đang chuyển hướng đến SePay...</strong>
-                                       </div>
-                                       <p>Vui lòng đợi trong giây lát...</p>
-                                   </div>
-                               `);
-                               
-                               // Redirect to SePay Gateway
-                               setTimeout(() => {
-                                   window.location.href = response.pay_url;
-                               }, 2000);
-                           } else if (response.qr_code) {
+                    success: function(response) {
+                        if (response.success) {
+                            if (paymentMethod === 'momo' && response.pay_url) {
+                                // Redirect to MoMo Gateway
+                                $('#paymentModalFooter').html(`
+                                    <div class="text-center">
+                                        <div class="alert alert-success">
+                                            <i class="fas fa-check-circle"></i>
+                                            <strong>Đang chuyển hướng đến MoMo...</strong>
+                                        </div>
+                                        <p>Vui lòng đợi trong giây lát...</p>
+                                    </div>
+                                `);
+                                
+                                // Redirect to MoMo Gateway
+                                setTimeout(() => {
+                                    window.location.href = response.pay_url;
+                                }, 2000);
+                            } else if (response.qr_code) {
                                 // Show QR code for offline payment
-                                showQRCodeModal({
-                                    qr_code: response.qr_code,
-                                    amount: response.amount,
-                                    transaction_id: response.transaction_id || response.payment_code,
-                                    waiting_payment: response.waiting_payment,
-                                    payment_method: paymentMethod,
-                                    message: response.message
-                                });
+                                showQRCodeModal(response);
                             } else {
-                                // Với tiền mặt/chuyển khoản (không SePay), coi như đã tạo giao dịch và chờ xác nhận
-                                alert('Đã tạo giao dịch. Trạng thái: Chờ thanh toán. Quản lý sẽ xác nhận sớm.');
+                                alert('Thanh toán thành công! Chúng tôi sẽ xác nhận trong thời gian sớm nhất.');
                                 $('#paymentModal').modal('hide');
-                                loadMyEvents(); // Reload events để hiển thị "Chờ thanh toán"
+                                loadMyEvents(); // Reload events
                             }
                         } else {
                             alert('Lỗi thanh toán: ' + response.error);
@@ -1524,9 +1883,9 @@
         // Get payment method name
         function getPaymentMethodName(method) {
             switch(method) {
+                case 'momo': return 'Ví MoMo';
                 case 'banking': return 'Chuyển khoản ngân hàng';
                 case 'cash': return 'Tiền mặt';
-                case 'sepay': return 'SePay';
                 default: return 'Phương thức thanh toán';
             }
         }
@@ -1552,7 +1911,7 @@
                 <div class="text-center">
                     <div class="alert alert-info">
                         <i class="fas fa-qrcode"></i>
-                        <strong>${paymentData.message || 'Quét mã QR để thanh toán'}</strong>
+                        <strong>Quét mã QR để thanh toán</strong>
                     </div>
                     
                     <div class="qr-container mb-4">
@@ -1565,9 +1924,22 @@
                             <tr><td><strong>Số tiền:</strong></td><td><span class="text-primary fw-bold">${new Intl.NumberFormat('vi-VN').format(paymentData.amount)} VNĐ</span></td></tr>
                             <tr><td><strong>Loại thanh toán:</strong></td><td>${paymentType === 'deposit' ? 'Đặt cọc' : 'Thanh toán đủ'}</td></tr>
                             <tr><td><strong>Phương thức:</strong></td><td>${getPaymentMethodName(paymentMethod)}</td></tr>
-                            <tr><td><strong>Mã giao dịch:</strong></td><td><code>${paymentData.transaction_id || paymentData.transaction_code || paymentData.payment_code}</code></td></tr>
+                            <tr><td><strong>Mã giao dịch:</strong></td><td><code>${paymentData.transaction_code}</code></td></tr>
                         </table>
                     </div>
+                    
+                    ${paymentMethod === 'momo' ? `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-mobile-alt"></i>
+                        <strong>Hướng dẫn:</strong>
+                        <ol class="text-start mt-2">
+                            <li>Mở ứng dụng MoMo trên điện thoại</li>
+                            <li>Chọn "Quét mã QR" hoặc "Chuyển tiền"</li>
+                            <li>Quét mã QR ở trên</li>
+                            <li>Xác nhận thanh toán</li>
+                        </ol>
+                    </div>
+                    ` : ''}
                     
                     ${paymentMethod === 'banking' ? `
                     <div class="alert alert-primary">
@@ -1582,16 +1954,18 @@
                     </div>
                     ` : ''}
                     
-                    ${paymentMethod === 'sepay' ? `
-                    ` : ''}
-                    
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i>
+                        <strong>Sau khi thanh toán:</strong>
+                        <p class="mb-0 mt-1">Hệ thống sẽ tự động cập nhật trạng thái thanh toán. Bạn có thể đóng cửa sổ này.</p>
+                    </div>
                 </div>
             `);
             
             $('#paymentModalFooter').html(`
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${paymentData.transaction_id || paymentData.transaction_code || paymentData.payment_code}')">
-                    <i class="fas fa-sync"></i> Load lại thanh toán
+                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${paymentData.transaction_code}')">
+                    <i class="fas fa-sync"></i> Kiểm tra trạng thái
                 </button>
             `);
             
@@ -1600,20 +1974,14 @@
         }
         
         // Generate QR Code
-        function generateQRCode(qrData) {
-            // Check if qrData is a URL (from VietQR) or a string (for QR generation)
-            if (qrData.startsWith('http')) {
-                // It's a VietQR URL, use it directly
-                $('#qrcode').html(`
-                    <img src="${qrData}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px;">
-                `);
-            } else {
-                // It's a string, generate QR code using service
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`;
-                $('#qrcode').html(`
-                    <img src="${qrUrl}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px;">
-                `);
-            }
+        function generateQRCode(qrString) {
+            // Simple QR code generation using a library or service
+            // For now, we'll use a QR code service
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
+            
+            $('#qrcode').html(`
+                <img src="${qrUrl}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px;">
+            `);
         }
         
         // Check payment status
@@ -1632,14 +2000,13 @@
                 url: '../src/controllers/payment.php',
                 method: 'POST',
                 data: {
-                    action: 'check_payment_status',
-                    transaction_code: transactionCode
+                    action: 'get_payment_history'
                 },
                 dataType: 'json',
                 success: function(response) {
                     if (response.success) {
-                        if (response.found && response.payment) {
-                            const payment = response.payment;
+                        const payment = response.payments.find(p => p.MaGiaoDich && p.MaGiaoDich.includes(transactionCode));
+                        if (payment) {
                             if (payment.TrangThai === 'Thành công') {
                                 alert('Thanh toán thành công! Trạng thái đã được cập nhật.');
                                 $('#paymentModal').modal('hide');
@@ -1647,111 +2014,24 @@
                             } else if (payment.TrangThai === 'Thất bại') {
                                 alert('Thanh toán thất bại. Vui lòng thử lại.');
                                 resetPaymentModal();
-                            } else if (payment.TrangThai === 'Đã hủy') {
-                                alert('Thanh toán đã bị hủy. Bạn có thể thanh toán lại.');
-                                $('#paymentModal').modal('hide');
-                                loadMyEvents(); // Reload events
                             } else {
                                 alert('Thanh toán đang được xử lý. Vui lòng đợi thêm.');
-                                // Khôi phục nút "Load lại thanh toán"
-                                $('#paymentModalFooter').html(`
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                                    <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${transactionCode}')">
-                                        <i class="fas fa-sync"></i> Load lại thanh toán
-                                    </button>
-                                `);
+                                resetPaymentModal();
                             }
                         } else {
                             alert('Chưa tìm thấy thông tin thanh toán. Vui lòng thử lại sau.');
-                            // Khôi phục nút "Load lại thanh toán"
-                            $('#paymentModalFooter').html(`
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${transactionCode}')">
-                                    <i class="fas fa-sync"></i> Load lại thanh toán
-                                </button>
-                            `);
+                            resetPaymentModal();
                         }
                     } else {
-                        // Xử lý lỗi cụ thể
-                        if (response.error && response.error.includes('đăng nhập')) {
-                            alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-                            window.location.href = '../login.php';
-                        } else {
-                            alert('Lỗi khi kiểm tra trạng thái thanh toán: ' + (response.error || 'Lỗi không xác định'));
-                        }
-                        // Khôi phục nút "Load lại thanh toán"
-                        $('#paymentModalFooter').html(`
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                            <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${transactionCode}')">
-                                <i class="fas fa-sync"></i> Load lại thanh toán
-                            </button>
-                        `);
+                        alert('Lỗi khi kiểm tra trạng thái thanh toán.');
+                        resetPaymentModal();
                     }
                 },
                 error: function() {
                     alert('Lỗi kết nối khi kiểm tra trạng thái.');
-                    // Khôi phục nút "Load lại thanh toán"
-                    $('#paymentModalFooter').html(`
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                        <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${transactionCode}')">
-                            <i class="fas fa-sync"></i> Load lại thanh toán
-                        </button>
-                    `);
+                    resetPaymentModal();
                 }
             });
-        }
-        
-        // Cancel payment and reset to initial state
-        function cancelPayment(eventId) {
-            if (confirm('Bạn có chắc chắn muốn hủy thanh toán này? Thanh toán sẽ được hủy và bạn có thể thanh toán lại sau.')) {
-                console.log('Cancelling payment for event ID:', eventId);
-                
-                $.ajax({
-                    url: '../src/controllers/payment.php',
-                    method: 'POST',
-                    data: {
-                        action: 'cancel_payment',
-                        event_id: eventId
-                    },
-                    dataType: 'json',
-                    success: function(response) {
-                        console.log('Cancel payment response:', response);
-                        
-                        if (response.success) {
-                            alert('Đã hủy thanh toán thành công!');
-                            $('#paymentModal').modal('hide'); // Đóng modal thanh toán
-                            loadMyEvents(); // Reload events để hiển thị nút "Thanh toán" lại
-                        } else {
-                            console.error('Cancel payment failed:', response.error);
-                            
-                            // Handle specific errors
-                            if (response.error && response.error.includes('đăng nhập')) {
-                                alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-                                window.location.href = '../login.php';
-                            } else {
-                                alert('Lỗi khi hủy thanh toán: ' + (response.error || 'Lỗi không xác định'));
-                            }
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('AJAX error:', xhr, status, error);
-                        console.error('Response text:', xhr.responseText);
-                        
-                        // Try to parse response as JSON
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            if (response.error && response.error.includes('đăng nhập')) {
-                                alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-                                window.location.href = '../login.php';
-                            } else {
-                                alert('Lỗi khi hủy thanh toán: ' + (response.error || 'Lỗi kết nối'));
-                            }
-                        } catch (e) {
-                            alert('Lỗi kết nối khi hủy thanh toán. Vui lòng thử lại.');
-                        }
-                    }
-                });
-            }
         }
         
         // Load event equipment
@@ -1824,6 +2104,531 @@
             
             html += '</tbody></table></div>';
             $(`#equipmentDetails_${eventId}`).html(html);
+        }
+        
+        // View event details
+        function viewEventDetails(eventId) {
+            // Update modal title
+            document.getElementById('eventDetailsModalLabel').innerHTML = 
+                `<i class="fas fa-info-circle"></i> Chi tiết sự kiện`;
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
+            modal.show();
+            
+            // Show loading
+            document.getElementById('eventDetailsModalBody').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Đang tải chi tiết sự kiện...</p>
+                </div>
+            `;
+            
+            // Load event details
+            fetch(`../src/controllers/event-details.php?action=get_event_details&event_id=${eventId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        displayEventDetails(data.event, data.reviews, data.equipment);
+                    } else {
+                        throw new Error(data.message || 'Không thể tải chi tiết sự kiện');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading event details:', error);
+                    document.getElementById('eventDetailsModalBody').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            Có lỗi xảy ra khi tải chi tiết sự kiện: ${error.message}
+                        </div>
+                    `;
+                });
+        }
+        
+        // Display event details in modal
+        function displayEventDetails(event, reviews, equipment) {
+            const eventDate = formatDateTime(event.NgayBatDau);
+            const eventEndDate = formatDateTime(event.NgayKetThuc);
+            const priceBreakdown = getEventPriceBreakdown(event);
+            const totalPrice = new Intl.NumberFormat('vi-VN').format(priceBreakdown.totalPrice);
+            
+            // Get status badge class
+            const statusClass = getStatusClass(event.TrangThaiDuyet);
+            const paymentClass = getPaymentClass(event.TrangThaiThanhToan);
+            
+            // Get location image
+            const locationImage = event.DiaDiemHinhAnh ? 
+                `img/diadiem/${event.DiaDiemHinhAnh}` : 
+                'img/diadiem/default.jpg';
+            
+            let html = `
+                <div class="event-details-content">
+                    <!-- Event Image Section -->
+                    <div class="event-image-section">
+                        <img src="${locationImage}" alt="${event.TenDiaDiem}" class="event-main-image" 
+                             onerror="this.src='img/diadiem/default.jpg'">
+                        <span class="event-status-badge ${statusClass}">${event.TrangThaiDuyet}</span>
+                    </div>
+                    
+                    <!-- Event Info Section -->
+                    <div class="event-info-section">
+                        <h3 class="mb-3"><i class="fas fa-calendar-alt"></i> Thông tin sự kiện</h3>
+                        
+                        <div class="event-info-item">
+                            <i class="fas fa-tag"></i>
+                            <div class="event-info-content">
+                                <div class="event-info-label">Tên sự kiện</div>
+                                <div class="event-info-value">${event.TenSuKien}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="event-info-item">
+                            <i class="fas fa-calendar"></i>
+                            <div class="event-info-content">
+                                <div class="event-info-label">Thời gian</div>
+                                <div class="event-info-value">${eventDate} - ${eventEndDate}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="event-info-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <div class="event-info-content">
+                                <div class="event-info-label">Địa điểm</div>
+                                <div class="event-info-value">${event.TenDiaDiem || 'Chưa xác định'}</div>
+                            </div>
+                        </div>
+                        
+                        ${event.DiaChi ? `
+                        <div class="event-info-item">
+                            <i class="fas fa-location-arrow"></i>
+                            <div class="event-info-content">
+                                <div class="event-info-label">Địa chỉ</div>
+                                <div class="event-info-value">${event.DiaChi}</div>
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="event-info-item">
+                            <i class="fas fa-users"></i>
+                            <div class="event-info-content">
+                                <div class="event-info-label">Số người dự kiến</div>
+                                <div class="event-info-value">${event.SoNguoiDuKien || 'Chưa xác định'} người</div>
+                            </div>
+                        </div>
+                        
+                        ${event.TenLoai ? `
+                        <div class="event-info-item">
+                            <i class="fas fa-star"></i>
+                            <div class="event-info-content">
+                                <div class="event-info-label">Loại sự kiện</div>
+                                <div class="event-info-value">${event.TenLoai}</div>
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="event-info-item">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <div class="event-info-content">
+                                <div class="event-info-label">Tổng giá</div>
+                                <div class="event-info-value text-success">${totalPrice} VNĐ</div>
+                            </div>
+                        </div>
+                        
+                        <div class="event-info-item">
+                            <i class="fas fa-info-circle"></i>
+                            <div class="event-info-content">
+                                <div class="event-info-label">Trạng thái thanh toán</div>
+                                <div class="event-info-value">
+                                    <span class="badge ${paymentClass}">${event.TrangThaiThanhToan}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${event.MoTa ? `
+                        <div class="event-info-item">
+                            <i class="fas fa-file-alt"></i>
+                            <div class="event-info-content">
+                                <div class="event-info-label">Mô tả</div>
+                                <div class="event-info-value">${event.MoTa}</div>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+            `;
+            
+            // Add equipment section if exists
+            if (equipment && equipment.length > 0) {
+                html += `
+                    <div class="equipment-section">
+                        <h4 class="mb-3"><i class="fas fa-cogs"></i> Thiết bị đã đặt</h4>
+                `;
+                
+                equipment.forEach(item => {
+                    const itemName = item.TenThietBi || item.TenCombo || 'Thiết bị';
+                    const itemImage = item.ThietBiHinhAnh;
+                    const imagePath = itemImage ? 
+                        `img/thietbi/${itemImage}` : 
+                        'img/thietbi/default.jpg';
+                    const itemType = item.TenThietBi ? 'Thiết bị' : 'Combo';
+                    const itemPrice = new Intl.NumberFormat('vi-VN').format(item.DonGia);
+                    
+                    html += `
+                        <div class="equipment-item">
+                            <img src="${imagePath}" alt="${itemName}" class="equipment-image" 
+                                 onerror="this.src='img/thietbi/default.jpg'">
+                            <div class="equipment-info">
+                                <div class="equipment-name">${itemName}</div>
+                                <div class="equipment-details">
+                                    ${itemType} • Số lượng: ${item.SoLuong}
+                                    ${item.LoaiThietBi ? ` • Loại: ${item.LoaiThietBi}` : ''}
+                                </div>
+                            </div>
+                            <div class="equipment-price">${itemPrice} VNĐ</div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            }
+            
+            // Add reviews section
+            if (reviews && reviews.length > 0) {
+                html += `
+                    <div class="reviews-section">
+                        <h4 class="mb-3"><i class="fas fa-star"></i> Đánh giá của khách hàng</h4>
+                `;
+                
+                reviews.forEach(review => {
+                    const reviewTime = review.ThoiGianDanhGia ? 
+                        new Date(review.ThoiGianDanhGia).toLocaleString('vi-VN') : 
+                        'Vừa đánh giá';
+                    const stars = '⭐'.repeat(review.DiemDanhGia);
+                    
+                    html += `
+                        <div class="review-item">
+                            <div class="review-header">
+                                <div class="review-rating">
+                                    <span class="review-stars">${stars}</span>
+                                    <span class="review-author">${review.TenKhachHang || 'Khách hàng'}</span>
+                                </div>
+                                <div class="review-time">${reviewTime}</div>
+                            </div>
+                            ${review.NoiDung ? `
+                            <div class="review-content">"${review.NoiDung}"</div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            } else {
+                html += `
+                    <div class="reviews-section">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-star fa-3x mb-3"></i>
+                            <h5>Chưa có đánh giá nào</h5>
+                            <p>Sự kiện này chưa có đánh giá từ khách hàng.</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += `</div>`;
+            
+            document.getElementById('eventDetailsModalBody').innerHTML = html;
+        }
+        
+        // Open review modal
+        function openReviewModal(eventId, eventName) {
+            // Update modal title
+            document.getElementById('reviewModalLabel').innerHTML = 
+                `<i class="fas fa-star"></i> Đánh giá sự kiện: ${eventName}`;
+            
+            // Show modal immediately with basic form
+            const modal = new bootstrap.Modal(document.getElementById('reviewModal'));
+            modal.show();
+            
+            // Show basic form first
+            const basicFormHTML = `
+                <div class="review-form">
+                    <form id="reviewFormModal">
+                        <input type="hidden" name="event_id" value="${eventId}">
+                        
+                        <!-- Overall Rating -->
+                        <div class="rating-section">
+                            <div class="rating-title">
+                                <i class="fas fa-star"></i>
+                                Đánh giá tổng thể (Bắt buộc)
+                            </div>
+                            <div class="star-rating" data-rating="overall">
+                                <i class="fas fa-star star" data-value="1"></i>
+                                <i class="fas fa-star star" data-value="2"></i>
+                                <i class="fas fa-star star" data-value="3"></i>
+                                <i class="fas fa-star star" data-value="4"></i>
+                                <i class="fas fa-star star" data-value="5"></i>
+                            </div>
+                            <input type="hidden" name="overall_rating" value="0">
+                            <small class="text-muted">Nhấp vào sao để chọn điểm (1-5 sao)</small>
+                        </div>
+                        
+                        <!-- Comment Section -->
+                        <div class="comment-section">
+                            <div class="comment-title">
+                                <i class="fas fa-comment"></i>
+                                Nội dung đánh giá
+                            </div>
+                            <textarea 
+                                name="comment" 
+                                class="form-control" 
+                                rows="4" 
+                                placeholder="Hãy chia sẻ trải nghiệm của bạn về sự kiện này..."
+                                maxlength="1000"
+                            ></textarea>
+                            <small class="text-muted">Tối đa 1000 ký tự</small>
+                        </div>
+                        
+                        <button type="submit" class="btn-submit-review">
+                            <i class="fas fa-paper-plane"></i>
+                            Gửi đánh giá
+                        </button>
+                    </form>
+                </div>
+            `;
+            
+            document.getElementById('reviewModalBody').innerHTML = basicFormHTML;
+            
+            // Initialize star rating
+            initializeStarRating();
+            
+            // Try to load existing review data in background
+            loadExistingReviewData(eventId);
+        }
+        
+        // Load existing review data in background
+        function loadExistingReviewData(eventId) {
+            fetch(`../src/controllers/review-controller.php?action=get_user_review&event_id=${eventId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Existing review data:', data);
+                    if (data.success && data.review) {
+                        // Update form with existing data
+                        updateFormWithExistingData(data.review);
+                    }
+                })
+                .catch(error => {
+                    console.log('No existing review found or error:', error);
+                    // This is normal if user hasn't reviewed yet
+                });
+        }
+        
+        // Update form with existing review data
+        function updateFormWithExistingData(review) {
+            // Add existing review info
+            const existingReviewDiv = document.createElement('div');
+            existingReviewDiv.className = 'success-message-modal';
+            
+            // Format time display - use current time if ThoiGianDanhGia is empty
+            let timeDisplay = 'Vừa đánh giá';
+            if (review.ThoiGianDanhGia && review.ThoiGianDanhGia !== '') {
+                try {
+                    timeDisplay = new Date(review.ThoiGianDanhGia).toLocaleString('vi-VN');
+                } catch (e) {
+                    timeDisplay = 'Vừa đánh giá';
+                }
+            }
+            
+            existingReviewDiv.innerHTML = `
+                <div class="d-flex align-items-start">
+                    <i class="fas fa-check-circle fa-2x me-3" style="color: #28a745;"></i>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-2"><strong>Bạn đã đánh giá sự kiện này!</strong></h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">Điểm đánh giá:</small><br>
+                                <span class="badge bg-success fs-6">${review.DiemDanhGia}/5 ⭐</span>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">Thời gian:</small><br>
+                                <span class="text-success">${timeDisplay}</span>
+                            </div>
+                        </div>
+                        ${review.NoiDung ? `
+                        <div class="mt-2">
+                            <small class="text-muted">Nội dung đánh giá:</small><br>
+                            <em class="text-dark">"${review.NoiDung}"</em>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            
+            const form = document.getElementById('reviewFormModal');
+            form.insertBefore(existingReviewDiv, form.firstChild);
+            
+            // Update rating
+            const overallStars = document.querySelector('[data-rating="overall"]').querySelectorAll('.star');
+            const overallValue = review.DiemDanhGia;
+            document.querySelector('input[name="overall_rating"]').value = overallValue;
+            overallStars.forEach((star, i) => {
+                star.classList.toggle('active', i < overallValue);
+            });
+            
+            // Update comment
+            const textarea = document.querySelector('textarea[name="comment"]');
+            if (textarea) {
+                textarea.value = review.NoiDung || '';
+            }
+            
+            // Update button text
+            const submitBtn = document.querySelector('.btn-submit-review');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Cập nhật đánh giá';
+            }
+        }
+        
+        // Initialize star rating functionality
+        function initializeStarRating() {
+            document.querySelectorAll('.star-rating').forEach(rating => {
+                const stars = rating.querySelectorAll('.star');
+                const hiddenInput = rating.parentElement.querySelector('input[type="hidden"]');
+                
+                stars.forEach((star, index) => {
+                    star.addEventListener('click', () => {
+                        const value = index + 1;
+                        hiddenInput.value = value;
+                        
+                        // Update star display
+                        stars.forEach((s, i) => {
+                            s.classList.toggle('active', i < value);
+                        });
+                    });
+                    
+                    star.addEventListener('mouseenter', () => {
+                        stars.forEach((s, i) => {
+                            s.classList.toggle('active', i <= index);
+                        });
+                    });
+                });
+                
+                rating.addEventListener('mouseleave', () => {
+                    const currentValue = parseInt(hiddenInput.value) || 0;
+                    stars.forEach((s, i) => {
+                        s.classList.toggle('active', i < currentValue);
+                    });
+                });
+            });
+            
+            // Form submission
+            const form = document.getElementById('reviewFormModal');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(this);
+                    const overallRating = formData.get('overall_rating');
+                    const comment = formData.get('comment');
+                    
+                    if (overallRating == 0) {
+                        alert('Vui lòng chọn điểm đánh giá tổng thể!');
+                        return;
+                    }
+                    
+                    if (!comment.trim()) {
+                        alert('Vui lòng nhập nội dung đánh giá!');
+                        return;
+                    }
+                    
+                    // Show loading
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+                    submitBtn.disabled = true;
+                    
+                    fetch('../src/controllers/review-controller.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.text(); // Get as text first to debug
+                    })
+                    .then(text => {
+                        console.log('Raw response:', text);
+                        try {
+                            const data = JSON.parse(text);
+                            console.log('Parsed data:', data);
+                            
+                            if (data.success) {
+                                // Show success message
+                                const successDiv = document.createElement('div');
+                                successDiv.className = 'success-message-modal';
+                                successDiv.innerHTML = '<i class="fas fa-check-circle"></i> ' + data.message;
+                                
+                                this.insertBefore(successDiv, this.firstChild);
+                                
+                                // Close modal after 2 seconds
+                                setTimeout(() => {
+                                    const modal = bootstrap.Modal.getInstance(document.getElementById('reviewModal'));
+                                    modal.hide();
+                                    
+                                    // Reload events to update UI
+                                    loadEvents();
+                                }, 2000);
+                            } else {
+                                alert('Lỗi: ' + data.message);
+                            }
+                        } catch (parseError) {
+                            console.error('JSON parse error:', parseError);
+                            console.error('Response text:', text);
+                            
+                            // Show error message in modal
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'alert alert-danger';
+                            errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Lỗi định dạng phản hồi từ server!';
+                            this.insertBefore(errorDiv, this.firstChild);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Network error:', error);
+                        
+                        // Show error message in modal
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'alert alert-danger';
+                        errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Có lỗi xảy ra khi gửi đánh giá: ' + error.message;
+                        this.insertBefore(errorDiv, this.firstChild);
+                    })
+                    .finally(() => {
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                    });
+                });
+            }
+        }
+        
+        // Set existing review data
+        function setExistingReviewData(review) {
+            // Set overall rating
+            const overallStars = document.querySelector('[data-rating="overall"]').querySelectorAll('.star');
+            const overallValue = review.DiemDanhGia;
+            document.querySelector('input[name="overall_rating"]').value = overallValue;
+            overallStars.forEach((star, i) => {
+                star.classList.toggle('active', i < overallValue);
+            });
         }
         
         // Show error message

@@ -215,6 +215,29 @@ try {
                     </div>
                 </div>
                 
+                <!-- Quick Actions -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-plus-circle"></i>
+                                    Tạo lịch làm việc nhanh
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <button class="btn btn-primary" onclick="showCreateScheduleModal()">
+                                    <i class="fas fa-calendar-plus"></i>
+                                    Tạo lịch làm việc mới
+                                </button>
+                                <p class="text-muted mt-2 mb-0">
+                                    <small>Tạo công việc trực tiếp cho nhân viên mà không cần qua kế hoạch</small>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Plans List -->
                 <div class="row">
                     <?php foreach ($plans as $plan): ?>
@@ -359,6 +382,106 @@ try {
         </div>
     </div>
 
+    <!-- Create Schedule Modal -->
+    <div class="modal fade" id="createScheduleModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-calendar-plus"></i>
+                        Tạo lịch làm việc mới
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createScheduleForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="scheduleStaff" class="form-label">Nhân viên *</label>
+                                    <select class="form-select" id="scheduleStaff" name="staff_id" required>
+                                        <option value="">Chọn nhân viên</option>
+                                        <?php foreach ($staff as $s): ?>
+                                        <option value="<?= $s['ID_NhanVien'] ?>">
+                                            <?= htmlspecialchars($s['HoTen']) ?> - <?= htmlspecialchars($s['ChucVu']) ?>
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="scheduleEvent" class="form-label">Sự kiện</label>
+                                    <select class="form-select" id="scheduleEvent" name="event_id">
+                                        <option value="">Chọn sự kiện (tùy chọn)</option>
+                                        <?php
+                                        // Get approved events
+                                        try {
+                                            $stmt = $pdo->query("
+                                                SELECT dl.ID_DatLich, dl.TenSuKien, dl.NgayBatDau, dl.NgayKetThuc
+                                                FROM datlichsukien dl
+                                                WHERE dl.TrangThaiDuyet = 'Đã duyệt'
+                                                ORDER BY dl.NgayBatDau DESC
+                                                LIMIT 20
+                                            ");
+                                            $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                            foreach ($events as $event):
+                                        ?>
+                                        <option value="<?= $event['ID_DatLich'] ?>">
+                                            <?= htmlspecialchars($event['TenSuKien']) ?> 
+                                            (<?= date('d/m/Y', strtotime($event['NgayBatDau'])) ?>)
+                                        </option>
+                                        <?php endforeach; ?>
+                                        <?php } catch (Exception $e) { } ?>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="scheduleTask" class="form-label">Nhiệm vụ *</label>
+                            <input type="text" class="form-control" id="scheduleTask" name="task_description" 
+                                   placeholder="Mô tả công việc cần thực hiện..." required>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="scheduleStartDate" class="form-label">Ngày bắt đầu *</label>
+                                    <input type="date" class="form-control" id="scheduleStartDate" name="start_date" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="scheduleEndDate" class="form-label">Ngày kết thúc *</label>
+                                    <input type="date" class="form-control" id="scheduleEndDate" name="end_date" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="scheduleNotes" class="form-label">Ghi chú</label>
+                            <textarea class="form-control" id="scheduleNotes" name="notes" rows="3" 
+                                      placeholder="Thêm ghi chú hoặc hướng dẫn chi tiết..."></textarea>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Lưu ý:</strong> Lịch làm việc sẽ được tạo trực tiếp vào hệ thống và nhân viên có thể xem trong trang lịch làm việc của họ.
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="saveSchedule()">
+                        <i class="fas fa-save"></i>
+                        Tạo lịch làm việc
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <style>
@@ -475,6 +598,54 @@ try {
                 staffInfo.style.display = 'none';
             }
         });
+        
+        // Show create schedule modal
+        function showCreateScheduleModal() {
+            const modal = new bootstrap.Modal(document.getElementById('createScheduleModal'));
+            modal.show();
+        }
+        
+        // Save schedule function
+        function saveSchedule() {
+            const form = document.getElementById('createScheduleForm');
+            const formData = new FormData(form);
+            formData.append('action', 'create_assignment');
+            
+            // Validate required fields
+            const staffId = formData.get('staff_id');
+            const taskDescription = formData.get('task_description');
+            const startDate = formData.get('start_date');
+            const endDate = formData.get('end_date');
+            
+            if (!staffId || !taskDescription || !startDate || !endDate) {
+                alert('Vui lòng điền đầy đủ thông tin bắt buộc');
+                return;
+            }
+            
+            // Validate dates
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('Ngày kết thúc phải sau ngày bắt đầu');
+                return;
+            }
+            
+            fetch('../../src/controllers/staff-assignment.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Tạo lịch làm việc thành công!');
+                    location.reload();
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi tạo lịch làm việc');
+            });
+        }
 </script>
 </body>
 </html>

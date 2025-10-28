@@ -1129,6 +1129,15 @@ try {
                 });
             }
         }
+        
+        // Auto refresh steps every 30 seconds to sync with staff updates
+        setInterval(function() {
+            const currentPlanId = document.getElementById('stepPlanId')?.value;
+            if (currentPlanId) {
+                console.log('Auto-refreshing steps for plan:', currentPlanId);
+                loadSteps(currentPlanId);
+            }
+        }, 30000);
     </script>
 </body>
 </html>

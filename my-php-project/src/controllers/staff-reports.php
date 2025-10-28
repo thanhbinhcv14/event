@@ -84,8 +84,8 @@ function getDetailedStats() {
                 TenBuoc as task,
                 TrangThai,
                 COALESCE(TienDoPhanTram, 0) as Tiendo,
-                NgayTao,
-                NgayCapNhat,
+                NgayBatDau as NgayTao,
+                NgayKetThuc as NgayCapNhat,
                 NgayKetThuc as HanHoanThanh
             FROM chitietkehoach 
             WHERE ID_NhanVien = ?
@@ -145,6 +145,12 @@ function getPerformanceReport() {
         $pdo = getDBConnection();
         $userId = $_SESSION['user']['ID_User'];
         
+        // Get date range from POST
+        $startDate = $_POST['start_date'] ?? date('Y-m-01');
+        $endDate = $_POST['end_date'] ?? date('Y-m-t');
+        
+        error_log("DEBUG: Performance report request - start_date: $startDate, end_date: $endDate");
+        
         // Get staff info
         $stmt = $pdo->prepare("
             SELECT ID_NhanVien FROM nhanvieninfo WHERE ID_User = ?
@@ -171,26 +177,28 @@ function getPerformanceReport() {
                 AVG(CASE WHEN TrangThai = 'Hoàn thành' THEN TIMESTAMPDIFF(HOUR, NgayTao, NgayCapNhat) END) as avg_hours
             FROM lichlamviec 
             WHERE ID_NhanVien = ? 
-            AND NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            AND DATE(NgayTao) BETWEEN ? AND ?
             GROUP BY DATE_FORMAT(NgayTao, '%Y-%m')
         ");
-        $stmt->execute([$staffId]);
+        $stmt->execute([$staffId, $startDate, $endDate]);
         $lichlamviecData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        error_log("DEBUG: lichlamviec data count: " . count($lichlamviecData));
         
         // From chitietkehoach
         $stmt = $pdo->prepare("
             SELECT 
-                DATE_FORMAT(NgayTao, '%Y-%m') as month,
+                DATE_FORMAT(NgayBatDau, '%Y-%m') as month,
                 COUNT(*) as total_tasks,
                 SUM(CASE WHEN TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_tasks,
-                AVG(CASE WHEN TrangThai = 'Hoàn thành' THEN TIMESTAMPDIFF(HOUR, NgayTao, NgayCapNhat) END) as avg_hours
+                AVG(CASE WHEN TrangThai = 'Hoàn thành' THEN TIMESTAMPDIFF(HOUR, NgayBatDau, NgayKetThuc) END) as avg_hours
             FROM chitietkehoach 
             WHERE ID_NhanVien = ? 
-            AND NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-            GROUP BY DATE_FORMAT(NgayTao, '%Y-%m')
+            AND DATE(NgayBatDau) BETWEEN ? AND ?
+            GROUP BY DATE_FORMAT(NgayBatDau, '%Y-%m')
         ");
-        $stmt->execute([$staffId]);
+        $stmt->execute([$staffId, $startDate, $endDate]);
         $chitietkehoachData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        error_log("DEBUG: chitietkehoach data count: " . count($chitietkehoachData));
         
         // Combine data by month
         $monthlyData = [];
@@ -288,15 +296,15 @@ function getWorkSummary() {
                 ctk.NgayKetThuc as HanHoanThanh,
                 dl.TenSuKien,
                 dd.TenDiaDiem,
-                ctk.NgayTao,
-                ctk.NgayCapNhat,
+                ctk.NgayBatDau as NgayTao,
+                ctk.NgayKetThuc as NgayCapNhat,
                 'chitietkehoach' as source
             FROM chitietkehoach ctk
             LEFT JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
             LEFT JOIN datlichsukien dl ON kht.ID_DatLich = dl.ID_DatLich
             LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
             WHERE ctk.ID_NhanVien = ?
-            ORDER BY ctk.NgayTao DESC
+            ORDER BY ctk.NgayBatDau DESC
             LIMIT 10
         ");
         $stmt->execute([$staffId]);

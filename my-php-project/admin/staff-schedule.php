@@ -79,83 +79,101 @@ try {
     $assignments = [];
     
     if ($staffInfo && $staffInfo['ID_NhanVien']) {
-        // First, try to get from lichlamviec
-        $stmt = $pdo->prepare("
-            SELECT 
-                llv.ID_LLV,
-                llv.NhiemVu,
-                llv.NgayBatDau,
-                llv.NgayKetThuc,
-                llv.TrangThai,
-                llv.GhiChu,
-                llv.CongViec,
+    // First, try to get from lichlamviec
+    $stmt = $pdo->prepare("
+        SELECT 
+            llv.ID_LLV,
+            llv.NhiemVu,
+            llv.NgayBatDau,
+            llv.NgayKetThuc,
+            llv.TrangThai,
+            llv.GhiChu,
+            llv.CongViec,
                 llv.NgayKetThuc as HanHoanThanh,
-                llv.Tiendo,
+            llv.Tiendo,
                 NULL as ThoiGianBatDauThucTe,
                 NULL as ThoiGianKetThucThucTe,
                 NULL as TienDoPhanTram,
                 NULL as ThoiGianLamViec,
                 NULL as ChamTienDo,
                 NULL as GhiChuTienDo,
-                COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
-                COALESCE(dl.NgayBatDau, llv.NgayBatDau) as EventStartDate,
-                COALESCE(dl.NgayKetThuc, llv.NgayKetThuc) as EventEndDate,
-                COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
-                COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
+            COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+            COALESCE(dl.NgayBatDau, llv.NgayBatDau) as EventStartDate,
+            COALESCE(dl.NgayKetThuc, llv.NgayKetThuc) as EventEndDate,
+            COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
+            COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
                 COALESCE(kht.TenKeHoach, llv.NhiemVu) as ten_kehoach,
                 COALESCE(kht.NoiDung, llv.GhiChu) as kehoach_noidung,
                 COALESCE(kht.TrangThai, llv.TrangThai) as kehoach_trangthai,
-                'lichlamviec' as source_table
-            FROM lichlamviec llv
-            LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
-            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            'lichlamviec' as source_table
+        FROM lichlamviec llv
+        LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
+        LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
             LEFT JOIN kehoachthuchien kht ON llv.ID_KeHoach = kht.ID_KeHoach
-            WHERE llv.ID_NhanVien = ?
-            ORDER BY llv.NgayBatDau ASC
-        ");
-        $stmt->execute([$staffInfo['ID_NhanVien']]);
-        $lichlamviec_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Then, try to get from chitietkehoach
-        $stmt = $pdo->prepare("
-            SELECT 
-                ck.ID_ChiTiet as ID_LLV,
-                ck.TenBuoc as NhiemVu,
-                ck.NgayBatDau,
-                ck.NgayKetThuc,
-                ck.TrangThai,
+        WHERE llv.ID_NhanVien = ?
+        ORDER BY llv.NgayBatDau ASC
+    ");
+    $stmt->execute([$staffInfo['ID_NhanVien']]);
+    $lichlamviec_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Then, try to get from chitietkehoach
+    $stmt = $pdo->prepare("
+        SELECT 
+            ck.ID_ChiTiet as ID_LLV,
+            ck.TenBuoc as NhiemVu,
+            ck.NgayBatDau,
+            ck.NgayKetThuc,
+            ck.TrangThai,
                 ck.MoTa as GhiChu,
-                ck.TenBuoc as CongViec,
-                ck.NgayKetThuc as HanHoanThanh,
-                '0' as Tiendo,
+            ck.TenBuoc as CongViec,
+            ck.NgayKetThuc as HanHoanThanh,
+            '0' as Tiendo,
                 NULL as ThoiGianBatDauThucTe,
                 NULL as ThoiGianKetThucThucTe,
                 NULL as TienDoPhanTram,
                 NULL as ThoiGianLamViec,
                 NULL as ChamTienDo,
                 NULL as GhiChuTienDo,
-                COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
-                COALESCE(dl.NgayBatDau, ck.NgayBatDau) as EventStartDate,
-                COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
-                COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
-                COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
+            COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+            COALESCE(dl.NgayBatDau, ck.NgayBatDau) as EventStartDate,
+            COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
+            COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
+            COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
                 COALESCE(kht.TenKeHoach, ck.TenBuoc) as ten_kehoach,
                 COALESCE(kht.NoiDung, ck.MoTa) as kehoach_noidung,
                 COALESCE(kht.TrangThai, ck.TrangThai) as kehoach_trangthai,
-                'chitietkehoach' as source_table
-            FROM chitietkehoach ck
+            'chitietkehoach' as source_table
+        FROM chitietkehoach ck
             LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
             LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
-            LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
-            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-            WHERE ck.ID_NhanVien = ?
-            ORDER BY ck.NgayBatDau ASC
-        ");
-        $stmt->execute([$staffInfo['ID_NhanVien']]);
-        $chitietkehoach_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Combine both results
-        $assignments = array_merge($lichlamviec_assignments, $chitietkehoach_assignments);
+        LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+        LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+        WHERE ck.ID_NhanVien = ?
+        ORDER BY ck.NgayBatDau ASC
+    ");
+    $stmt->execute([$staffInfo['ID_NhanVien']]);
+    $chitietkehoach_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Combine both results - but prioritize lichlamviec to avoid duplicates
+    $assignments = $lichlamviec_assignments;
+    
+    // Only add chitietkehoach assignments that don't have corresponding lichlamviec entries
+    foreach ($chitietkehoach_assignments as $chitiet) {
+        $isDuplicate = false;
+        foreach ($lichlamviec_assignments as $lich) {
+            // Check if this chitietkehoach entry already exists in lichlamviec
+            // by comparing task name, dates, and staff ID
+            if ($chitiet['NhiemVu'] == $lich['NhiemVu'] && 
+                $chitiet['NgayBatDau'] == $lich['NgayBatDau'] && 
+                $chitiet['NgayKetThuc'] == $lich['NgayKetThuc']) {
+                $isDuplicate = true;
+                break;
+            }
+        }
+        if (!$isDuplicate) {
+            $assignments[] = $chitiet;
+        }
+    }
         
         error_log("DEBUG: Found " . count($lichlamviec_assignments) . " lichlamviec assignments");
         error_log("DEBUG: Found " . count($chitietkehoach_assignments) . " chitietkehoach assignments");
@@ -824,11 +842,6 @@ try {
                                         </p>
                                         <?php endif; ?>
                                     </div>
-                                    <div class="text-end">
-                                        <span class="status-badge status-<?= empty($assignment['TrangThai']) ? 'pending' : strtolower(str_replace(' ', '-', $assignment['TrangThai'])) ?>">
-                                            <?= empty($assignment['TrangThai']) ? 'Chưa bắt đầu' : htmlspecialchars($assignment['TrangThai']) ?>
-                                        </span>
-                                    </div>
                                 </div>
                                 
                                 <!-- Progress Bar -->
@@ -887,7 +900,7 @@ try {
                                 <?php if (empty($assignment['TrangThai']) || $assignment['TrangThai'] == 'Chưa bắt đầu' || $assignment['TrangThai'] == 'Chưa làm'): ?>
                                 <div class="mb-3">
                                     <div class="alert alert-secondary border-secondary">
-                                        <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex justify-content-between align-items-center">
                                             <div>
                                                 <i class="fas fa-clock text-secondary"></i>
                                                 <strong class="text-secondary">CHƯA BẮT ĐẦU</strong>
@@ -902,12 +915,12 @@ try {
                                                     Sử dụng các nút bên dưới để cập nhật trạng thái
                                                 </span>
                                             </div>
-                                        </div>
                                     </div>
+                                </div>
                                 <?php elseif ($assignment['TrangThai'] == 'Đang thực hiện' || $assignment['TrangThai'] == 'Đang làm'): ?>
                                 <div class="mb-3">
                                     <div class="alert alert-warning border-warning status-working">
-                                        <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex justify-content-between align-items-center">
                                             <div>
                                                 <i class="fas fa-play-circle text-warning"></i>
                                                 <strong class="text-warning">ĐANG LÀM VIỆC</strong>
@@ -925,12 +938,6 @@ try {
                                                         echo 'Đang làm việc';
                                                     }
                                                     ?>
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <span class="badge bg-warning text-dark">
-                                                    <i class="fas fa-info-circle"></i> 
-                                                    Sử dụng các nút bên dưới để cập nhật trạng thái
                                                 </span>
                                             </div>
                                         </div>
@@ -994,7 +1001,7 @@ try {
                                             <div>
                                                 <i class="fas fa-check-circle text-success"></i>
                                                 <strong class="text-success">ĐÃ HOÀN THÀNH</strong>
-                                                <?php if (isset($assignment['ChamTienDo']) && $assignment['ChamTienDo']): ?>
+                                        <?php if (isset($assignment['ChamTienDo']) && $assignment['ChamTienDo']): ?>
                                                 <span class="badge bg-warning text-dark ms-2">
                                                     <i class="fas fa-exclamation-triangle"></i> Chậm tiến độ
                                                 </span>
@@ -1002,7 +1009,7 @@ try {
                                                 <span class="badge bg-success text-white ms-2">
                                                     <i class="fas fa-trophy"></i> Đúng hạn
                                                 </span>
-                                                <?php endif; ?>
+                                        <?php endif; ?>
                                             </div>
                                             <div>
                                                 <button class="btn btn-outline-info btn-sm" onclick="viewTaskDetails(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
@@ -1354,12 +1361,12 @@ try {
                         
                         <div class="row">
                             <div class="col-md-6">
-                                <div class="mb-3">
+                        <div class="mb-3">
                                     <label for="finalProgress" class="form-label">
                                         <i class="fas fa-percentage text-success"></i>
                                         Tiến độ cuối cùng (%): <span class="text-danger">*</span>
                                     </label>
-                                    <input type="number" class="form-control" id="finalProgress" name="progress" min="0" max="100" value="100" required>
+                            <input type="number" class="form-control" id="finalProgress" name="progress" min="0" max="100" value="100" required>
                                     <div class="form-text">Nhập phần trăm hoàn thành (thường là 100%)</div>
                                 </div>
                             </div>
@@ -1736,7 +1743,7 @@ try {
 
         function saveStartWork() {
             try {
-                const form = document.getElementById('startWorkForm');
+            const form = document.getElementById('startWorkForm');
                 if (!form) {
                     alert('Không tìm thấy form bắt đầu làm việc');
                     return;
@@ -1750,9 +1757,9 @@ try {
                 console.log('assignmentId:', assignmentId);
                 console.log('sourceTable:', sourceTable);
                 
-                const formData = new FormData(form);
-                formData.append('action', 'start_work');
-                
+            const formData = new FormData(form);
+            formData.append('action', 'start_work');
+            
                 // Debug logs
                 console.log('Form data:');
                 for (let [key, value] of formData.entries()) {
@@ -1760,9 +1767,9 @@ try {
                 }
                 
                 fetch('../src/controllers/staff-schedule.php', {
-                    method: 'POST',
-                    body: formData
-                })
+                method: 'POST',
+                body: formData
+            })
                 .then(response => {
                     console.log('Response status:', response.status);
                     console.log('Response URL:', response.url);
@@ -1774,23 +1781,23 @@ try {
                         const data = JSON.parse(text);
                         console.log('Parsed data:', data);
                         
-                        if (data.success) {
-                            alert('Bắt đầu làm việc thành công');
+                if (data.success) {
+                    alert('Bắt đầu làm việc thành công');
                             bootstrap.Modal.getInstance(document.getElementById('startWorkModal')).hide();
                             
                             // Update UI dynamically without reload
                             console.log('Calling updateTaskStatusAfterStart with:', assignmentId, sourceTable);
                             updateTaskStatusAfterStart(assignmentId, sourceTable);
-                        } else {
-                            alert('Lỗi: ' + data.message);
+                } else {
+                    alert('Lỗi: ' + data.message);
                         }
                     } catch (e) {
                         console.error('JSON parse error:', e);
                         console.error('Raw response was:', text);
                         alert('Lỗi: Không thể phân tích phản hồi từ server');
-                    }
-                })
-                .catch(error => {
+                }
+            })
+            .catch(error => {
                     console.error('Fetch error:', error);
                     alert('Có lỗi xảy ra khi bắt đầu làm việc: ' + error.message);
                 });
@@ -1880,12 +1887,6 @@ try {
                                 <span class="badge bg-warning text-dark ms-2">
                                     <i class="fas fa-clock"></i> 
                                     Bắt đầu làm việc
-                                </span>
-                            </div>
-                            <div>
-                                <span class="badge bg-warning text-dark">
-                                    <i class="fas fa-info-circle"></i> 
-                                    Sử dụng các nút bên dưới để cập nhật trạng thái
                                 </span>
                             </div>
                         </div>
@@ -2071,10 +2072,10 @@ try {
 
         function saveIssueReport() {
             try {
-                const form = document.getElementById('reportIssueForm');
-                const formData = new FormData(form);
-                formData.append('action', 'report_issue');
-                
+            const form = document.getElementById('reportIssueForm');
+            const formData = new FormData(form);
+            formData.append('action', 'report_issue');
+            
                 // Get sourceTable from stored attribute
                 const assignmentIdElement = document.getElementById('issueAssignmentId');
                 const sourceTable = assignmentIdElement.getAttribute('data-source-table') || 'lichlamviec';
@@ -2086,21 +2087,21 @@ try {
                 console.log('note:', formData.get('note'));
                 
                 fetch('../src/controllers/staff-schedule.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Báo sự cố thành công');
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Báo sự cố thành công');
                         bootstrap.Modal.getInstance(document.getElementById('reportIssueModal')).hide();
-                        location.reload();
-                    } else {
-                        alert('Lỗi: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
+                    location.reload();
+                } else {
+                    alert('Lỗi: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
                     alert('Có lỗi xảy ra khi báo sự cố: ' + error.message);
                 });
             } catch (error) {
@@ -2206,36 +2207,9 @@ try {
                         </div>
                     </div>
                     
-                    <div class="col-md-6">
-                        <div class="card mb-3">
-                            <div class="card-header bg-success text-white">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-calendar-check"></i>
-                                    Thông tin sự kiện
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <p><strong>Tên sự kiện:</strong> ${assignment.eventName || 'Không xác định'}</p>
-                                <p><strong>Địa điểm:</strong> ${assignment.location || 'Không xác định'}</p>
-                                <p><strong>Địa chỉ:</strong> ${assignment.address || 'Không xác định'}</p>
-                                <p><strong>Thời gian sự kiện:</strong> ${assignment.eventTime || 'Không xác định'}</p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
                 
                 ${assignment.planContent ? `
-                <div class="card mb-3">
-                    <div class="card-header bg-info text-white">
-                        <h6 class="mb-0">
-                            <i class="fas fa-clipboard-list"></i>
-                            Nội dung kế hoạch
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <p>${assignment.planContent}</p>
-                    </div>
-                </div>
                 ` : ''}
                 
                 <div class="card">

@@ -2396,8 +2396,8 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         
         // View event detail
         function viewEventDetail(eventId) {
-            // Redirect to event detail page or show modal
-            alert('Chức năng xem chi tiết sự kiện sẽ được phát triển!');
+            // Redirect to event detail page
+            window.location.href = `event-detail.php?id=${eventId}`;
         }
         
         // Register for event

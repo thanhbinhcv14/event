@@ -297,6 +297,228 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             transform: translateX(5px);
         }
         
+        /* Service Cards Styles */
+        .service-item-card {
+            background: white;
+            border-radius: 20px;
+            padding: 0;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            border: none;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .service-item-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .service-item-image {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 15px 15px 0 0;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+        
+        .service-item-image:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .service-item-image[src*="default"] {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 2rem;
+        }
+        
+        .service-item-content {
+            padding: 1.5rem;
+        }
+        
+        .service-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            gap: 1rem;
+        }
+        
+        .service-item-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0;
+            line-height: 1.3;
+            flex: 1;
+        }
+        
+        .service-item-type {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .service-item-price {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 0.6rem 1rem;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+            white-space: nowrap;
+            min-width: 120px;
+        }
+        
+        .service-item-description {
+            color: #6c757d;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .service-item-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+        }
+        
+        .service-item-detail {
+            display: flex;
+            align-items: center;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+        
+        .service-item-detail i {
+            color: #6c757d;
+            margin-right: 0.5rem;
+            width: 16px;
+            text-align: center;
+        }
+        
+        .service-item-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid #e9ecef;
+            margin-top: 1rem;
+        }
+        
+        .service-item-capacity {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .service-item-events {
+            color: #6c757d;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .service-item-events i {
+            color: #28a745;
+        }
+        
+        /* Combo specific styles */
+        .combo-equipment-section {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .combo-section-title {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 0.8rem;
+            font-size: 0.95rem;
+        }
+        
+        .combo-section-title i {
+            margin-right: 0.5rem;
+        }
+        
+        .equipment-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .equipment-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.3rem 0;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        
+        .equipment-item i {
+            color: #28a745;
+            font-size: 0.8rem;
+        }
+        
+        /* Combo card specific - no image */
+        .service-item-card:has(.combo-equipment-section) {
+            border-radius: 20px;
+        }
+        
+        /* Tab Styles */
+        .nav-tabs {
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .nav-tabs .nav-link {
+            border: none;
+            color: #666;
+            font-weight: 500;
+            padding: 1rem 2rem;
+            border-radius: 10px 10px 0 0;
+            margin-right: 0.5rem;
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: #667eea;
+            background: white;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .nav-tabs .nav-link:hover {
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
         .dropdown-item i {
             width: 20px;
             text-align: center;
@@ -488,6 +710,72 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         </div>
     </div>
     
+    <!-- Real Services Section -->
+    <div class="container">
+        <div class="row mt-5">
+            <div class="col-12">
+                
+                <!-- Service Tabs -->
+                <ul class="nav nav-tabs justify-content-center mb-4" id="serviceTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="locations-tab" data-bs-toggle="tab" data-bs-target="#locations" type="button" role="tab">
+                            <i class="fas fa-map-marker-alt"></i> Địa điểm
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="equipment-tab" data-bs-toggle="tab" data-bs-target="#equipment" type="button" role="tab">
+                            <i class="fas fa-cogs"></i> Thiết bị
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="combos-tab" data-bs-toggle="tab" data-bs-target="#combos" type="button" role="tab">
+                            <i class="fas fa-box"></i> Combo
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- Tab Content -->
+                <div class="tab-content" id="serviceTabsContent">
+                    <!-- Locations Tab -->
+                    <div class="tab-pane fade show active" id="locations" role="tabpanel">
+                        <div class="row" id="locationsContainer">
+                            <div class="col-12 text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Đang tải danh sách địa điểm...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Equipment Tab -->
+                    <div class="tab-pane fade" id="equipment" role="tabpanel">
+                        <div class="row" id="equipmentContainer">
+                            <div class="col-12 text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Đang tải danh sách thiết bị...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Combos Tab -->
+                    <div class="tab-pane fade" id="combos" role="tabpanel">
+                        <div class="row" id="combosContainer">
+                            <div class="col-12 text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Đang tải danh sách combo...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Services Section -->
     <div class="container">
         <div class="services-container">
@@ -544,40 +832,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                 </div>
                 
                 <!-- Service 4 -->
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="service-card">
-                        <div class="service-icon">
-                            <i class="fas fa-video"></i>
-                        </div>
-                        <h3>Ghi hình sự kiện</h3>
-                        <p>Dịch vụ quay phim và chụp ảnh chuyên nghiệp để lưu giữ những khoảnh khắc đẹp.</p>
-                        <ul class="service-features">
-                            <li>Camera chuyên nghiệp</li>
-                            <li>Quay đa góc</li>
-                            <li>Chỉnh sửa video</li>
-                            <li>Giao hàng nhanh</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <!-- Service 5 -->
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="service-card">
-                        <div class="service-icon">
-                            <i class="fas fa-utensils"></i>
-                        </div>
-                        <h3>Catering</h3>
-                        <p>Dịch vụ ăn uống cao cấp với thực đơn đa dạng phù hợp với mọi sự kiện.</p>
-                        <ul class="service-features">
-                            <li>Thực đơn đa dạng</li>
-                            <li>Đầu bếp chuyên nghiệp</li>
-                            <li>Phục vụ tận nơi</li>
-                            <li>Vệ sinh an toàn</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <!-- Service 6 -->
                 <div class="col-lg-4 col-md-6 mb-4">
                     <div class="service-card">
                         <div class="service-icon">
@@ -687,6 +941,367 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Load services data
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLocations();
+            
+            // Load data when tab is clicked
+            document.getElementById('equipment-tab').addEventListener('click', function() {
+                if (document.getElementById('equipmentContainer').innerHTML.includes('spinner-border')) {
+                    loadEquipment();
+                }
+            });
+            
+            document.getElementById('combos-tab').addEventListener('click', function() {
+                if (document.getElementById('combosContainer').innerHTML.includes('spinner-border')) {
+                    loadCombos();
+                }
+            });
+        });
+        
+        // Load locations
+        function loadLocations() {
+            fetch('src/controllers/services-controller.php?action=get_locations')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayLocations(data.locations);
+                    } else {
+                        document.getElementById('locationsContainer').innerHTML = `
+                            <div class="col-12 text-center">
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    Không thể tải danh sách địa điểm: ${data.message}
+                                </div>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading locations:', error);
+                    document.getElementById('locationsContainer').innerHTML = `
+                        <div class="col-12 text-center">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle"></i>
+                                Lỗi khi tải danh sách địa điểm
+                            </div>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Load equipment
+        function loadEquipment() {
+            fetch('src/controllers/services-controller.php?action=get_equipment')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayEquipment(data.equipment);
+                    } else {
+                        document.getElementById('equipmentContainer').innerHTML = `
+                            <div class="col-12 text-center">
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    Không thể tải danh sách thiết bị: ${data.message}
+                                </div>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading equipment:', error);
+                    document.getElementById('equipmentContainer').innerHTML = `
+                        <div class="col-12 text-center">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle"></i>
+                                Lỗi khi tải danh sách thiết bị
+                            </div>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Load combos
+        function loadCombos() {
+            fetch('src/controllers/services-controller.php?action=get_combos')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayCombos(data.combos);
+                    } else {
+                        document.getElementById('combosContainer').innerHTML = `
+                            <div class="col-12 text-center">
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    Không thể tải danh sách combo: ${data.message}
+                                </div>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading combos:', error);
+                    document.getElementById('combosContainer').innerHTML = `
+                        <div class="col-12 text-center">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle"></i>
+                                Lỗi khi tải danh sách combo
+                            </div>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Display locations
+        function displayLocations(locations) {
+            const container = document.getElementById('locationsContainer');
+            
+            if (!locations || locations.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            Chưa có địa điểm nào được thêm vào hệ thống
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            locations.forEach(location => {
+                const priceText = getLocationPriceText(location);
+                const imagePath = location.HinhAnh ? `img/diadiem/${location.HinhAnh}` : 'img/diadiem/default.php';
+                
+                html += `
+                    <div class="col-lg-6 col-xl-4 mb-4">
+                        <div class="service-item-card">
+                            <img src="${imagePath}" alt="${location.TenDiaDiem}" class="service-item-image" 
+                                 onerror="this.src='img/diadiem/default.php'">
+                            
+                            <div class="service-item-content">
+                                <div class="service-item-header">
+                                    <h3 class="service-item-title">${location.TenDiaDiem}</h3>
+                                    <div class="service-item-type">${location.LoaiDiaDiem}</div>
+                                </div>
+                                
+                                <div class="service-item-description">
+                                    ${location.MoTa || 'Không có mô tả'}
+                                </div>
+                                
+                                <div class="service-item-price">
+                                    ${priceText}
+                                </div>
+                                
+                                <div class="service-item-details">
+                                    <div class="service-item-detail">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                        <span>${location.DiaChi}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="service-item-stats">
+                                    <div class="service-item-capacity">
+                                        <i class="fas fa-users"></i> ${location.SucChua || 'Chưa xác định'} người
+                                    </div>
+                                    <div class="service-item-events">
+                                        <i class="fas fa-calendar-check"></i> ${location.SoSuKienDaToChuc || 0} sự kiện
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Display equipment
+        function displayEquipment(equipment) {
+            const container = document.getElementById('equipmentContainer');
+            
+            if (equipment.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            Chưa có thiết bị nào được thêm vào hệ thống
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            equipment.forEach(item => {
+                const imagePath = item.HinhAnh ? `img/thietbi/${item.HinhAnh}` : 'img/thietbi/default.jpg';
+                const iconClass = getEquipmentIcon(item.LoaiThietBi);
+                const hasImage = item.HinhAnh && item.HinhAnh !== '';
+                
+                html += `
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="service-item-card">
+                            ${hasImage ? 
+                                `<img src="${imagePath}" alt="${item.TenThietBi}" class="service-item-image" 
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : 
+                                ''
+                            }
+                            <div class="service-item-image" style="${hasImage ? 'display: none;' : 'display: flex;'}">
+                                <i class="${iconClass}"></i>
+                            </div>
+                            
+                            <div class="service-item-content">
+                                <div class="service-item-header">
+                                    <h3 class="service-item-title">${item.TenThietBi}</h3>
+                                    <div class="service-item-price">${formatPrice(item.GiaThue)}</div>
+                                </div>
+                                
+                                <div class="service-item-description">
+                                    ${item.MoTa || 'Không có mô tả'}
+                                </div>
+                                
+                                <div class="service-item-details">
+                                    <div class="service-item-detail">
+                                        <i class="${iconClass}"></i> ${item.LoaiThietBi}
+                                    </div>
+                                    <div class="service-item-detail">
+                                        <i class="fas fa-industry"></i> ${item.HangSX || 'Chưa xác định'}
+                                    </div>
+                                    <div class="service-item-detail">
+                                        <i class="fas fa-ruler"></i> ${item.DonViTinh || 'Chưa xác định'}
+                                    </div>
+                                </div>
+                                
+                                <div class="service-item-stats">
+                                    <div class="service-item-capacity">
+                                        <i class="fas fa-chart-line"></i>
+                                        <span>${item.SoLanSuDung || 0} lần sử dụng</span>
+                                    </div>
+                                    <div class="service-item-events">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                        <span>${formatPrice(item.GiaThue)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Display combos
+        function displayCombos(combos) {
+            const container = document.getElementById('combosContainer');
+            
+            if (combos.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            Chưa có combo nào được thêm vào hệ thống
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            combos.forEach(combo => {
+                const iconClass = getComboIcon(combo.TenCombo);
+                const equipmentList = combo.ThietBiTrongCombo ? combo.ThietBiTrongCombo.split(', ') : [];
+                
+                html += `
+                    <div class="col-lg-6 col-md-6 mb-4">
+                        <div class="service-item-card">
+                            <div class="service-item-content">
+                                <div class="service-item-header">
+                                    <h3 class="service-item-title">${combo.TenCombo}</h3>
+                                    <div class="service-item-price">${formatPrice(combo.GiaCombo)}</div>
+                                </div>
+                                
+                                <div class="service-item-description">
+                                    ${combo.MoTa || 'Không có mô tả'}
+                                </div>
+                                
+                                ${equipmentList.length > 0 ? `
+                                <div class="combo-equipment-section">
+                                    <h6 class="combo-section-title">
+                                        <i class="fas fa-list"></i> Thiết bị trong combo:
+                                    </h6>
+                                    <div class="equipment-list">
+                                        ${equipmentList.map(item => `
+                                            <div class="equipment-item">
+                                                <i class="fas fa-check-circle"></i>
+                                                <span>${item}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                ` : ''}
+                                
+                                <div class="service-item-stats">
+                                    <div class="service-item-capacity">
+                                        <i class="fas fa-chart-line"></i>
+                                        <span>${combo.SoLanSuDung || 0} lần sử dụng</span>
+                                    </div>
+                                    <div class="service-item-events">
+                                        <i class="fas fa-star"></i>
+                                        <span>Combo chất lượng</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Helper functions
+        function getEquipmentIcon(equipmentType) {
+            const iconMap = {
+                'Âm thanh': 'fas fa-volume-up',
+                'Hình ảnh': 'fas fa-video',
+                'Ánh sáng': 'fas fa-lightbulb',
+                'Phụ trợ': 'fas fa-tools'
+            };
+            return iconMap[equipmentType] || 'fas fa-cog';
+        }
+        
+        function getComboIcon(comboName) {
+            if (comboName.includes('Hội nghị')) return 'fas fa-users';
+            if (comboName.includes('Tiệc cưới')) return 'fas fa-heart';
+            if (comboName.includes('Triển lãm')) return 'fas fa-store';
+            if (comboName.includes('Sân khấu')) return 'fas fa-music';
+            return 'fas fa-box';
+        }
+        
+        function getLocationPriceText(location) {
+            if (location.LoaiThue === 'Theo giờ' && location.GiaThueGio) {
+                return `${formatPrice(location.GiaThueGio)}/giờ`;
+            }
+            if (location.LoaiThue === 'Theo ngày' && location.GiaThueNgay) {
+                return `${formatPrice(location.GiaThueNgay)}/ngày`;
+            }
+            if (location.LoaiThue === 'Cả hai') {
+                if (location.GiaThueGio && location.GiaThueNgay) {
+                    return `${formatPrice(location.GiaThueGio)}/giờ hoặc ${formatPrice(location.GiaThueNgay)}/ngày`;
+                }
+            }
+            return 'Liên hệ';
+        }
+        
+        function formatPrice(price) {
+            if (!price) return 'Liên hệ';
+            return new Intl.NumberFormat('vi-VN').format(price) + ' VNĐ';
+        }
+    </script>
     
     <!-- Chat Widget - AI Assistant -->
     <?php include 'chat-widget.php'; ?>
