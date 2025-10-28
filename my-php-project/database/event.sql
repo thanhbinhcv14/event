@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 26, 2025 lúc 12:33 PM
+-- Thời gian đã tạo: Th10 28, 2025 lúc 12:49 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -58,6 +58,30 @@ INSERT INTO `chitietdatsukien` (`ID_CT`, `ID_DatLich`, `ID_TB`, `ID_Combo`, `SoL
 (39, 18, NULL, 5, 1, 10000000.00, NULL, '2025-10-26 07:46:26', '2025-10-26 07:46:26'),
 (40, 20, NULL, 1, 1, 7000000.00, 'Combo thiết bị', '2025-10-26 09:18:30', '2025-10-26 09:18:30'),
 (44, 21, NULL, 5, 1, 10000000.00, NULL, '2025-10-26 11:23:55', '2025-10-26 11:23:55');
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `chitietkehoach`
+--
+
+CREATE TABLE `chitietkehoach` (
+  `ID_ChiTiet` int(11) NOT NULL,
+  `ID_KeHoach` int(11) NOT NULL,
+  `TenBuoc` varchar(255) NOT NULL,
+  `MoTa` text DEFAULT NULL,
+  `ID_NhanVien` int(11) DEFAULT NULL,
+  `NgayBatDau` datetime DEFAULT NULL,
+  `NgayKetThuc` datetime DEFAULT NULL,
+  `TrangThai` enum('Chưa làm','Đang làm','Hoàn thành') DEFAULT 'Chưa làm'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `chitietkehoach`
+--
+
+INSERT INTO `chitietkehoach` (`ID_ChiTiet`, `ID_KeHoach`, `TenBuoc`, `MoTa`, `ID_NhanVien`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`) VALUES
+(2, 1, 'Chuẩn bị các thiết bị trong combo', '', NULL, '2025-10-28 08:00:00', '2025-10-28 17:00:00', '');
 
 -- --------------------------------------------------------
 
@@ -373,16 +397,23 @@ INSERT INTO `diadiem_loaisk` (`ID_DD`, `ID_LoaiSK`) VALUES
 --
 
 CREATE TABLE `kehoachthuchien` (
-  `id_kehoach` int(11) NOT NULL,
-  `id_sukien` int(11) NOT NULL,
-  `ten_kehoach` varchar(255) NOT NULL,
-  `noidung` text DEFAULT NULL,
-  `ngay_batdau` date NOT NULL,
-  `ngay_ketthuc` date NOT NULL,
-  `trangthai` enum('Chưa bắt đầu','Đang thực hiện','Hoàn thành') DEFAULT 'Chưa bắt đầu',
-  `id_nhanvien` int(11) DEFAULT NULL,
-  `ngay_tao` datetime DEFAULT current_timestamp()
+  `ID_KeHoach` int(11) NOT NULL,
+  `ID_SuKien` int(11) NOT NULL,
+  `TenKeHoach` varchar(255) NOT NULL,
+  `NoiDung` text DEFAULT NULL,
+  `NgayBatDau` datetime NOT NULL,
+  `NgayKetThuc` datetime NOT NULL,
+  `TrangThai` enum('Chưa bắt đầu','Đang thực hiện','Hoàn thành') DEFAULT 'Chưa bắt đầu',
+  `ID_NhanVien` int(11) DEFAULT NULL,
+  `NgayTao` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `kehoachthuchien`
+--
+
+INSERT INTO `kehoachthuchien` (`ID_KeHoach`, `ID_SuKien`, `TenKeHoach`, `NoiDung`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `ID_NhanVien`, `NgayTao`) VALUES
+(1, 11, 'Thực hiện tiệc sinh nhật', 'Làm theo note khách', '2025-10-28 00:00:00', '2025-10-29 00:00:00', 'Chưa bắt đầu', 7, '2025-10-28 18:28:34');
 
 -- --------------------------------------------------------
 
@@ -428,19 +459,12 @@ CREATE TABLE `lichlamviec` (
   `GhiChu` text DEFAULT NULL,
   `NgayTao` timestamp NOT NULL DEFAULT current_timestamp(),
   `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `id_kehoach` int(11) DEFAULT NULL,
-  `congviec` varchar(255) DEFAULT NULL,
-  `han_hoanthanh` date DEFAULT NULL,
-  `tiendo` varchar(50) DEFAULT '0%'
+  `ID_KeHoach` int(11) DEFAULT NULL,
+  `ID_ChiTiet` int(11) NOT NULL,
+  `CongViec` varchar(255) DEFAULT NULL,
+  `ThoiGianHoanThanh` datetime DEFAULT NULL,
+  `TienDo` varchar(50) DEFAULT '0%'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Đang đổ dữ liệu cho bảng `lichlamviec`
---
-
-INSERT INTO `lichlamviec` (`ID_LLV`, `ID_DatLich`, `ID_NhanVien`, `NhiemVu`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `GhiChu`, `NgayTao`, `NgayCapNhat`, `id_kehoach`, `congviec`, `han_hoanthanh`, `tiendo`) VALUES
-(1, 2, 3, 'Chuẩn bị và setup thiết bị cho sự kiện', '2024-01-15 00:00:00', '2024-01-16 00:00:00', '', 'Cần chuẩn bị đầy đủ thiết bị âm thanh và ánh sáng', '2025-10-11 22:22:02', '2025-10-11 22:22:02', NULL, NULL, NULL, '0%'),
-(2, 6, 4, 'Quản lý và điều phối sự kiện', '2024-01-20 00:00:00', '2024-01-21 00:00:00', '', 'Đảm bảo sự kiện diễn ra suôn sẻ', '2025-10-11 22:22:02', '2025-10-11 22:22:02', NULL, NULL, NULL, '0%');
 
 -- --------------------------------------------------------
 
@@ -641,32 +665,6 @@ INSERT INTO `sukien` (`ID_SuKien`, `ID_DatLich`, `MaSuKien`, `TenSuKien`, `NgayB
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `sukien_combo`
---
-
-CREATE TABLE `sukien_combo` (
-  `ID_SuKien` int(11) NOT NULL,
-  `ID_Combo` int(11) NOT NULL,
-  `SoLuong` int(11) DEFAULT 1,
-  `GhiChu` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Cấu trúc bảng cho bảng `sukien_thietbi`
---
-
-CREATE TABLE `sukien_thietbi` (
-  `ID_SuKien` int(11) NOT NULL,
-  `ID_TB` int(11) NOT NULL,
-  `SoLuong` int(11) DEFAULT 1,
-  `GhiChu` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Cấu trúc bảng cho bảng `thanhtoan`
 --
 
@@ -757,7 +755,7 @@ INSERT INTO `users` (`ID_User`, `Email`, `Password`, `FacebookID`, `GoogleID`, `
 (39, 'nhanvien1@gmail.com', '$2y$10$aFB3cdypIGWJPW343j4vSOP82d5lc.y4FG0QjqTqZu7RIKeb25GIC', NULL, NULL, 4, 'Hoạt động', '2025-09-24 02:11:39', '2025-10-26 06:39:06', 'Offline', '2025-10-26 04:31:16'),
 (96, 'nhanvien2@gmail.com', '$2y$10$skx3dLcoSSUAt7SNyPDF5u8TNfIVSWGIhvoP6sN22F7LOu7JONQ9q', NULL, NULL, 4, 'Hoạt động', '2025-09-24 10:28:06', '2025-09-24 10:28:06', 'Offline', NULL),
 (118, 'khachhang1@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-24 18:57:20', '2025-10-12 16:20:30', 'Offline', NULL),
-(119, 'qltc1@gmail.com', '$2y$10$FCLKvilsBjF2A6exn53/OOM9xDm7LffPSZSQhga7Oj4OUYpyyUXYe', NULL, NULL, 2, 'Hoạt động', '2025-09-24 19:17:28', '2025-10-09 02:13:16', 'Offline', NULL),
+(119, 'qltc1@gmail.com', '$2y$10$FCLKvilsBjF2A6exn53/OOM9xDm7LffPSZSQhga7Oj4OUYpyyUXYe', NULL, NULL, 2, 'Hoạt động', '2025-09-24 19:17:28', '2025-10-28 11:21:00', 'Online', '2025-10-28 11:21:00'),
 (124, 'thaoanh@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-25 02:09:32', '2025-10-09 03:12:13', 'Offline', NULL),
 (129, 'thanhbinhcv14@gmail.com', '$2y$10$1vfLe/IHU2NCclc2S9sqq.7nQwDpwD/rFfXa.Pe72mg9hu5yDyzRu', NULL, NULL, 2, 'Hoạt động', '2025-10-25 09:07:59', '2025-10-26 07:59:55', 'Online', '2025-10-26 07:59:55'),
 (130, 'nam', '$2y$10$ECe7qP2VhD2pcLBsGS6FH.WZHEFCNxftLX5LyEVtlTiFdXbxod9D2', NULL, NULL, 5, 'Hoạt động', '2025-10-26 01:27:44', '2025-10-26 01:27:44', 'Offline', NULL);
@@ -790,6 +788,14 @@ ALTER TABLE `chitietdatsukien`
   ADD KEY `fk_ct_dl` (`ID_DatLich`),
   ADD KEY `fk_ct_tb` (`ID_TB`),
   ADD KEY `fk_ct_combo` (`ID_Combo`);
+
+--
+-- Chỉ mục cho bảng `chitietkehoach`
+--
+ALTER TABLE `chitietkehoach`
+  ADD PRIMARY KEY (`ID_ChiTiet`),
+  ADD KEY `ID_KeHoach` (`ID_KeHoach`),
+  ADD KEY `ID_NhanVien` (`ID_NhanVien`);
 
 --
 -- Chỉ mục cho bảng `combo`
@@ -862,9 +868,9 @@ ALTER TABLE `diadiem_loaisk`
 -- Chỉ mục cho bảng `kehoachthuchien`
 --
 ALTER TABLE `kehoachthuchien`
-  ADD PRIMARY KEY (`id_kehoach`),
-  ADD KEY `id_sukien` (`id_sukien`),
-  ADD KEY `id_nhanvien` (`id_nhanvien`);
+  ADD PRIMARY KEY (`ID_KeHoach`),
+  ADD KEY `id_sukien` (`ID_SuKien`),
+  ADD KEY `id_nhanvien` (`ID_NhanVien`);
 
 --
 -- Chỉ mục cho bảng `khachhanginfo`
@@ -880,7 +886,8 @@ ALTER TABLE `lichlamviec`
   ADD PRIMARY KEY (`ID_LLV`),
   ADD KEY `fk_llv_datlich` (`ID_DatLich`),
   ADD KEY `fk_llv_nhanvien` (`ID_NhanVien`),
-  ADD KEY `id_kehoach` (`id_kehoach`);
+  ADD KEY `id_kehoach` (`ID_KeHoach`),
+  ADD KEY `fk_llv_ct` (`ID_ChiTiet`);
 
 --
 -- Chỉ mục cho bảng `loaisukien`
@@ -934,20 +941,6 @@ ALTER TABLE `sukien`
   ADD KEY `fk_sukien_datlich` (`ID_DatLich`);
 
 --
--- Chỉ mục cho bảng `sukien_combo`
---
-ALTER TABLE `sukien_combo`
-  ADD PRIMARY KEY (`ID_SuKien`,`ID_Combo`),
-  ADD KEY `ID_Combo` (`ID_Combo`);
-
---
--- Chỉ mục cho bảng `sukien_thietbi`
---
-ALTER TABLE `sukien_thietbi`
-  ADD PRIMARY KEY (`ID_SuKien`,`ID_TB`),
-  ADD KEY `ID_TB` (`ID_TB`);
-
---
 -- Chỉ mục cho bảng `thanhtoan`
 --
 ALTER TABLE `thanhtoan`
@@ -988,6 +981,12 @@ ALTER TABLE `chitietdatsukien`
   MODIFY `ID_CT` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
 
 --
+-- AUTO_INCREMENT cho bảng `chitietkehoach`
+--
+ALTER TABLE `chitietkehoach`
+  MODIFY `ID_ChiTiet` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
 -- AUTO_INCREMENT cho bảng `combo`
 --
 ALTER TABLE `combo`
@@ -1021,7 +1020,7 @@ ALTER TABLE `diadiem`
 -- AUTO_INCREMENT cho bảng `kehoachthuchien`
 --
 ALTER TABLE `kehoachthuchien`
-  MODIFY `id_kehoach` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_KeHoach` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT cho bảng `khachhanginfo`
@@ -1114,6 +1113,13 @@ ALTER TABLE `chitietdatsukien`
   ADD CONSTRAINT `fk_ct_tb` FOREIGN KEY (`ID_TB`) REFERENCES `thietbi` (`ID_TB`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
+-- Các ràng buộc cho bảng `chitietkehoach`
+--
+ALTER TABLE `chitietkehoach`
+  ADD CONSTRAINT `chitietkehoach_ibfk_1` FOREIGN KEY (`ID_KeHoach`) REFERENCES `kehoachthuchien` (`ID_KeHoach`) ON DELETE CASCADE,
+  ADD CONSTRAINT `chitietkehoach_ibfk_2` FOREIGN KEY (`ID_NhanVien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`);
+
+--
 -- Các ràng buộc cho bảng `combochitiet`
 --
 ALTER TABLE `combochitiet`
@@ -1154,8 +1160,8 @@ ALTER TABLE `datlichsukien`
 -- Các ràng buộc cho bảng `kehoachthuchien`
 --
 ALTER TABLE `kehoachthuchien`
-  ADD CONSTRAINT `kehoachthuchien_ibfk_1` FOREIGN KEY (`id_sukien`) REFERENCES `sukien` (`ID_SuKien`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `kehoachthuchien_ibfk_2` FOREIGN KEY (`id_nhanvien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE SET NULL ON UPDATE CASCADE;
+  ADD CONSTRAINT `kehoachthuchien_ibfk_1` FOREIGN KEY (`ID_SuKien`) REFERENCES `sukien` (`ID_SuKien`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `kehoachthuchien_ibfk_2` FOREIGN KEY (`ID_NhanVien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `khachhanginfo`
@@ -1167,9 +1173,10 @@ ALTER TABLE `khachhanginfo`
 -- Các ràng buộc cho bảng `lichlamviec`
 --
 ALTER TABLE `lichlamviec`
+  ADD CONSTRAINT `fk_llv_ct` FOREIGN KEY (`ID_ChiTiet`) REFERENCES `chitietkehoach` (`ID_ChiTiet`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_llv_datlich` FOREIGN KEY (`ID_DatLich`) REFERENCES `datlichsukien` (`ID_DatLich`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_llv_nhanvien` FOREIGN KEY (`ID_NhanVien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `lichlamviec_ibfk_1` FOREIGN KEY (`id_kehoach`) REFERENCES `kehoachthuchien` (`id_kehoach`) ON DELETE SET NULL ON UPDATE CASCADE;
+  ADD CONSTRAINT `lichlamviec_ibfk_1` FOREIGN KEY (`id_kehoach`) REFERENCES `kehoachthuchien` (`ID_KeHoach`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `messages`
@@ -1195,20 +1202,6 @@ ALTER TABLE `payment_history`
 --
 ALTER TABLE `sukien`
   ADD CONSTRAINT `fk_sukien_datlich` FOREIGN KEY (`ID_DatLich`) REFERENCES `datlichsukien` (`ID_DatLich`) ON DELETE CASCADE ON UPDATE CASCADE;
-
---
--- Các ràng buộc cho bảng `sukien_combo`
---
-ALTER TABLE `sukien_combo`
-  ADD CONSTRAINT `sukien_combo_ibfk_1` FOREIGN KEY (`ID_SuKien`) REFERENCES `sukien` (`ID_SuKien`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `sukien_combo_ibfk_2` FOREIGN KEY (`ID_Combo`) REFERENCES `combo` (`ID_Combo`) ON DELETE CASCADE ON UPDATE CASCADE;
-
---
--- Các ràng buộc cho bảng `sukien_thietbi`
---
-ALTER TABLE `sukien_thietbi`
-  ADD CONSTRAINT `sukien_thietbi_ibfk_1` FOREIGN KEY (`ID_SuKien`) REFERENCES `sukien` (`ID_SuKien`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `sukien_thietbi_ibfk_2` FOREIGN KEY (`ID_TB`) REFERENCES `thietbi` (`ID_TB`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `thanhtoan`

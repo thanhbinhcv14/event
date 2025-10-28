@@ -57,14 +57,14 @@ try {
             COALESCE(dl.NgayKetThuc, llv.NgayKetThuc) as EventEndDate,
             COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
             COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
-            COALESCE(kht.ten_kehoach, llv.NhiemVu) as ten_kehoach,
-            COALESCE(kht.noidung, llv.GhiChu) as kehoach_noidung,
-            COALESCE(kht.trangthai, llv.TrangThai) as kehoach_trangthai,
+            COALESCE(kht.TenKeHoach, llv.NhiemVu) as ten_kehoach,
+            COALESCE(kht.NoiDung, llv.GhiChu) as kehoach_noidung,
+            COALESCE(kht.TrangThai, llv.TrangThai) as kehoach_trangthai,
             'lichlamviec' as source_table
         FROM lichlamviec llv
         LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
         LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-        LEFT JOIN kehoachthuchien kht ON llv.id_kehoach = kht.id_kehoach
+        LEFT JOIN kehoachthuchien kht ON llv.ID_KeHoach = kht.ID_KeHoach
         WHERE llv.ID_NhanVien = ?
         ORDER BY llv.NgayBatDau ASC
     ");
@@ -94,13 +94,13 @@ try {
             COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
             COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
             COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
-            COALESCE(kht.ten_kehoach, ck.TenBuoc) as ten_kehoach,
-            COALESCE(kht.noidung, ck.MoTa) as kehoach_noidung,
-            COALESCE(kht.trangthai, ck.TrangThai) as kehoach_trangthai,
+            COALESCE(kht.TenKeHoach, ck.TenBuoc) as ten_kehoach,
+            COALESCE(kht.NoiDung, ck.MoTa) as kehoach_noidung,
+            COALESCE(kht.TrangThai, ck.TrangThai) as kehoach_trangthai,
             'chitietkehoach' as source_table
         FROM chitietkehoach ck
-        LEFT JOIN kehoachthuchien kht ON ck.id_kehoach = kht.id_kehoach
-        LEFT JOIN sukien s ON kht.id_sukien = s.ID_SuKien
+        LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
+        LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
         LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
         LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
         WHERE ck.ID_NhanVien = ?

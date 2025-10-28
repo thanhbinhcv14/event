@@ -13,13 +13,13 @@ try {
     $pdo = getDBConnection();
     $stmt = $pdo->query("
         SELECT 
-            kht.id_kehoach,
-            kht.ten_kehoach,
-            kht.noidung,
-            kht.ngay_batdau,
-            kht.ngay_ketthuc,
-            kht.trangthai,
-            kht.id_nhanvien,
+            kht.ID_KeHoach,
+            kht.TenKeHoach,
+            kht.NoiDung,
+            kht.NgayBatDau,
+            kht.NgayKetThuc,
+            kht.TrangThai,
+            kht.ID_NhanVien,
             nv.HoTen AS TenNhanVien,
             nv.ChucVu,
             nv.SoDienThoai,
@@ -29,12 +29,12 @@ try {
             dd.DiaChi,
             s.ID_SuKien
         FROM kehoachthuchien kht
-        LEFT JOIN nhanvieninfo nv ON kht.id_nhanvien = nv.ID_NhanVien
+        LEFT JOIN nhanvieninfo nv ON kht.ID_NhanVien = nv.ID_NhanVien
         LEFT JOIN users u ON nv.ID_User = u.ID_User
-        LEFT JOIN sukien s ON kht.id_sukien = s.ID_SuKien
+        LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
         LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
         LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-        ORDER BY kht.ngay_batdau ASC
+        ORDER BY kht.NgayBatDau ASC
     ");
     $plans = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
@@ -192,7 +192,7 @@ try {
                     <div class="col-md-3">
                         <div class="card text-center">
                             <div class="card-body">
-                                <h3 class="text-success"><?= count(array_filter($plans, function($p) { return !empty($p['id_nhanvien']); })) ?></h3>
+                                <h3 class="text-success"><?= count(array_filter($plans, function($p) { return !empty($p['ID_NhanVien']); })) ?></h3>
                                 <p class="text-muted mb-0">Đã phân công</p>
                             </div>
                         </div>
@@ -200,7 +200,7 @@ try {
                     <div class="col-md-3">
                         <div class="card text-center">
                             <div class="card-body">
-                                <h3 class="text-warning"><?= count(array_filter($plans, function($p) { return empty($p['id_nhanvien']); })) ?></h3>
+                                <h3 class="text-warning"><?= count(array_filter($plans, function($p) { return empty($p['ID_NhanVien']); })) ?></h3>
                                 <p class="text-muted mb-0">Chưa phân công</p>
                             </div>
                         </div>
@@ -227,8 +227,8 @@ try {
                                 </h5>
                                 <p class="mb-1">
                                     <i class="fas fa-calendar"></i>
-                                    <?= date('d/m/Y', strtotime($plan['ngay_batdau'])) ?> - 
-                                    <?= date('d/m/Y', strtotime($plan['ngay_ketthuc'])) ?>
+                                    <?= date('d/m/Y', strtotime($plan['NgayBatDau'])) ?> - 
+                                    <?= date('d/m/Y', strtotime($plan['NgayKetThuc'])) ?>
                                 </p>
                                 <?php if ($plan['TenSuKien']): ?>
                                 <p class="mb-0">
@@ -240,7 +240,7 @@ try {
                             
                             <div class="card-body">
                                 <div class="mb-3">
-                                    <p class="text-muted"><?= htmlspecialchars($plan['noidung']) ?></p>
+                                    <p class="text-muted"><?= htmlspecialchars($plan['NoiDung']) ?></p>
                 </div>
                 
                                 <?php if ($plan['TenDiaDiem']): ?>
@@ -254,14 +254,14 @@ try {
                                 <?php endif; ?>
                                 
                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <span class="status-badge status-<?= strtolower(str_replace(' ', '-', $plan['trangthai'])) ?>">
-                                        <?= htmlspecialchars($plan['trangthai']) ?>
+                                    <span class="status-badge status-<?= strtolower(str_replace(' ', '-', $plan['TrangThai'])) ?>">
+                                        <?= htmlspecialchars($plan['TrangThai']) ?>
                                     </span>
                         </div>
                         
                                 <!-- Staff Assignment -->
-                                <div class="staff-info <?= $plan['id_nhanvien'] ? 'staff-assigned' : 'staff-unassigned' ?>">
-                                    <?php if ($plan['id_nhanvien']): ?>
+                                <div class="staff-info <?= $plan['ID_NhanVien'] ? 'staff-assigned' : 'staff-unassigned' ?>">
+                                    <?php if ($plan['ID_NhanVien']): ?>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div>
                                             <h6 class="mb-1">
@@ -278,7 +278,7 @@ try {
                                             </p>
                                         </div>
                                         <div class="text-end">
-                                            <button class="btn btn-outline-danger btn-sm" onclick="removeAssignment(<?= $plan['id_kehoach'] ?>)">
+                                            <button class="btn btn-outline-danger btn-sm" onclick="removeAssignment(<?= $plan['ID_KeHoach'] ?>)">
                                                 <i class="fas fa-times"></i>
                                             </button>
                                         </div>
@@ -286,7 +286,7 @@ try {
                                     <?php else: ?>
                                     <div class="text-center">
                                         <p class="mb-2 text-muted">Chưa phân công nhân viên</p>
-                                        <button class="btn btn-primary btn-sm" onclick="assignStaff(<?= $plan['id_kehoach'] ?>)">
+                                        <button class="btn btn-primary btn-sm" onclick="assignStaff(<?= $plan['ID_KeHoach'] ?>)">
                                             <i class="fas fa-user-plus"></i>
                                             Phân công
                                         </button>

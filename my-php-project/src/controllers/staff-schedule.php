@@ -156,8 +156,8 @@ function getAssignments() {
                        COALESCE(kh.SoDienThoai, 'Không xác định') as SoDienThoai,
                        'chitietkehoach' as source_table
                    FROM chitietkehoach ck
-                   LEFT JOIN kehoachthuchien kht ON ck.id_kehoach = kht.id_kehoach
-                   LEFT JOIN sukien s ON kht.id_sukien = s.ID_SuKien
+                   LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
+                   LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
                    LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
                    LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
                    LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
@@ -550,8 +550,8 @@ function getEventDetails() {
             $stmt = $pdo->prepare("
                 SELECT dl.ID_DatLich 
                 FROM chitietkehoach ck
-                LEFT JOIN kehoachthuchien kht ON ck.id_kehoach = kht.id_kehoach
-                LEFT JOIN sukien s ON kht.id_sukien = s.ID_SuKien
+                LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
+                LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
                 LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
                 WHERE ck.ID_ChiTiet = ?
             ");

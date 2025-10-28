@@ -13,23 +13,23 @@ try {
     $pdo = getDBConnection();
     $stmt = $pdo->query("
         SELECT 
-            kht.id_kehoach,
-            kht.id_sukien,
-            kht.ten_kehoach,
+            kht.ID_KeHoach,
+            kht.ID_SuKien,
+            kht.TenKeHoach,
             kht.NoiDung,
-            kht.ngay_batdau,
-            kht.ngay_ketthuc,
-            kht.trangthai,
+            kht.NgayBatDau,
+            kht.NgayKetThuc,
+            kht.TrangThai,
             kht.LoaiKeHoach,
             kht.TongSoBuoc,
             kht.SoBuocHoanThanh,
             kht.ID_NhanVien,
-            kht.ngay_tao,
+            kht.NgayTao,
             nv.HoTen AS TenNhanVien,
             dl.TenSuKien
         FROM kehoachthuchien kht
         LEFT JOIN nhanvieninfo nv ON kht.ID_NhanVien = nv.ID_NhanVien
-        LEFT JOIN sukien s ON kht.id_sukien = s.ID_SuKien
+        LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
         LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
         ORDER BY kht.ngay_tao DESC
     ");
@@ -370,7 +370,7 @@ try {
                     <div class="col-md-3">
                         <div class="card text-center">
                             <div class="card-body">
-                                <h3 class="text-success"><?= count(array_filter($plans, function($p) { return $p['trangthai'] == 'Hoàn thành'; })) ?></h3>
+                                <h3 class="text-success"><?= count(array_filter($plans, function($p) { return $p['TrangThai'] == 'Hoàn thành'; })) ?></h3>
                                 <p class="text-muted mb-0">Hoàn thành</p>
                             </div>
                         </div>
@@ -378,7 +378,7 @@ try {
                     <div class="col-md-3">
                         <div class="card text-center">
                             <div class="card-body">
-                                <h3 class="text-warning"><?= count(array_filter($plans, function($p) { return $p['trangthai'] == 'Đang thực hiện'; })) ?></h3>
+                                <h3 class="text-warning"><?= count(array_filter($plans, function($p) { return $p['TrangThai'] == 'Đang thực hiện'; })) ?></h3>
                                 <p class="text-muted mb-0">Đang thực hiện</p>
                             </div>
                         </div>
@@ -386,7 +386,7 @@ try {
                     <div class="col-md-3">
                         <div class="card text-center">
                             <div class="card-body">
-                                <h3 class="text-info"><?= count(array_filter($plans, function($p) { return $p['trangthai'] == 'Chưa bắt đầu'; })) ?></h3>
+                                <h3 class="text-info"><?= count(array_filter($plans, function($p) { return $p['TrangThai'] == 'Chưa bắt đầu'; })) ?></h3>
                                 <p class="text-muted mb-0">Chưa bắt đầu</p>
                             </div>
                         </div>
@@ -421,7 +421,7 @@ try {
                                 <tbody>
                                     <?php foreach ($plans as $plan): ?>
                                     <tr>
-                                        <td><?= $plan['id_kehoach'] ?></td>
+                                        <td><?= $plan['ID_KeHoach'] ?></td>
                                         <td>
                                             <strong><?= htmlspecialchars($plan['ten_kehoach']) ?></strong>
                                             <?php if ($plan['TenSuKien']): ?>
@@ -429,11 +429,11 @@ try {
                                             <?php endif; ?>
                                         </td>
                                         <td><?= htmlspecialchars(substr($plan['NoiDung'], 0, 50)) ?><?= strlen($plan['NoiDung']) > 50 ? '...' : '' ?></td>
-                                        <td><?= date('d/m/Y', strtotime($plan['ngay_batdau'])) ?></td>
-                                        <td><?= date('d/m/Y', strtotime($plan['ngay_ketthuc'])) ?></td>
+                                        <td><?= date('d/m/Y', strtotime($plan['NgayBatDau'])) ?></td>
+                                        <td><?= date('d/m/Y', strtotime($plan['NgayKetThuc'])) ?></td>
                                         <td>
-                                            <span class="status-badge status-<?= strtolower(str_replace(' ', '-', $plan['trangthai'])) ?>">
-                                                <?= htmlspecialchars($plan['trangthai']) ?>
+                                            <span class="status-badge status-<?= strtolower(str_replace(' ', '-', $plan['TrangThai'])) ?>">
+                                                <?= htmlspecialchars($plan['TrangThai']) ?>
                                             </span>
                                         </td>
                                         <td><?= htmlspecialchars($plan['LoaiKeHoach']) ?></td>
@@ -447,16 +447,16 @@ try {
                                         <td><?= date('d/m/Y H:i', strtotime($plan['ngay_tao'])) ?></td>
                                         <td>
                                             <div class="action-buttons">
-                                                <button class="btn btn-warning btn-sm" onclick="editPlan(<?= $plan['id_kehoach'] ?>)" title="Chỉnh sửa">
+                                                <button class="btn btn-warning btn-sm" onclick="editPlan(<?= $plan['ID_KeHoach'] ?>)" title="Chỉnh sửa">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
-                                                <button class="btn btn-info btn-sm" onclick="viewPlan(<?= $plan['id_kehoach'] ?>)" title="Xem chi tiết">
+                                                <button class="btn btn-info btn-sm" onclick="viewPlan(<?= $plan['ID_KeHoach'] ?>)" title="Xem chi tiết">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
-                                                <button class="btn btn-success btn-sm" onclick="manageSteps(<?= $plan['id_kehoach'] ?>, '<?= htmlspecialchars($plan['ten_kehoach']) ?>')" title="Quản lý bước">
+                                                <button class="btn btn-success btn-sm" onclick="manageSteps(<?= $plan['ID_KeHoach'] ?>, '<?= htmlspecialchars($plan['ten_kehoach']) ?>')" title="Quản lý bước">
                                                     <i class="fas fa-cogs"></i>
                                                 </button>
-                                                <button class="btn btn-danger btn-sm" onclick="deletePlan(<?= $plan['id_kehoach'] ?>)" title="Xóa">
+                                                <button class="btn btn-danger btn-sm" onclick="deletePlan(<?= $plan['ID_KeHoach'] ?>)" title="Xóa">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
@@ -641,6 +641,73 @@ try {
         </div>
     </div>
 
+    <!-- Edit Step Modal -->
+    <div class="modal fade" id="editStepModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit"></i> Chỉnh sửa bước thực hiện
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editStepForm">
+                        <input type="hidden" id="editStepId" name="stepId">
+                        
+                        <div class="mb-3">
+                            <label for="editStepName" class="form-label">Tên bước *</label>
+                            <input type="text" class="form-control" id="editStepName" name="stepName" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="editStepDescription" class="form-label">Mô tả chi tiết</label>
+                            <textarea class="form-control" id="editStepDescription" name="stepDescription" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="editStepStartDate" class="form-label">Ngày bắt đầu *</label>
+                                <input type="date" class="form-control" id="editStepStartDate" name="stepStartDate" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editStepStartTime" class="form-label">Giờ bắt đầu *</label>
+                                <input type="time" class="form-control" id="editStepStartTime" name="stepStartTime" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="editStepEndDate" class="form-label">Ngày kết thúc *</label>
+                                <input type="date" class="form-control" id="editStepEndDate" name="stepEndDate" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editStepEndTime" class="form-label">Giờ kết thúc *</label>
+                                <input type="time" class="form-control" id="editStepEndTime" name="stepEndTime" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="editStepStaff" class="form-label">Nhân viên phụ trách</label>
+                            <select class="form-select" id="editStepStaff" name="stepStaff">
+                                <option value="">Chọn nhân viên</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="editStepNote" class="form-label">Ghi chú</label>
+                            <textarea class="form-control" id="editStepNote" name="stepNote" rows="2"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-primary" onclick="submitEditStep()">Lưu thay đổi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
@@ -701,14 +768,14 @@ try {
                         }
                         
                         // Fill form
-                        editPlanId.value = plan.id_kehoach;
+                        editPlanId.value = plan.ID_KeHoach;
                         editPlanName.value = plan.ten_kehoach || '';
-                        editPlanContent.value = plan.noidung || '';
-                        editStartDate.value = plan.ngay_batdau ? plan.ngay_batdau.split(' ')[0] : '';
-                        editEndDate.value = plan.ngay_ketthuc ? plan.ngay_ketthuc.split(' ')[0] : '';
-                        editStatus.value = plan.trangthai || 'Chưa bắt đầu';
+                        editPlanContent.value = plan.NoiDung || '';
+                        editStartDate.value = plan.NgayBatDau ? plan.NgayBatDau.split(' ')[0] : '';
+                        editEndDate.value = plan.NgayKetThuc ? plan.NgayKetThuc.split(' ')[0] : '';
+                        editStatus.value = plan.TrangThai || 'Chưa bắt đầu';
                         editPlanType.value = plan.LoaiKeHoach || 'Đơn giản';
-                        editStaff.value = plan.id_nhanvien || '';
+                        editStaff.value = plan.ID_NhanVien || '';
                         
                         console.log('Form filled successfully');
                         
@@ -896,28 +963,88 @@ try {
                             html += `
                                 <div class="timeline-item">
                                     <div class="card mb-3">
+                                        <div class="card-header bg-light">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0">
+                                                    <span class="badge bg-primary me-2">Bước ${index + 1}</span>
+                                                    ${step.TenBuoc}
+                                                </h6>
+                                                <span class="badge bg-${statusClass}">${step.TrangThai}</span>
+                                            </div>
+                                        </div>
                                         <div class="card-body">
-                                            <div class="d-flex justify-content-between align-items-start">
-                                                <div>
-                                                    <h6>Bước ${index + 1}: ${step.TenBuoc}</h6>
-                                                    <p class="text-muted">${step.MoTa}</p>
-                                                    <small class="text-muted">
-                                                        <i class="fas fa-calendar"></i>
-                                                        ${new Date(step.NgayBatDau).toLocaleDateString('vi-VN')} - 
-                                                        ${new Date(step.NgayKetThuc).toLocaleDateString('vi-VN')}
-                                                    </small>
-                                                    ${step.TenNhanVien ? `<br><small class="text-muted"><i class="fas fa-user"></i> ${step.TenNhanVien}</small>` : ''}
-                                                    ${step.GhiChu ? `<br><small class="text-muted"><i class="fas fa-sticky-note"></i> ${step.GhiChu}</small>` : ''}
+                                            <div class="row">
+                                                <div class="col-md-8">
+                                                    ${step.MoTa ? `
+                                                    <div class="mb-3">
+                                                        <h6 class="text-primary"><i class="fas fa-info-circle"></i> Mô tả chi tiết</h6>
+                                                        <p class="text-muted">${step.MoTa}</p>
+                                                    </div>
+                                                    ` : ''}
+                                                    
+                                                    <div class="row mb-3">
+                                                        <div class="col-md-6">
+                                                            <h6 class="text-success"><i class="fas fa-calendar-alt"></i> Thời gian thực hiện</h6>
+                                                            <p class="mb-1">
+                                                                <strong>Bắt đầu:</strong> ${new Date(step.NgayBatDau).toLocaleString('vi-VN')}
+                                                            </p>
+                                                            <p class="mb-0">
+                                                                <strong>Kết thúc:</strong> ${new Date(step.NgayKetThuc).toLocaleString('vi-VN')}
+                                                            </p>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <h6 class="text-info"><i class="fas fa-user-tie"></i> Thông tin nhân viên</h6>
+                                                            ${step.TenNhanVien ? `
+                                                            <p class="mb-1">
+                                                                <strong>Người phụ trách:</strong> ${step.TenNhanVien}
+                                                            </p>
+                                                            ` : '<p class="text-muted">Chưa phân công nhân viên</p>'}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    ${step.GhiChu ? `
+                                                    <div class="mb-3">
+                                                        <h6 class="text-warning"><i class="fas fa-sticky-note"></i> Ghi chú</h6>
+                                                        <div class="alert alert-light">
+                                                            <p class="mb-0">${step.GhiChu}</p>
+                                                        </div>
+                                                    </div>
+                                                    ` : ''}
+                                                    
+                                                    <div class="mb-3">
+                                                        <h6 class="text-secondary"><i class="fas fa-info"></i> Thông tin bổ sung</h6>
+                                                        <div class="row">
+                                                            <div class="col-md-6">
+                                                                <small class="text-muted">
+                                                                    <strong>ID Bước:</strong> ${step.ID_ChiTiet}
+                                                                </small>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <small class="text-muted">
+                                                                    <strong>ID Kế hoạch:</strong> ${step.ID_KeHoach}
+                                                                </small>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div class="text-end">
-                                                    <span class="badge bg-${statusClass}">${step.TrangThai}</span>
-                                                    <div class="btn-group-vertical mt-2">
-                                                        <button class="btn btn-sm btn-outline-success" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Hoàn thành')">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteStep(${step.ID_ChiTiet})">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
+                                                
+                                                <div class="col-md-4">
+                                                    <div class="text-center">
+                                                        <h6 class="text-primary mb-3">Thao tác</h6>
+                                                        <div class="d-grid gap-2">
+                                                            <button class="btn btn-outline-success btn-sm" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Hoàn thành')" title="Đánh dấu hoàn thành">
+                                                                <i class="fas fa-check me-1"></i>Hoàn thành
+                                                            </button>
+                                                            <button class="btn btn-outline-warning btn-sm" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Đang thực hiện')" title="Đang thực hiện">
+                                                                <i class="fas fa-play me-1"></i>Đang làm
+                                                            </button>
+                                                            <button class="btn btn-outline-info btn-sm" onclick="editStep(${step.ID_ChiTiet})" title="Chỉnh sửa">
+                                                                <i class="fas fa-edit me-1"></i>Chỉnh sửa
+                                                            </button>
+                                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteStep(${step.ID_ChiTiet})" title="Xóa bước">
+                                                                <i class="fas fa-trash me-1"></i>Xóa
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -938,19 +1065,135 @@ try {
                 });
         }
 
+        function editStep(stepId) {
+            console.log('Editing step:', stepId);
+            
+            // Fetch step details
+            fetch(`../src/controllers/event-planning.php?action=get_step&step_id=${stepId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.step) {
+                        const step = data.step;
+                        
+                        // Fill edit step modal
+                        document.getElementById('editStepId').value = step.ID_ChiTiet;
+                        document.getElementById('editStepName').value = step.TenBuoc || '';
+                        document.getElementById('editStepDescription').value = step.MoTa || '';
+                        
+                        // Split datetime
+                        const startDate = step.NgayBatDau ? step.NgayBatDau.split(' ')[0] : '';
+                        const startTime = step.NgayBatDau ? step.NgayBatDau.split(' ')[1] : '08:00';
+                        const endDate = step.NgayKetThuc ? step.NgayKetThuc.split(' ')[0] : '';
+                        const endTime = step.NgayKetThuc ? step.NgayKetThuc.split(' ')[1] : '17:00';
+                        
+                        document.getElementById('editStepStartDate').value = startDate;
+                        document.getElementById('editStepStartTime').value = startTime;
+                        document.getElementById('editStepEndDate').value = endDate;
+                        document.getElementById('editStepEndTime').value = endTime;
+                        document.getElementById('editStepNote').value = step.GhiChu || '';
+                        
+                        // Load staff options and set selected staff
+                        loadStaffOptionsForSteps().then(() => {
+                            if (step.ID_NhanVien) {
+                                document.getElementById('editStepStaff').value = step.ID_NhanVien;
+                            }
+                        });
+                        
+                        // Show modal
+                        const modal = new bootstrap.Modal(document.getElementById('editStepModal'));
+                        modal.show();
+                    } else {
+                        alert('Không thể tải thông tin bước thực hiện: ' + (data.error || 'Lỗi không xác định'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading step:', error);
+                    alert('Có lỗi xảy ra khi tải thông tin bước thực hiện');
+                });
+        }
+
+        function submitEditStep() {
+            const stepId = document.getElementById('editStepId').value;
+            const stepName = document.getElementById('editStepName').value;
+            const stepDescription = document.getElementById('editStepDescription').value;
+            const stepStartDate = document.getElementById('editStepStartDate').value;
+            const stepStartTime = document.getElementById('editStepStartTime').value;
+            const stepEndDate = document.getElementById('editStepEndDate').value;
+            const stepEndTime = document.getElementById('editStepEndTime').value;
+            const stepStaff = document.getElementById('editStepStaff').value;
+            const stepNote = document.getElementById('editStepNote').value;
+            
+            if (!stepName.trim()) {
+                alert('Vui lòng nhập tên bước');
+                return;
+            }
+            
+            if (!stepStartDate || !stepEndDate) {
+                alert('Vui lòng chọn ngày bắt đầu và kết thúc');
+                return;
+            }
+            
+            const startDateTime = `${stepStartDate} ${stepStartTime}`;
+            const endDateTime = `${stepEndDate} ${stepEndTime}`;
+            
+            const formData = new FormData();
+            formData.append('action', 'update_step');
+            formData.append('stepId', stepId);
+            formData.append('stepName', stepName);
+            formData.append('stepDescription', stepDescription);
+            formData.append('stepStartDateTime', startDateTime);
+            formData.append('stepEndDateTime', endDateTime);
+            formData.append('staffId', stepStaff);
+            formData.append('note', stepNote);
+            
+            fetch('../src/controllers/event-planning.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editStepModal'));
+                    modal.hide();
+                    alert('Cập nhật bước thực hiện thành công');
+                    
+                    // Reload steps for current plan
+                    const currentPlanId = document.getElementById('stepPlanId').value;
+                    if (currentPlanId) {
+                        loadSteps(currentPlanId);
+                    }
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không xác định'));
+                }
+            })
+            .catch(error => {
+                console.error('Error updating step:', error);
+                alert('Có lỗi xảy ra khi cập nhật bước thực hiện');
+            });
+        }
+
         function loadStaffOptionsForSteps() {
             fetch('../src/controllers/event-planning.php?action=get_staff_list')
                 .then(response => response.json())
                 .then(data => {
                     const select = document.getElementById('stepStaff');
-                    select.innerHTML = '<option value="">Chọn nhân viên</option>';
+                    const editSelect = document.getElementById('editStepStaff');
+                    
+                    // Clear and populate both selects
+                    [select, editSelect].forEach(sel => {
+                        if (sel) {
+                            sel.innerHTML = '<option value="">Chọn nhân viên</option>';
+                        }
+                    });
                     
                     if (data.success && data.staff) {
                         data.staff.forEach(staff => {
                             const option = document.createElement('option');
                             option.value = staff.ID_NhanVien;
                             option.textContent = staff.HoTen + ' - ' + staff.ChucVu;
-                            select.appendChild(option);
+                            
+                            if (select) select.appendChild(option.cloneNode(true));
+                            if (editSelect) editSelect.appendChild(option);
                         });
                     }
                 })

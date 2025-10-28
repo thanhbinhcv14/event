@@ -143,16 +143,16 @@ function getEvents($pdo) {
                 dd.HinhAnh,
                 ls.TenLoai as TenLoaiSK,
                 CASE 
-                    WHEN kp.id_kehoach IS NOT NULL THEN COALESCE(kp.trangthai, 'Đã lập kế hoạch')
+                    WHEN kp.ID_KeHoach IS NOT NULL THEN COALESCE(kp.TrangThai, 'Đã lập kế hoạch')
                     ELSE 'Chưa lập kế hoạch'
                 END as TrangThaiKeHoach,
-                kp.ngay_batdau as NgayBatDauThucHien,
-                kp.noidung as MoTaKeHoach,
+                kp.NgayBatDau as NgayBatDauThucHien,
+                kp.NoiDung as MoTaKeHoach,
                 kp.ngay_tao as GhiChu
             FROM datlichsukien dl
             LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
             LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
-            LEFT JOIN kehoachthuchien kp ON dl.ID_DatLich = kp.id_sukien
+            LEFT JOIN kehoachthuchien kp ON dl.ID_DatLich = kp.ID_SuKien
             WHERE dl.TrangThaiDuyet = 'Đã duyệt'
             ORDER BY dl.NgayBatDau DESC
         ";
@@ -194,9 +194,9 @@ function getPlan($pdo) {
                 dl.TenSuKien,
                 dd.TenDiaDiem
             FROM kehoachthuchien kp
-            JOIN datlichsukien dl ON kp.id_sukien = dl.ID_DatLich
+            JOIN datlichsukien dl ON kp.ID_SuKien = dl.ID_DatLich
             LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-            WHERE kp.id_sukien = ?
+            WHERE kp.ID_SuKien = ?
         ";
         
         $stmt = $pdo->prepare($sql);
@@ -233,11 +233,11 @@ function deletePlan($pdo) {
         if (!empty($planId)) {
             // Delete by plan ID
             // Delete related steps first
-            $stmt = $pdo->prepare("DELETE FROM chitietkehoach WHERE id_kehoach = ?");
+            $stmt = $pdo->prepare("DELETE FROM chitietkehoach WHERE ID_KeHoach = ?");
             $stmt->execute([$planId]);
             
             // Delete the plan
-            $stmt = $pdo->prepare("DELETE FROM kehoachthuchien WHERE id_kehoach = ?");
+            $stmt = $pdo->prepare("DELETE FROM kehoachthuchien WHERE ID_KeHoach = ?");
             $result = $stmt->execute([$planId]);
             
             if ($result) {
@@ -254,7 +254,7 @@ function deletePlan($pdo) {
             return;
         } elseif (!empty($eventId)) {
             // Delete by event ID (legacy)
-            $sql = "DELETE FROM kehoachthuchien WHERE id_sukien = ?";
+            $sql = "DELETE FROM kehoachthuchien WHERE ID_SuKien = ?";
             $stmt = $pdo->prepare($sql);
             $result = $stmt->execute([$eventId]);
             
@@ -324,10 +324,10 @@ function addPlanStep($pdo) {
         
         // Get plan ID from event ID - tìm kế hoạch thông qua datlichsukien
         $planStmt = $pdo->prepare("
-            SELECT kht.id_kehoach 
+            SELECT kht.ID_KeHoach 
             FROM kehoachthuchien kht
-            LEFT JOIN sukien s ON kht.id_sukien = s.ID_SuKien
-            WHERE s.ID_DatLich = ? OR kht.id_sukien = ?
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            WHERE s.ID_DatLich = ? OR kht.ID_SuKien = ?
         ");
         $planStmt->execute([$eventId, $eventId]);
         $plan = $planStmt->fetch(PDO::FETCH_ASSOC);
@@ -349,7 +349,7 @@ function addPlanStep($pdo) {
         
         $stmt = $pdo->prepare($sql);
         $result = $stmt->execute([
-            $plan['id_kehoach'],
+            $plan['ID_KeHoach'],
             $stepName,
             $stepDescription,
             $stepStartDate,
@@ -459,8 +459,8 @@ function getPlanDetails($pdo) {
                 dl.NgayBatDau,
                 dl.NgayKetThuc
             FROM kehoachthuchien k
-            LEFT JOIN datlichsukien dl ON k.id_sukien = dl.ID_DatLich
-            WHERE k.id_sukien = ?
+            LEFT JOIN datlichsukien dl ON k.ID_SuKien = dl.ID_DatLich
+            WHERE k.ID_SuKien = ?
         ";
         
         $stmt = $pdo->prepare($sql);
@@ -493,10 +493,10 @@ function getEventSteps($pdo) {
                 c.*,
                 nv.HoTen as TenNhanVien
             FROM chitietkehoach c
-            LEFT JOIN kehoachthuchien k ON c.ID_KeHoach = k.id_kehoach
-            LEFT JOIN sukien s ON k.id_sukien = s.ID_SuKien
+            LEFT JOIN kehoachthuchien k ON c.ID_KeHoach = k.ID_KeHoach
+            LEFT JOIN sukien s ON k.ID_SuKien = s.ID_SuKien
             LEFT JOIN nhanvieninfo nv ON c.ID_NhanVien = nv.ID_NhanVien
-            WHERE s.ID_DatLich = ? OR k.id_sukien = ?
+            WHERE s.ID_DatLich = ? OR k.ID_SuKien = ?
             ORDER BY c.NgayBatDau ASC
         ";
         
@@ -552,19 +552,19 @@ function getPlans($pdo) {
     try {
         $sql = "
             SELECT 
-                kht.id_kehoach,
-                kht.id_sukien,
-                kht.ten_kehoach,
-                kht.noidung,
-                kht.ngay_batdau,
-                kht.ngay_ketthuc,
-                kht.trangthai,
+                kht.ID_KeHoach,
+                kht.ID_SuKien,
+                kht.TenKeHoach,
+                kht.NoiDung,
+                kht.NgayBatDau,
+                kht.NgayKetThuc,
+                kht.TrangThai,
                 s.ID_DatLich,
                 dl.TenSuKien
             FROM kehoachthuchien kht
-            LEFT JOIN sukien s ON kht.id_sukien = s.ID_SuKien
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
             LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
-            ORDER BY kht.ngay_batdau ASC
+            ORDER BY kht.NgayBatDau ASC
         ";
         
         $stmt = $pdo->prepare($sql);
@@ -696,10 +696,10 @@ function createPlan($pdo) {
         
         // Check if plan already exists for this event
         $checkSql = "
-            SELECT kht.id_kehoach 
+            SELECT kht.ID_KeHoach 
             FROM kehoachthuchien kht
-            LEFT JOIN sukien s ON kht.id_sukien = s.ID_SuKien
-            WHERE s.ID_DatLich = ? OR kht.id_sukien = ?
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            WHERE s.ID_DatLich = ? OR kht.ID_SuKien = ?
         ";
         $checkStmt = $pdo->prepare($checkSql);
         $checkStmt->execute([$eventId, $eventId]);
@@ -787,7 +787,7 @@ function createPlan($pdo) {
         // Insert new plan
         $sql = "
             INSERT INTO kehoachthuchien 
-            (id_sukien, ten_kehoach, noidung, ngay_batdau, ngay_ketthuc, trangthai, id_nhanvien, ngay_tao)
+            (ID_SuKien, TenKeHoach, NoiDung, NgayBatDau, NgayKetThuc, TrangThai, ID_NhanVien, NgayTao)
             VALUES (?, ?, ?, ?, ?, 'Chưa bắt đầu', ?, NOW())
         ";
         
@@ -927,10 +927,10 @@ function getPlanById($pdo) {
                 dl.TenSuKien,
                 nv.HoTen as TenNhanVien
             FROM kehoachthuchien k
-            LEFT JOIN sukien s ON k.id_sukien = s.ID_SuKien
+            LEFT JOIN sukien s ON k.ID_SuKien = s.ID_SuKien
             LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
-            LEFT JOIN nhanvieninfo nv ON k.id_nhanvien = nv.ID_NhanVien
-            WHERE k.id_kehoach = ?
+            LEFT JOIN nhanvieninfo nv ON k.ID_NhanVien = nv.ID_NhanVien
+            WHERE k.ID_KeHoach = ?
         ";
         
         $stmt = $pdo->prepare($sql);
@@ -943,10 +943,10 @@ function getPlanById($pdo) {
         error_log("DEBUG: Plan found: " . ($plan ? 'YES' : 'NO'));
         
         if ($plan) {
-            // Thêm debug logs chi tiết cho noidung và id_nhanvien
+            // Thêm debug logs chi tiết cho NoiDung và ID_NhanVien
             error_log("DEBUG: getPlanById - Plan ID: " . $planId);
-            error_log("DEBUG: getPlanById - noidung: " . ($plan['noidung'] ?? 'NULL'));
-            error_log("DEBUG: getPlanById - id_nhanvien: " . ($plan['id_nhanvien'] ?? 'NULL'));
+            error_log("DEBUG: getPlanById - NoiDung: " . ($plan['NoiDung'] ?? 'NULL'));
+            error_log("DEBUG: getPlanById - ID_NhanVien: " . ($plan['ID_NhanVien'] ?? 'NULL'));
             error_log("DEBUG: getPlanById - Full plan data: " . json_encode($plan));
             
             echo json_encode([
@@ -1009,9 +1009,9 @@ function updatePlanById($pdo) {
         // Update plan
         $sql = "
             UPDATE kehoachthuchien 
-            SET ten_kehoach = ?, noidung = ?, ngay_batdau = ?, ngay_ketthuc = ?, 
-                trangthai = ?, id_nhanvien = ?
-            WHERE id_kehoach = ?
+            SET TenKeHoach = ?, NoiDung = ?, NgayBatDau = ?, NgayKetThuc = ?, 
+                TrangThai = ?, ID_NhanVien = ?
+            WHERE ID_KeHoach = ?
         ";
         
         $stmt = $pdo->prepare($sql);
@@ -1218,15 +1218,33 @@ function addEventStep($pdo) {
             return;
         }
         
+        // Get plan ID from event ID first
+        $planStmt = $pdo->prepare("
+            SELECT kht.ID_KeHoach 
+            FROM kehoachthuchien kht
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            WHERE s.ID_DatLich = ? OR kht.ID_SuKien = ?
+        ");
+        $planStmt->execute([$eventId, $eventId]);
+        $plan = $planStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$plan) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Không tìm thấy kế hoạch cho sự kiện này'
+            ]);
+            return;
+        }
+        
         // Insert step
         $sql = "
-            INSERT INTO chitietkehoach (ID_DatLich, TenBuoc, MoTa, NgayBatDau, NgayKetThuc, ID_NhanVien, TrangThai)
+            INSERT INTO chitietkehoach (ID_KeHoach, TenBuoc, MoTa, NgayBatDau, NgayKetThuc, ID_NhanVien, TrangThai)
             VALUES (?, ?, ?, ?, ?, ?, 'Chưa thực hiện')
         ";
         
         $stmt = $pdo->prepare($sql);
         $result = $stmt->execute([
-            $eventId,
+            $plan['ID_KeHoach'],
             $stepName,
             $stepDescription,
             $startDateTime,
