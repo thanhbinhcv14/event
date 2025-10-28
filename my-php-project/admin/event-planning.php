@@ -571,6 +571,14 @@ try {
             }
         }
         
+        /* Force hide bottom existing plans section as requested */
+        #existingPlansSection { 
+            display: none !important; 
+            visibility: hidden !important;
+            height: 0 !important;
+            overflow: hidden !important;
+        }
+        
         .existing-plans-card::before {
             content: '';
             position: absolute;
@@ -1211,92 +1219,110 @@ try {
                 <div class="modal-body">
                     <input type="hidden" id="stepEventId" name="eventId">
                     
-                    <!-- Add Step Form -->
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-gradient-primary text-white">
-                            <h6 class="mb-0 d-flex align-items-center">
-                                <i class="fas fa-plus-circle me-2"></i> 
-                                Thêm bước thực hiện mới
-                            </h6>
+                    <div class="row g-4">
+                        <!-- Left Side: Steps List -->
+                        <div class="col-md-6">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-header bg-gradient-info text-white">
+                                    <h6 class="mb-0 d-flex align-items-center">
+                                        <i class="fas fa-list-check me-2"></i> 
+                                        Danh sách các bước
+                                    </h6>
+                                </div>
+                                <div class="card-body p-3">
+                                    <div id="stepsList" class="steps-timeline">
+                                        <!-- Steps will be loaded here -->
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="card-body p-4">
-                            <form id="addStepForm">
-                                <div class="row g-3 mb-3">
-                                    <div class="col-md-6">
-                                        <label for="stepName" class="form-label fw-bold">
-                                            <i class="fas fa-tag text-primary me-1"></i>Tên bước
-                                        </label>
-                                        <input type="text" class="form-control form-control-lg" id="stepName" name="stepName" 
-                                               placeholder="Nhập tên bước thực hiện" required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label for="stepStaff" class="form-label fw-bold">
-                                            <i class="fas fa-user text-primary me-1"></i>Nhân viên phụ trách
-                                        </label>
-                                        <select class="form-select form-select-lg" id="stepStaff" name="staffId">
-                                            <option value="">Chọn nhân viên</option>
-                                        </select>
-                                    </div>
+                        
+                        <!-- Right Side: Add Step Form -->
+                        <div class="col-md-6">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-header bg-gradient-primary text-white">
+                                    <h6 class="mb-0 d-flex align-items-center">
+                                        <i class="fas fa-plus-circle me-2"></i> 
+                                        Thêm bước thực hiện mới
+                                    </h6>
                                 </div>
-                                
-                                <div class="mb-3">
-                                    <label for="stepDescription" class="form-label fw-bold">
-                                        <i class="fas fa-file-text text-primary me-1"></i>Mô tả chi tiết
-                                    </label>
-                                    <textarea class="form-control" id="stepDescription" name="stepDescription" 
-                                              rows="3" placeholder="Mô tả chi tiết về bước thực hiện này..."></textarea>
+                                <div class="card-body p-4">
+                                    <form id="addStepForm">
+                                        <div class="mb-3">
+                                            <label for="stepName" class="form-label fw-bold">
+                                                <i class="fas fa-tag text-primary me-1"></i>Tên bước
+                                            </label>
+                                            <input type="text" class="form-control form-control-lg" id="stepName" name="stepName" 
+                                                   placeholder="Nhập tên bước thực hiện" required>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="stepStaff" class="form-label fw-bold">
+                                                <i class="fas fa-user text-primary me-1"></i>Nhân viên phụ trách
+                                            </label>
+                                            <select class="form-select form-select-lg" id="stepStaff" name="staffId">
+                                                <option value="">Chọn nhân viên</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="stepDescription" class="form-label fw-bold">
+                                                <i class="fas fa-file-text text-primary me-1"></i>Mô tả chi tiết
+                                            </label>
+                                            <textarea class="form-control" id="stepDescription" name="stepDescription" 
+                                                      rows="3" placeholder="Mô tả chi tiết về bước thực hiện này..."></textarea>
+                                        </div>
+                                        
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-6">
+                                                <label for="stepStartDate" class="form-label fw-bold">
+                                                    <i class="fas fa-calendar text-primary me-1"></i>Ngày bắt đầu
+                                                </label>
+                                                <input type="date" class="form-control" id="stepStartDate" name="stepStartDate" required>
+                                            </div>
+                                            <div class="col-6">
+                                                <label for="stepStartTime" class="form-label fw-bold">
+                                                    <i class="fas fa-clock text-primary me-1"></i>Giờ bắt đầu
+                                                </label>
+                                                <input type="time" class="form-control" id="stepStartTime" name="stepStartTime" required>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-6">
+                                                <label for="stepEndDate" class="form-label fw-bold">
+                                                    <i class="fas fa-calendar text-primary me-1"></i>Ngày kết thúc
+                                                </label>
+                                                <input type="date" class="form-control" id="stepEndDate" name="stepEndDate" required>
+                                            </div>
+                                            <div class="col-6">
+                                                <label for="stepEndTime" class="form-label fw-bold">
+                                                    <i class="fas fa-clock text-primary me-1"></i>Giờ kết thúc
+                                                </label>
+                                                <input type="time" class="form-control" id="stepEndTime" name="stepEndTime" required>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-4">
+                                            <label for="stepNote" class="form-label fw-bold">
+                                                <i class="fas fa-sticky-note text-primary me-1"></i>Ghi chú bổ sung
+                                            </label>
+                                            <textarea class="form-control" id="stepNote" name="note" rows="2" 
+                                                      placeholder="Thêm ghi chú hoặc lưu ý đặc biệt..."></textarea>
+                                        </div>
+                                        
+                                        <div class="d-grid gap-2">
+                                            <button type="button" class="btn btn-primary btn-lg" onclick="addStep()">
+                                                <i class="fas fa-plus me-2"></i>Thêm bước thực hiện
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary" onclick="resetStepForm()">
+                                                <i class="fas fa-undo me-1"></i>Làm mới form
+                                            </button>
+                                        </div>
+                                    </form>
                                 </div>
-                                
-                                <div class="row g-3 mb-3">
-                                    <div class="col-md-3">
-                                        <label for="stepStartDate" class="form-label fw-bold">
-                                            <i class="fas fa-calendar text-primary me-1"></i>Ngày bắt đầu
-                                        </label>
-                                        <input type="date" class="form-control form-control-lg" id="stepStartDate" name="stepStartDate" required>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="stepStartTime" class="form-label fw-bold">
-                                            <i class="fas fa-clock text-primary me-1"></i>Giờ bắt đầu
-                                        </label>
-                                        <input type="time" class="form-control form-control-lg" id="stepStartTime" name="stepStartTime" required>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="stepEndDate" class="form-label fw-bold">
-                                            <i class="fas fa-calendar text-primary me-1"></i>Ngày kết thúc
-                                        </label>
-                                        <input type="date" class="form-control form-control-lg" id="stepEndDate" name="stepEndDate" required>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="stepEndTime" class="form-label fw-bold">
-                                            <i class="fas fa-clock text-primary me-1"></i>Giờ kết thúc
-                                        </label>
-                                        <input type="time" class="form-control form-control-lg" id="stepEndTime" name="stepEndTime" required>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-4">
-                                    <label for="stepNote" class="form-label fw-bold">
-                                        <i class="fas fa-sticky-note text-primary me-1"></i>Ghi chú bổ sung
-                                    </label>
-                                    <textarea class="form-control" id="stepNote" name="note" rows="2" 
-                                              placeholder="Thêm ghi chú hoặc lưu ý đặc biệt..."></textarea>
-                                </div>
-                                
-                                <div class="d-flex justify-content-end gap-2">
-                                    <button type="button" class="btn btn-outline-secondary" onclick="resetStepForm()">
-                                        <i class="fas fa-undo me-1"></i>Làm mới
-                                    </button>
-                                    <button type="button" class="btn btn-primary btn-lg px-4" onclick="addStep()">
-                                        <i class="fas fa-plus me-2"></i>Thêm bước thực hiện
-                                    </button>
-                                </div>
-                            </form>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <!-- Steps List -->
-                    <div id="stepsList">
-                        <!-- Steps will be loaded here -->
                     </div>
                 </div>
                 <div class="modal-footer">
