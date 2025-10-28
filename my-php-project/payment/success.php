@@ -72,6 +72,12 @@
         </p>
         <?php endif; ?>
         
+        <?php if (isset($_GET['payment_id'])): ?>
+        <p class="text-muted">
+            <strong>ID Thanh toán:</strong> <?php echo htmlspecialchars($_GET['payment_id']); ?>
+        </p>
+        <?php endif; ?>
+        
         <div class="mt-4">
             <a href="/event/my-php-project/events/my-events.php" class="btn-custom">
                 <i class="fas fa-calendar-alt me-2"></i>Xem sự kiện của tôi
