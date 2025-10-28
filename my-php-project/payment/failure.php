@@ -69,6 +69,12 @@
         </p>
         <?php endif; ?>
         
+        <?php if (isset($_GET['payment_id'])): ?>
+        <p class="text-muted">
+            <strong>ID Thanh toán:</strong> <?php echo htmlspecialchars($_GET['payment_id']); ?>
+        </p>
+        <?php endif; ?>
+        
         <div class="mt-4">
             <a href="javascript:history.back()" class="btn-custom btn-retry">
                 <i class="fas fa-redo me-2"></i>Thử lại

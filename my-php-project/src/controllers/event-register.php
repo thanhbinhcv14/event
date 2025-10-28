@@ -422,7 +422,10 @@ try {
                 $stmt = $pdo->prepare("
                     SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue,
                            ls.TenLoai, ls.GiaCoBan, k.HoTen, k.SoDienThoai,
-                           COALESCE(equipment_total.TongGiaThietBi, 0) as TongGiaThietBi
+                           COALESCE(equipment_total.TongGiaThietBi, 0) as TongGiaThietBi,
+                           dl.TrangThaiThanhToan,
+                           t.ID_ThanhToan, t.SoTien, t.LoaiThanhToan, t.PhuongThuc, t.TrangThai as PaymentStatus,
+                           t.NgayThanhToan, t.GhiChu as PaymentNote
                     FROM datlichsukien dl
                     INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
                     LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
@@ -433,6 +436,7 @@ try {
                         WHERE ID_TB IS NOT NULL OR ID_Combo IS NOT NULL
                         GROUP BY ID_DatLich
                     ) equipment_total ON dl.ID_DatLich = equipment_total.ID_DatLich
+                    LEFT JOIN thanhtoan t ON dl.ID_DatLich = t.ID_DatLich
                     WHERE k.ID_User = ?
                     ORDER BY dl.NgayBatDau DESC
                 ");

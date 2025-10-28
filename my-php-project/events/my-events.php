@@ -92,7 +92,7 @@
         }
         
         .status-badge {
-            padding: 0.5rem 1rem;
+            padding: 0.5rem;
             border-radius: 20px;
             font-size: 0.9rem;
             font-weight: 600;
@@ -452,6 +452,7 @@
                             <select class="form-select" id="paymentFilter">
                                 <option value="">Tất cả</option>
                                 <option value="Chưa thanh toán">Chưa thanh toán</option>
+                                <option value="Chờ thanh toán">Chờ thanh toán</option>
                                 <option value="Đã đặt cọc">Đã đặt cọc</option>
                                 <option value="Đã thanh toán đủ">Đã thanh toán đủ</option>
                             </select>
@@ -532,65 +533,6 @@
         </div>
     </div>
 
-    <!-- MoMo Payment Modal -->
-    <div class="modal fade" id="momoPaymentModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">
-                        <i class="fas fa-mobile-alt"></i> Thanh toán qua MoMo
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="text-center mb-4">
-                        <div class="momo-logo mb-3">
-                            <i class="fas fa-mobile-alt fa-4x text-danger"></i>
-                        </div>
-                        <h4 class="text-danger">MoMo Wallet</h4>
-                        <p class="text-muted">Thanh toán nhanh chóng và bảo mật</p>
-                    </div>
-                    
-                    <div class="payment-info-card">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-shield-alt text-success"></i> Bảo mật cao</h6>
-                                <ul class="text-start">
-                                    <li>Mã hóa SSL 256-bit</li>
-                                    <li>Xác thực 2 lớp</li>
-                                    <li>Bảo vệ thông tin cá nhân</li>
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-bolt text-warning"></i> Thanh toán nhanh</h6>
-                                <ul class="text-start">
-                                    <li>Xử lý trong vài giây</li>
-                                    <li>Xác nhận ngay lập tức</li>
-                                    <li>Không cần nhập thông tin</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i>
-                        <strong>Hướng dẫn:</strong>
-                        <ol class="text-start mt-2 mb-0">
-                            <li>Nhấn "Xác nhận thanh toán"</li>
-                            <li>Hệ thống sẽ chuyển hướng đến MoMo Gateway</li>
-                            <li>Đăng nhập và xác nhận thanh toán trên MoMo</li>
-                            <li>Quay lại trang web sau khi hoàn thành</li>
-                        </ol>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="button" class="btn btn-danger btn-lg" onclick="confirmMoMoPayment()">
-                        <i class="fas fa-mobile-alt"></i> Xác nhận thanh toán MoMo
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -868,8 +810,17 @@
             
             let html = '';
             filteredEvents.forEach(event => {
+                // Debug logging for payment status
+                console.log('Event payment status debug:', {
+                    eventId: event.ID_DatLich,
+                    eventName: event.TenSuKien,
+                    TrangThaiThanhToan: event.TrangThaiThanhToan,
+                    TrangThaiDuyet: event.TrangThaiDuyet
+                });
+                
                 const statusClass = getStatusClass(event.TrangThaiDuyet);
-                const paymentClass = getPaymentClass(event.TrangThaiThanhToan);
+                const paymentClass = getPaymentClass(event);
+                const paymentStatusText = getPaymentStatusText(event);
                 const eventDate = formatDateTime(event.NgayBatDau);
                 const priceText = getLocationPriceText(event);
                 const priceBreakdown = getEventPriceBreakdown(event);
@@ -882,7 +833,7 @@
                                 <h3 class="event-title">${event.TenSuKien}</h3>
                                 <div class="d-flex gap-2 mt-2">
                                     <span class="status-badge ${statusClass}">${event.TrangThaiDuyet}</span>
-                                    <span class="status-badge ${paymentClass}">${event.TrangThaiThanhToan}</span>
+                                    <span class="status-badge ${paymentClass}">${paymentStatusText}</span>
                                 </div>
                             </div>
                             <div class="text-end">
@@ -943,11 +894,7 @@
                                 <i class="fas fa-times"></i> Hủy
                             </button>
                             ` : ''}
-                            ${event.TrangThaiDuyet === 'Đã duyệt' && event.TrangThaiThanhToan === 'Chưa thanh toán' ? `
-                            <button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
-                                <i class="fas fa-credit-card"></i> Thanh toán
-                            </button>
-                            ` : ''}
+                            ${getPaymentButton(event)}
                             </div>
                     </div>
                 `;
@@ -964,7 +911,8 @@
             
             filteredEvents = allEvents.filter(event => {
                 const matchesStatus = !statusFilter || event.TrangThaiDuyet === statusFilter;
-                const matchesPayment = !paymentFilter || event.TrangThaiThanhToan === paymentFilter;
+                const paymentStatus = getPaymentStatusText(event);
+                const matchesPayment = !paymentFilter || paymentStatus === paymentFilter;
                 const matchesSearch = !searchTerm || 
                     event.TenSuKien.toLowerCase().includes(searchTerm) ||
                     (event.TenDiaDiem && event.TenDiaDiem.toLowerCase().includes(searchTerm));
@@ -980,7 +928,10 @@
             const total = allEvents.length;
             const pending = allEvents.filter(e => e.TrangThaiDuyet === 'Chờ duyệt').length;
             const approved = allEvents.filter(e => e.TrangThaiDuyet === 'Đã duyệt').length;
-            const paid = allEvents.filter(e => e.TrangThaiThanhToan === 'Đã thanh toán đủ').length;
+            const paid = allEvents.filter(e => {
+                const paymentStatus = getPaymentStatusText(e);
+                return paymentStatus === 'Đã thanh toán đủ' || paymentStatus === 'Đã đặt cọc';
+            }).length;
             
             $('#totalEvents').text(total);
             $('#pendingEvents').text(pending);
@@ -998,13 +949,124 @@
             }
         }
         
-        // Get payment class
-        function getPaymentClass(payment) {
+        // Get payment class based on both event status and payment data
+        function getPaymentClass(event) {
+            // If there's payment data, use it to determine status
+            if (event.ID_ThanhToan && event.PaymentStatus) {
+                switch(event.PaymentStatus) {
+                    case 'Thành công':
+                        return event.LoaiThanhToan === 'Đặt cọc' ? 'status-approved' : 'status-paid';
+                    case 'Đang xử lý':
+                        return 'status-pending';
+                    case 'Thất bại':
+                    case 'Đã hủy':
+                        return 'status-rejected';
+                    default:
+                        return 'status-pending';
+                }
+            }
+            
+            // Fallback to event payment status
+            const payment = event.TrangThaiThanhToan;
+            if (!payment || payment === null || payment === undefined || payment === '') {
+                return 'status-pending';
+            }
+            
             switch(payment) {
                 case 'Chưa thanh toán': return 'status-pending';
+                case 'Chờ thanh toán': return 'status-pending';
                 case 'Đã đặt cọc': return 'status-approved';
                 case 'Đã thanh toán đủ': return 'status-paid';
-                default: return 'status-pending';
+                default: 
+                    console.warn('Unknown payment status:', payment);
+                    return 'status-pending';
+            }
+        }
+        
+        // Get payment status text based on both event status and payment data
+        function getPaymentStatusText(event) {
+            // If there's payment data, use it to determine status
+            if (event.ID_ThanhToan && event.PaymentStatus) {
+                switch(event.PaymentStatus) {
+                    case 'Thành công':
+                        return event.LoaiThanhToan === 'Đặt cọc' ? 'Đã đặt cọc' : 'Đã thanh toán đủ';
+                    case 'Đang xử lý':
+                        return 'Chờ thanh toán';
+                    case 'Thất bại':
+                        return 'Thanh toán thất bại';
+                    case 'Đã hủy':
+                        return 'Đã hủy thanh toán';
+                    default:
+                        return 'Chưa thanh toán';
+                }
+            }
+            
+            // Fallback to event payment status
+            return event.TrangThaiThanhToan || 'Chưa thanh toán';
+        }
+        
+        // Get payment button based on both event status and payment data
+        function getPaymentButton(event) {
+            // Only show payment button for approved events
+            if (event.TrangThaiDuyet !== 'Đã duyệt') {
+                return '';
+            }
+            
+            // If there's payment data, use it to determine button
+            if (event.ID_ThanhToan && event.PaymentStatus) {
+                switch(event.PaymentStatus) {
+                    case 'Thành công':
+                        if (event.LoaiThanhToan === 'Đặt cọc') {
+                            return `<button class="btn btn-info btn-sm" disabled>
+                                <i class="fas fa-hand-holding-usd"></i> Đã đặt cọc
+                            </button>`;
+                        } else {
+                            return `<button class="btn btn-success btn-sm" disabled>
+                                <i class="fas fa-check-circle"></i> Đã thanh toán đủ
+                            </button>`;
+                        }
+                    case 'Đang xử lý':
+                        return `<button class="btn btn-warning btn-sm" disabled>
+                            <i class="fas fa-clock"></i> Chờ xác nhận
+                        </button>`;
+                    case 'Thất bại':
+                        return `<button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
+                            <i class="fas fa-credit-card"></i> Thanh toán lại
+                        </button>`;
+                    case 'Đã hủy':
+                        return `<button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
+                            <i class="fas fa-credit-card"></i> Thanh toán
+                        </button>`;
+                    default:
+                        return `<button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
+                            <i class="fas fa-credit-card"></i> Thanh toán
+                        </button>`;
+                }
+            }
+            
+            // Fallback to event payment status
+            const paymentStatus = event.TrangThaiThanhToan || 'Chưa thanh toán';
+            switch(paymentStatus) {
+                case 'Chưa thanh toán':
+                    return `<button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
+                        <i class="fas fa-credit-card"></i> Thanh toán
+                    </button>`;
+                case 'Chờ thanh toán':
+                    return `<button class="btn btn-warning btn-sm" disabled>
+                        <i class="fas fa-clock"></i> Chờ xác nhận
+                    </button>`;
+                case 'Đã đặt cọc':
+                    return `<button class="btn btn-info btn-sm" disabled>
+                        <i class="fas fa-hand-holding-usd"></i> Đã đặt cọc
+                    </button>`;
+                case 'Đã thanh toán đủ':
+                    return `<button class="btn btn-success btn-sm" disabled>
+                        <i class="fas fa-check-circle"></i> Đã thanh toán đủ
+                    </button>`;
+                default:
+                    return `<button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
+                        <i class="fas fa-credit-card"></i> Thanh toán
+                    </button>`;
             }
         }
         
@@ -1065,7 +1127,7 @@
                             <tr><td><strong>Tổng giá:</strong></td><td><span class="text-success fw-bold">${new Intl.NumberFormat('vi-VN').format(priceBreakdown.totalPrice)} VNĐ</span></td></tr>
                             <tr><td><strong>Ngân sách:</strong></td><td>${budget} VNĐ</td></tr>
                             <tr><td><strong>Trạng thái duyệt:</strong></td><td><span class="status-badge ${getStatusClass(event.TrangThaiDuyet)}">${event.TrangThaiDuyet}</span></td></tr>
-                            <tr><td><strong>Trạng thái thanh toán:</strong></td><td><span class="status-badge ${getPaymentClass(event.TrangThaiThanhToan)}">${event.TrangThaiThanhToan}</span></td></tr>
+                            <tr><td><strong>Trạng thái thanh toán:</strong></td><td><span class="status-badge ${getPaymentClass(event)}">${getPaymentStatusText(event)}</span></td></tr>
                         </table>
                     </div>
                     <div class="col-md-6">
@@ -1196,15 +1258,6 @@
                     <h6><i class="fas fa-credit-card text-primary"></i> Chọn phương thức thanh toán</h6>
                     <div class="row">
                         <div class="col-md-4">
-                            <div class="card payment-method-card" data-method="momo">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-mobile-alt fa-3x text-danger mb-3"></i>
-                                    <h6>Ví MoMo</h6>
-                                    <small class="text-muted">Thanh toán qua ví điện tử</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
                             <div class="card payment-method-card" data-method="banking">
                                 <div class="card-body text-center">
                                     <i class="fas fa-university fa-3x text-primary mb-3"></i>
@@ -1222,6 +1275,15 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="col-md-4">
+                            <div class="card payment-method-card" data-method="sepay">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-university fa-3x text-info mb-3"></i>
+                                    <h6>SePay</h6>
+                                    <small class="text-muted">Thanh toán qua SePay</small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -1230,7 +1292,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="paymentType" id="depositPayment" value="deposit" checked>
+                                <input class="form-check-input" type="radio" name="paymentType" id="depositPayment" value="deposit">
                                 <label class="form-check-label" for="depositPayment">
                                     <strong>Đặt cọc</strong> - ${new Intl.NumberFormat('vi-VN').format(depositAmount)} VNĐ
                                     <br><small class="text-muted">Thanh toán 30% để giữ chỗ</small>
@@ -1239,7 +1301,7 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="paymentType" id="fullPayment" value="full">
+                                <input class="form-check-input" type="radio" name="paymentType" id="fullPayment" value="full" checked>
                                 <label class="form-check-label" for="fullPayment">
                                     <strong>Thanh toán đủ</strong> - ${new Intl.NumberFormat('vi-VN').format(totalAmount)} VNĐ
                                     <br><small class="text-muted">Thanh toán toàn bộ số tiền</small>
@@ -1251,40 +1313,6 @@
                 
                 <div class="mt-4" id="paymentDetails" style="display: none;">
                     <h6><i class="fas fa-info-circle text-primary"></i> Thông tin thanh toán</h6>
-                    <div id="momoDetails" class="payment-details" style="display: none;">
-                        <div class="alert alert-info">
-                            <h6><i class="fas fa-mobile-alt"></i> Thanh toán qua MoMo Gateway</h6>
-                            <div class="text-center">
-                                <div class="momo-logo-small mb-3">
-                                    <i class="fas fa-mobile-alt fa-2x text-danger"></i>
-                                </div>
-                                <h6 class="text-danger">MoMo Wallet</h6>
-                                <p class="text-muted mb-3">Thanh toán nhanh chóng và bảo mật qua MoMo Gateway</p>
-                                
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <h6><i class="fas fa-shield-alt text-success"></i> Bảo mật</h6>
-                                        <ul class="text-start small">
-                                            <li>Mã hóa SSL 256-bit</li>
-                                            <li>Xác thực 2 lớp</li>
-                                        </ul>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h6><i class="fas fa-bolt text-warning"></i> Tốc độ</h6>
-                                        <ul class="text-start small">
-                                            <li>Xử lý trong vài giây</li>
-                                            <li>Xác nhận ngay lập tức</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                
-                                <div class="alert alert-warning mt-3">
-                                    <i class="fas fa-info-circle"></i>
-                                    <strong>Lưu ý:</strong> Sau khi nhấn "Xác nhận thanh toán", bạn sẽ được chuyển hướng đến trang thanh toán MoMo để hoàn tất giao dịch.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                     <div id="bankingDetails" class="payment-details" style="display: none;">
                         <div class="alert alert-primary">
                             <h6><i class="fas fa-university"></i> Thông tin chuyển khoản</h6>
@@ -1307,6 +1335,42 @@
                             </ul>
                         </div>
                     </div>
+                    <div id="sepayDetails" class="payment-details" style="display: none;">
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-university"></i> Thanh toán qua SePay</h6>
+                            <div class="text-center">
+                                <div class="mb-3">
+                                    <i class="fas fa-university fa-4x text-info"></i>
+                                </div>
+                                <h6 class="text-info">SePay Gateway</h6>
+                                <p class="text-muted mb-3">Thanh toán nhanh chóng và bảo mật qua SePay</p>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6><i class="fas fa-shield-alt text-success"></i> Bảo mật cao</h6>
+                                        <ul class="text-start small">
+                                            <li>Mã hóa SSL 256-bit</li>
+                                            <li>Xác thực đa lớp</li>
+                                            <li>Bảo vệ thông tin cá nhân</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6><i class="fas fa-bolt text-warning"></i> Thanh toán nhanh</h6>
+                                        <ul class="text-start small">
+                                            <li>Xử lý trong vài giây</li>
+                                            <li>Xác nhận ngay lập tức</li>
+                                            <li>Hỗ trợ nhiều ngân hàng</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-warning mt-3">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Lưu ý:</strong> Sau khi nhấn "Xác nhận thanh toán", bạn sẽ được chuyển hướng đến trang thanh toán SePay để hoàn tất giao dịch.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             `);
             
@@ -1316,6 +1380,9 @@
             
             // Setup payment method selection
             setupPaymentMethodSelection();
+
+            // Default preference: ưu tiên Thanh toán đủ khi mới mở modal
+            $('#fullPayment').prop('checked', true);
         }
         
         // Setup payment method selection
@@ -1326,41 +1393,39 @@
                 
                 const method = $(this).data('method');
                 
-                if (method === 'momo') {
-                    // Show MoMo payment modal
-                    $('#momoPaymentModal').modal('show');
-                } else {
-                    $('.payment-details').hide();
-                    $(`#${method}Details`).show();
-                    $('#paymentDetails').show();
+                $('.payment-details').hide();
+                $(`#${method}Details`).show();
+                $('#paymentDetails').show();
+                
+                if (method === 'cash') {
+                    // Tiền mặt bắt buộc thanh toán đủ
+                    $('#fullPayment').prop('checked', true).prop('disabled', false);
+                    $('#depositPayment').prop('checked', false).prop('disabled', true);
+                } else if (method === 'banking' || method === 'sepay') {
+                    // Chuyển khoản và SePay cho phép chọn tự do
+                    $('#depositPayment').prop('disabled', false);
+                    $('#fullPayment').prop('disabled', false);
                 }
             });
         }
         
-        // Confirm MoMo payment
-        function confirmMoMoPayment() {
-            // Close MoMo payment modal
-            $('#momoPaymentModal').modal('hide');
-            
-            // Set MoMo type to gateway (online only)
-            $('#paymentModal').data('momoType', 'gateway');
-            
-            // Show payment details
-            $('.payment-details').hide();
-            $('#momoDetails').show();
-            $('#paymentDetails').show();
-        }
         
         // Process payment
         function processPayment() {
             const event = $('#paymentModal').data('event');
             const paymentMethod = $('.payment-method-card.border-primary').data('method');
-            const paymentType = $('input[name="paymentType"]:checked').val();
+            let paymentType = $('input[name="paymentType"]:checked').val();
             
             if (!paymentMethod) {
                 alert('Vui lòng chọn phương thức thanh toán');
                 return;
             }
+
+            // Enforce business rules on the client-side
+            if (paymentMethod === 'cash') {
+                paymentType = 'full'; // Tiền mặt luôn thanh toán đủ
+            }
+            // Banking và SePay cho phép chọn tự do
             
             const priceBreakdown = getEventPriceBreakdown(event);
             const totalEventPrice = priceBreakdown.totalPrice || event.TongTien || 0;
@@ -1392,9 +1457,9 @@
                 // Choose payment API based on method
                 let apiAction, apiData;
                 
-                if (paymentMethod === 'momo') {
-                    // Use MoMo official API (Gateway only)
-                    apiAction = 'create_momo_payment';
+                if (paymentMethod === 'sepay') {
+                    // Use SePay API
+                    apiAction = 'create_sepay_payment';
                     apiData = {
                         action: apiAction,
                         event_id: event.ID_DatLich,
@@ -1419,31 +1484,44 @@
                     method: 'POST',
                     data: apiData,
                     dataType: 'json',
-                    success: function(response) {
-                        if (response.success) {
-                            if (paymentMethod === 'momo' && response.pay_url) {
-                                // Redirect to MoMo Gateway
-                                $('#paymentModalFooter').html(`
-                                    <div class="text-center">
-                                        <div class="alert alert-success">
-                                            <i class="fas fa-check-circle"></i>
-                                            <strong>Đang chuyển hướng đến MoMo...</strong>
-                                        </div>
-                                        <p>Vui lòng đợi trong giây lát...</p>
-                                    </div>
-                                `);
-                                
-                                // Redirect to MoMo Gateway
-                                setTimeout(() => {
-                                    window.location.href = response.pay_url;
-                                }, 2000);
-                            } else if (response.qr_code) {
+                   success: function(response) {
+                       if (response.success) {
+                           if (response.fallback) {
+                               // SePay không khả dụng, hiển thị thông báo và QR code
+                               alert(response.message);
+                               if (response.qr_code) {
+                                   showQRCodeModal({
+                                       qr_code: response.qr_code,
+                                       amount: response.amount,
+                                       payment_method: 'banking'
+                                   });
+                               }
+                               $('#paymentModal').modal('hide');
+                               loadMyEvents();
+                           } else if (paymentMethod === 'sepay' && response.pay_url) {
+                               // Redirect to SePay Gateway
+                               $('#paymentModalFooter').html(`
+                                   <div class="text-center">
+                                       <div class="alert alert-info">
+                                           <i class="fas fa-university"></i>
+                                           <strong>Đang chuyển hướng đến SePay...</strong>
+                                       </div>
+                                       <p>Vui lòng đợi trong giây lát...</p>
+                                   </div>
+                               `);
+                               
+                               // Redirect to SePay Gateway
+                               setTimeout(() => {
+                                   window.location.href = response.pay_url;
+                               }, 2000);
+                           } else if (response.qr_code) {
                                 // Show QR code for offline payment
                                 showQRCodeModal(response);
                             } else {
-                                alert('Thanh toán thành công! Chúng tôi sẽ xác nhận trong thời gian sớm nhất.');
+                                // Với tiền mặt/chuyển khoản (không SePay), coi như đã tạo giao dịch và chờ xác nhận
+                                alert('Đã tạo giao dịch. Trạng thái: Chờ thanh toán. Quản lý sẽ xác nhận sớm.');
                                 $('#paymentModal').modal('hide');
-                                loadMyEvents(); // Reload events
+                                loadMyEvents(); // Reload events để hiển thị "Chờ thanh toán"
                             }
                         } else {
                             alert('Lỗi thanh toán: ' + response.error);
@@ -1461,9 +1539,9 @@
         // Get payment method name
         function getPaymentMethodName(method) {
             switch(method) {
-                case 'momo': return 'Ví MoMo';
                 case 'banking': return 'Chuyển khoản ngân hàng';
                 case 'cash': return 'Tiền mặt';
+                case 'sepay': return 'SePay';
                 default: return 'Phương thức thanh toán';
             }
         }
@@ -1506,21 +1584,21 @@
                         </table>
                     </div>
                     
-                    ${paymentMethod === 'momo' ? `
-                    <div class="alert alert-warning">
-                        <i class="fas fa-mobile-alt"></i>
+                    ${paymentMethod === 'banking' ? `
+                    <div class="alert alert-primary">
+                        <i class="fas fa-university"></i>
                         <strong>Hướng dẫn:</strong>
                         <ol class="text-start mt-2">
-                            <li>Mở ứng dụng MoMo trên điện thoại</li>
-                            <li>Chọn "Quét mã QR" hoặc "Chuyển tiền"</li>
+                            <li>Mở ứng dụng ngân hàng trên điện thoại</li>
+                            <li>Chọn "Chuyển khoản" hoặc "Quét mã QR"</li>
                             <li>Quét mã QR ở trên</li>
-                            <li>Xác nhận thanh toán</li>
+                            <li>Xác nhận thông tin và thanh toán</li>
                         </ol>
                     </div>
                     ` : ''}
                     
-                    ${paymentMethod === 'banking' ? `
-                    <div class="alert alert-primary">
+                    ${paymentMethod === 'sepay' ? `
+                    <div class="alert alert-info">
                         <i class="fas fa-university"></i>
                         <strong>Hướng dẫn:</strong>
                         <ol class="text-start mt-2">

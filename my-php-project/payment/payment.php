@@ -156,6 +156,19 @@ $remainingAmount = $totalAmount - $depositAmount;
                                 </div>
                             </div>
 
+                            <!-- SePay -->
+                            <div class="col-md-6">
+                                <div class="payment-method-card" data-method="SePay">
+                                    <div class="text-center">
+                                        <div class="payment-icon text-success">
+                                            <i class="fas fa-university"></i>
+                                        </div>
+                                        <h5>SePay</h5>
+                                        <p class="text-muted">Thanh toán qua SePay</p>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Cash -->
                             <div class="col-md-6">
                                 <div class="payment-method-card" data-method="Tiền mặt">
@@ -194,6 +207,51 @@ $remainingAmount = $totalAmount - $depositAmount;
                                 <img src="../img/qr-code-banking.png" alt="QR Code" class="img-fluid" style="max-width: 200px;">
                                 <p class="text-muted mt-2">Quét mã QR để chuyển khoản</p>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cash Payment Information (hidden by default) -->
+                <div class="card mb-4" id="cashInfo" style="display: none;">
+                    <div class="card-header">
+                        <h4><i class="fas fa-money-bill-wave"></i> Thông tin thanh toán tiền mặt</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Lưu ý:</strong> Bạn cần đến văn phòng công ty để thanh toán trực tiếp bằng tiền mặt.
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-building"></i> Thông tin công ty</h6>
+                                <p><strong>Tên công ty:</strong> CÔNG TY TNHH QUẢN LÝ SỰ KIỆN ABC</p>
+                                <p><strong>Địa chỉ:</strong> 123 Đường Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh</p>
+                                <p><strong>Số điện thoại:</strong> (028) 1234-5678</p>
+                                <p><strong>Email:</strong> info@eventabc.com</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-clock"></i> Giờ làm việc</h6>
+                                <p><strong>Thứ 2 - Thứ 6:</strong> 8:00 - 17:00</p>
+                                <p><strong>Thứ 7:</strong> 8:00 - 12:00</p>
+                                <p><strong>Chủ nhật:</strong> Nghỉ</p>
+                                <p><strong>Nghỉ lễ:</strong> Theo quy định nhà nước</p>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h6><i class="fas fa-map-marker-alt"></i> Hướng dẫn đường đi</h6>
+                            <p class="text-muted">
+                                Từ trung tâm TP.HCM, đi theo đường Nguyễn Huệ về hướng Bến Nghé. 
+                                Văn phòng nằm ở tầng 5, tòa nhà ABC Plaza, đối diện với Vincom Center.
+                            </p>
+                        </div>
+                        <div class="mt-3">
+                            <h6><i class="fas fa-exclamation-triangle text-warning"></i> Lưu ý quan trọng</h6>
+                            <ul class="text-muted">
+                                <li>Vui lòng mang theo CMND/CCCD để xác minh danh tính</li>
+                                <li>Chuẩn bị đúng số tiền theo hóa đơn</li>
+                                <li>Nhận biên lai thanh toán sau khi hoàn tất</li>
+                                <li>Thanh toán sẽ được xác nhận trong vòng 24 giờ</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -283,12 +341,43 @@ $remainingAmount = $totalAmount - $depositAmount;
                 this.classList.add('selected');
                 selectedMethod = this.dataset.method;
                 
-                // Show/hide banking info
+                // Show/hide banking info and cash info
                 const bankingInfo = document.getElementById('bankingInfo');
+                const cashInfo = document.getElementById('cashInfo');
+                const paymentTypeSelect = document.getElementById('paymentType');
+                
                 if (selectedMethod === 'Chuyển khoản') {
                     bankingInfo.style.display = 'block';
+                    cashInfo.style.display = 'none';
+                    // Banking must be deposit
+                    paymentTypeSelect.value = 'Đặt cọc';
+                    paymentTypeSelect.disabled = true;
+                    updateAmount();
+                } else if (selectedMethod === 'Tiền mặt') {
+                    bankingInfo.style.display = 'none';
+                    cashInfo.style.display = 'block';
+                    // Cash must be full payment
+                    paymentTypeSelect.value = 'Thanh toán đủ';
+                    paymentTypeSelect.disabled = true;
+                    updateAmount();
+                } else if (selectedMethod === 'Momo' || selectedMethod === 'ZaloPay') {
+                    bankingInfo.style.display = 'none';
+                    cashInfo.style.display = 'none';
+                    // E-wallet must be deposit
+                    paymentTypeSelect.value = 'Đặt cọc';
+                    paymentTypeSelect.disabled = true;
+                    updateAmount();
+                } else if (selectedMethod === 'SePay') {
+                    bankingInfo.style.display = 'block';
+                    cashInfo.style.display = 'none';
+                    // SePay must be deposit
+                    paymentTypeSelect.value = 'Đặt cọc';
+                    paymentTypeSelect.disabled = true;
+                    updateAmount();
                 } else {
                     bankingInfo.style.display = 'none';
+                    cashInfo.style.display = 'none';
+                    paymentTypeSelect.disabled = false;
                 }
                 
                 // Enable proceed button
@@ -317,11 +406,14 @@ $remainingAmount = $totalAmount - $depositAmount;
             // Create payment
             const formData = new FormData();
             formData.append('action', 'create_payment');
-            formData.append('ID_DatLich', <?= $event['ID_DatLich'] ?>);
-            formData.append('SoTien', amount);
-            formData.append('LoaiThanhToan', paymentType);
-            formData.append('PhuongThuc', selectedMethod);
-            formData.append('GhiChu', note);
+            formData.append('event_id', <?= $event['ID_DatLich'] ?>);
+            formData.append('amount', amount);
+            formData.append('payment_type', paymentType === 'Đặt cọc' ? 'deposit' : 'full');
+            formData.append('payment_method', selectedMethod === 'Tiền mặt' ? 'cash' : 
+                           selectedMethod === 'Chuyển khoản' ? 'banking' : 
+                           selectedMethod === 'Momo' ? 'momo' : 
+                           selectedMethod === 'SePay' ? 'sepay' : 'zalo');
+            formData.append('note', note);
 
             fetch('../src/controllers/payment.php', {
                 method: 'POST',
@@ -339,6 +431,13 @@ $remainingAmount = $totalAmount - $depositAmount;
                         // Show banking info and redirect to payment status
                         alert('Vui lòng chuyển khoản theo thông tin bên dưới và xác nhận thanh toán');
                         window.location.href = `payment-status.php?payment_id=${data.payment_id}`;
+                    } else if (selectedMethod === 'SePay') {
+                        // Show SePay form
+                        showSePayForm(data.payment_id, amount);
+                    } else if (selectedMethod === 'Tiền mặt') {
+                        // Show cash payment confirmation
+                        alert('Thanh toán tiền mặt đã được tạo. Vui lòng đến văn phòng công ty để thanh toán trực tiếp. Quản lý sẽ xác nhận thanh toán sau khi bạn hoàn tất.');
+                        window.location.href = `cash-pending.php?payment_id=${data.payment_id}`;
                     } else {
                         // Other payment methods
                         alert('Thanh toán đã được tạo. Vui lòng liên hệ admin để xác nhận.');
@@ -353,6 +452,80 @@ $remainingAmount = $totalAmount - $depositAmount;
                 alert('Lỗi: ' + error.message);
             });
         });
+
+        // SePay form function
+        function showSePayForm(paymentId, amount) {
+            // Create modal for SePay form
+            const modalHtml = `
+                <div class="modal fade" id="sepayModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-university"></i>
+                                    Thanh toán qua SePay
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="text-center mb-3">
+                                    <h6>Số tiền: <strong>${formatCurrency(amount)} VNĐ</strong></h6>
+                                    <p class="text-muted">Vui lòng click vào nút bên dưới để chuyển đến trang thanh toán SePay</p>
+                                </div>
+                                <div id="sepayFormContainer">
+                                    <div class="text-center">
+                                        <div class="spinner-border" role="status">
+                                            <span class="visually-hidden">Đang tải...</span>
+                                        </div>
+                                        <p class="mt-2">Đang tải form thanh toán...</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal if any
+            const existingModal = document.getElementById('sepayModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Add modal to body
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('sepayModal'));
+            modal.show();
+            
+            // Load SePay form
+            fetch(`../src/controllers/payment.php?action=get_sepay_form&event_id=<?= $event['ID_DatLich'] ?>&amount=${amount}&payment_type=deposit`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('sepayFormContainer').innerHTML = data.form_html;
+                    } else {
+                        document.getElementById('sepayFormContainer').innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle"></i>
+                                Lỗi tải form SePay: ${data.error}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('sepayFormContainer').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            Lỗi tải form SePay: ${error.message}
+                        </div>
+                    `;
+                });
+        }
 
         // Initialize
         updateAmount();
