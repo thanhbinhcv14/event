@@ -10,8 +10,9 @@ define('SEPAY_CALLBACK_URL', 'https://sukien.info.vn/event/my-php-project/paymen
 
 // SePay API URLs
 if (SEPAY_ENVIRONMENT === 'sandbox') {
-    define('SEPAY_BASE_URL', 'https://sandbox.sepay.vn'); // Môi trường test
+    define('SEPAY_BASE_URL', 'https://my.sepay.vn/userapi'); // Môi trường test
 } else {
-    define('SEPAY_BASE_URL', 'https://api.sepay.vn'); // Môi trường thật
+    // URL chính xác theo tài liệu SePay
+    define('SEPAY_BASE_URL', 'https://my.sepay.vn/userapi'); // Môi trường production
 }
 ?>

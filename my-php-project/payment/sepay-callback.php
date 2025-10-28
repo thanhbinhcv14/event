@@ -64,11 +64,12 @@ try {
         // Insert payment history
         $stmt = $pdo->prepare("
             INSERT INTO payment_history (
-                ID_ThanhToan, TrangThaiCu, TrangThaiMoi, GhiChu, NgayThayDoi
-            ) VALUES (?, ?, ?, ?, NOW())
+                payment_id, action, old_status, new_status, description
+            ) VALUES (?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $payment['ID_ThanhToan'], 
+            'sepay_callback',
             $payment['TrangThai'], 
             'Thành công', 
             'SePay callback - ' . $status

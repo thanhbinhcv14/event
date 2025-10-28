@@ -76,7 +76,7 @@ class CheckoutService
         
         // Send request to SePay API
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $baseUrl . '/api/v1/payments');
+        curl_setopt($ch, CURLOPT_URL, $baseUrl . '/v1/payment/create');
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestData));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

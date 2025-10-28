@@ -952,7 +952,7 @@
         // Get payment class based on both event status and payment data
         function getPaymentClass(event) {
             // If there's payment data, use it to determine status
-            if (event.ID_ThanhToan && event.PaymentStatus) {
+            if (event.ID_ThanhToan && event.ID_ThanhToan > 0 && event.PaymentStatus) {
                 switch(event.PaymentStatus) {
                     case 'Thành công':
                         return event.LoaiThanhToan === 'Đặt cọc' ? 'status-approved' : 'status-paid';
@@ -986,7 +986,7 @@
         // Get payment status text based on both event status and payment data
         function getPaymentStatusText(event) {
             // If there's payment data, use it to determine status
-            if (event.ID_ThanhToan && event.PaymentStatus) {
+            if (event.ID_ThanhToan && event.ID_ThanhToan > 0 && event.PaymentStatus) {
                 switch(event.PaymentStatus) {
                     case 'Thành công':
                         return event.LoaiThanhToan === 'Đặt cọc' ? 'Đã đặt cọc' : 'Đã thanh toán đủ';
@@ -1013,7 +1013,7 @@
             }
             
             // If there's payment data, use it to determine button
-            if (event.ID_ThanhToan && event.PaymentStatus) {
+            if (event.ID_ThanhToan && event.ID_ThanhToan > 0 && event.PaymentStatus) {
                 switch(event.PaymentStatus) {
                     case 'Thành công':
                         if (event.LoaiThanhToan === 'Đặt cọc') {
@@ -1026,9 +1026,14 @@
                             </button>`;
                         }
                     case 'Đang xử lý':
-                        return `<button class="btn btn-warning btn-sm" disabled>
-                            <i class="fas fa-clock"></i> Chờ xác nhận
-                        </button>`;
+                        return `<div class="btn-group" role="group">
+                            <button class="btn btn-warning btn-sm" disabled>
+                                <i class="fas fa-clock"></i> Đang xử lý
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" onclick="cancelPayment(${event.ID_DatLich})" title="Hủy thanh toán">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>`;
                     case 'Thất bại':
                         return `<button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
                             <i class="fas fa-credit-card"></i> Thanh toán lại
@@ -1191,7 +1196,7 @@
                     success: function(response) {
                         if (response.success) {
                             alert('Hủy sự kiện thành công!');
-                            loadEvents(); // Reload the events list
+                            loadMyEvents(); // Reload the events list
                         } else {
                             alert('Lỗi: ' + response.message);
                         }
@@ -1338,37 +1343,7 @@
                     <div id="sepayDetails" class="payment-details" style="display: none;">
                         <div class="alert alert-info">
                             <h6><i class="fas fa-university"></i> Thanh toán qua SePay</h6>
-                            <div class="text-center">
-                                <div class="mb-3">
-                                    <i class="fas fa-university fa-4x text-info"></i>
-                                </div>
-                                <h6 class="text-info">SePay Gateway</h6>
-                                <p class="text-muted mb-3">Thanh toán nhanh chóng và bảo mật qua SePay</p>
-                                
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <h6><i class="fas fa-shield-alt text-success"></i> Bảo mật cao</h6>
-                                        <ul class="text-start small">
-                                            <li>Mã hóa SSL 256-bit</li>
-                                            <li>Xác thực đa lớp</li>
-                                            <li>Bảo vệ thông tin cá nhân</li>
-                                        </ul>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h6><i class="fas fa-bolt text-warning"></i> Thanh toán nhanh</h6>
-                                        <ul class="text-start small">
-                                            <li>Xử lý trong vài giây</li>
-                                            <li>Xác nhận ngay lập tức</li>
-                                            <li>Hỗ trợ nhiều ngân hàng</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                
-                                <div class="alert alert-warning mt-3">
-                                    <i class="fas fa-info-circle"></i>
-                                    <strong>Lưu ý:</strong> Sau khi nhấn "Xác nhận thanh toán", bạn sẽ được chuyển hướng đến trang thanh toán SePay để hoàn tất giao dịch.
-                                </div>
-                            </div>
+                            <p class="mb-0">Thanh toán nhanh chóng và bảo mật qua SePay</p>
                         </div>
                     </div>
                 </div>
@@ -1398,11 +1373,15 @@
                 $('#paymentDetails').show();
                 
                 if (method === 'cash') {
-                    // Tiền mặt bắt buộc thanh toán đủ
-                    $('#fullPayment').prop('checked', true).prop('disabled', false);
-                    $('#depositPayment').prop('checked', false).prop('disabled', true);
-                } else if (method === 'banking' || method === 'sepay') {
-                    // Chuyển khoản và SePay cho phép chọn tự do
+                    // Tiền mặt cho phép cả đặt cọc và thanh toán đủ
+                    $('#depositPayment').prop('disabled', false);
+                    $('#fullPayment').prop('disabled', false);
+                } else if (method === 'banking') {
+                    // Chuyển khoản cho phép cả đặt cọc và thanh toán đủ
+                    $('#depositPayment').prop('disabled', false);
+                    $('#fullPayment').prop('disabled', false);
+                } else if (method === 'sepay') {
+                    // SePay cho phép cả đặt cọc và thanh toán đủ
                     $('#depositPayment').prop('disabled', false);
                     $('#fullPayment').prop('disabled', false);
                 }
@@ -1422,10 +1401,8 @@
             }
 
             // Enforce business rules on the client-side
-            if (paymentMethod === 'cash') {
-                paymentType = 'full'; // Tiền mặt luôn thanh toán đủ
-            }
-            // Banking và SePay cho phép chọn tự do
+            // Cash, banking, and sepay allow both deposit and full payment
+            // Only momo and zalo are restricted to deposit only
             
             const priceBreakdown = getEventPriceBreakdown(event);
             const totalEventPrice = priceBreakdown.totalPrice || event.TongTien || 0;
@@ -1493,6 +1470,7 @@
                                    showQRCodeModal({
                                        qr_code: response.qr_code,
                                        amount: response.amount,
+                                       transaction_id: response.transaction_id || response.payment_code,
                                        payment_method: 'banking'
                                    });
                                }
@@ -1516,7 +1494,14 @@
                                }, 2000);
                            } else if (response.qr_code) {
                                 // Show QR code for offline payment
-                                showQRCodeModal(response);
+                                showQRCodeModal({
+                                    qr_code: response.qr_code,
+                                    amount: response.amount,
+                                    transaction_id: response.transaction_id || response.payment_code,
+                                    waiting_payment: response.waiting_payment,
+                                    payment_method: paymentMethod,
+                                    message: response.message
+                                });
                             } else {
                                 // Với tiền mặt/chuyển khoản (không SePay), coi như đã tạo giao dịch và chờ xác nhận
                                 alert('Đã tạo giao dịch. Trạng thái: Chờ thanh toán. Quản lý sẽ xác nhận sớm.');
@@ -1567,7 +1552,7 @@
                 <div class="text-center">
                     <div class="alert alert-info">
                         <i class="fas fa-qrcode"></i>
-                        <strong>Quét mã QR để thanh toán</strong>
+                        <strong>${paymentData.message || 'Quét mã QR để thanh toán'}</strong>
                     </div>
                     
                     <div class="qr-container mb-4">
@@ -1580,7 +1565,7 @@
                             <tr><td><strong>Số tiền:</strong></td><td><span class="text-primary fw-bold">${new Intl.NumberFormat('vi-VN').format(paymentData.amount)} VNĐ</span></td></tr>
                             <tr><td><strong>Loại thanh toán:</strong></td><td>${paymentType === 'deposit' ? 'Đặt cọc' : 'Thanh toán đủ'}</td></tr>
                             <tr><td><strong>Phương thức:</strong></td><td>${getPaymentMethodName(paymentMethod)}</td></tr>
-                            <tr><td><strong>Mã giao dịch:</strong></td><td><code>${paymentData.transaction_code}</code></td></tr>
+                            <tr><td><strong>Mã giao dịch:</strong></td><td><code>${paymentData.transaction_id || paymentData.transaction_code || paymentData.payment_code}</code></td></tr>
                         </table>
                     </div>
                     
@@ -1598,30 +1583,15 @@
                     ` : ''}
                     
                     ${paymentMethod === 'sepay' ? `
-                    <div class="alert alert-info">
-                        <i class="fas fa-university"></i>
-                        <strong>Hướng dẫn:</strong>
-                        <ol class="text-start mt-2">
-                            <li>Mở ứng dụng ngân hàng trên điện thoại</li>
-                            <li>Chọn "Chuyển khoản" hoặc "Quét mã QR"</li>
-                            <li>Quét mã QR ở trên</li>
-                            <li>Xác nhận thông tin và thanh toán</li>
-                        </ol>
-                    </div>
                     ` : ''}
                     
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i>
-                        <strong>Sau khi thanh toán:</strong>
-                        <p class="mb-0 mt-1">Hệ thống sẽ tự động cập nhật trạng thái thanh toán. Bạn có thể đóng cửa sổ này.</p>
-                    </div>
                 </div>
             `);
             
             $('#paymentModalFooter').html(`
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${paymentData.transaction_code}')">
-                    <i class="fas fa-sync"></i> Kiểm tra trạng thái
+                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${paymentData.transaction_id || paymentData.transaction_code || paymentData.payment_code}')">
+                    <i class="fas fa-sync"></i> Load lại thanh toán
                 </button>
             `);
             
@@ -1630,14 +1600,20 @@
         }
         
         // Generate QR Code
-        function generateQRCode(qrString) {
-            // Simple QR code generation using a library or service
-            // For now, we'll use a QR code service
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
-            
-            $('#qrcode').html(`
-                <img src="${qrUrl}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px;">
-            `);
+        function generateQRCode(qrData) {
+            // Check if qrData is a URL (from VietQR) or a string (for QR generation)
+            if (qrData.startsWith('http')) {
+                // It's a VietQR URL, use it directly
+                $('#qrcode').html(`
+                    <img src="${qrData}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px;">
+                `);
+            } else {
+                // It's a string, generate QR code using service
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`;
+                $('#qrcode').html(`
+                    <img src="${qrUrl}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px;">
+                `);
+            }
         }
         
         // Check payment status
@@ -1656,13 +1632,14 @@
                 url: '../src/controllers/payment.php',
                 method: 'POST',
                 data: {
-                    action: 'get_payment_history'
+                    action: 'check_payment_status',
+                    transaction_code: transactionCode
                 },
                 dataType: 'json',
                 success: function(response) {
                     if (response.success) {
-                        const payment = response.payments.find(p => p.MaGiaoDich && p.MaGiaoDich.includes(transactionCode));
-                        if (payment) {
+                        if (response.found && response.payment) {
+                            const payment = response.payment;
                             if (payment.TrangThai === 'Thành công') {
                                 alert('Thanh toán thành công! Trạng thái đã được cập nhật.');
                                 $('#paymentModal').modal('hide');
@@ -1670,24 +1647,111 @@
                             } else if (payment.TrangThai === 'Thất bại') {
                                 alert('Thanh toán thất bại. Vui lòng thử lại.');
                                 resetPaymentModal();
+                            } else if (payment.TrangThai === 'Đã hủy') {
+                                alert('Thanh toán đã bị hủy. Bạn có thể thanh toán lại.');
+                                $('#paymentModal').modal('hide');
+                                loadMyEvents(); // Reload events
                             } else {
                                 alert('Thanh toán đang được xử lý. Vui lòng đợi thêm.');
-                                resetPaymentModal();
+                                // Khôi phục nút "Load lại thanh toán"
+                                $('#paymentModalFooter').html(`
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                                    <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${transactionCode}')">
+                                        <i class="fas fa-sync"></i> Load lại thanh toán
+                                    </button>
+                                `);
                             }
                         } else {
                             alert('Chưa tìm thấy thông tin thanh toán. Vui lòng thử lại sau.');
-                            resetPaymentModal();
+                            // Khôi phục nút "Load lại thanh toán"
+                            $('#paymentModalFooter').html(`
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${transactionCode}')">
+                                    <i class="fas fa-sync"></i> Load lại thanh toán
+                                </button>
+                            `);
                         }
                     } else {
-                        alert('Lỗi khi kiểm tra trạng thái thanh toán.');
-                        resetPaymentModal();
+                        // Xử lý lỗi cụ thể
+                        if (response.error && response.error.includes('đăng nhập')) {
+                            alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+                            window.location.href = '../login.php';
+                        } else {
+                            alert('Lỗi khi kiểm tra trạng thái thanh toán: ' + (response.error || 'Lỗi không xác định'));
+                        }
+                        // Khôi phục nút "Load lại thanh toán"
+                        $('#paymentModalFooter').html(`
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                            <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${transactionCode}')">
+                                <i class="fas fa-sync"></i> Load lại thanh toán
+                            </button>
+                        `);
                     }
                 },
                 error: function() {
                     alert('Lỗi kết nối khi kiểm tra trạng thái.');
-                    resetPaymentModal();
+                    // Khôi phục nút "Load lại thanh toán"
+                    $('#paymentModalFooter').html(`
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                        <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${transactionCode}')">
+                            <i class="fas fa-sync"></i> Load lại thanh toán
+                        </button>
+                    `);
                 }
             });
+        }
+        
+        // Cancel payment and reset to initial state
+        function cancelPayment(eventId) {
+            if (confirm('Bạn có chắc chắn muốn hủy thanh toán này? Thanh toán sẽ được hủy và bạn có thể thanh toán lại sau.')) {
+                console.log('Cancelling payment for event ID:', eventId);
+                
+                $.ajax({
+                    url: '../src/controllers/payment.php',
+                    method: 'POST',
+                    data: {
+                        action: 'cancel_payment',
+                        event_id: eventId
+                    },
+                    dataType: 'json',
+                    success: function(response) {
+                        console.log('Cancel payment response:', response);
+                        
+                        if (response.success) {
+                            alert('Đã hủy thanh toán thành công!');
+                            $('#paymentModal').modal('hide'); // Đóng modal thanh toán
+                            loadMyEvents(); // Reload events để hiển thị nút "Thanh toán" lại
+                        } else {
+                            console.error('Cancel payment failed:', response.error);
+                            
+                            // Handle specific errors
+                            if (response.error && response.error.includes('đăng nhập')) {
+                                alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+                                window.location.href = '../login.php';
+                            } else {
+                                alert('Lỗi khi hủy thanh toán: ' + (response.error || 'Lỗi không xác định'));
+                            }
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('AJAX error:', xhr, status, error);
+                        console.error('Response text:', xhr.responseText);
+                        
+                        // Try to parse response as JSON
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.error && response.error.includes('đăng nhập')) {
+                                alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+                                window.location.href = '../login.php';
+                            } else {
+                                alert('Lỗi khi hủy thanh toán: ' + (response.error || 'Lỗi kết nối'));
+                            }
+                        } catch (e) {
+                            alert('Lỗi kết nối khi hủy thanh toán. Vui lòng thử lại.');
+                        }
+                    }
+                });
+            }
         }
         
         // Load event equipment

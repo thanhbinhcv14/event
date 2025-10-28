@@ -24,8 +24,8 @@ try {
             createPayment();
             break;
             
-        case 'get_payment_history':
-            getPaymentHistory();
+        case 'check_payment_status':
+            checkPaymentStatus();
             break;
             
         case 'update_payment_status':
@@ -70,6 +70,10 @@ try {
             
         case 'confirm_cash_payment':
             confirmCashPayment();
+            break;
+            
+        case 'cancel_payment':
+            cancelPayment();
             break;
             
         case 'get_payment_status':
@@ -128,14 +132,10 @@ function createPayment() {
     }
 
     // Enforce business rules:
-    // - cash must be full
-    // - banking and momo (and zalo) must be deposit
-    if ($paymentMethod === 'cash' && $paymentType !== 'full') {
-        echo json_encode(['success' => false, 'error' => 'Thanh toán tiền mặt chỉ hỗ trợ thanh toán đủ (100%).']);
-        return;
-    }
-    if (in_array($paymentMethod, ['banking', 'momo', 'zalo']) && $paymentType !== 'deposit') {
-        echo json_encode(['success' => false, 'error' => 'Phương thức này chỉ hỗ trợ đặt cọc 30%.']);
+    // - cash and banking allow both deposit and full payment
+    // - momo and zalo must be deposit only
+    if (in_array($paymentMethod, ['momo', 'zalo']) && $paymentType !== 'deposit') {
+        echo json_encode(['success' => false, 'error' => 'MoMo và ZaloPay chỉ hỗ trợ đặt cọc 30%.']);
         return;
     }
     
@@ -328,6 +328,64 @@ function getPaymentHistory() {
     echo json_encode(['success' => true, 'payments' => $payments]);
 }
 
+// Check specific payment status by transaction code
+function checkPaymentStatus() {
+    global $pdo;
+    
+    $transactionCode = $_POST['transaction_code'] ?? '';
+    
+    if (!$transactionCode) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu mã giao dịch']);
+        return;
+    }
+    
+    // Kiểm tra session
+    if (!isset($_SESSION['user']) || !isset($_SESSION['user']['ID_User'])) {
+        echo json_encode(['success' => false, 'error' => 'Chưa đăng nhập']);
+        return;
+    }
+    
+    $userId = $_SESSION['user']['ID_User'];
+    
+    try {
+        // Tìm thanh toán theo mã giao dịch
+        $stmt = $pdo->prepare("
+            SELECT t.*, dl.TenSuKien, dl.NgayBatDau, dl.TrangThaiThanhToan
+            FROM thanhtoan t
+            JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+            JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+            WHERE kh.ID_User = ? AND (
+                t.MaGiaoDich = ? OR 
+                t.MaGiaoDich LIKE ?
+            )
+            ORDER BY t.ID_ThanhToan DESC
+            LIMIT 1
+        ");
+        $stmt->execute([
+            $userId, 
+            $transactionCode, 
+            '%' . $transactionCode . '%'
+        ]);
+        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($payment) {
+            echo json_encode([
+                'success' => true, 
+                'payment' => $payment,
+                'found' => true
+            ]);
+        } else {
+            echo json_encode([
+                'success' => true, 
+                'payment' => null,
+                'found' => false
+            ]);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
+    }
+}
+
 function updatePaymentStatus() {
     global $pdo;
     
@@ -441,13 +499,23 @@ function generateQRData($paymentMethod, $amount, $eventId, $transactionCode) {
             break;
             
         case 'banking':
-            $bankCode = $config['bank_code'] ?? 'VCB';
+            // Convert bank code to BIN code for VietQR
+            $bankCodeMap = [
+                'VCB' => '970436', // Vietcombank
+                'ICB' => '970415', // VietinBank
+                'VPB' => '970432', // VPBank
+                'HDB' => '970437', // HDBank
+                'TPB' => '970423', // TPBank
+            ];
+            $bankCodeRaw = $config['bank_code'] ?? 'VCB';
+            $bankCode = $bankCodeMap[$bankCodeRaw] ?? '970436';
             $accountNumber = $config['account_number'] ?? '1234567890';
             $accountName = $config['account_name'] ?? 'EVENT MANAGEMENT';
             $bankName = $config['bank_name'] ?? 'Vietcombank';
             
-            // Generate VietQR URL
-            $qrString = "https://img.vietqr.io/image/{$bankCode}-{$accountNumber}-compact2.png?amount={$amount}&addInfo=THANH TOAN SU KIEN {$eventId}";
+            // Generate VietQR URL with transaction code
+            $transferContent = "SK{$eventId}_{$transactionCode}";
+            $qrString = "https://img.vietqr.io/image/{$bankCode}-{$accountNumber}-compact2.png?amount={$amount}&addInfo=" . urlencode($transferContent);
             $qrData = [
                 'type' => 'banking',
                 'bank_code' => $bankCode,
@@ -455,7 +523,7 @@ function generateQRData($paymentMethod, $amount, $eventId, $transactionCode) {
                 'account_number' => $accountNumber,
                 'account_name' => $accountName,
                 'amount' => $amount,
-                'note' => "THANH TOAN SU KIEN {$eventId}",
+                'note' => $transferContent,
                 'transaction_code' => $transactionCode,
                 'qr_url' => $qrString
             ];
@@ -1099,7 +1167,7 @@ function createSePayPayment() {
             return;
         }
         
-        // Create payment record
+        // Create payment record - Đang xử lý, không tự động cập nhật
         $paymentId = 'SEPAY_' . time() . '_' . rand(1000, 9999);
         $stmt = $pdo->prepare("
             INSERT INTO thanhtoan (
@@ -1114,17 +1182,26 @@ function createSePayPayment() {
         
         $insertedId = $pdo->lastInsertId();
         
-        // Update event payment status
+        // Update event payment status - Đang xử lý, không tự động cập nhật
         $stmt = $pdo->prepare("
             UPDATE datlichsukien 
-            SET TrangThaiThanhToan = 'Chờ thanh toán', 
-                TienCoc = CASE WHEN ? = 'Đặt cọc' THEN ? ELSE TienCoc END,
-                TienConLai = CASE WHEN ? = 'Đặt cọc' THEN ? ELSE 0 END
+            SET TrangThaiThanhToan = 'Đang xử lý'
             WHERE ID_DatLich = ?
         ");
+        $stmt->execute([$eventId]);
+        
+        // Thêm lịch sử thanh toán
+        $stmt = $pdo->prepare("
+            INSERT INTO payment_history (
+                payment_id, action, old_status, new_status, description
+            ) VALUES (?, ?, ?, ?, ?)
+        ");
         $stmt->execute([
-            $paymentType, $amount, $paymentType, 
-            $event['TongTien'] - $amount, $eventId
+            $insertedId,
+            'create_payment',
+            'Chưa thanh toán',
+            'Đang xử lý',
+            'Tạo thanh toán SePay - ' . $paymentType
         ]);
         
                // Create SePay checkout form
@@ -1142,37 +1219,63 @@ function createSePayPayment() {
                        ]
                    ]));
                    
-                   // Test SePay connection first
-                   $ch = curl_init();
-                   curl_setopt($ch, CURLOPT_URL, SEPAY_BASE_URL);
-                   curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                   curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-                   curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
-                   curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                   curl_setopt($ch, CURLOPT_NOBODY, true);
-                   
-                   $testResponse = curl_exec($ch);
-                   $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                   $curlError = curl_error($ch);
-                   curl_close($ch);
-                   
-                   if ($curlError || $httpCode !== 200) {
-                       // SePay không khả dụng, fallback về thanh toán offline
-                       error_log('SePay not available, falling back to offline payment: ' . $curlError);
-                       
-                       echo json_encode([
-                           'success' => true,
-                           'payment_id' => $insertedId,
-                           'payment_code' => $paymentId,
-                           'amount' => $amount,
-                           'event_name' => $event['TenSuKien'],
-                           'customer_name' => $event['HoTen'],
-                           'fallback' => true,
-                           'message' => 'SePay hiện không khả dụng. Vui lòng sử dụng phương thức thanh toán khác.',
-                           'qr_code' => 'https://img.vietqr.io/image/970422-1234567890-qr_only.png?amount=' . $amount . '&addInfo=' . urlencode('Thanh toan su kien - ' . $event['TenSuKien'])
-                       ]);
-                       return;
+                   // SePay is a bank account management service, not a payment gateway
+                   // Get bank account info from database
+                   $stmt = $pdo->prepare("
+                       SELECT config_key, config_value 
+                       FROM payment_config 
+                       WHERE payment_method = 'Banking' AND is_active = 1
+                   ");
+                   $stmt->execute();
+                   $bankConfig = [];
+                   while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                       $bankConfig[$row['config_key']] = $row['config_value'];
                    }
+                   
+                   // Use actual bank account info or fallback to default
+                   // Convert bank code to BIN code for VietQR
+                   $bankCodeMap = [
+                       'VCB' => '970436', // Vietcombank
+                       'ICB' => '970415', // VietinBank
+                       'VPB' => '970432', // VPBank
+                       'HDB' => '970437', // HDBank
+                       'TPB' => '970423', // TPBank
+                   ];
+                   $bankCode = $bankCodeMap[$bankConfig['bank_code']] ?? '970436'; // Default to Vietcombank
+                   $accountNumber = $bankConfig['account_number'] ?? '1234567890';
+                   $accountName = $bankConfig['account_name'] ?? 'CONG TY TNHH DEMO';
+                   $bankName = $bankConfig['bank_name'] ?? 'Vietcombank';
+                   
+                   // Generate proper transfer content with transaction ID
+                   $transferContent = 'SK' . $eventId . '_' . $paymentId;
+                   // Use compact2 format for QR code with amount and transaction info
+                   $qrCodeUrl = 'https://img.vietqr.io/image/' . $bankCode . '-' . $accountNumber . '-compact2.png?amount=' . $amount . '&addInfo=' . urlencode($transferContent);
+                   
+                   echo json_encode([
+                       'success' => true,
+                       'payment_id' => $insertedId,
+                       'payment_code' => $paymentId,
+                       'transaction_id' => $paymentId, // Thêm transaction_id để frontend hiển thị
+                       'amount' => $amount,
+                       'event_name' => $event['TenSuKien'],
+                       'customer_name' => $event['HoTen'],
+                       'payment_method' => 'bank_transfer',
+                       'message' => 'QR Code đã được tạo. Vui lòng quét mã để thanh toán.',
+                       'qr_code' => $qrCodeUrl,
+                       'bank_info' => [
+                           'bank_name' => $bankName,
+                           'bank_code' => $bankCode,
+                           'account_number' => $accountNumber,
+                           'account_name' => $accountName,
+                           'amount' => $amount,
+                           'content' => $transferContent,
+                           'transaction_id' => $paymentId,
+                           'event_id' => $eventId
+                       ],
+                       'auto_updated' => false,
+                       'waiting_payment' => true
+                   ]);
+                   return;
                    
                    $sepay = new \SePay\SePayClient(
                        SEPAY_PARTNER_CODE,
@@ -1300,7 +1403,7 @@ function processSePayCallback() {
         $pdo->beginTransaction();
         
         if ($status === 'SUCCESS') {
-            // Update payment status
+            // Cập nhật thanh toán thành công
             $stmt = $pdo->prepare("
                 UPDATE thanhtoan 
                 SET TrangThai = 'Thành công', NgayThanhToan = NOW()
@@ -1308,26 +1411,40 @@ function processSePayCallback() {
             ");
             $stmt->execute([$payment['ID_ThanhToan']]);
             
-            // Update event payment status
+            // Cập nhật trạng thái sự kiện
             $eventStatus = $payment['LoaiThanhToan'] === 'Đặt cọc' ? 'Đã đặt cọc' : 'Đã thanh toán đủ';
             $stmt = $pdo->prepare("
                 UPDATE datlichsukien 
-                SET TrangThaiThanhToan = ?
+                SET TrangThaiThanhToan = ?,
+                    TienCoc = CASE WHEN ? = 'Đặt cọc' THEN ? ELSE TienCoc END,
+                    TienConLai = CASE WHEN ? = 'Đặt cọc' THEN ? ELSE 0 END
                 WHERE ID_DatLich = ?
             ");
-            $stmt->execute([$eventStatus, $payment['ID_DatLich']]);
             
-            // Insert payment history
+            $remainingAmount = $payment['LoaiThanhToan'] === 'Đặt cọc' ? 
+                ($payment['TongTien'] - $amount) : 0;
+            
+            $stmt->execute([
+                $eventStatus,
+                $payment['LoaiThanhToan'],
+                $amount,
+                $payment['LoaiThanhToan'],
+                $remainingAmount,
+                $payment['ID_DatLich']
+            ]);
+            
+            // Thêm lịch sử thanh toán
             $stmt = $pdo->prepare("
                 INSERT INTO payment_history (
-                    ID_ThanhToan, TrangThaiCu, TrangThaiMoi, GhiChu, NgayThayDoi
-                ) VALUES (?, ?, ?, ?, NOW())
+                    payment_id, action, old_status, new_status, description
+                ) VALUES (?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $payment['ID_ThanhToan'], 
+                'webhook_success',
                 $payment['TrangThai'], 
                 'Thành công', 
-                'SePay callback - ' . $status
+                'SePay webhook - Chuyển khoản thành công: ' . $status
             ]);
             
         } else {
@@ -1347,6 +1464,191 @@ function processSePayCallback() {
     } catch (Exception $e) {
         $pdo->rollBack();
         echo json_encode(['success' => false, 'error' => 'Callback error: ' . $e->getMessage()]);
+    }
+}
+
+function confirmBankingPayment() {
+    global $pdo;
+    
+    $paymentId = $_POST['payment_id'] ?? '';
+    $confirmNote = $_POST['confirm_note'] ?? '';
+    
+    if (!$paymentId) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu ID thanh toán']);
+        return;
+    }
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Lấy thông tin thanh toán
+        $stmt = $pdo->prepare("
+            SELECT t.*, dl.TongTien, dl.HoTen, dl.TenSuKien
+            FROM thanhtoan t
+            INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+            WHERE t.ID_ThanhToan = ?
+        ");
+        $stmt->execute([$paymentId]);
+        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$payment) {
+            throw new Exception('Không tìm thấy thanh toán');
+        }
+        
+        // Cập nhật thanh toán thành công
+        $stmt = $pdo->prepare("
+            UPDATE thanhtoan 
+            SET TrangThai = 'Thành công', 
+                PhuongThuc = 'Chuyển khoản',
+                NgayThanhToan = NOW()
+            WHERE ID_ThanhToan = ?
+        ");
+        $stmt->execute([$paymentId]);
+        
+        // Cập nhật trạng thái sự kiện
+        $eventStatus = $payment['LoaiThanhToan'] === 'Đặt cọc' ? 'Đã đặt cọc' : 'Đã thanh toán đủ';
+        $stmt = $pdo->prepare("
+            UPDATE datlichsukien 
+            SET TrangThaiThanhToan = ?,
+                TienCoc = CASE WHEN ? = 'Đặt cọc' THEN ? ELSE TienCoc END,
+                TienConLai = CASE WHEN ? = 'Đặt cọc' THEN ? ELSE 0 END
+            WHERE ID_DatLich = ?
+        ");
+        
+        $remainingAmount = $payment['LoaiThanhToan'] === 'Đặt cọc' ? 
+            ($payment['TongTien'] - $payment['SoTien']) : 0;
+        
+        $stmt->execute([
+            $eventStatus,
+            $payment['LoaiThanhToan'],
+            $payment['SoTien'],
+            $payment['LoaiThanhToan'],
+            $remainingAmount,
+            $payment['ID_DatLich']
+        ]);
+        
+        // Thêm lịch sử thanh toán
+        $stmt = $pdo->prepare("
+            INSERT INTO payment_history (
+                payment_id, action, old_status, new_status, description
+            ) VALUES (?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $paymentId,
+            'manual_confirm',
+            $payment['TrangThai'],
+            'Thành công',
+            'Xác nhận chuyển khoản thủ công' . ($confirmNote ? ' - ' . $confirmNote : '')
+        ]);
+        
+        $pdo->commit();
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Xác nhận chuyển khoản thành công',
+            'payment' => [
+                'id' => $payment['ID_ThanhToan'],
+                'customer' => $payment['HoTen'],
+                'event' => $payment['TenSuKien'],
+                'amount' => $payment['SoTien'],
+                'type' => $payment['LoaiThanhToan']
+            ]
+        ]);
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        echo json_encode(['success' => false, 'error' => 'Lỗi: ' . $e->getMessage()]);
+    }
+}
+
+// Cancel payment and reset to initial state
+function cancelPayment() {
+    global $pdo;
+    
+    $eventId = $_POST['event_id'] ?? '';
+    
+    if (!$eventId) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu ID sự kiện']);
+        return;
+    }
+    
+    // Check if user is logged in
+    if (!isset($_SESSION['user']) || !isset($_SESSION['user']['ID_User'])) {
+        echo json_encode(['success' => false, 'error' => 'Chưa đăng nhập']);
+        return;
+    }
+    
+    $userId = $_SESSION['user']['ID_User'];
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Lấy thông tin thanh toán đang xử lý và kiểm tra ownership
+        $stmt = $pdo->prepare("
+            SELECT t.*, dl.TongTien, dl.TenSuKien, kh.HoTen
+            FROM thanhtoan t
+            INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+            INNER JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+            WHERE t.ID_DatLich = ? AND t.TrangThai = 'Đang xử lý' AND kh.ID_User = ?
+            ORDER BY t.ID_ThanhToan DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$eventId, $userId]);
+        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$payment) {
+            throw new Exception('Không tìm thấy thanh toán đang xử lý hoặc bạn không có quyền hủy thanh toán này');
+        }
+        
+        // Cập nhật thanh toán thành "Đã hủy"
+        $stmt = $pdo->prepare("
+            UPDATE thanhtoan 
+            SET TrangThai = 'Đã hủy',
+                GhiChu = CONCAT(GhiChu, ' - Hủy bởi khách hàng: ', NOW())
+            WHERE ID_ThanhToan = ?
+        ");
+        $stmt->execute([$payment['ID_ThanhToan']]);
+        
+        // Reset trạng thái sự kiện về "Chưa thanh toán"
+        $stmt = $pdo->prepare("
+            UPDATE datlichsukien 
+            SET TrangThaiThanhToan = 'Chưa thanh toán',
+                TienCoc = 0,
+                TienConLai = TongTien
+            WHERE ID_DatLich = ?
+        ");
+        $stmt->execute([$eventId]);
+        
+        // Thêm lịch sử thanh toán
+        $stmt = $pdo->prepare("
+            INSERT INTO payment_history (
+                payment_id, action, old_status, new_status, description
+            ) VALUES (?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $payment['ID_ThanhToan'],
+            'cancel_payment',
+            'Đang xử lý',
+            'Đã hủy',
+            'Khách hàng hủy thanh toán'
+        ]);
+        
+        $pdo->commit();
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Đã hủy thanh toán thành công',
+            'event' => [
+                'id' => $eventId,
+                'customer' => $payment['HoTen'],
+                'event_name' => $payment['TenSuKien'],
+                'amount' => $payment['SoTien']
+            ]
+        ]);
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        echo json_encode(['success' => false, 'error' => 'Lỗi: ' . $e->getMessage()]);
     }
 }
 ?>

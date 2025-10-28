@@ -1,8 +1,16 @@
 # SePay Integration Guide
 
-## Tích hợp SePay cho thanh toán ngân hàng
+## Tích hợp SePay cho quản lý tài khoản ngân hàng
 
-### 1. Cấu hình SePay
+### 1. Hiểu về SePay
+
+**SePay KHÔNG phải là Payment Gateway** như MoMo hay VNPay. SePay là:
+- **Dịch vụ quản lý tài khoản ngân hàng**
+- **Nhận thông báo giao dịch** qua webhook
+- **Tạo QR Code** để khách hàng chuyển khoản
+- **Theo dõi số dư** real-time
+
+### 2. Cấu hình SePay
 
 1. **Cấu hình đã hoàn thành:**
    - File `config/sepay.php` đã được cấu hình với credentials production
@@ -10,46 +18,60 @@
    - Secret Key: `spsk_live_dpzV8LVbzmCuMswSbVdQitHANPatgLLn`
    - Environment: `production`
 
-2. **Cập nhật Callback URL:**
-   - Trong SePay Dashboard, cập nhật Callback URL thành: `https://yourdomain.com/event/my-php-project/payment/sepay-callback.php`
-   - Thay `yourdomain.com` bằng domain thực của bạn
+2. **API Endpoint:**
+   - Base URL: `https://my.sepay.vn/userapi`
+   - Bank Accounts API: `/bankaccounts/list`
+   - Webhook URL: `https://yourdomain.com/event/my-php-project/payment/sepay-callback.php`
 
-### 2. Cách sử dụng
+### 3. Cách sử dụng SePay
+
+#### Luồng thanh toán với SePay:
+1. **Khách hàng chọn SePay** → Hiển thị thông tin chuyển khoản
+2. **Hiển thị QR Code** → Khách hàng quét để chuyển khoản
+3. **SePay gửi webhook** → Hệ thống tự động xác nhận thanh toán
+4. **Cập nhật trạng thái** → Sự kiện được xác nhận
 
 #### Trong Frontend (payment.php):
 ```javascript
 // Khi người dùng chọn SePay
 if (selectedMethod === 'SePay') {
-    showSePayForm(paymentId, amount);
+    showBankTransferInfo(paymentId, amount);
 }
 ```
 
 #### Trong Backend (payment controller):
 ```php
-// Tạo thanh toán SePay
+// Tạo thanh toán SePay (chuyển khoản)
 case 'create_sepay_payment':
     createSePayPayment();
     break;
 
-// Lấy form SePay
-case 'get_sepay_form':
-    getSePayForm();
-    break;
-
-// Xử lý callback
+// Xử lý webhook từ SePay
 case 'sepay_callback':
     processSePayCallback();
     break;
 ```
 
-### 3. Luồng thanh toán SePay
+### 4. API SePay
 
-1. **Người dùng chọn SePay** → Hiển thị modal với form SePay
-2. **Click "Thanh toán qua ngân hàng"** → Chuyển đến trang SePay
-3. **Hoàn tất thanh toán** → SePay gửi callback về `sepay-callback.php`
-4. **Cập nhật trạng thái** → Hệ thống cập nhật trạng thái thanh toán
+Theo [tài liệu chính thức](https://docs.sepay.vn/api-tai-khoan-ngan-hang.html):
 
-### 4. Cấu trúc file
+#### Lấy danh sách tài khoản:
+```
+GET https://my.sepay.vn/userapi/bankaccounts/list
+```
+
+#### Lấy chi tiết tài khoản:
+```
+GET https://my.sepay.vn/userapi/bankaccounts/details/{bank_account_id}
+```
+
+#### Đếm số tài khoản:
+```
+GET https://my.sepay.vn/userapi/bankaccounts/count
+```
+
+### 5. Cấu trúc file
 
 ```
 my-php-project/
@@ -58,12 +80,20 @@ my-php-project/
 ├── vendor/
 │   └── sepay/
 │       ├── SePayClient.php       # Client chính
-│       ├── CheckoutService.php   # Service checkout
-│       ├── Builders/
-│       │   └── CheckoutBuilder.php
+│       ├── CheckoutService.php   # Service checkout (không dùng)
 │       └── autoload.php          # Autoloader
 ├── payment/
-│   └── sepay-callback.php        # Xử lý callback
+│   └── sepay-callback.php        # Xử lý webhook
+└── src/controllers/
+    └── payment.php               # Controller thanh toán
+```
+
+### 6. Lưu ý quan trọng
+
+- **SePay không xử lý thanh toán** trực tiếp
+- **Chỉ nhận thông báo** khi có tiền vào tài khoản
+- **Cần cấu hình webhook** để nhận thông báo
+- **QR Code** được tạo để khách hàng chuyển khoản
 └── src/controllers/
     └── payment.php               # Controller chính (đã cập nhật)
 ```

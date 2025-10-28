@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 28, 2025 lúc 05:34 PM
+-- Thời gian đã tạo: Th10 28, 2025 lúc 08:04 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -620,17 +620,17 @@ CREATE TABLE `payment_config` (
 --
 
 INSERT INTO `payment_config` (`id`, `payment_method`, `config_key`, `config_value`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'Momo', 'partner_code', 'MOMO_PARTNER_CODE', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
-(2, 'Momo', 'access_key', 'MOMO_ACCESS_KEY', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
-(3, 'Momo', 'secret_key', 'MOMO_SECRET_KEY', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
-(4, 'Momo', 'endpoint', 'https://test-payment.momo.vn/v2/gateway/api/create', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
-(5, 'Momo', 'return_url', 'http://localhost/event/my-php-project/payment/callback.php', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
-(6, 'Momo', 'notify_url', 'http://localhost/event/my-php-project/payment/webhook.php', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
-(7, 'Banking', 'bank_code', 'VCB', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
-(8, 'Banking', 'account_number', 'BANK_ACCOUNT_NUMBER', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
-(9, 'Banking', 'account_name', 'BANK_ACCOUNT_NAME', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
-(10, 'Banking', 'bank_name', 'Vietcombank', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48'),
-(11, 'Banking', 'qr_code', 'BANK_QR_CODE_URL', 1, '2025-10-25 12:50:48', '2025-10-25 12:50:48');
+(1, 'Momo', 'partner_code', 'MOMO_PARTNER_CODE', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
+(2, 'Momo', 'access_key', 'MOMO_ACCESS_KEY', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
+(3, 'Momo', 'secret_key', 'MOMO_SECRET_KEY', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
+(4, 'Momo', 'endpoint', 'https://test-payment.momo.vn/v2/gateway/api/create', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
+(5, 'Momo', 'return_url', 'http://localhost/event/my-php-project/payment/callback.php', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
+(6, 'Momo', 'notify_url', 'http://localhost/event/my-php-project/payment/webhook.php', 1, '2025-10-25 05:50:48', '2025-10-25 05:50:48'),
+(7, 'Banking', 'bank_code', 'ICB', 1, '2025-10-25 05:50:48', '2025-10-28 11:56:41'),
+(8, 'Banking', 'account_number', '100872918542', 1, '2025-10-25 05:50:48', '2025-10-28 11:56:41'),
+(9, 'Banking', 'account_name', 'BUI THANH BINH', 1, '2025-10-25 05:50:48', '2025-10-28 11:56:41'),
+(10, 'Banking', 'bank_name', 'VietinBank', 1, '2025-10-25 05:50:48', '2025-10-28 11:56:41'),
+(11, 'Banking', 'qr_code', NULL, 1, '2025-10-25 05:50:48', '2025-10-28 11:55:23');
 
 -- --------------------------------------------------------
 
@@ -1265,7 +1265,7 @@ ALTER TABLE `lichlamviec`
   ADD CONSTRAINT `fk_llv_ct` FOREIGN KEY (`ID_ChiTiet`) REFERENCES `chitietkehoach` (`ID_ChiTiet`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_llv_datlich` FOREIGN KEY (`ID_DatLich`) REFERENCES `datlichsukien` (`ID_DatLich`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_llv_nhanvien` FOREIGN KEY (`ID_NhanVien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `lichlamviec_ibfk_1` FOREIGN KEY (`id_kehoach`) REFERENCES `kehoachthuchien` (`ID_KeHoach`) ON DELETE SET NULL ON UPDATE CASCADE;
+  ADD CONSTRAINT `lichlamviec_ibfk_1` FOREIGN KEY (`ID_KeHoach`) REFERENCES `kehoachthuchien` (`ID_KeHoach`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `messages`

@@ -19,9 +19,9 @@ class SePayClient
         
         // Set base URL based on environment
         if ($environment === 'sandbox') {
-            $this->baseUrl = 'https://sandbox.sepay.vn';
+            $this->baseUrl = 'https://my.sepay.vn/userapi';
         } else {
-            $this->baseUrl = 'https://api.sepay.vn';
+            $this->baseUrl = 'https://my.sepay.vn/userapi';
         }
     }
 

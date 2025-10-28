@@ -265,6 +265,59 @@ include 'includes/admin-header.php';
                 </div>
             </div>
         </div>
+
+        <!-- Banking Confirmation Modal -->
+        <div class="modal fade" id="bankingConfirmModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-university"></i>
+                            Xác nhận thanh toán chuyển khoản
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Lưu ý:</strong> Chỉ xác nhận khi đã kiểm tra và xác nhận có tiền chuyển khoản vào tài khoản.
+                        </div>
+                        
+                        <form id="bankingConfirmForm">
+                            <input type="hidden" id="bankingPaymentId" name="payment_id">
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Thông tin thanh toán</label>
+                                <div id="bankingPaymentInfo" class="border rounded p-3 bg-light">
+                                    <!-- Payment info will be loaded here -->
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Ghi chú xác nhận</label>
+                                <textarea class="form-control" id="bankingConfirmNote" name="confirm_note" rows="3" 
+                                         placeholder="Ghi chú về việc xác nhận chuyển khoản (tùy chọn)"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="bankingConfirmCheck" required>
+                                    <label class="form-check-label" for="bankingConfirmCheck">
+                                        Tôi đã kiểm tra và xác nhận có tiền chuyển khoản vào tài khoản
+                                    </label>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="button" class="btn btn-success" onclick="processBankingConfirmation()">
+                            <i class="fas fa-check-circle"></i> Xác nhận chuyển khoản
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <style>
         /* Remove modal backdrop completely */
         .modal-backdrop {
@@ -398,7 +451,7 @@ include 'includes/admin-header.php';
                             data: null,
                             orderable: false,
                             render: function(data, type, row) {
-                                return `
+                                let buttons = `
                                     <div class="action-buttons">
                                         <button class="btn btn-info btn-sm" onclick="viewPayment(${row.ID_ThanhToan})" title="Xem chi tiết">
                                             <i class="fas fa-eye"></i>
@@ -406,8 +459,28 @@ include 'includes/admin-header.php';
                                         <button class="btn btn-warning btn-sm" onclick="editPayment(${row.ID_ThanhToan})" title="Chỉnh sửa">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                    </div>
                                 `;
+                                
+                                // Thêm nút xác nhận cho chuyển khoản đang chờ
+                                if (row.PhuongThuc === 'Chuyển khoản' && row.TrangThai === 'Chờ thanh toán') {
+                                    buttons += `
+                                        <button class="btn btn-success btn-sm" onclick="confirmBankingPayment(${row.ID_ThanhToan})" title="Xác nhận chuyển khoản">
+                                            <i class="fas fa-check-circle"></i>
+                                        </button>
+                                    `;
+                                }
+                                
+                                // Thêm nút xác nhận cho tiền mặt đang chờ
+                                if (row.PhuongThuc === 'Tiền mặt' && row.TrangThai === 'Chờ thanh toán') {
+                                    buttons += `
+                                        <button class="btn btn-success btn-sm" onclick="confirmCashPayment(${row.ID_ThanhToan})" title="Xác nhận tiền mặt">
+                                            <i class="fas fa-money-bill-wave"></i>
+                                        </button>
+                                    `;
+                                }
+                                
+                                buttons += `</div>`;
+                                return buttons;
                             }
                         }
                     ],
@@ -726,6 +799,80 @@ include 'includes/admin-header.php';
             })
             .catch(error => {
                 AdminPanel.showError('Có lỗi xảy ra khi xác nhận thanh toán');
+            });
+        }
+
+        function confirmBankingPayment(paymentId) {
+            // Get payment details
+            AdminPanel.makeAjaxRequest('../src/controllers/payment.php', {
+                action: 'get_payment_status',
+                payment_id: paymentId
+            })
+            .then(response => {
+                if (response.success && response.payment) {
+                    const payment = response.payment;
+                    
+                    // Set payment ID
+                    $('#bankingPaymentId').val(paymentId);
+                    
+                    // Display payment info
+                    $('#bankingPaymentInfo').html(`
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Mã giao dịch:</strong> ${payment.MaGiaoDich}</p>
+                                <p><strong>Số tiền:</strong> ${AdminPanel.formatCurrency(payment.SoTien)} VNĐ</p>
+                                <p><strong>Phương thức:</strong> ${payment.PhuongThuc}</p>
+                                <p><strong>Loại thanh toán:</strong> <span class="badge bg-${getPaymentTypeClass(payment.LoaiThanhToan)}">${payment.LoaiThanhToan}</span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Khách hàng:</strong> ${payment.KhachHangTen}</p>
+                                <p><strong>Sự kiện:</strong> ${payment.TenSuKien}</p>
+                                <p><strong>Trạng thái:</strong> <span class="badge bg-${getStatusClass(payment.TrangThai)}">${payment.TrangThai}</span></p>
+                                <p><strong>Ngày tạo:</strong> ${AdminPanel.formatDate(payment.NgayThanhToan, 'dd/mm/yyyy hh:mm')}</p>
+                            </div>
+                        </div>
+                    `);
+                    
+                    // Clear form
+                    $('#bankingConfirmNote').val('');
+                    $('#bankingConfirmCheck').prop('checked', false);
+                    
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('bankingConfirmModal'));
+                    modal.show();
+                } else {
+                    AdminPanel.showError('Không thể tải thông tin thanh toán');
+                }
+            })
+            .catch(error => {
+                AdminPanel.showError('Có lỗi xảy ra khi tải thông tin thanh toán');
+            });
+        }
+
+        function processBankingConfirmation() {
+            if (!$('#bankingConfirmCheck').is(':checked')) {
+                AdminPanel.showError('Vui lòng xác nhận rằng đã kiểm tra có tiền chuyển khoản vào tài khoản');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'confirm_banking_payment');
+            formData.append('payment_id', $('#bankingPaymentId').val());
+            formData.append('confirm_note', $('#bankingConfirmNote').val());
+
+            AdminPanel.makeAjaxRequest('../src/controllers/payment.php', formData, 'POST')
+            .then(response => {
+                if (response.success) {
+                    AdminPanel.showSuccess('Xác nhận chuyển khoản thành công');
+                    bootstrap.Modal.getInstance(document.getElementById('bankingConfirmModal')).hide();
+                    paymentsTable.ajax.reload();
+                    loadStatistics();
+                } else {
+                    AdminPanel.showError(response.error || 'Có lỗi xảy ra khi xác nhận chuyển khoản');
+                }
+            })
+            .catch(error => {
+                AdminPanel.showError('Có lỗi xảy ra khi xác nhận chuyển khoản');
             });
         }
 
