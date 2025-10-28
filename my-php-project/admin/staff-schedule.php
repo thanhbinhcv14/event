@@ -709,7 +709,7 @@ try {
                         </div>
                         <div class="flex-grow-1 ms-3">
                             <div class="stats-number">
-                                <?= count(array_filter($assignments, function($a) { return $a['TrangThai'] == 'Chưa làm' || $a['TrangThai'] == 'Chưa bắt đầu'; })) ?>
+                                <?= count(array_filter($assignments, function($a) { return empty($a['TrangThai']) || $a['TrangThai'] == 'Chưa làm' || $a['TrangThai'] == 'Chưa bắt đầu'; })) ?>
                             </div>
                             <div class="stats-label">Chưa bắt đầu</div>
                         </div>
@@ -825,8 +825,8 @@ try {
                                         <?php endif; ?>
                                     </div>
                                     <div class="text-end">
-                                        <span class="status-badge status-<?= strtolower(str_replace(' ', '-', $assignment['TrangThai'])) ?>">
-                                            <?= htmlspecialchars($assignment['TrangThai']) ?>
+                                        <span class="status-badge status-<?= empty($assignment['TrangThai']) ? 'pending' : strtolower(str_replace(' ', '-', $assignment['TrangThai'])) ?>">
+                                            <?= empty($assignment['TrangThai']) ? 'Chưa bắt đầu' : htmlspecialchars($assignment['TrangThai']) ?>
                                         </span>
                                     </div>
                                 </div>
@@ -884,7 +884,7 @@ try {
                                 <?php endif; ?>
                                 
                                 <!-- Timer and Progress Section -->
-                                <?php if ($assignment['TrangThai'] == 'Chưa bắt đầu' || $assignment['TrangThai'] == 'Chưa làm'): ?>
+                                <?php if (empty($assignment['TrangThai']) || $assignment['TrangThai'] == 'Chưa bắt đầu' || $assignment['TrangThai'] == 'Chưa làm'): ?>
                                 <div class="mb-3">
                                     <div class="alert alert-secondary border-secondary">
                                         <div class="d-flex justify-content-between align-items-center">
@@ -922,7 +922,7 @@ try {
                                                         $minutes = floor(($elapsedTime % 3600) / 60);
                                                         echo $hours . 'h ' . $minutes . 'm';
                                                     } else {
-                                                        echo 'Chưa bắt đầu';
+                                                        echo 'Đang làm việc';
                                                     }
                                                     ?>
                                                 </span>
@@ -1114,19 +1114,20 @@ try {
                                 
                                 <!-- Action Buttons -->
                                 <div class="action-buttons">
-                                    <!-- Debug: Show current status -->
-                                    <div class="alert alert-info mb-2">
-                                        <small><strong>Debug:</strong> Trạng thái hiện tại: "<?= $assignment['TrangThai'] ?>" | ID: <?= $assignment['ID_LLV'] ?> | Source: <?= $assignment['source_table'] ?? 'lichlamviec' ?></small>
-                                    </div>
-                                    
-                                    <?php if ($assignment['TrangThai'] == 'Chưa bắt đầu' || $assignment['TrangThai'] == 'Chưa làm'): ?>
-                                    <!-- Only show "Bắt đầu làm việc" button for "Chưa bắt đầu" status -->
+                                    <?php if (empty($assignment['TrangThai']) || $assignment['TrangThai'] == 'Chưa bắt đầu' || $assignment['TrangThai'] == 'Chưa làm'): ?>
+                                    <!-- Only show "Bắt đầu làm việc" button for empty, "Chưa bắt đầu" or "Chưa làm" status -->
                                     <button class="btn btn-primary btn-sm" onclick="startWork(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
                                         <i class="fas fa-play"></i>
                                         Bắt đầu làm việc
                                     </button>
+                                    <?php elseif ($assignment['TrangThai'] == 'Hoàn thành'): ?>
+                                    <!-- Hide all buttons when task is completed -->
+                                    <div class="text-center text-muted">
+                                        <i class="fas fa-check-circle text-success"></i>
+                                        <small>Công việc đã hoàn thành</small>
+                                    </div>
                                     <?php else: ?>
-                                    <!-- Show all buttons after starting work -->
+                                    <!-- Show buttons for "Đang làm" and "Báo sự cố" status -->
                                     <?php if ($assignment['TrangThai'] == 'Đang thực hiện' || $assignment['TrangThai'] == 'Đang làm'): ?>
                                     <button class="btn btn-info btn-sm" onclick="updateProgress(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
                                         <i class="fas fa-percentage"></i>
@@ -1134,12 +1135,14 @@ try {
                                     </button>
                                     <?php endif; ?>
                                     
+                                    <?php if ($assignment['TrangThai'] != 'Hoàn thành'): ?>
                                     <button class="btn btn-success btn-sm" onclick="showCompleteWorkModal(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>', '<?= htmlspecialchars($assignment['NhiemVu'] ?? $assignment['TenBuoc'] ?? 'Công việc') ?>')">
                                         <i class="fas fa-check"></i>
                                         Hoàn thành & Báo cáo
                                     </button>
+                                    <?php endif; ?>
                                     
-                                    <button class="btn btn-danger btn-sm" onclick="reportIssue(<?= $assignment['ID_LLV'] ?>)">
+                                    <button class="btn btn-danger btn-sm" onclick="reportIssue(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
                                         <i class="fas fa-exclamation-triangle"></i>
                                         Báo sự cố
                                     </button>
@@ -1682,9 +1685,12 @@ try {
             }
         }
 
-        function reportIssue(assignmentId) {
+        function reportIssue(assignmentId, sourceTable) {
             try {
                 document.getElementById('issueAssignmentId').value = assignmentId;
+                
+                // Store sourceTable for later use
+                document.getElementById('issueAssignmentId').setAttribute('data-source-table', sourceTable);
                 
                 const modal = new bootstrap.Modal(document.getElementById('reportIssueModal'));
                 modal.show();
@@ -1736,11 +1742,18 @@ try {
                     return;
                 }
                 
+                // Get assignment ID and source table from form
+                const assignmentId = document.getElementById('startWorkId').value;
+                const sourceTable = document.getElementById('startWorkTable').value;
+                
+                console.log('=== SAVE START WORK DEBUG ===');
+                console.log('assignmentId:', assignmentId);
+                console.log('sourceTable:', sourceTable);
+                
                 const formData = new FormData(form);
                 formData.append('action', 'start_work');
                 
                 // Debug logs
-                console.log('=== SAVE START WORK DEBUG ===');
                 console.log('Form data:');
                 for (let [key, value] of formData.entries()) {
                     console.log(key + ': ' + value);
@@ -1766,6 +1779,7 @@ try {
                             bootstrap.Modal.getInstance(document.getElementById('startWorkModal')).hide();
                             
                             // Update UI dynamically without reload
+                            console.log('Calling updateTaskStatusAfterStart with:', assignmentId, sourceTable);
                             updateTaskStatusAfterStart(assignmentId, sourceTable);
                         } else {
                             alert('Lỗi: ' + data.message);
@@ -1788,24 +1802,58 @@ try {
 
         function updateTaskStatusAfterStart(assignmentId, sourceTable) {
             try {
+                console.log('=== UPDATE TASK STATUS AFTER START ===');
+                console.log('assignmentId:', assignmentId);
+                console.log('sourceTable:', sourceTable);
+                
                 // Find the task card by assignment ID
                 const taskCards = document.querySelectorAll('.timeline-item');
                 let targetCard = null;
                 
-                for (let card of taskCards) {
+                console.log('Total task cards found:', taskCards.length);
+                
+                // Method 1: Look for buttons with startWork onclick
+                for (let i = 0; i < taskCards.length; i++) {
+                    const card = taskCards[i];
                     const buttons = card.querySelectorAll('button[onclick*="startWork"]');
-                    for (let button of buttons) {
+                    console.log(`Card ${i}: Found ${buttons.length} startWork buttons`);
+                    
+                    for (let j = 0; j < buttons.length; j++) {
+                        const button = buttons[j];
                         const onclickAttr = button.getAttribute('onclick');
+                        console.log(`Button ${j} onclick:`, onclickAttr);
+                        
                         if (onclickAttr && onclickAttr.includes(assignmentId)) {
                             targetCard = card;
+                            console.log('Found target card by startWork button!');
                             break;
                         }
                     }
                     if (targetCard) break;
                 }
                 
+                // Method 2: If not found, look for any button with assignmentId
+                if (!targetCard) {
+                    console.log('Method 1 failed, trying Method 2...');
+                    for (let i = 0; i < taskCards.length; i++) {
+                        const card = taskCards[i];
+                        const buttons = card.querySelectorAll('button[onclick*="' + assignmentId + '"]');
+                        console.log(`Card ${i}: Found ${buttons.length} buttons with assignmentId`);
+                        
+                        if (buttons.length > 0) {
+                            targetCard = card;
+                            console.log('Found target card by assignmentId!');
+                            break;
+                        }
+                    }
+                }
+                
                 if (!targetCard) {
                     console.error('Could not find task card for assignment ID:', assignmentId);
+                    console.log('Available task cards:', Array.from(taskCards).map(card => {
+                        const buttons = card.querySelectorAll('button[onclick*="startWork"]');
+                        return Array.from(buttons).map(btn => btn.getAttribute('onclick'));
+                    }));
                     return;
                 }
                 
@@ -1814,7 +1862,10 @@ try {
                 if (statusBadge) {
                     console.log('Updating status badge from:', statusBadge.textContent, 'to: Đang làm');
                     statusBadge.textContent = 'Đang làm';
-                    statusBadge.className = 'status-badge status-đang-làm';
+                    // Update CSS class to match the new status
+                    statusBadge.className = 'status-badge status-in-progress';
+                } else {
+                    console.error('Could not find status badge');
                 }
                 
                 // Update status alert section
@@ -1844,7 +1895,10 @@ try {
                 // Update action buttons
                 const actionButtons = targetCard.querySelector('.action-buttons');
                 if (actionButtons) {
+                    console.log('Found action buttons container');
+                    console.log('Current action buttons HTML:', actionButtons.innerHTML);
                     console.log('Updating action buttons for assignment:', assignmentId, 'sourceTable:', sourceTable);
+                    
                     actionButtons.innerHTML = `
                         <button class="btn btn-info btn-sm" onclick="updateProgress(${assignmentId}, '${sourceTable}')">
                             <i class="fas fa-percentage"></i>
@@ -1856,7 +1910,7 @@ try {
                             Hoàn thành & Báo cáo
                         </button>
                         
-                        <button class="btn btn-danger btn-sm" onclick="reportIssue(${assignmentId})">
+                        <button class="btn btn-danger btn-sm" onclick="reportIssue(${assignmentId}, '${sourceTable}')">
                             <i class="fas fa-exclamation-triangle"></i>
                             Báo sự cố
                         </button>
@@ -1866,6 +1920,17 @@ try {
                             Chi tiết
                         </button>
                     `;
+                    
+                    // Remove debug alert if exists
+                    const debugAlert = actionButtons.querySelector('.alert-info');
+                    if (debugAlert) {
+                        debugAlert.remove();
+                    }
+                    
+                    console.log('Action buttons updated successfully');
+                    console.log('New action buttons HTML:', actionButtons.innerHTML);
+                } else {
+                    console.error('Could not find action buttons container');
                 }
                 
                 // Update statistics
@@ -1893,7 +1958,7 @@ try {
                     const statusBadge = card.querySelector('.status-badge');
                     if (statusBadge) {
                         const status = statusBadge.textContent.trim();
-                        if (status === 'Chưa bắt đầu' || status === 'Chưa làm') {
+                        if (status === '' || status === 'Chưa bắt đầu' || status === 'Chưa làm') {
                             notStarted++;
                         } else if (status === 'Đang làm' || status === 'Đang thực hiện') {
                             inProgress++;
@@ -2005,27 +2070,43 @@ try {
         }
 
         function saveIssueReport() {
-            const form = document.getElementById('reportIssueForm');
-            const formData = new FormData(form);
-            formData.append('action', 'report_issue');
-            
-            fetch('../src/controllers/staff-schedule.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Báo sự cố thành công');
-                    location.reload();
-                } else {
-                    alert('Lỗi: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
+            try {
+                const form = document.getElementById('reportIssueForm');
+                const formData = new FormData(form);
+                formData.append('action', 'report_issue');
+                
+                // Get sourceTable from stored attribute
+                const assignmentIdElement = document.getElementById('issueAssignmentId');
+                const sourceTable = assignmentIdElement.getAttribute('data-source-table') || 'lichlamviec';
+                formData.append('sourceTable', sourceTable);
+                
+                console.log('=== SAVE ISSUE REPORT DEBUG ===');
+                console.log('assignmentId:', assignmentIdElement.value);
+                console.log('sourceTable:', sourceTable);
+                console.log('note:', formData.get('note'));
+                
+                fetch('../src/controllers/staff-schedule.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Báo sự cố thành công');
+                        bootstrap.Modal.getInstance(document.getElementById('reportIssueModal')).hide();
+                        location.reload();
+                    } else {
+                        alert('Lỗi: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Có lỗi xảy ra khi báo sự cố: ' + error.message);
+                });
+            } catch (error) {
+                console.error('Error in saveIssueReport:', error);
                 alert('Có lỗi xảy ra khi báo sự cố');
-            });
+            }
         }
 
         function viewTaskDetails(assignmentId, sourceTable) {

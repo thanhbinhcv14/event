@@ -263,21 +263,24 @@ function updateProgress() {
         }
         
         if ($sourceTable === 'chitietkehoach') {
+            // chitietkehoach only has basic columns, so we can only update TrangThai
             $sql = "
                 UPDATE chitietkehoach 
-                SET TienDoPhanTram = ?, GhiChuTienDo = ?, NgayCapNhat = NOW()
+                SET TrangThai = 'Đang làm'
                 WHERE ID_ChiTiet = ?
             ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$assignmentId]);
         } else {
+            // lichlamviec has columns: TienDo (varchar), GhiChu (text), NgayCapNhat (auto-update)
             $sql = "
                 UPDATE lichlamviec 
-                SET TienDoPhanTram = ?, GhiChuTienDo = ?, NgayCapNhat = NOW()
+                SET TienDo = ?, GhiChu = ?
                 WHERE ID_LLV = ?
             ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$progress . '%', $note, $assignmentId]);
         }
-        
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$progress, $note, $assignmentId]);
         
         header('Content-Type: application/json');
         echo json_encode(['success' => true, 'message' => 'Cập nhật tiến độ thành công']);
@@ -305,24 +308,113 @@ function reportIssue() {
         }
         
         $assignmentId = $_POST['assignmentId'] ?? '';
+        $sourceTable = $_POST['sourceTable'] ?? 'lichlamviec';
         $note = $_POST['note'] ?? '';
         
+        // Debug logs
+        error_log("DEBUG: reportIssue - assignmentId: " . $assignmentId);
+        error_log("DEBUG: reportIssue - sourceTable: " . $sourceTable);
+        error_log("DEBUG: reportIssue - note: " . $note);
+        
         if (empty($assignmentId) || empty($note)) {
+            error_log("ERROR: reportIssue - Missing required fields");
             echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
             return;
         }
         
+        // Get staff info
+        $userId = $_SESSION['user']['ID_User'];
+        $stmt = $pdo->prepare("SELECT ID_NhanVien FROM nhanvieninfo WHERE ID_User = ?");
+        $stmt->execute([$userId]);
+        $staffId = $stmt->fetchColumn();
+        
+        if (!$staffId) {
+            throw new Exception("Staff not found");
+        }
+        
+        // Get manager ID (Role 2) for this staff
         $stmt = $pdo->prepare("
-            UPDATE lichlamviec 
-            SET TrangThai = 'Báo sự cố', GhiChu = ?, NgayCapNhat = NOW()
-            WHERE ID_LLV = ?
+            SELECT ID_NhanVien FROM nhanvieninfo 
+            WHERE ID_Role = 2 
+            LIMIT 1
         ");
-        $stmt->execute([$note, $assignmentId]);
+        $stmt->execute();
+        $managerId = $stmt->fetchColumn();
+        
+        if (!$managerId) {
+            throw new Exception("Manager not found");
+        }
+        
+        // Create baocaosuco table if not exists
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS baocaosuco (
+                ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
+                ID_NhanVien INT NOT NULL,
+                ID_QuanLy INT NOT NULL,
+                ID_Task INT NOT NULL,
+                LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
+                TieuDe VARCHAR(255) NOT NULL,
+                MoTa TEXT,
+                MucDo ENUM('Thấp', 'Trung bình', 'Cao', 'Khẩn cấp') DEFAULT 'Trung bình',
+                TrangThai ENUM('Mới', 'Đang xử lý', 'Đã xử lý', 'Đã đóng') DEFAULT 'Mới',
+                NgayBaoCao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                NgayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (ID_NhanVien) REFERENCES nhanvieninfo(ID_NhanVien),
+                FOREIGN KEY (ID_QuanLy) REFERENCES nhanvieninfo(ID_NhanVien)
+            )
+        ");
+        
+        // Get task title
+        $taskTitle = '';
+        if ($sourceTable === 'chitietkehoach') {
+            $stmt = $pdo->prepare("SELECT TenBuoc FROM chitietkehoach WHERE ID_ChiTiet = ?");
+            $stmt->execute([$assignmentId]);
+            $taskTitle = $stmt->fetchColumn() ?: 'Công việc không xác định';
+        } else {
+            $stmt = $pdo->prepare("SELECT NhiemVu FROM lichlamviec WHERE ID_LLV = ?");
+            $stmt->execute([$assignmentId]);
+            $taskTitle = $stmt->fetchColumn() ?: 'Công việc không xác định';
+        }
+        
+        // Insert issue report
+        $stmt = $pdo->prepare("
+            INSERT INTO baocaosuco (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, TieuDe, MoTa, MucDo, TrangThai)
+            VALUES (?, ?, ?, ?, ?, ?, 'Trung bình', 'Mới')
+        ");
+        $result = $stmt->execute([
+            $staffId,
+            $managerId,
+            $assignmentId,
+            $sourceTable,
+            "Báo sự cố: " . $taskTitle,
+            $note
+        ]);
+        
+        if (!$result) {
+            throw new Exception("Không thể lưu báo cáo sự cố");
+        }
+        
+        // Update task status
+        if ($sourceTable === 'chitietkehoach') {
+            $sql = "UPDATE chitietkehoach SET TrangThai = 'Báo sự cố' WHERE ID_ChiTiet = ?";
+            $params = [$assignmentId];
+        } else {
+            $sql = "UPDATE lichlamviec SET TrangThai = 'Báo sự cố', GhiChu = ? WHERE ID_LLV = ?";
+            $params = [$note, $assignmentId];
+        }
+        
+        $stmt = $pdo->prepare($sql);
+        $updateResult = $stmt->execute($params);
+        
+        error_log("DEBUG: reportIssue - Issue report saved successfully");
+        error_log("DEBUG: reportIssue - Task status updated: " . ($updateResult ? 'true' : 'false'));
         
         header('Content-Type: application/json');
-        echo json_encode(['success' => true, 'message' => 'Báo sự cố thành công']);
+        echo json_encode(['success' => true, 'message' => 'Báo sự cố thành công và đã gửi đến quản lý']);
         
     } catch (Exception $e) {
+        error_log("ERROR: reportIssue - Exception: " . $e->getMessage());
+        error_log("ERROR: reportIssue - Stack trace: " . $e->getTraceAsString());
         ob_clean();
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'message' => 'Lỗi khi báo sự cố: ' . $e->getMessage()]);
@@ -459,32 +551,31 @@ function completeWork() {
         error_log("DEBUG: completeWork - isLate: " . ($isLate ? 'true' : 'false'));
         
         if ($sourceTable === 'chitietkehoach') {
+            // chitietkehoach only has basic columns: ID_ChiTiet, ID_KeHoach, TenBuoc, MoTa, ID_NhanVien, NgayBatDau, NgayKetThuc, TrangThai
             $sql = "
                 UPDATE chitietkehoach 
-                SET TrangThai = 'Hoàn thành', 
-                    ThoiGianKetThucThucTe = ?, 
-                    TienDoPhanTram = ?,
-                    ChamTienDo = ?,
-                    GhiChuTienDo = ?
+                SET TrangThai = 'Hoàn thành'
                 WHERE ID_ChiTiet = ?
             ";
+            $params = [$assignmentId];
+            error_log("DEBUG: completeWork - chitietkehoach SQL: " . $sql);
+            error_log("DEBUG: completeWork - chitietkehoach Params: " . json_encode($params));
         } else {
+            // lichlamviec has columns: ThoiGianHoanThanh (datetime), TienDo (varchar), GhiChu (text)
             $sql = "
                 UPDATE lichlamviec 
                 SET TrangThai = 'Hoàn thành', 
-                    ThoiGianKetThucThucTe = ?, 
-                    TienDoPhanTram = ?,
-                    ChamTienDo = ?,
-                    GhiChuTienDo = ?
+                    ThoiGianHoanThanh = ?, 
+                    TienDo = ?
                 WHERE ID_LLV = ?
             ";
+            $params = [$currentTime, $progress . '%', $assignmentId];
+            error_log("DEBUG: completeWork - lichlamviec SQL: " . $sql);
+            error_log("DEBUG: completeWork - lichlamviec Params: " . json_encode($params));
         }
         
-        error_log("DEBUG: completeWork - SQL: " . $sql);
-        error_log("DEBUG: completeWork - Params: " . json_encode([$currentTime, $progress, $isLate ? 1 : 0, $note, $assignmentId]));
-        
         $stmt = $pdo->prepare($sql);
-        $result = $stmt->execute([$currentTime, $progress, $isLate ? 1 : 0, $note, $assignmentId]);
+        $result = $stmt->execute($params);
         
         error_log("DEBUG: completeWork - Update result: " . ($result ? 'true' : 'false'));
         error_log("DEBUG: completeWork - Rows affected: " . $stmt->rowCount());

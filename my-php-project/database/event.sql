@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 28, 2025 lúc 03:54 PM
+-- Thời gian đã tạo: Th10 28, 2025 lúc 05:34 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -24,6 +24,26 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
+-- Cấu trúc bảng cho bảng `baocaosuco`
+--
+
+CREATE TABLE `baocaosuco` (
+  `ID_BaoCao` int(11) NOT NULL,
+  `ID_NhanVien` int(11) NOT NULL,
+  `ID_QuanLy` int(11) NOT NULL,
+  `ID_Task` int(11) NOT NULL,
+  `LoaiTask` enum('lichlamviec','chitietkehoach') NOT NULL,
+  `TieuDe` varchar(255) NOT NULL,
+  `MoTa` text DEFAULT NULL,
+  `MucDo` enum('Thấp','Trung bình','Cao','Khẩn cấp') DEFAULT 'Trung bình',
+  `TrangThai` enum('Mới','Đang xử lý','Đã xử lý','Đã đóng') DEFAULT 'Mới',
+  `NgayBaoCao` timestamp NOT NULL DEFAULT current_timestamp(),
+  `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Cấu trúc bảng cho bảng `baocaotiendo`
 --
 
@@ -38,6 +58,14 @@ CREATE TABLE `baocaotiendo` (
   `TrangThai` varchar(50) DEFAULT NULL,
   `NgayBaoCao` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `baocaotiendo`
+--
+
+INSERT INTO `baocaotiendo` (`ID_BaoCao`, `ID_NhanVien`, `ID_QuanLy`, `ID_Task`, `LoaiTask`, `TienDo`, `GhiChu`, `TrangThai`, `NgayBaoCao`) VALUES
+(1, 5, 7, 2, 'chitietkehoach', 100, 'Đã hoàn thành', 'Hoàn thành', '2025-10-28 22:17:53'),
+(2, 5, 7, 2, 'chitietkehoach', 100, 'Đã hoàn thành', 'Hoàn thành', '2025-10-28 22:20:00');
 
 -- --------------------------------------------------------
 
@@ -99,7 +127,7 @@ CREATE TABLE `chitietkehoach` (
 --
 
 INSERT INTO `chitietkehoach` (`ID_ChiTiet`, `ID_KeHoach`, `TenBuoc`, `MoTa`, `ID_NhanVien`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`) VALUES
-(2, 1, 'Chuẩn bị các thiết bị trong combo', '', 5, '2025-10-28 08:00:00', '2025-10-28 17:00:00', 'Đang làm'),
+(2, 1, 'Chuẩn bị các thiết bị trong combo', '', 5, '2025-10-28 08:00:00', '2025-10-28 17:00:00', 'Hoàn thành'),
 (4, 1, 'Chuẩn bị các phụ kiện trang trí ', '', 5, '2025-10-28 08:00:00', '2025-10-28 10:00:00', '');
 
 -- --------------------------------------------------------
@@ -774,7 +802,7 @@ INSERT INTO `users` (`ID_User`, `Email`, `Password`, `FacebookID`, `GoogleID`, `
 (39, 'nhanvien1@gmail.com', '$2y$10$aFB3cdypIGWJPW343j4vSOP82d5lc.y4FG0QjqTqZu7RIKeb25GIC', NULL, NULL, 4, 'Hoạt động', '2025-09-24 02:11:39', '2025-10-28 13:17:26', 'Offline', '2025-10-28 12:58:30'),
 (96, 'nhanvien2@gmail.com', '$2y$10$skx3dLcoSSUAt7SNyPDF5u8TNfIVSWGIhvoP6sN22F7LOu7JONQ9q', NULL, NULL, 4, 'Hoạt động', '2025-09-24 10:28:06', '2025-10-28 13:17:31', 'Online', '2025-10-28 13:17:31'),
 (118, 'khachhang1@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-24 18:57:20', '2025-10-12 16:20:30', 'Offline', NULL),
-(119, 'qltc1@gmail.com', '$2y$10$FCLKvilsBjF2A6exn53/OOM9xDm7LffPSZSQhga7Oj4OUYpyyUXYe', NULL, NULL, 2, 'Hoạt động', '2025-09-24 19:17:28', '2025-10-28 12:52:23', 'Online', '2025-10-28 12:52:23'),
+(119, 'qltc1@gmail.com', '$2y$10$FCLKvilsBjF2A6exn53/OOM9xDm7LffPSZSQhga7Oj4OUYpyyUXYe', NULL, NULL, 2, 'Hoạt động', '2025-09-24 19:17:28', '2025-10-28 15:34:32', 'Online', '2025-10-28 15:34:32'),
 (124, 'thaoanh@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-25 02:09:32', '2025-10-09 03:12:13', 'Offline', NULL),
 (129, 'thanhbinhcv14@gmail.com', '$2y$10$1vfLe/IHU2NCclc2S9sqq.7nQwDpwD/rFfXa.Pe72mg9hu5yDyzRu', NULL, NULL, 2, 'Hoạt động', '2025-10-25 09:07:59', '2025-10-26 07:59:55', 'Online', '2025-10-26 07:59:55'),
 (130, 'nam', '$2y$10$ECe7qP2VhD2pcLBsGS6FH.WZHEFCNxftLX5LyEVtlTiFdXbxod9D2', NULL, NULL, 5, 'Hoạt động', '2025-10-26 01:27:44', '2025-10-26 01:27:44', 'Offline', NULL);
@@ -798,6 +826,14 @@ CREATE TABLE `webhook_logs` (
 --
 -- Chỉ mục cho các bảng đã đổ
 --
+
+--
+-- Chỉ mục cho bảng `baocaosuco`
+--
+ALTER TABLE `baocaosuco`
+  ADD PRIMARY KEY (`ID_BaoCao`),
+  ADD KEY `ID_NhanVien` (`ID_NhanVien`),
+  ADD KEY `ID_QuanLy` (`ID_QuanLy`);
 
 --
 -- Chỉ mục cho bảng `baocaotiendo`
@@ -1002,10 +1038,16 @@ ALTER TABLE `webhook_logs`
 --
 
 --
+-- AUTO_INCREMENT cho bảng `baocaosuco`
+--
+ALTER TABLE `baocaosuco`
+  MODIFY `ID_BaoCao` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT cho bảng `baocaotiendo`
 --
 ALTER TABLE `baocaotiendo`
-  MODIFY `ID_BaoCao` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `ID_BaoCao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT cho bảng `chitietdatsukien`
@@ -1136,6 +1178,13 @@ ALTER TABLE `webhook_logs`
 --
 -- Các ràng buộc cho các bảng đã đổ
 --
+
+--
+-- Các ràng buộc cho bảng `baocaosuco`
+--
+ALTER TABLE `baocaosuco`
+  ADD CONSTRAINT `baocaosuco_ibfk_1` FOREIGN KEY (`ID_NhanVien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`),
+  ADD CONSTRAINT `baocaosuco_ibfk_2` FOREIGN KEY (`ID_QuanLy`) REFERENCES `nhanvieninfo` (`ID_NhanVien`);
 
 --
 -- Các ràng buộc cho bảng `baocaotiendo`
