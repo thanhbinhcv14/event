@@ -142,6 +142,61 @@ if (!in_array($userRole, [1, 3, 5])) {
             z-index: 1;
         }
         
+        .connection-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .status-dot.online {
+            background: #28a745;
+            box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.3);
+            animation: pulse-green 2s infinite;
+        }
+        
+        .status-dot.offline {
+            background: #dc3545;
+            box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.3);
+            animation: pulse-red 2s infinite;
+        }
+        
+        .status-dot.connecting {
+            background: #ffc107;
+            box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.3);
+            animation: pulse-yellow 1s infinite;
+        }
+        
+        @keyframes pulse-green {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes pulse-red {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes pulse-yellow {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .status-dot:hover {
+            transform: scale(1.2);
+        }
+        
         .btn-home {
             width: 45px;
             height: 45px;
@@ -783,7 +838,9 @@ if (!in_array($userRole, [1, 3, 5])) {
                     </div>
                     <div class="header-actions">
                         <div class="connection-status" id="connectionStatus">
-                            <i class="fas fa-spinner fa-spin"></i> Đang kết nối...
+                            <div class="connection-indicator" id="connectionIndicator">
+                                <div class="status-dot offline"></div>
+                            </div>
                         </div>
                         <a href="index.php" class="btn-home">
                             <i class="fas fa-home"></i>
@@ -954,6 +1011,9 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // ✅ Initialize chat
         $(document).ready(() => {
+            // Set initial connecting status
+            updateConnectionStatus('connecting', 'Đang kết nối...');
+            
             initSocket();
             setUserOnline(); // Set user online
             loadConversations();
@@ -1007,7 +1067,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             if (typeof io === 'undefined') {
                 console.warn('Socket.IO not loaded, chat will work without real-time features');
                 isConnected = false;
-                updateConnectionStatus('disconnected', 'Chế độ offline - Không có kết nối real-time');
+                updateConnectionStatus('offline', 'Chế độ offline - Không có kết nối real-time');
                 return;
             }
             
@@ -1020,7 +1080,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         if (socket && typeof socket.on === 'function') {
             socket.on('connect', () => {
                     isConnected = true;
-                updateConnectionStatus('connected', 'Đã kết nối realtime');
+                updateConnectionStatus('online', 'Đã kết nối realtime');
                 socket.emit('authenticate', {
                     userId: currentUserId,
                     userRole: currentUserRole,
@@ -1031,12 +1091,12 @@ if (!in_array($userRole, [1, 3, 5])) {
 
             socket.on('disconnect', () => {
                     isConnected = false;
-                updateConnectionStatus('disconnected', 'Mất kết nối realtime');
+                updateConnectionStatus('offline', 'Mất kết nối realtime');
             });
 
             socket.on('reconnect', () => {
                 isConnected = true;
-                updateConnectionStatus('connected', 'Kết nối lại thành công');
+                updateConnectionStatus('online', 'Kết nối lại thành công');
                 socket.emit('authenticate', { userId: currentUserId, userRole: currentUserRole, userName: currentUserName });
                 if (currentConversationId) socket.emit('join_conversation', { conversation_id: currentConversationId });
             });
@@ -1090,7 +1150,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         } else {
             console.warn('Socket not available, using fallback mode');
             isConnected = false;
-            updateConnectionStatus('disconnected', 'Chế độ offline - Socket không khả dụng');
+            updateConnectionStatus('offline', 'Chế độ offline - Socket không khả dụng');
         }
         }
         
@@ -1548,9 +1608,11 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // ✅ Cập nhật trạng thái kết nối
         function updateConnectionStatus(status, text) {
-            const el = $('#connectionStatus');
-            el.removeClass('connected disconnected').addClass(status);
-            el.html(`<i class="fas fa-${status === 'connected' ? 'check' : 'exclamation'}-circle"></i> ${text}`);
+            const indicator = $('#connectionIndicator .status-dot');
+            indicator.removeClass('online offline connecting').addClass(status);
+            
+            // Thêm tooltip để hiển thị text khi hover
+            indicator.attr('title', text);
         }
         
         // Show typing indicator

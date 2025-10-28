@@ -78,6 +78,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             justify-content: center;
             align-items: center;
             z-index: 9999;
+            pointer-events: none;
         }
         
         .page-loading .spinner-border {

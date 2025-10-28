@@ -209,6 +209,8 @@ body {
     width: calc(100% - var(--sidebar-width));
     max-width: calc(100% - var(--sidebar-width));
     overflow-x: hidden;
+    position: relative;
+    z-index: 1;
 }
 
 .main-content.expanded {
@@ -227,26 +229,27 @@ body {
     align-items: center;
     position: sticky;
     top: 0;
-    z-index: 999;
+    z-index: 998; /* Lower than modal z-index */
     height: var(--header-height);
 }
 
 .toggle-btn {
-    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 50%, #f093fb 100%);
     border: none;
     color: white;
     cursor: pointer;
     padding: 0.75rem;
-    border-radius: 12px;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    border-radius: 15px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
     position: relative;
     overflow: hidden;
-    min-width: 50px;
-    height: 50px;
+    min-width: 55px;
+    height: 55px;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-weight: 600;
 }
 
 .toggle-btn::before {
@@ -256,8 +259,8 @@ body {
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-    transition: left 0.5s;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.6s ease;
 }
 
 .toggle-btn:hover::before {
@@ -265,49 +268,81 @@ body {
 }
 
 .toggle-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-    background: linear-gradient(45deg, #5a6fd8, #6a4190);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 50%, #e085f0 100%);
 }
 
 .toggle-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
 .toggle-btn i {
-    font-size: 1.1rem;
-    transition: transform 0.3s ease;
+    font-size: 1.2rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 2;
 }
 
 .toggle-btn.collapsed i {
-    transform: rotate(180deg);
+    transform: rotate(180deg) scale(1.1);
+}
+
+.toggle-btn:hover i {
+    transform: scale(1.1);
+}
+
+.toggle-btn.collapsed:hover i {
+    transform: rotate(180deg) scale(1.2);
 }
 
 /* Mobile toggle button */
 .mobile-toggle-btn {
-    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 50%, #f093fb 100%);
     border: none;
     color: white;
     cursor: pointer;
     padding: 0.6rem;
-    border-radius: 10px;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-    min-width: 45px;
-    height: 45px;
+    border-radius: 12px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    min-width: 50px;
+    height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-weight: 600;
+    position: relative;
+    overflow: hidden;
+}
+
+.mobile-toggle-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.6s ease;
+}
+
+.mobile-toggle-btn:hover::before {
+    left: 100%;
 }
 
 .mobile-toggle-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 50%, #e085f0 100%);
 }
 
 .mobile-toggle-btn i {
-    font-size: 1rem;
+    font-size: 1.1rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 2;
 }
 
 .user-info {
@@ -862,10 +897,19 @@ body {
 }
 
 /* Modal Styles */
+.modal {
+    z-index: 10001 !important; /* Ensure modal is above top navbar */
+}
+
+.modal-backdrop {
+    display: none !important; /* Remove modal backdrop completely */
+}
+
 .modal-content {
     border-radius: var(--border-radius);
     border: none;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    z-index: 10002 !important; /* Highest z-index for modal content */
 }
 
 .modal-header {
@@ -881,6 +925,19 @@ body {
 
 .modal-title {
     font-weight: 600;
+}
+
+/* Force modal to be above all elements when shown */
+.modal.show {
+    z-index: 10001 !important;
+}
+
+.modal.show .modal-dialog {
+    z-index: 10002 !important;
+}
+
+.modal.show .modal-content {
+    z-index: 10003 !important;
 }
 
 /* Chart Container */

@@ -415,6 +415,11 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             backdrop-filter: blur(10px);
             box-shadow: 0 2px 20px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
+            padding: 0.5rem 2rem;
+        }
+        
+        .navbar .container-fluid {
+            padding: 0 1rem;
         }
         
         .navbar.scrolled {
@@ -429,6 +434,8 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             border-radius: 8px;
             transition: all 0.3s ease;
             position: relative;
+            display: flex;
+            align-items: center;
         }
         
         .navbar-nav .nav-link:hover {
@@ -440,19 +447,63 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         .navbar-nav .nav-link i {
             margin-right: 0.5rem;
             font-size: 0.9rem;
+            width: 16px;
+            text-align: center;
+        }
+        
+        .navbar-nav .dropdown-toggle::after {
+            margin-left: 0.5rem;
+        }
+        
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+        }
+        
+        .dropdown-item {
+            padding: 0.75rem 1.5rem;
+            color: #333;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+        
+        .dropdown-item:hover {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            transform: translateX(5px);
+        }
+        
+        .dropdown-item i {
+            width: 20px;
+            text-align: center;
+        }
+        
+        .dropdown-divider {
+            margin: 0.5rem 0;
+            border-color: #e9ecef;
         }
         
         .navbar-brand img {
             height: 40px;
             width: auto;
+            transition: transform 0.3s ease;
+        }
+        
+        .navbar-brand:hover img {
+            transform: scale(1.05);
         }
         
         .btn-primary {
             background: linear-gradient(45deg, #667eea, #764ba2);
             border: none;
-            border-radius: 25px;
-            padding: 12px 30px;
+            border-radius: 20px;
+            padding: 8px 20px;
             font-weight: 600;
+            font-size: 0.9rem;
             transition: all 0.3s ease;
         }
         
@@ -464,9 +515,10 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         .btn-outline-primary {
             border: 2px solid #667eea;
             color: #667eea;
-            border-radius: 25px;
-            padding: 10px 28px;
+            border-radius: 20px;
+            padding: 6px 18px;
             font-weight: 600;
+            font-size: 0.9rem;
             transition: all 0.3s ease;
         }
         
@@ -1222,6 +1274,48 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         }
         
         @media (max-width: 768px) {
+            .navbar {
+                padding: 0.5rem 1rem;
+            }
+            
+            .navbar .container-fluid {
+                padding: 0 0.5rem;
+            }
+            
+            .navbar-nav {
+                text-align: center;
+                padding: 1rem 0;
+            }
+            
+            .navbar-nav .nav-link {
+                padding: 0.75rem 1rem !important;
+                margin: 0.25rem 0;
+                justify-content: center;
+            }
+            
+            .dropdown-menu {
+                position: static !important;
+                transform: none !important;
+                box-shadow: none;
+                border: 1px solid #e9ecef;
+                margin-top: 0;
+            }
+            
+            .dropdown-item {
+                padding: 0.5rem 1rem;
+                text-align: center;
+                justify-content: center;
+            }
+            
+            .navbar-toggler {
+                border: none;
+                padding: 0.25rem 0.5rem;
+            }
+            
+            .navbar-toggler:focus {
+                box-shadow: none;
+            }
+            
             .sidebar-toggle {
                 top: 70px;
                 left: 15px;
@@ -1580,7 +1674,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
 
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light fixed-top">
-        <div class="container">
+        <div class="container-fluid">
             <a class="navbar-brand" href="#">
                 <img src="img/logo/logo.jpg" alt="Logo">
             </a>
@@ -1590,55 +1684,56 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="#home">Trang chủ</a>
+                        <a class="nav-link" href="index.php">
+                            <i class="fas fa-home me-1"></i>Trang chủ
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="services.php">Dịch vụ</a>
+                        <a class="nav-link" href="services.php">
+                            <i class="fas fa-concierge-bell me-1"></i>Dịch vụ
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="about.php">Giới thiệu</a>
+                        <a class="nav-link" href="about.php">
+                            <i class="fas fa-info-circle me-1"></i>Giới thiệu
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="contact.php">Liên hệ</a>
+                        <a class="nav-link" href="contact.php">
+                            <i class="fas fa-phone me-1"></i>Liên hệ
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="privacy-policy.php">
+                            <i class="fas fa-shield-alt me-1"></i>Chính sách bảo mật
+                        </a>
                     </li>
                     <?php if ($user): ?>
-                    <!-- Chức năng dành cho khách hàng -->
-                    <?php if ($userRole == 5): ?>
-                    <li class="nav-item">
-                        <a class="nav-link" href="events/register.php">
-                            <i class="fa fa-calendar-plus me-1"></i>Đăng ký sự kiện
+                    <!-- Chức năng dành cho người dùng đã đăng nhập -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="eventsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-calendar-alt me-1"></i>Sự kiện
                         </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="events/my-events.php">
-                            <i class="fa fa-list-alt me-1"></i>Sự kiện của tôi
-                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="eventsDropdown">
+                            <li><a class="dropdown-item" href="events/register.php">
+                                <i class="fas fa-calendar-plus me-2"></i>Đăng ký sự kiện
+                            </a></li>
+                            <li><a class="dropdown-item" href="events/my-events.php">
+                                <i class="fas fa-list-alt me-2"></i>Sự kiện của tôi
+                            </a></li>
+                            <?php if (in_array($userRole, [1, 2, 3, 4])): ?>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="admin/event-registrations.php">
+                                <i class="fas fa-cogs me-2"></i>Quản lý sự kiện
+                            </a></li>
+                            <?php endif; ?>
+                        </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="chat.php">
-                            <i class="fa fa-comments me-1"></i>Chat hỗ trợ
+                            <i class="fas fa-comments me-1"></i>Chat hỗ trợ
                         </a>
                     </li>
-                    <?php else: ?>
-                    <!-- Chức năng dành cho admin/staff -->
-                    <li class="nav-item">
-                        <a class="nav-link" href="events/register.php">
-                            <i class="fa fa-calendar-plus me-1"></i>Đăng ký sự kiện
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="events/my-events.php">
-                            <i class="fa fa-list-alt me-1"></i>Sự kiện của tôi
-                        </a>
-                    </li>
-                    <?php if (in_array($userRole, [1, 2, 3, 4])): ?>
-                    <li class="nav-item">
-                        <a class="nav-link" href="admin/event-registrations.php">
-                            <i class="fa fa-cog me-1"></i>Quản lý sự kiện
-                        </a>
-                    </li>
-                    <?php endif; ?>
-                    <?php endif; ?>
                     <?php endif; ?>
                 </ul>
                 <div class="d-flex gap-2">
@@ -1880,7 +1975,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                         <li><a href="contact.php">Liên hệ</a></li>
                         <li><a href="about.php">Giới thiệu</a></li>
                         <li><a href="contact.php">FAQ</a></li>
-                        <li><a href="contact.php">Chính sách</a></li>
+                        <li><a href="privacy-policy.php">Chính sách bảo mật</a></li>
                     </ul>
                 </div>
                 <div class="col-lg-4 mb-4">
@@ -2255,6 +2350,33 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                     return 'completed';
                 default:
                     return 'default';
+            }
+        }
+        
+        // Format date and time
+        function formatDateTime(dateTimeString) {
+            if (!dateTimeString) return 'N/A';
+            
+            try {
+                // Parse the date string (format: dd/mm/yyyy hh:mm)
+                const parts = dateTimeString.split(' ');
+                if (parts.length !== 2) return dateTimeString;
+                
+                const datePart = parts[0]; // dd/mm/yyyy
+                const timePart = parts[1]; // hh:mm
+                
+                const dateParts = datePart.split('/');
+                if (dateParts.length !== 3) return dateTimeString;
+                
+                const day = dateParts[0];
+                const month = dateParts[1];
+                const year = dateParts[2];
+                
+                // Create a more readable format
+                return `${day}/${month}/${year} ${timePart}`;
+            } catch (error) {
+                console.error('Error formatting date:', error, dateTimeString);
+                return dateTimeString;
             }
         }
         

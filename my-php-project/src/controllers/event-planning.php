@@ -68,6 +68,10 @@ try {
             getEventSteps($pdo);
             break;
             
+        case 'add_event_step':
+            addEventStep($pdo);
+            break;
+            
         case 'get_approved_events':
             getApprovedEvents($pdo);
             break;
@@ -807,9 +811,11 @@ function createPlan($pdo) {
         ]);
         
         if ($result) {
+            $planId = $pdo->lastInsertId();
             echo json_encode([
                 'success' => true,
-                'message' => 'Tạo kế hoạch thành công'
+                'message' => 'Tạo kế hoạch thành công',
+                'planId' => $planId
             ]);
         } else {
             echo json_encode([
@@ -1155,6 +1161,96 @@ function updateStepById($pdo) {
         echo json_encode([
             'success' => false,
             'error' => 'Lỗi khi cập nhật bước: ' . $e->getMessage()
+        ]);
+    }
+}
+
+function addEventStep($pdo) {
+    try {
+        $eventId = $_POST['eventId'] ?? '';
+        $stepName = $_POST['stepName'] ?? '';
+        $stepDescription = $_POST['stepDescription'] ?? '';
+        $startDate = $_POST['stepStartDate'] ?? '';
+        $startTime = $_POST['stepStartTime'] ?? '';
+        $endDate = $_POST['stepEndDate'] ?? '';
+        $endTime = $_POST['stepEndTime'] ?? '';
+        $staffId = $_POST['stepStaff'] ?? '';
+        
+        error_log("=== ADD EVENT STEP DEBUG ===");
+        error_log("eventId: '$eventId'");
+        error_log("stepName: '$stepName'");
+        error_log("stepDescription: '$stepDescription'");
+        error_log("startDate: '$startDate'");
+        error_log("startTime: '$startTime'");
+        error_log("endDate: '$endDate'");
+        error_log("endTime: '$endTime'");
+        error_log("staffId: '$staffId'");
+        
+        if (empty($eventId) || empty($stepName) || empty($startDate) || empty($startTime) || empty($endDate) || empty($endTime)) {
+            $missing = [];
+            if (empty($eventId)) $missing[] = 'eventId';
+            if (empty($stepName)) $missing[] = 'stepName';
+            if (empty($startDate)) $missing[] = 'startDate';
+            if (empty($startTime)) $missing[] = 'startTime';
+            if (empty($endDate)) $missing[] = 'endDate';
+            if (empty($endTime)) $missing[] = 'endTime';
+            
+            echo json_encode([
+                'success' => false,
+                'error' => 'Vui lòng điền đầy đủ thông tin bắt buộc. Thiếu: ' . implode(', ', $missing)
+            ]);
+            return;
+        }
+        
+        // Combine date and time
+        $startDateTime = $startDate . ' ' . $startTime;
+        $endDateTime = $endDate . ' ' . $endTime;
+        
+        // Validate datetime
+        $startDateObj = new DateTime($startDateTime);
+        $endDateObj = new DateTime($endDateTime);
+        
+        if ($endDateObj <= $startDateObj) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Thời gian kết thúc phải sau thời gian bắt đầu'
+            ]);
+            return;
+        }
+        
+        // Insert step
+        $sql = "
+            INSERT INTO chitietkehoach (ID_DatLich, TenBuoc, MoTa, NgayBatDau, NgayKetThuc, ID_NhanVien, TrangThai)
+            VALUES (?, ?, ?, ?, ?, ?, 'Chưa thực hiện')
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $result = $stmt->execute([
+            $eventId,
+            $stepName,
+            $stepDescription,
+            $startDateTime,
+            $endDateTime,
+            $staffId ?: null
+        ]);
+        
+        if ($result) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Thêm bước thực hiện thành công'
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Lỗi khi thêm bước thực hiện'
+            ]);
+        }
+        
+    } catch (Exception $e) {
+        error_log("Add Event Step Error: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error' => 'Lỗi khi thêm bước thực hiện: ' . $e->getMessage()
         ]);
     }
 }

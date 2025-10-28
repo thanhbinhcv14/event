@@ -1,6 +1,12 @@
 <?php
 session_start();
-require_once __DIR__ . '/../src/auth/auth.php';
+require_once __DIR__ . '/src/auth/auth.php';
+
+// Lấy thông tin user và role
+$user = $_SESSION['user'] ?? null;
+$userRole = $user['ID_Role'] ?? $user['role'] ?? null;
+$currentUserId = $user['ID_User'] ?? $user['id'] ?? $_SESSION['user_id'] ?? 0;
+$currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 'User';
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -218,11 +224,257 @@ require_once __DIR__ . '/../src/auth/auth.php';
             color: white;
         }
         
+        /* Navigation Styles */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            padding: 0.5rem 2rem;
+        }
+        
+        .navbar .container-fluid {
+            padding: 0 1rem;
+        }
+        
+        .navbar-nav .nav-link {
+            color: #333 !important;
+            font-weight: 500;
+            padding: 0.5rem 1rem !important;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .navbar-nav .nav-link:hover {
+            color: #667eea !important;
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .navbar-nav .nav-link.active {
+            color: #667eea !important;
+            background: rgba(102, 126, 234, 0.1);
+            font-weight: 600;
+        }
+        
+        .navbar-nav .nav-link i {
+            margin-right: 0.5rem;
+            font-size: 0.9rem;
+            width: 16px;
+            text-align: center;
+        }
+        
+        .navbar-nav .dropdown-toggle::after {
+            margin-left: 0.5rem;
+        }
+        
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+        }
+        
+        .dropdown-item {
+            padding: 0.75rem 1.5rem;
+            color: #333;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+        
+        .dropdown-item:hover {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            transform: translateX(5px);
+        }
+        
+        .dropdown-item i {
+            width: 20px;
+            text-align: center;
+        }
+        
+        .dropdown-divider {
+            margin: 0.5rem 0;
+            border-color: #e9ecef;
+        }
+        
+        .navbar-brand img {
+            height: 40px;
+            width: auto;
+            transition: transform 0.3s ease;
+        }
+        
+        .navbar-brand:hover img {
+            transform: scale(1.05);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 20px;
+            padding: 8px 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-outline-primary {
+            border: 2px solid #667eea;
+            color: #667eea;
+            border-radius: 20px;
+            padding: 6px 18px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-outline-primary:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 0.5rem 1rem;
+            }
+            
+            .navbar .container-fluid {
+                padding: 0 0.5rem;
+            }
+            
+            .navbar-nav {
+                text-align: center;
+                padding: 1rem 0;
+            }
+            
+            .navbar-nav .nav-link {
+                padding: 0.75rem 1rem !important;
+                margin: 0.25rem 0;
+                justify-content: center;
+            }
+            
+            .dropdown-menu {
+                position: static !important;
+                transform: none !important;
+                box-shadow: none;
+                border: 1px solid #e9ecef;
+                margin-top: 0;
+            }
+            
+            .dropdown-item {
+                padding: 0.5rem 1rem;
+                text-align: center;
+                justify-content: center;
+            }
+            
+            .navbar-toggler {
+                border: none;
+                padding: 0.25rem 0.5rem;
+            }
+            
+            .navbar-toggler:focus {
+                box-shadow: none;
+            }
+        }
+        
     </style>
 </head>
 <body>
     <!-- Navigation -->
-    <?php include 'includes/navbar.php'; ?>
+    <nav class="navbar navbar-expand-lg navbar-light fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <img src="img/logo/logo.jpg" alt="Logo">
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.php">
+                            <i class="fas fa-home me-1"></i>Trang chủ
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="services.php">
+                            <i class="fas fa-concierge-bell me-1"></i>Dịch vụ
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="about.php">
+                            <i class="fas fa-info-circle me-1"></i>Giới thiệu
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="contact.php">
+                            <i class="fas fa-phone me-1"></i>Liên hệ
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="privacy-policy.php">
+                            <i class="fas fa-shield-alt me-1"></i>Chính sách bảo mật
+                        </a>
+                    </li>
+                    <?php if ($user): ?>
+                    <!-- Chức năng dành cho người dùng đã đăng nhập -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="eventsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-calendar-alt me-1"></i>Sự kiện
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="eventsDropdown">
+                            <li><a class="dropdown-item" href="events/register.php">
+                                <i class="fas fa-calendar-plus me-2"></i>Đăng ký sự kiện
+                            </a></li>
+                            <li><a class="dropdown-item" href="events/my-events.php">
+                                <i class="fas fa-list-alt me-2"></i>Sự kiện của tôi
+                            </a></li>
+                            <?php if (in_array($userRole, [1, 2, 3, 4])): ?>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="admin/event-registrations.php">
+                                <i class="fas fa-cogs me-2"></i>Quản lý sự kiện
+                            </a></li>
+                            <?php endif; ?>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="chat.php">
+                            <i class="fas fa-comments me-1"></i>Chat hỗ trợ
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                </ul>
+                <div class="d-flex gap-2">
+                    <?php if ($user): ?>
+                        <a href="profile.php" class="btn btn-outline-primary">
+                            <i class="fa fa-user me-1"></i> Tài khoản
+                        </a>
+                        <a href="logout.php" class="btn btn-primary">
+                            <i class="fa fa-sign-out-alt me-1"></i> Đăng xuất
+                        </a>
+                    <?php else: ?>
+                        <a href="login.php" class="btn btn-outline-primary">
+                            <i class="fa fa-sign-in-alt me-1"></i> Đăng nhập
+                        </a>
+                        <a href="register.php" class="btn btn-primary">
+                            <i class="fa fa-user-plus me-1"></i> Đăng ký
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </nav>
     
     <!-- Hero Section -->
     <div class="hero-section">

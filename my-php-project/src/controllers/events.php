@@ -72,13 +72,22 @@ function getFeaturedEvents($pdo) {
             $event['NgayBatDau'] = date('d/m/Y H:i', strtotime($event['NgayBatDau']));
             $event['NgayKetThuc'] = date('d/m/Y H:i', strtotime($event['NgayKetThuc']));
             $event['NganSach'] = number_format($event['NganSach'], 0, ',', '.') . ' VNĐ';
-            $event['GiaThue'] = number_format($event['GiaThue'], 0, ',', '.') . ' VNĐ';
+            
+            // Tính giá thuê dựa trên loại thuê
+            if ($event['LoaiThue'] === 'Theo giờ') {
+                $event['GiaThue'] = number_format($event['GiaThueGio'], 0, ',', '.') . ' VNĐ/giờ';
+            } elseif ($event['LoaiThue'] === 'Theo ngày') {
+                $event['GiaThue'] = number_format($event['GiaThueNgay'], 0, ',', '.') . ' VNĐ/ngày';
+            } else {
+                // Cả hai - hiển thị giá theo giờ
+                $event['GiaThue'] = number_format($event['GiaThueGio'], 0, ',', '.') . ' VNĐ/giờ';
+            }
             
             // Tạo URL hình ảnh
             if ($event['HinhAnh']) {
-                $event['HinhAnhURL'] = '../img/diadiem/' . $event['HinhAnh'];
+                $event['HinhAnhURL'] = 'img/diadiem/' . $event['HinhAnh'];
             } else {
-                $event['HinhAnhURL'] = '../img/logo/logo.jpg'; // Hình mặc định
+                $event['HinhAnhURL'] = 'img/logo/logo.jpg'; // Hình mặc định
             }
         }
         

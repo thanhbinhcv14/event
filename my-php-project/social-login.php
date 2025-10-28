@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../vendor/autoload.php';
-$config = require __DIR__ . '/../config/hybridauth.php';
+require_once __DIR__ . '/vendor/autoload.php';
+$config = require __DIR__ . '/config/hybridauth.php';
 
 $provider = $_GET['provider'] ?? '';
 if (!$provider) die('No provider specified');

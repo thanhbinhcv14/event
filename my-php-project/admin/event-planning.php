@@ -53,11 +53,14 @@ try {
             kht.ngay_batdau,
             kht.ngay_ketthuc,
             kht.trangthai,
+            kht.id_nhanvien AS ID_NhanVien,
+            nv.HoTen AS TenNhanVien,
             s.ID_DatLich,
             dl.TenSuKien
         FROM kehoachthuchien kht
         LEFT JOIN sukien s ON kht.id_sukien = s.ID_SuKien
         LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+        LEFT JOIN nhanvien nv ON kht.id_nhanvien = nv.ID_NhanVien
         ORDER BY kht.ngay_batdau ASC
     ";
     
@@ -79,6 +82,16 @@ try {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <style>
+        /* Fix content positioning to avoid header overlap */
+        body {
+            padding-top: 0; /* Remove any body padding */
+        }
+        
+        .container-fluid {
+            margin-top: 0;
+            padding-top: 20px;
+        }
+        
         /* Page Layout */
         .page-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -332,6 +345,231 @@ try {
             position: relative;
             overflow: hidden;
         }
+
+        /* Enhanced Step Form Styling */
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        }
+        
+        .form-control-lg, .form-select-lg {
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control-lg:focus, .form-select-lg:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            transform: translateY(-1px);
+        }
+        
+        .form-label.fw-bold {
+            color: #2c3e50;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-label i {
+            font-size: 0.8rem;
+        }
+        
+        .btn-lg {
+            padding: 0.75rem 2rem;
+            font-size: 1rem;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        
+        .btn-outline-secondary {
+            border: 2px solid #6c757d;
+            color: #6c757d;
+            font-weight: 600;
+        }
+        
+        .btn-outline-secondary:hover {
+            background-color: #6c757d;
+            border-color: #6c757d;
+            color: white;
+        }
+        
+        .card.shadow-sm {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+            border: none;
+            border-radius: 15px;
+        }
+        
+        .card-header.bg-gradient-primary {
+            border-radius: 15px 15px 0 0 !important;
+            border: none;
+        }
+        
+        .card-body.p-4 {
+            background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
+        }
+        
+        .g-3 > * {
+            padding: 0.75rem;
+        }
+        
+        /* Placeholder styling */
+        .form-control::placeholder, .form-select::placeholder {
+            color: #6c757d;
+            opacity: 0.7;
+        }
+        
+        /* Enhanced timeline for steps list */
+        .timeline-item .card {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+        
+        .timeline-item .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .timeline-item .card-body {
+            padding: 1.5rem;
+        }
+        
+        .timeline-item h6 {
+            color: #2c3e50;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+        
+        .timeline-item .text-muted {
+            color: #6c757d !important;
+            font-size: 0.9rem;
+        }
+        
+        .timeline-item .badge {
+            font-size: 0.75rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+        }
+        
+        .btn-group-vertical .btn {
+            border-radius: 8px;
+            margin-bottom: 0.25rem;
+        }
+        
+        /* Empty state for steps */
+        #stepsList .text-muted {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        /* Modal improvements */
+        .modal-xl {
+            max-width: 95%;
+        }
+        
+        @media (min-width: 1200px) {
+            .modal-xl {
+                max-width: 1140px;
+            }
+        }
+        
+        /* Fix modal positioning and overflow */
+        .modal-dialog {
+            margin: 0;
+            max-width: 95%;
+            width: 1200px;
+        }
+        
+        .modal-xl .modal-dialog {
+            max-width: 95%;
+            width: 1200px;
+        }
+        
+        /* Ensure modal is properly centered */
+        .modal.show {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        /* Ensure modal content doesn't overflow */
+        .modal-body {
+            overflow-x: hidden;
+        }
+        
+        /* Fix button positioning in modal footer */
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .modal-footer .btn {
+            margin: 0;
+        }
+        
+        /* Ensure form elements don't overflow */
+        .form-control, .form-select {
+            max-width: 100%;
+        }
+        
+        /* Fix responsive issues */
+        @media (max-width: 768px) {
+            .modal-dialog {
+                margin: 0.5rem;
+                max-width: calc(100% - 1rem);
+            }
+            
+            .modal-xl .modal-dialog {
+                max-width: calc(100% - 1rem);
+            }
+            
+            .modal-body {
+                padding: 1rem;
+            }
+            
+            .modal-footer {
+                padding: 1rem;
+                flex-direction: column;
+            }
+            
+            .modal-footer .btn {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+        }
+        
+        /* Responsive improvements */
+        @media (max-width: 768px) {
+            .form-control-lg, .form-select-lg {
+                font-size: 0.9rem;
+                padding: 0.6rem 0.8rem;
+            }
+            
+            .btn-lg {
+                padding: 0.6rem 1.5rem;
+                font-size: 0.9rem;
+            }
+            
+            .card-body.p-4 {
+                padding: 1.5rem !important;
+            }
+            
+            .d-flex.gap-2 {
+                flex-direction: column;
+                gap: 0.5rem !important;
+            }
+            
+            .d-flex.gap-2 .btn {
+                width: 100%;
+            }
+        }
         
         .existing-plans-card::before {
             content: '';
@@ -426,52 +664,256 @@ try {
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         }
         
-        /* Modal Improvements */
+        /* Event Plans Styling */
+        .event-plans-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+        }
+        
+        .event-plan-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef !important;
+            transition: all 0.3s ease;
+        }
+        
+        .event-plan-item:hover {
+            background: #e9ecef;
+            border-color: #667eea !important;
+            transform: translateY(-1px);
+        }
+        
+        .event-plan-item .text-primary {
+            color: #667eea !important;
+            font-size: 0.9rem;
+        }
+        
+        .event-plan-item .badge {
+            font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
+        }
+        
+        /* Modal Styling - Fixed Z-index */
+        .modal {
+            z-index: 10000 !important;
+        }
+        
+        .modal-backdrop {
+            display: none !important;
+        }
+        
+        .modal.show {
+            z-index: 10000 !important;
+        }
+        
+        .modal.show .modal-dialog {
+            z-index: 10001 !important;
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            margin: 0 !important;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal.show .modal-content {
+            z-index: 10002 !important;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
         .modal-content {
-            border-radius: 15px;
+            border-radius: 20px;
             border: none;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .modal-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+            z-index: 1;
         }
         
         .modal-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
             color: white;
-            border-radius: 15px 15px 0 0;
+            border-radius: 20px 20px 0 0;
             border-bottom: none;
-            padding: 1.5rem;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .modal-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: shimmer 3s ease-in-out infinite;
         }
         
         .modal-header .btn-close {
             filter: brightness(0) invert(1);
+            opacity: 0.8;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .modal-header .btn-close:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .modal-title {
+            font-weight: 700;
+            font-size: 1.4rem;
+            position: relative;
+            z-index: 2;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .modal-body {
-            padding: 2rem;
+            padding: 2.5rem;
+            background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
+            max-height: 70vh;
+            overflow-y: auto;
         }
         
         .modal-footer {
-            border-top: 1px solid #f0f0f0;
-            padding: 1.5rem;
-            border-radius: 0 0 15px 15px;
+            border-top: 1px solid #e9ecef;
+            padding: 1.5rem 2.5rem;
+            border-radius: 0 0 20px 20px;
+            background: #f8f9fa;
         }
         
-        /* Form Improvements */
-        .form-control, .form-select {
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
-            padding: 0.75rem 1rem;
+        /* Ensure modal covers everything */
+        .modal.show {
+            background-color: rgba(0, 0, 0, 0.1) !important;
+        }
+        
+        /* Fix body scroll when modal is open */
+        body.modal-open {
+            overflow: hidden !important;
+            padding-right: 0 !important;
+        }
+        
+        /* Ensure sidebar doesn't interfere */
+        .sidebar, .admin-header, nav {
+            z-index: 1030 !important;
+        }
+        
+        /* Form Improvements for Modal */
+        .modal .form-control, .modal .form-select {
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+            padding: 1rem 1.25rem;
+            transition: all 0.3s ease;
+            background: white;
+            font-size: 0.95rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .modal .form-control:focus, .modal .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.3rem rgba(102, 126, 234, 0.15);
+            background: white;
+            transform: translateY(-2px);
+        }
+        
+        .modal .form-label {
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Card styling in modal */
+        .modal .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
             transition: all 0.3s ease;
         }
         
-        .form-control:focus, .form-select:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        .modal .card:hover {
+            box-shadow: 0 12px 35px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
         }
         
-        .form-label {
-            font-weight: 600;
+        .modal .card-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 2px solid #dee2e6;
+            padding: 1.5rem;
+            border-radius: 15px 15px 0 0;
+        }
+        
+        .modal .card-header h6 {
             color: #2c3e50;
-            margin-bottom: 0.5rem;
+            font-weight: 700;
+            margin: 0;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .modal .card-body {
+            padding: 2rem;
+            background: white;
+        }
+        
+        /* Button styling in modal */
+        .modal .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            font-weight: 700;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .modal .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+        
+        .modal .btn-secondary {
+            background: #6c757d;
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            font-weight: 700;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+        }
+        
+        .modal .btn-secondary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
+            background: #5a6268;
         }
         
         /* Loading States */
@@ -483,46 +925,112 @@ try {
         
         /* Responsive Design */
         @media (max-width: 768px) {
+            .container-fluid {
+                padding-top: 10px;
+            }
+           
             .page-title {
                 font-size: 2rem;
             }
-            
+           
             .stats-card h3 {
                 font-size: 2rem;
             }
-            
+           
             .planning-card {
                 margin-bottom: 1.5rem;
             }
-            
+           
             .event-header {
                 padding: 1rem;
             }
-            
+           
             .card-body {
+                padding: 1rem;
+            }
+           
+            .modal-dialog {
+                margin: 1rem;
+                max-width: 95% !important;
+            }
+           
+            .modal-body {
                 padding: 1rem;
             }
         }
         
-        /* Remove modal backdrop completely */
-        .modal-backdrop {
-            display: none !important;
+        /* Ensure menu/sidebar doesn't overlap modal */
+        .sidebar, .admin-header, nav {
+            z-index: 1030 !important;
+            pointer-events: auto !important;
         }
         
-        /* Ensure body doesn't get locked when modal is open */
+        /* Keep body scroll when modal open */
         body.modal-open {
-            overflow: auto !important;
+            overflow: hidden !important;
             padding-right: 0 !important;
         }
         
-        /* Ensure page loading overlay doesn't block interactions */
-        .page-loading {
-            pointer-events: none !important;
+        /* Ensure modal is always on top */
+        .modal.show {
+            z-index: 10000 !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background-color: rgba(0, 0, 0, 0.1) !important;
         }
         
-        /* Ensure sidebar and navigation are clickable */
-        .sidebar, .sidebar a, .menu-item {
-            pointer-events: auto !important;
+        /* Fix modal positioning to center properly */
+        .modal.show .modal-dialog {
+            position: fixed !important;
+            z-index: 10001 !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            margin: 0 !important;
+            max-width: 95vw;
+            max-height: 90vh;
+            width: 1200px;
+        }
+        
+        /* Ensure modal doesn't overlap with sidebar */
+        @media (min-width: 769px) {
+            .modal.show .modal-dialog {
+                left: calc(50% + 125px) !important; /* Offset for sidebar width */
+                max-width: calc(95vw - 250px);
+                width: 1000px;
+            }
+            
+            /* Ensure modal content fits properly */
+            .modal-content {
+                max-width: 100%;
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .modal.show .modal-dialog {
+                left: 50% !important;
+                max-width: 95vw;
+                width: 95vw;
+            }
+        }
+        
+        /* Additional responsive fixes */
+        @media (min-width: 1200px) {
+            .modal.show .modal-dialog {
+                left: calc(50% + 125px) !important;
+                max-width: calc(100vw - 300px);
+                width: 1200px;
+            }
+        }
+        
+        @media (min-width: 1400px) {
+            .modal.show .modal-dialog {
+                width: 1400px;
+            }
         }
         
         /* Alert Improvements */
@@ -560,6 +1068,7 @@ try {
             margin-bottom: 1rem;
         }
     </style>
+    
 </head>
 <body>
     <?php include 'includes/admin-header.php'; ?>
@@ -573,6 +1082,7 @@ try {
                         Lên kế hoạch thực hiện và phân công
                     </h1>
                     <p class="page-subtitle">Tạo và quản lý kế hoạch thực hiện cho các sự kiện đã được duyệt</p>
+                    <button class="btn btn-warning btn-sm" onclick="testCreatePlan()">Test Tạo Kế Hoạch</button>
                 </div>
                 
                 <!-- Statistics -->
@@ -616,7 +1126,7 @@ try {
                 </div>
 
                 <!-- Existing Plans -->
-                <div class="mt-5" id="existingPlansSection" style="display: none;">
+        <div class="mt-5" id="existingPlansSection" style="display: none;">
                     <h4 class="mb-3">
                         <i class="fas fa-list-check"></i>
                         Kế hoạch đã tạo
@@ -654,15 +1164,23 @@ try {
                                         </div>
                                         
                                         <div class="row">
-                                            <div class="col-md-6">
+                                            <div class="col-md-3">
                                 <label for="startDate" class="form-label">Ngày bắt đầu</label>
                                 <input type="date" class="form-control" id="startDate" name="startDate" required>
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-3">
+                                <label for="startTime" class="form-label">Giờ bắt đầu</label>
+                                <input type="time" class="form-control" id="startTime" name="startTime" required>
+                                            </div>
+                                            <div class="col-md-3">
                                 <label for="endDate" class="form-label">Ngày kết thúc</label>
                                 <input type="date" class="form-control" id="endDate" name="endDate" required>
-                                                </div>
                                             </div>
+                                            <div class="col-md-3">
+                                <label for="endTime" class="form-label">Giờ kết thúc</label>
+                                <input type="time" class="form-control" id="endTime" name="endTime" required>
+                                            </div>
+                                        </div>
                         
                                                 <div class="mb-3">
                             <label for="assignedStaff" class="form-label">Nhân viên phụ trách</label>
@@ -694,64 +1212,87 @@ try {
                     <input type="hidden" id="stepEventId" name="eventId">
                     
                     <!-- Add Step Form -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h6 class="mb-0">
-                                <i class="fas fa-plus"></i> Thêm bước mới
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-gradient-primary text-white">
+                            <h6 class="mb-0 d-flex align-items-center">
+                                <i class="fas fa-plus-circle me-2"></i> 
+                                Thêm bước thực hiện mới
                             </h6>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body p-4">
                             <form id="addStepForm">
-                                <div class="row">
+                                <div class="row g-3 mb-3">
                                     <div class="col-md-6">
-                                        <label for="stepName" class="form-label">Tên bước</label>
-                                        <input type="text" class="form-control" id="stepName" name="stepName" required>
+                                        <label for="stepName" class="form-label fw-bold">
+                                            <i class="fas fa-tag text-primary me-1"></i>Tên bước
+                                        </label>
+                                        <input type="text" class="form-control form-control-lg" id="stepName" name="stepName" 
+                                               placeholder="Nhập tên bước thực hiện" required>
                                     </div>
                                     <div class="col-md-6">
-                                            <label for="stepStaff" class="form-label">Nhân viên phụ trách</label>
-                                            <select class="form-select" id="stepStaff" name="staffId">
+                                        <label for="stepStaff" class="form-label fw-bold">
+                                            <i class="fas fa-user text-primary me-1"></i>Nhân viên phụ trách
+                                        </label>
+                                        <select class="form-select form-select-lg" id="stepStaff" name="staffId">
                                             <option value="">Chọn nhân viên</option>
-                                            </select>
+                                        </select>
                                     </div>
-                                        </div>
-                                        
-                                        <div class="mb-3">
-                                    <label for="stepDescription" class="form-label">Mô tả</label>
-                                    <textarea class="form-control" id="stepDescription" name="stepDescription" rows="2"></textarea>
                                 </div>
                                 
-                                <div class="row">
-                                    <div class="col-md-3">
-                                        <label for="stepStartDate" class="form-label">Ngày bắt đầu</label>
-                                        <input type="date" class="form-control" id="stepStartDate" name="stepStartDate" required>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="stepStartTime" class="form-label">Giờ bắt đầu</label>
-                                        <input type="time" class="form-control" id="stepStartTime" name="stepStartTime" required>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="stepEndDate" class="form-label">Ngày kết thúc</label>
-                                        <input type="date" class="form-control" id="stepEndDate" name="stepEndDate" required>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="stepEndTime" class="form-label">Giờ kết thúc</label>
-                                        <input type="time" class="form-control" id="stepEndTime" name="stepEndTime" required>
-                                    </div>
-                                        </div>
-                                        
-                                        <div class="mb-3">
-                                            <label for="stepNote" class="form-label">Ghi chú</label>
-                                    <textarea class="form-control" id="stepNote" name="note" rows="2"></textarea>
-                                        </div>
-                                        
-                                <div class="text-end">
-                                            <button type="button" class="btn btn-primary" onclick="addStep()">
-                                        <i class="fas fa-plus"></i> Thêm bước
-                                            </button>
-                                        </div>
-                                    </form>
+                                <div class="mb-3">
+                                    <label for="stepDescription" class="form-label fw-bold">
+                                        <i class="fas fa-file-text text-primary me-1"></i>Mô tả chi tiết
+                                    </label>
+                                    <textarea class="form-control" id="stepDescription" name="stepDescription" 
+                                              rows="3" placeholder="Mô tả chi tiết về bước thực hiện này..."></textarea>
                                 </div>
-                            </div>
+                                
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-3">
+                                        <label for="stepStartDate" class="form-label fw-bold">
+                                            <i class="fas fa-calendar text-primary me-1"></i>Ngày bắt đầu
+                                        </label>
+                                        <input type="date" class="form-control form-control-lg" id="stepStartDate" name="stepStartDate" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="stepStartTime" class="form-label fw-bold">
+                                            <i class="fas fa-clock text-primary me-1"></i>Giờ bắt đầu
+                                        </label>
+                                        <input type="time" class="form-control form-control-lg" id="stepStartTime" name="stepStartTime" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="stepEndDate" class="form-label fw-bold">
+                                            <i class="fas fa-calendar text-primary me-1"></i>Ngày kết thúc
+                                        </label>
+                                        <input type="date" class="form-control form-control-lg" id="stepEndDate" name="stepEndDate" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="stepEndTime" class="form-label fw-bold">
+                                            <i class="fas fa-clock text-primary me-1"></i>Giờ kết thúc
+                                        </label>
+                                        <input type="time" class="form-control form-control-lg" id="stepEndTime" name="stepEndTime" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label for="stepNote" class="form-label fw-bold">
+                                        <i class="fas fa-sticky-note text-primary me-1"></i>Ghi chú bổ sung
+                                    </label>
+                                    <textarea class="form-control" id="stepNote" name="note" rows="2" 
+                                              placeholder="Thêm ghi chú hoặc lưu ý đặc biệt..."></textarea>
+                                </div>
+                                
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="resetStepForm()">
+                                        <i class="fas fa-undo me-1"></i>Làm mới
+                                    </button>
+                                    <button type="button" class="btn btn-primary btn-lg px-4" onclick="addStep()">
+                                        <i class="fas fa-plus me-2"></i>Thêm bước thực hiện
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                     
                     <!-- Steps List -->
                     <div id="stepsList">
@@ -760,6 +1301,69 @@ try {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Plan Modal -->
+    <div class="modal fade" id="editPlanModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-pen-to-square"></i> Sửa kế hoạch
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editPlanForm">
+                        <input type="hidden" id="editPlanId" name="planId">
+                        <div class="mb-3">
+                            <label for="editAssignedStaff" class="form-label">Nhân viên phụ trách</label>
+                            <select class="form-select" id="editAssignedStaff" name="assignedStaff">
+                                <option value="">Chọn nhân viên</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPlanName" class="form-label">Tên kế hoạch</label>
+                            <input type="text" class="form-control" id="editPlanName" name="planName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPlanContent" class="form-label">Nội dung kế hoạch</label>
+                            <textarea class="form-control" id="editPlanContent" name="planContent" rows="4" required></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label for="editStartDate" class="form-label">Ngày bắt đầu</label>
+                                <input type="date" class="form-control" id="editStartDate" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="editStartTime" class="form-label">Giờ bắt đầu</label>
+                                <input type="time" class="form-control" id="editStartTime" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="editEndDate" class="form-label">Ngày kết thúc</label>
+                                <input type="date" class="form-control" id="editEndDate" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="editEndTime" class="form-label">Giờ kết thúc</label>
+                                <input type="time" class="form-control" id="editEndTime" required>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label for="editStatus" class="form-label">Trạng thái</label>
+                            <select class="form-select" id="editStatus" name="status">
+                                <option value="Chưa bắt đầu">Chưa bắt đầu</option>
+                                <option value="Đang thực hiện">Đang thực hiện</option>
+                                <option value="Hoàn thành">Hoàn thành</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-primary" onclick="submitEditPlan()">Lưu thay đổi</button>
                 </div>
             </div>
         </div>
@@ -794,10 +1398,40 @@ try {
         // Load page data - using PHP data directly for now
         function loadPageData() {
             console.log('Loading page data from PHP variables');
+            console.log('Approved events:', approvedEvents);
+            console.log('Existing plans:', existingPlans);
+            
             // Data is already loaded from PHP, just display it
             displayEvents();
             displayPlans();
             updateStatistics();
+            
+            // Also load plans from API to ensure we have latest data
+            loadPlansFromAPI();
+        }
+        
+        // Load plans from API
+        function loadPlansFromAPI() {
+            fetch('../src/controllers/event-planning.php?action=get_plans', {
+                credentials: 'same-origin'
+            })
+            .then(handleFetchResponse)
+            .then(data => {
+                if (data.success && data.plans) {
+                    console.log('Loaded plans from API:', data.plans);
+                    existingPlans = data.plans;
+                    displayPlans();
+                    updateStatistics();
+                    
+                    // Reload plans for each event
+                    approvedEvents.forEach(event => {
+                        loadEventPlans(event.ID_DatLich);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading plans from API:', error);
+            });
         }
         
         // Display events in the UI
@@ -858,6 +1492,15 @@ try {
                                     <strong>${escapeHtml(event.TenKhachHang)}</strong><br>
                                     <small class="text-muted">${escapeHtml(event.SoDienThoai)}</small>
                                 </div>
+                                
+                                <!-- Existing Plans for this Event -->
+                                <div class="mb-3" id="plans-${event.ID_DatLich}">
+                                    <small class="text-muted">Kế hoạch đã tạo:</small>
+                                    <div class="event-plans-list" id="event-plans-${event.ID_DatLich}">
+                                        <!-- Plans will be loaded here -->
+                                    </div>
+                                </div>
+                                
                                 <div class="d-grid gap-2">
                                     <button class="btn btn-primary" onclick="createPlan(${event.ID_DatLich}, '${escapeHtml(event.TenSuKien)}')">
                                         <i class="fas fa-plus"></i> Tạo kế hoạch
@@ -873,6 +1516,87 @@ try {
             });
             
             eventsList.innerHTML = html;
+            
+            // Load plans for each event
+            approvedEvents.forEach(event => {
+                loadEventPlans(event.ID_DatLich);
+            });
+        }
+        
+        // Load plans for a specific event
+        function loadEventPlans(eventId) {
+            const eventPlansContainer = document.getElementById(`event-plans-${eventId}`);
+            if (!eventPlansContainer) return;
+            
+            console.log('Loading plans for event:', eventId);
+            console.log('All existing plans:', existingPlans);
+            
+            // Filter plans for this specific event - use ID_DatLich
+            const eventPlans = existingPlans.filter(plan => plan.ID_DatLich == eventId);
+            
+            console.log('Filtered plans for event', eventId, ':', eventPlans);
+            
+            if (eventPlans.length === 0) {
+                eventPlansContainer.innerHTML = '<small class="text-muted">Chưa có kế hoạch</small>';
+                return;
+            }
+            
+            let html = '';
+            eventPlans.forEach(plan => {
+                // Handle both date and datetime formats
+                let startDate, endDate;
+                try {
+                    if (plan.ngay_batdau.includes(' ')) {
+                        startDate = new Date(plan.ngay_batdau).toLocaleDateString('vi-VN');
+                    } else {
+                        startDate = new Date(plan.ngay_batdau).toLocaleDateString('vi-VN');
+                    }
+                    
+                    if (plan.ngay_ketthuc.includes(' ')) {
+                        endDate = new Date(plan.ngay_ketthuc).toLocaleDateString('vi-VN');
+                    } else {
+                        endDate = new Date(plan.ngay_ketthuc).toLocaleDateString('vi-VN');
+                    }
+                } catch (e) {
+                    startDate = plan.ngay_batdau || 'N/A';
+                    endDate = plan.ngay_ketthuc || 'N/A';
+                }
+                
+                const statusClass = plan.trangthai === 'Hoàn thành' ? 'success' : 
+                                  plan.trangthai === 'Đang thực hiện' ? 'warning' : 'secondary';
+                
+                html += `
+                    <div class="event-plan-item mb-2 p-3 border rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <strong class="text-primary">${escapeHtml(plan.ten_kehoach)}</strong>
+                                    <span class="badge bg-${statusClass}">${escapeHtml(plan.trangthai)}</span>
+                                </div>
+                                <div class="text-muted mb-1">
+                                    <i class="fas fa-calendar"></i>
+                                    ${startDate} - ${endDate}
+                                </div>
+                                ${plan.noidung ? `<div class="text-muted mb-1"><i class=\"fas fa-file-lines\"></i> ${escapeHtml(plan.noidung)}</div>` : ''}
+                                <div class="text-muted"><i class="fas fa-user"></i> ${escapeHtml(plan.TenNhanVien || plan.ten_nhanvien || 'Chưa phân công')}</div>
+                            </div>
+                            <div class="ms-2 d-flex flex-column align-items-end">
+                                <button class="btn btn-sm btn-outline-primary mb-2"
+                                        onclick="openEditPlanFromButton(this)"
+                                        data-plan-id="${plan.id_kehoach || ''}"
+                                        data-plan-name="${escapeHtml(plan.ten_kehoach || '')}"
+                                        data-plan-content="${escapeHtml(plan.noidung || '')}"
+                                        data-start="${plan.ngay_batdau || ''}"
+                                        data-end="${plan.ngay_ketthuc || ''}"
+                                        data-status="${plan.trangthai || 'Chưa bắt đầu'}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            
+            eventPlansContainer.innerHTML = html;
         }
         
         // Display plans in the UI
@@ -880,17 +1604,39 @@ try {
             const existingPlansSection = document.getElementById('existingPlansSection');
             const existingPlansList = document.getElementById('existingPlansList');
             
-            if (existingPlans.length === 0) {
+            // Always show section if there are plans
+            if (existingPlans.length > 0) {
+                existingPlansSection.style.display = 'block';
+            } else {
                 existingPlansSection.style.display = 'none';
                 return;
             }
             
-            existingPlansSection.style.display = 'block';
-            
             let html = '';
             existingPlans.forEach(plan => {
-                const startDate = new Date(plan.ngay_batdau).toLocaleDateString('vi-VN');
-                const endDate = new Date(plan.ngay_ketthuc).toLocaleDateString('vi-VN');
+                // Handle both date and datetime formats
+                let startDate, endDate;
+                try {
+                    if (plan.ngay_batdau.includes(' ')) {
+                        // It's a datetime string
+                        startDate = new Date(plan.ngay_batdau).toLocaleDateString('vi-VN');
+                    } else {
+                        // It's a date string
+                        startDate = new Date(plan.ngay_batdau).toLocaleDateString('vi-VN');
+                    }
+                    
+                    if (plan.ngay_ketthuc.includes(' ')) {
+                        // It's a datetime string
+                        endDate = new Date(plan.ngay_ketthuc).toLocaleDateString('vi-VN');
+                    } else {
+                        // It's a date string
+                        endDate = new Date(plan.ngay_ketthuc).toLocaleDateString('vi-VN');
+                    }
+                } catch (e) {
+                    startDate = plan.ngay_batdau || 'N/A';
+                    endDate = plan.ngay_ketthuc || 'N/A';
+                }
+                
                 const statusClass = plan.trangthai === 'Hoàn thành' ? 'success' : 
                                   plan.trangthai === 'Đang thực hiện' ? 'warning' : 'secondary';
                 
@@ -914,6 +1660,129 @@ try {
             });
             
             existingPlansList.innerHTML = html;
+        }
+
+        // Open edit plan modal with data
+        function openEditPlanModal(planData) {
+            try {
+                // Parse when called from inline html (escaped JSON)
+                if (typeof planData === 'string') {
+                    planData = JSON.parse(planData);
+                }
+            } catch (e) {}
+
+            const modalEl = document.getElementById('editPlanModal');
+            document.getElementById('editPlanId').value = planData.id || planData.id_kehoach || '';
+            document.getElementById('editPlanName').value = planData.name || planData.ten_kehoach || '';
+            document.getElementById('editPlanContent').value = planData.content || planData.noidung || '';
+
+            // Split datetime into date and time
+            const start = (planData.start || planData.ngay_batdau || '').trim();
+            const end = (planData.end || planData.ngay_ketthuc || '').trim();
+            const [sd, st] = start.includes(' ') ? start.split(' ') : [start, '08:00'];
+            const [ed, et] = end.includes(' ') ? end.split(' ') : [end, '17:00'];
+            document.getElementById('editStartDate').value = sd || '';
+            document.getElementById('editStartTime').value = st || '';
+            document.getElementById('editEndDate').value = ed || '';
+            document.getElementById('editEndTime').value = et || '';
+            document.getElementById('editStatus').value = planData.status || planData.trangthai || 'Chưa bắt đầu';
+
+            // Load staff options into edit select, then preselect if available
+            loadStaffOptions().then(() => {
+                const staffSelect = document.getElementById('editAssignedStaff');
+                if (planData.ID_NhanVien || planData.id_nhanvien) {
+                    staffSelect.value = planData.ID_NhanVien || planData.id_nhanvien;
+                }
+            }).catch(() => {});
+
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+
+        // Read data-* from button to open modal safely
+        function openEditPlanFromButton(btn) {
+            const planData = {
+                id: btn.getAttribute('data-plan-id') || '',
+                name: btn.getAttribute('data-plan-name') || '',
+                content: btn.getAttribute('data-plan-content') || '',
+                start: btn.getAttribute('data-start') || '',
+                end: btn.getAttribute('data-end') || '',
+                status: btn.getAttribute('data-status') || 'Chưa bắt đầu'
+            };
+            openEditPlanModal(planData);
+        }
+
+        // Submit edit plan
+        function submitEditPlan() {
+            const planId = document.getElementById('editPlanId').value;
+            const name = document.getElementById('editPlanName').value.trim();
+            const content = document.getElementById('editPlanContent').value.trim();
+            const startDate = document.getElementById('editStartDate').value;
+            const startTime = document.getElementById('editStartTime').value;
+            const endDate = document.getElementById('editEndDate').value;
+            const endTime = document.getElementById('editEndTime').value;
+            const status = document.getElementById('editStatus').value;
+
+            if (!planId || !name || !content || !startDate || !startTime || !endDate || !endTime) {
+                alert('Vui lòng điền đầy đủ thông tin');
+                return;
+            }
+
+            const startDateTime = `${startDate} ${startTime}`;
+            const endDateTime = `${endDate} ${endTime}`;
+            if (new Date(endDateTime) <= new Date(startDateTime)) {
+                alert('Thời gian kết thúc phải sau thời gian bắt đầu');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'update_plan');
+            formData.append('planId', planId);
+            formData.append('planName', name);
+            formData.append('planContent', content);
+            formData.append('startDateTime', startDateTime);
+            formData.append('endDateTime', endDateTime);
+            formData.append('status', status);
+            formData.append('managerId', document.getElementById('editAssignedStaff').value || '');
+
+            fetch('../src/controllers/event-planning.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(handleFetchResponse)
+            .then(data => {
+                if (data.success) {
+                    // Update in local list
+                    const idx = existingPlans.findIndex(p => (p.id_kehoach == planId || p.id == planId));
+                    if (idx !== -1) {
+                        existingPlans[idx].ten_kehoach = name;
+                        existingPlans[idx].noidung = content;
+                        existingPlans[idx].ngay_batdau = startDateTime;
+                        existingPlans[idx].ngay_ketthuc = endDateTime;
+                        existingPlans[idx].trangthai = status;
+                        // also update assigned staff name/id
+                        existingPlans[idx].ID_NhanVien = document.getElementById('editAssignedStaff').value || null;
+                        const staffName = getStaffName(existingPlans[idx].ID_NhanVien);
+                        if (staffName && staffName !== 'Chưa phân công') {
+                            existingPlans[idx].TenNhanVien = staffName;
+                        }
+                    }
+                    displayPlans();
+                    updateStatistics();
+                    approvedEvents.forEach(ev => loadEventPlans(ev.ID_DatLich));
+
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editPlanModal'));
+                    modal.hide();
+                    alert('Cập nhật kế hoạch thành công');
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không xác định'));
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Có lỗi xảy ra khi cập nhật kế hoạch');
+            });
         }
         
         // Update statistics
@@ -958,9 +1827,11 @@ try {
             // Load staff options
             loadStaffOptions();
             
-            // Set default dates
+            // Set default dates and times
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('startDate').value = today;
+            document.getElementById('startTime').value = '08:00';
+            document.getElementById('endTime').value = '17:00';
             
             // Clear form fields
             document.getElementById('planName').value = '';
@@ -973,20 +1844,30 @@ try {
         }
 
         function loadStaffOptions() {
-            fetch('src/controllers/event-planning.php?action=get_staff', {
+            return fetch('../src/controllers/event-planning.php?action=get_staff', {
                 credentials: 'same-origin'
             })
                 .then(handleFetchResponse)
                 .then(data => {
                     if (data.success) {
-                        const select = document.getElementById('assignedStaff');
-                        select.innerHTML = '<option value="">Chọn nhân viên</option>';
-                        data.staff.forEach(staff => {
-                            select.innerHTML += `<option value="${staff.ID_NhanVien}">${staff.HoTen} - ${staff.ChucVu}</option>`;
+                        const selects = [];
+                        const s1 = document.getElementById('assignedStaff');
+                        const s2 = document.getElementById('editAssignedStaff');
+                        if (s1) selects.push(s1);
+                        if (s2) selects.push(s2);
+                        selects.forEach(select => {
+                            select.innerHTML = '<option value="">Chọn nhân viên</option>';
+                            data.staff.forEach(staff => {
+                                select.innerHTML += `<option value="${staff.ID_NhanVien}">${staff.HoTen} - ${staff.ChucVu}</option>`;
+                            });
                         });
                     }
+                    return data.staff || [];
                 })
-                .catch(error => console.error('Error loading staff:', error));
+                .catch(error => {
+                    console.error('Error loading staff:', error);
+                    return [];
+                });
         }
 
         function savePlan() {
@@ -999,23 +1880,33 @@ try {
             const planName = formData.get('planName');
             const planContent = formData.get('planContent');
             const startDate = formData.get('startDate');
+            const startTime = formData.get('startTime');
             const endDate = formData.get('endDate');
+            const endTime = formData.get('endTime');
             
-            if (!eventId || !planName || !planContent || !startDate || !endDate) {
+            if (!eventId || !planName || !planContent || !startDate || !startTime || !endDate || !endTime) {
                 alert('Vui lòng điền đầy đủ thông tin bắt buộc');
                 return;
             }
             
-            // Validate dates
-            const startDateObj = new Date(startDate);
-            const endDateObj = new Date(endDate);
+            // Combine date and time
+            const startDateTime = startDate + ' ' + startTime;
+            const endDateTime = endDate + ' ' + endTime;
             
-            if (endDateObj < startDateObj) {
-                alert('Ngày kết thúc phải sau ngày bắt đầu');
+            // Update form data with combined datetime
+            formData.set('startDateTime', startDateTime);
+            formData.set('endDateTime', endDateTime);
+            
+            // Validate dates and times
+            const startDateObj = new Date(startDateTime);
+            const endDateObj = new Date(endDateTime);
+            
+            if (endDateObj <= startDateObj) {
+                alert('Thời gian kết thúc phải sau thời gian bắt đầu');
                 return;
             }
 
-            fetch('src/controllers/event-planning.php', {
+            fetch('../src/controllers/event-planning.php', {
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin'
@@ -1023,9 +1914,42 @@ try {
             .then(handleFetchResponse)
             .then(data => {
                 if (data.success) {
-                    alert('Tạo kế hoạch thành công');
-                    // Reload page to get fresh data
-                    location.reload();
+                    alert('Tạo kế hoạch thành công! Bây giờ bạn có thể thêm các bước thực hiện.');
+                    
+                    // Add new plan to existing plans array
+                    const newPlan = {
+                        id_kehoach: data.planId || Date.now(), // Use returned ID or fallback
+                        ten_kehoach: formData.get('planName'),
+                        noidung: formData.get('planContent'),
+                        ngay_batdau: formData.get('startDateTime'),
+                        ngay_ketthuc: formData.get('endDateTime'),
+                        trangthai: 'Chưa thực hiện',
+                        ID_DatLich: formData.get('eventId'), // Use ID_DatLich to match the query
+                        ten_nhanvien: getStaffName(formData.get('assignedStaff'))
+                    };
+                    
+                    existingPlans.unshift(newPlan); // Add to beginning of array
+                    
+                    // Update display immediately
+                    displayPlans();
+                    updateStatistics();
+                    
+                    // Update plans for the specific event
+                    loadEventPlans(formData.get('eventId'));
+                    
+                    // Close create plan modal
+                    const createModal = bootstrap.Modal.getInstance(document.getElementById('createPlanModal'));
+                    createModal.hide();
+                    
+                    // Get event info for manage steps
+                    const eventId = document.getElementById('eventId').value;
+                    const eventName = document.querySelector('#createPlanModal .modal-title').textContent.replace('Tạo kế hoạch cho: ', '');
+                    
+                    // Open manage steps modal
+                    setTimeout(() => {
+                        manageSteps(eventId, eventName);
+                    }, 500);
+                    
                 } else {
                     alert('Lỗi: ' + (data.error || data.message || 'Không xác định'));
                 }
@@ -1034,6 +1958,65 @@ try {
                 console.error('Error:', error);
                 alert('Có lỗi xảy ra khi tạo kế hoạch: ' + error.message);
             });
+        }
+
+        // Test function to create a plan
+        function testCreatePlan() {
+            if (approvedEvents.length === 0) {
+                alert('Không có sự kiện nào để test');
+                return;
+            }
+            
+            const testEvent = approvedEvents[0];
+            console.log('Testing with event:', testEvent);
+            
+            // Create a test plan
+            const testPlan = {
+                id_kehoach: Date.now(),
+                ten_kehoach: 'Kế hoạch test ' + new Date().toLocaleTimeString(),
+                noidung: 'Nội dung test kế hoạch',
+                ngay_batdau: '2025-01-01 08:00',
+                ngay_ketthuc: '2025-01-01 17:00',
+                trangthai: 'Chưa thực hiện',
+                ID_DatLich: testEvent.ID_DatLich,
+                ten_nhanvien: 'Test Staff'
+            };
+            
+            console.log('Adding test plan:', testPlan);
+            existingPlans.unshift(testPlan);
+            
+            // Update display
+            displayPlans();
+            updateStatistics();
+            loadEventPlans(testEvent.ID_DatLich);
+            
+            alert('Đã thêm kế hoạch test cho sự kiện: ' + testEvent.TenSuKien);
+        }
+
+        // Reset step form
+        function resetStepForm() {
+            document.getElementById('addStepForm').reset();
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('stepStartDate').value = today;
+            document.getElementById('stepStartTime').value = '08:00';
+            document.getElementById('stepEndDate').value = today;
+            document.getElementById('stepEndTime').value = '17:00';
+        }
+
+        // Helper function to get staff name by ID
+        function getStaffName(staffId) {
+            if (!staffId) return 'Chưa phân công';
+            
+            // Try to find staff name from the select options
+            const staffSelect = document.getElementById('assignedStaff');
+            if (staffSelect) {
+                const selectedOption = staffSelect.querySelector(`option[value="${staffId}"]`);
+                if (selectedOption) {
+                    return selectedOption.textContent.split(' - ')[0]; // Get name part only
+                }
+            }
+            
+            return 'Nhân viên #' + staffId;
         }
 
         function manageSteps(eventId, eventName) {
@@ -1047,9 +2030,12 @@ try {
             // Load staff options
             loadStaffOptionsForSteps();
             
-            // Set default dates
+            // Set default dates and times
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('stepStartDate').value = today;
+            document.getElementById('stepStartTime').value = '08:00';
+            document.getElementById('stepEndDate').value = today;
+            document.getElementById('stepEndTime').value = '17:00';
             
             const modal = new bootstrap.Modal(document.getElementById('manageStepsModal'));
             modal.show();
@@ -1057,7 +2043,7 @@ try {
 
         function loadSteps(eventId) {
             console.log('Loading steps for event:', eventId);
-            fetch(`src/controllers/event-planning.php?action=get_event_steps&event_id=${eventId}`, {
+            fetch(`../src/controllers/event-planning.php?action=get_event_steps&event_id=${eventId}`, {
                 credentials: 'same-origin'
             })
                 .then(response => response.json())
@@ -1114,7 +2100,7 @@ try {
         }
 
         function loadStaffOptionsForSteps() {
-            fetch('src/controllers/event-planning.php?action=get_staff_list', {
+            fetch('../src/controllers/event-planning.php?action=get_staff_list', {
                 credentials: 'same-origin'
             })
                 .then(handleFetchResponse)
@@ -1137,7 +2123,7 @@ try {
         function addStep() {
             const form = document.getElementById('addStepForm');
             const formData = new FormData(form);
-            formData.append('action', 'add_plan_step');
+            formData.append('action', 'add_event_step');
             formData.append('eventId', document.getElementById('stepEventId').value);
             
             // Get date and time values
@@ -1163,7 +2149,7 @@ try {
                 return;
             }
 
-            fetch('src/controllers/event-planning.php', {
+            fetch('../src/controllers/event-planning.php', {
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin'
@@ -1171,10 +2157,12 @@ try {
             .then(handleFetchResponse)
             .then(data => {
                 if (data.success) {
-                    alert('Thêm bước kế hoạch thành công');
+                    alert('Thêm bước thực hiện thành công');
                     form.reset();
                     const today = new Date().toISOString().split('T')[0];
                     document.getElementById('stepStartDate').value = today;
+                    document.getElementById('stepStartTime').value = '08:00';
+                    document.getElementById('stepEndTime').value = '17:00';
                     loadSteps(document.getElementById('stepEventId').value);
                 } else {
                     alert('Lỗi: ' + (data.error || data.message || 'Không xác định'));
@@ -1192,7 +2180,7 @@ try {
             formData.append('step_id', stepId);
             formData.append('status', status);
 
-            fetch('src/controllers/event-planning.php', {
+            fetch('../src/controllers/event-planning.php', {
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin'
@@ -1218,7 +2206,7 @@ try {
                 formData.append('action', 'delete_step');
                 formData.append('step_id', stepId);
 
-            fetch('src/controllers/event-planning.php', {
+            fetch('../src/controllers/event-planning.php', {
                 method: 'POST',
                 body: formData
             })

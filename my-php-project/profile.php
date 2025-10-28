@@ -8,8 +8,8 @@ if (!isset($_SESSION['user'])) {
 }
 
 $user = $_SESSION['user'];
-$userRole = $user['role'];
-$userId = $user['id'];
+$userRole = $user['ID_Role'] ?? $user['role'] ?? null;
+$userId = $user['ID_User'] ?? $user['id'] ?? null;
 
 // Determine user type and table name
 $userTable = '';
