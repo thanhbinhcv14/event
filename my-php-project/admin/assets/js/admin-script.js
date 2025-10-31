@@ -128,11 +128,23 @@ function initializeResponsiveMenu() {
             sidebar.classList.add('collapsed');
             mainContent.classList.add('expanded');
             sidebarCollapsed = true;
+            const toggleBtn = document.querySelector('.toggle-btn');
+            if (toggleBtn) {
+                toggleBtn.classList.add('collapsed');
+                const icon = toggleBtn.querySelector('i');
+                if (icon) icon.className = 'fas fa-chevron-right';
+            }
         } else if (width <= 768) {
             // Mobile view - hide sidebar
             sidebar.classList.remove('collapsed', 'show');
             mainContent.classList.remove('expanded');
             sidebarCollapsed = false;
+            const toggleBtn = document.querySelector('.toggle-btn');
+            if (toggleBtn) {
+                toggleBtn.classList.remove('collapsed');
+                const icon = toggleBtn.querySelector('i');
+                if (icon) icon.className = 'fas fa-chevron-left';
+            }
         } else {
             // Desktop view - restore saved state
             const savedState = localStorage.getItem('sidebarCollapsed');
@@ -140,10 +152,22 @@ function initializeResponsiveMenu() {
                 sidebar.classList.add('collapsed');
                 mainContent.classList.add('expanded');
                 sidebarCollapsed = true;
+                const toggleBtn = document.querySelector('.toggle-btn');
+                if (toggleBtn) {
+                    toggleBtn.classList.add('collapsed');
+                    const icon = toggleBtn.querySelector('i');
+                    if (icon) icon.className = 'fas fa-chevron-right';
+                }
             } else {
                 sidebar.classList.remove('collapsed');
                 mainContent.classList.remove('expanded');
                 sidebarCollapsed = false;
+                const toggleBtn = document.querySelector('.toggle-btn');
+                if (toggleBtn) {
+                    toggleBtn.classList.remove('collapsed');
+                    const icon = toggleBtn.querySelector('i');
+                    if (icon) icon.className = 'fas fa-chevron-left';
+                }
             }
         }
     }

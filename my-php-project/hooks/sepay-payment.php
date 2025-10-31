@@ -5,12 +5,20 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/sepay.php';
 
 // Set content type to JSON
 header('Content-Type: application/json');
 
 // Log incoming webhook
 error_log("SePay Webhook received at: " . date('Y-m-d H:i:s'));
+
+// Verify webhook signature (if SePay provides one)
+function verifySePaySignature($data, $signature) {
+    // TODO: Implement signature verification when SePay provides the method
+    // For now, we'll trust the webhook but log for security audit
+    return true;
+}
 
 try {
     // Get webhook data
@@ -21,25 +29,40 @@ try {
         throw new Exception('Invalid webhook data');
     }
     
-    // Log webhook data
-    error_log("SePay Webhook data: " . $input);
+    // Log webhook data (sanitized for security)
+    $sanitizedData = $data;
+    if (isset($sanitizedData['signature'])) {
+        $sanitizedData['signature'] = '***HIDDEN***';
+    }
+    error_log("SePay Webhook data: " . json_encode($sanitizedData));
+    
+    // Verify webhook signature if provided
+    $signature = $data['signature'] ?? '';
+    if ($signature && !verifySePaySignature($data, $signature)) {
+        throw new Exception('Invalid webhook signature');
+    }
     
     $pdo = getDBConnection();
     
-    // Extract webhook data
+    // Extract webhook data with validation
     $accountNumber = $data['account_number'] ?? '';
-    $amount = $data['amount'] ?? 0;
+    $amount = floatval($data['amount'] ?? 0);
     $content = $data['content'] ?? '';
     $transactionId = $data['transaction_id'] ?? '';
     $bankCode = $data['bank_code'] ?? '';
     
+    // Validate required fields
+    if (empty($accountNumber) || $amount <= 0 || empty($content)) {
+        throw new Exception('Missing required webhook data: account_number, amount, or content');
+    }
+    
     // Parse transaction content to get payment ID
     // Format: SK{eventId}_{paymentId}
     if (preg_match('/SK(\d+)_(.+)/', $content, $matches)) {
-        $eventId = $matches[1];
+        $eventId = intval($matches[1]);
         $paymentId = $matches[2];
     } else {
-        throw new Exception('Invalid transaction content format');
+        throw new Exception('Invalid transaction content format. Expected: SK{eventId}_{paymentId}, got: ' . $content);
     }
     
     // Find payment record
@@ -57,9 +80,11 @@ try {
         throw new Exception('Payment not found for ID: ' . $paymentId);
     }
     
-    // Verify amount matches
-    if ($payment['SoTien'] != $amount) {
-        throw new Exception('Amount mismatch: expected ' . $payment['SoTien'] . ', received ' . $amount);
+    // Verify amount matches (with tolerance for floating point)
+    $expectedAmount = floatval($payment['SoTien']);
+    $receivedAmount = floatval($amount);
+    if (abs($expectedAmount - $receivedAmount) > 0.01) {
+        throw new Exception('Amount mismatch: expected ' . $expectedAmount . ', received ' . $receivedAmount);
     }
     
     // Start transaction
@@ -107,7 +132,7 @@ try {
             'sepay_webhook',
             $payment['TrangThai'], 
             'Thành công', 
-            'SePay webhook - Chuyển khoản thành công: ' . $accountNumber . ' - ' . $amount
+            'SePay webhook - Chuyển khoản thành công: ' . $accountNumber . ' - ' . $amount . ' VNĐ - Bank: ' . $bankCode
         ]);
         
         $pdo->commit();
@@ -122,7 +147,10 @@ try {
             'amount' => $amount,
             'event_status' => $eventStatus,
             'customer' => $payment['HoTen'],
-            'event_name' => $payment['TenSuKien']
+            'event_name' => $payment['TenSuKien'],
+            'transaction_id' => $transactionId,
+            'bank_code' => $bankCode,
+            'processed_at' => date('Y-m-d H:i:s')
         ]);
         
     } catch (Exception $e) {
@@ -132,11 +160,22 @@ try {
     
 } catch (Exception $e) {
     error_log("SePay Webhook error: " . $e->getMessage());
+    error_log("SePay Webhook stack trace: " . $e->getTraceAsString());
     
-    http_response_code(400);
+    // Set appropriate HTTP status code
+    $httpCode = 400;
+    if (strpos($e->getMessage(), 'not found') !== false) {
+        $httpCode = 404;
+    } elseif (strpos($e->getMessage(), 'signature') !== false) {
+        $httpCode = 401;
+    }
+    
+    http_response_code($httpCode);
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
+        'error_code' => $httpCode,
+        'timestamp' => date('Y-m-d H:i:s')
     ]);
 }
 ?>

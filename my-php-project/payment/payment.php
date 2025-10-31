@@ -435,9 +435,9 @@ $remainingAmount = $totalAmount - $depositAmount;
                         // Show SePay form
                         showSePayForm(data.payment_id, amount);
                     } else if (selectedMethod === 'Tiền mặt') {
-                        // Show cash payment confirmation
-                        alert('Thanh toán tiền mặt đã được tạo. Vui lòng đến văn phòng công ty để thanh toán trực tiếp. Quản lý sẽ xác nhận thanh toán sau khi bạn hoàn tất.');
-                        window.location.href = `cash-pending.php?payment_id=${data.payment_id}`;
+                        // For cash, set to processing and return to My Events
+                        alert('Yêu cầu thanh toán tiền mặt đã được tạo. Trạng thái: Đang xử lý.');
+                        window.location.href = `../events/my-events.php`;
                     } else {
                         // Other payment methods
                         alert('Thanh toán đã được tạo. Vui lòng liên hệ admin để xác nhận.');

@@ -1,97 +1,42 @@
 <?php
-// SePay Callback Handler
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../vendor/sepay/autoload.php';
+/**
+ * SePay Callback Redirect
+ * File này để redirect từ callback URL cũ sang webhook handler mới
+ */
 
-// Log callback for debugging
-$input = file_get_contents('php://input');
-$data = json_decode($input, true);
+// Redirect to the actual webhook handler
+$webhookUrl = 'https://sukien.info.vn/event/my-php-project/hooks/sepay-payment.php';
 
-// Log the callback data
-error_log('SePay Callback: ' . $input);
+// Log the redirect
+error_log("SePay Callback redirect from: " . $_SERVER['REQUEST_URI'] . " to: " . $webhookUrl);
 
-// Process the callback
-try {
-    $pdo = getDBConnection();
-    
-    if (!$data) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Invalid callback data']);
-        exit;
-    }
-    
-    // Verify signature (implement your verification logic)
-    $signature = $data['signature'] ?? '';
-    $orderId = $data['orderInvoiceNumber'] ?? '';
-    $status = $data['status'] ?? '';
-    $amount = $data['amount'] ?? 0;
-    
-    // Find payment by order ID
-    $stmt = $pdo->prepare("
-        SELECT t.*, dl.TongTien 
-        FROM thanhtoan t
-        INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
-        WHERE t.MaGiaoDich = ?
-    ");
-    $stmt->execute([$orderId]);
-    $payment = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$payment) {
-        echo json_encode(['success' => false, 'error' => 'Payment not found']);
-        exit;
-    }
-    
-    $pdo->beginTransaction();
-    
-    if ($status === 'SUCCESS') {
-        // Update payment status
-        $stmt = $pdo->prepare("
-            UPDATE thanhtoan 
-            SET TrangThai = 'Thành công', NgayThanhToan = NOW()
-            WHERE ID_ThanhToan = ?
-        ");
-        $stmt->execute([$payment['ID_ThanhToan']]);
-        
-        // Update event payment status
-        $eventStatus = $payment['LoaiThanhToan'] === 'Đặt cọc' ? 'Đã đặt cọc' : 'Đã thanh toán đủ';
-        $stmt = $pdo->prepare("
-            UPDATE datlichsukien 
-            SET TrangThaiThanhToan = ?
-            WHERE ID_DatLich = ?
-        ");
-        $stmt->execute([$eventStatus, $payment['ID_DatLich']]);
-        
-        // Insert payment history
-        $stmt = $pdo->prepare("
-            INSERT INTO payment_history (
-                payment_id, action, old_status, new_status, description
-            ) VALUES (?, ?, ?, ?, ?)
-        ");
-        $stmt->execute([
-            $payment['ID_ThanhToan'], 
-            'sepay_callback',
-            $payment['TrangThai'], 
-            'Thành công', 
-            'SePay callback - ' . $status
-        ]);
-        
-    } else {
-        // Payment failed
-        $stmt = $pdo->prepare("
-            UPDATE thanhtoan 
-            SET TrangThai = 'Thất bại'
-            WHERE ID_ThanhToan = ?
-        ");
-        $stmt->execute([$payment['ID_ThanhToan']]);
-    }
-    
-    $pdo->commit();
-    
-    echo json_encode(['success' => true, 'message' => 'Callback processed']);
-    
-} catch (Exception $e) {
-    $pdo->rollBack();
-    error_log('SePay Callback Error: ' . $e->getMessage());
-    echo json_encode(['success' => false, 'error' => 'Callback error: ' . $e->getMessage()]);
+// Forward the request to the actual webhook handler
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $webhookUrl);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, file_get_contents('php://input'));
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Content-Type: application/json',
+    'User-Agent: SePay-Callback-Redirect/1.0'
+]);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$error = curl_error($ch);
+curl_close($ch);
+
+// Set the same HTTP status code
+http_response_code($httpCode);
+
+// Return the same response
+echo $response;
+
+// Log the result
+if ($error) {
+    error_log("SePay Callback redirect error: " . $error);
+} else {
+    error_log("SePay Callback redirect success: HTTP {$httpCode}");
 }
 ?>

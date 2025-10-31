@@ -5,10 +5,21 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
+
+// Environment-based configuration for cPanel/Passenger
+const APP_BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/$/, ''); // e.g. '/socket' in cPanel Application URL
+const SOCKET_IO_PATH = `${APP_BASE_PATH || ''}/socket.io` || '/socket.io';
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'https://sukien.info.vn,http://localhost:3000,http://localhost:3001')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
 const io = socketIo(server, {
+    path: SOCKET_IO_PATH,
     cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
+        origin: CORS_ORIGINS,
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
@@ -24,6 +35,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes
 app.get('/', (req, res) => {
+    // Health/test page; when deployed behind cPanel Application URL '/socket',
+    // visiting https://domain.tld/socket/ maps to this route.
     res.sendFile(path.join(__dirname, 'public', 'socket-test.html'));
 });
 
@@ -354,17 +367,12 @@ function getAdminUsersCount() {
     return adminUsers.size;
 }
 
-// Start server
+// Start server (Passenger provides PORT); still works locally
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Socket.IO server running on port ${PORT}`);
-    console.log(`Web interface: http://localhost:${PORT}`);
+    console.log(`Socket.IO path: ${SOCKET_IO_PATH}`);
 });
 
-// Export for use in other modules
-module.exports = {
-    io,
-    broadcastSystemNotification,
-    getConnectedUsersCount,
-    getAdminUsersCount
-};
+// Export Express app for Passenger
+module.exports = app;

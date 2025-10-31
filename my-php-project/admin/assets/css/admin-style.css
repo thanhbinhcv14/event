@@ -286,7 +286,8 @@ body {
 }
 
 .toggle-btn.collapsed i {
-    transform: rotate(180deg) scale(1.1);
+    /* Don't auto-rotate; JS swaps icon to the correct direction */
+    transform: scale(1.1);
 }
 
 .toggle-btn:hover i {
@@ -294,7 +295,7 @@ body {
 }
 
 .toggle-btn.collapsed:hover i {
-    transform: rotate(180deg) scale(1.2);
+    transform: scale(1.2);
 }
 
 /* Mobile toggle button */

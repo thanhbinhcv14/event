@@ -241,6 +241,26 @@ function updateEventType() {
         echo json_encode(['success' => false, 'error' => 'Không tìm thấy loại sự kiện']);
         return;
     }
+
+    // Do not allow edit if referenced by existing data
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM datlichsukien WHERE ID_LoaiSK = ?");
+    $stmt->execute([$id]);
+    if ($stmt->fetchColumn() > 0) {
+        echo json_encode(['success' => false, 'error' => 'Không thể sửa: Loại sự kiện đã được sử dụng trong các đơn đặt lịch']);
+        return;
+    }
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM combo_loaisk WHERE ID_LoaiSK = ?");
+    $stmt->execute([$id]);
+    if ($stmt->fetchColumn() > 0) {
+        echo json_encode(['success' => false, 'error' => 'Không thể sửa: Loại sự kiện đang được gán cho combo']);
+        return;
+    }
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM diadiem_loaisk WHERE ID_LoaiSK = ?");
+    $stmt->execute([$id]);
+    if ($stmt->fetchColumn() > 0) {
+        echo json_encode(['success' => false, 'error' => 'Không thể sửa: Loại sự kiện đang được gán cho địa điểm']);
+        return;
+    }
     
     // Check if event type name already exists (excluding current record)
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM loaisukien WHERE TenLoai = ? AND ID_LoaiSK != ?");

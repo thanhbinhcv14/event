@@ -464,14 +464,38 @@ if (!in_array($userRole, [1, 3, 5])) {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
             border: none;
             border-radius: 50%;
-            width: 55px;
-            height: 55px;
+            width: 45px;
+            height: 45px;
             color: white;
-            font-size: 1.3rem;
+            font-size: 1.1rem;
             transition: all 0.3s ease;
             box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
             position: relative;
             overflow: hidden;
+            margin-left: 0.5rem;
+        }
+        
+        .chat-input button#sendButton {
+            width: 55px;
+            height: 55px;
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            box-shadow: 0 4px 20px rgba(40, 167, 69, 0.3);
+        }
+        
+        .chat-input button#voiceCallButton {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            box-shadow: 0 4px 20px rgba(23, 162, 184, 0.3);
+        }
+        
+        .chat-input button#videoCallButton {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            box-shadow: 0 4px 20px rgba(220, 53, 69, 0.3);
+        }
+        
+        .chat-input button#attachButton {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+            box-shadow: 0 4px 20px rgba(108, 117, 125, 0.3);
         }
         
         .chat-input button::before {
@@ -754,6 +778,225 @@ if (!in_array($userRole, [1, 3, 5])) {
             z-index: 1;
         }
         
+        /* Media Message Styles */
+        .media-message {
+            max-width: 300px;
+            margin: 0.5rem 0;
+        }
+        
+        .media-message img {
+            max-width: 100%;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        
+        .media-message img:hover {
+            transform: scale(1.05);
+        }
+        
+        .media-message .file-info {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 0.5rem;
+            border-radius: 8px;
+            margin-top: 0.25rem;
+            font-size: 0.9rem;
+        }
+        
+        .media-message .file-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .media-message .file-size {
+            color: #666;
+            font-size: 0.8rem;
+        }
+        
+        /* Call UI Styles */
+        .call-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .call-modal.show {
+            display: flex;
+        }
+        
+        .call-container {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .call-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 3rem;
+            color: white;
+        }
+        
+        .call-info h3 {
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        
+        .call-info p {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+        
+        .call-controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+        
+        .call-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            font-size: 1.5rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .call-btn.accept {
+            background: linear-gradient(135deg, #28a745, #20c997);
+        }
+        
+        .call-btn.reject {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+        
+        .call-btn.end {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+        
+        .call-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .call-status {
+            margin: 1rem 0;
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        /* Video Call Styles */
+        .video-call-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 10000;
+            display: none;
+        }
+        
+        .video-call-container.show {
+            display: block;
+        }
+        
+        .remote-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .local-video {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 2px solid white;
+        }
+        
+        .video-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .video-control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            font-size: 1.2rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .video-control-btn.mute {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .video-control-btn.camera {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .video-control-btn.end {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+        
+        .video-control-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        /* Loading States */
+        .upload-progress {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            text-align: center;
+        }
+        
+        .upload-progress .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e9ecef;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+        
+        .upload-progress .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
         @media (max-width: 768px) {
             .chat-container {
                 margin: 1rem;
@@ -911,10 +1154,20 @@ if (!in_array($userRole, [1, 3, 5])) {
                     <div class="chat-input">
                         <div class="chat-input-group">
                             <input type="text" id="messageInput" placeholder="Nhập tin nhắn...">
+                            <button type="button" id="attachButton" title="Đính kèm file">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <button type="button" id="voiceCallButton" title="Gọi thoại">
+                                <i class="fas fa-phone"></i>
+                            </button>
+                            <button type="button" id="videoCallButton" title="Gọi video">
+                                <i class="fas fa-video"></i>
+                            </button>
                             <button type="button" id="sendButton">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
                         </div>
+                        <input type="file" id="fileInput" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;">
                     </div>
                 </div>
             </div>
@@ -967,6 +1220,60 @@ if (!in_array($userRole, [1, 3, 5])) {
         </div>
     </div>
 
+    <!-- Call Modal -->
+    <div class="call-modal" id="callModal">
+        <div class="call-container">
+            <div class="call-avatar">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="call-info">
+                <h3 id="callerName">Đang gọi...</h3>
+                <p id="callType">Cuộc gọi thoại</p>
+                <div class="call-status" id="callStatus">Đang kết nối...</div>
+            </div>
+            <div class="call-controls" id="callControls">
+                <button class="call-btn accept" onclick="acceptCall()">
+                    <i class="fas fa-phone"></i>
+                </button>
+                <button class="call-btn reject" onclick="rejectCall()">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Call Container -->
+    <div class="video-call-container" id="videoCallContainer">
+        <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
+        <video id="localVideo" class="local-video" autoplay playsinline muted></video>
+        <div class="video-controls">
+            <button class="video-control-btn mute" id="muteBtn" onclick="toggleMute()">
+                <i class="fas fa-microphone"></i>
+            </button>
+            <button class="video-control-btn camera" id="cameraBtn" onclick="toggleCamera()">
+                <i class="fas fa-video"></i>
+            </button>
+            <button class="video-control-btn end" onclick="endVideoCall()">
+                <i class="fas fa-phone-slash"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div class="modal fade" id="imagePreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Xem hình ảnh</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="previewImage" src="" alt="Preview" class="img-fluid">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Socket.IO with fallback -->
@@ -1009,6 +1316,14 @@ if (!in_array($userRole, [1, 3, 5])) {
         let isConnected = false;
         let typingTimeout;
         
+        // Media and Call variables
+        let currentCall = null;
+        let localStream = null;
+        let remoteStream = null;
+        let peerConnection = null;
+        let isMuted = false;
+        let isCameraOff = false;
+        
         // ✅ Initialize chat
         $(document).ready(() => {
             // Set initial connecting status
@@ -1018,6 +1333,8 @@ if (!in_array($userRole, [1, 3, 5])) {
             setUserOnline(); // Set user online
             loadConversations();
             setupChatEvents();
+            setupMediaEvents();
+            setupCallSocketEvents();
             showUserInfo();
             startAutoRefresh();
             
@@ -2012,6 +2329,483 @@ if (!in_array($userRole, [1, 3, 5])) {
                 return map[m] || m;
             });
         }
+        
+        // ==================== MEDIA FUNCTIONS ====================
+        
+        // Setup media events
+        function setupMediaEvents() {
+            // File input change
+            $('#fileInput').on('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    uploadFile(file);
+                }
+            });
+            
+            // Attach button click
+            $('#attachButton').on('click', function() {
+                $('#fileInput').click();
+            });
+            
+            // Voice call button
+            $('#voiceCallButton').on('click', function() {
+                if (!currentConversationId) {
+                    alert('Vui lòng chọn cuộc trò chuyện trước');
+                    return;
+                }
+                initiateCall('voice');
+            });
+            
+            // Video call button
+            $('#videoCallButton').on('click', function() {
+                if (!currentConversationId) {
+                    alert('Vui lòng chọn cuộc trò chuyện trước');
+                    return;
+                }
+                initiateCall('video');
+            });
+        }
+        
+        // Upload file
+        function uploadFile(file) {
+            if (!currentConversationId) {
+                alert('Vui lòng chọn cuộc trò chuyện trước');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('conversation_id', currentConversationId);
+            
+            // Show upload progress
+            const progressHtml = `
+                <div class="upload-progress">
+                    <i class="fas fa-upload"></i>
+                    <div>Đang upload ${file.name}...</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="uploadProgress"></div>
+                    </div>
+                </div>
+            `;
+            $('#chatMessages').append(progressHtml);
+            
+            $.ajax({
+                url: 'src/controllers/media-upload.php',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                xhr: function() {
+                    const xhr = new window.XMLHttpRequest();
+                    xhr.upload.addEventListener("progress", function(evt) {
+                        if (evt.lengthComputable) {
+                            const percentComplete = evt.loaded / evt.total * 100;
+                            $('#uploadProgress').css('width', percentComplete + '%');
+                        }
+                    }, false);
+                    return xhr;
+                },
+                success: function(response) {
+                    $('.upload-progress').remove();
+                    if (response.success) {
+                        addMessageToChat(response.message, true);
+                        scrollToBottom();
+                        
+                        // Emit real-time event
+                        if (isConnected && socket) {
+                            socket.emit('new_message', {
+                                conversation_id: currentConversationId,
+                                message: response.message.message,
+                                user_id: currentUserId,
+                                user_name: currentUserName,
+                                message_type: response.message.message_type
+                            });
+                        }
+                    } else {
+                        alert('Lỗi upload: ' + response.error);
+                    }
+                },
+                error: function() {
+                    $('.upload-progress').remove();
+                    alert('Lỗi upload file');
+                }
+            });
+        }
+        
+        // Enhanced message HTML creation for media
+        function createMessageHTML(m) {
+            const isSent = m.sender_id == currentUserId;
+            const time = new Date(m.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+            
+            let messageContent = '';
+            
+            if (m.message_type === 'image') {
+                messageContent = `
+                    <div class="media-message">
+                        <img src="${m.file_path}" alt="Image" onclick="previewImage('${m.file_path}')">
+                        <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
+                    </div>
+                `;
+            } else if (m.message_type === 'file') {
+                messageContent = `
+                    <div class="media-message">
+                        <div class="file-info">
+                            <div class="file-name">${m.file_name}</div>
+                            <div class="file-size">${formatFileSize(m.file_size)}</div>
+                        </div>
+                        <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
+                    </div>
+                `;
+            } else if (m.message_type === 'voice_call' || m.message_type === 'video_call') {
+                const callType = m.message_type === 'video_call' ? 'Video Call' : 'Voice Call';
+                messageContent = `
+                    <div class="media-message">
+                        <div class="file-info">
+                            <i class="fas fa-phone"></i> ${callType}
+                        </div>
+                        <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
+                    </div>
+                `;
+            } else {
+                messageContent = `
+                    <div>${escapeHtml(m.message)}</div>
+                    <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
+                `;
+            }
+            
+            return `<div class="message ${isSent?'sent':'received'}">
+                <div class="message-content">
+                    ${messageContent}
+                </div>
+            </div>`;
+        }
+        
+        // Preview image
+        function previewImage(imagePath) {
+            $('#previewImage').attr('src', imagePath);
+            $('#imagePreviewModal').modal('show');
+        }
+        
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // ==================== CALL FUNCTIONS ====================
+        
+        // Initiate call
+        function initiateCall(callType) {
+            $.post('src/controllers/call-controller.php?action=initiate_call', {
+                conversation_id: currentConversationId,
+                call_type: callType
+            }, function(response) {
+                if (response.success) {
+                    currentCall = {
+                        id: response.call_id,
+                        type: response.call_type,
+                        receiver_id: response.receiver_id,
+                        receiver_name: response.receiver_name,
+                        status: response.status
+                    };
+                    
+                    showCallModal('outgoing', response.receiver_name, callType);
+                    
+                    // Emit call event via socket
+                    if (isConnected && socket) {
+                        socket.emit('call_initiated', {
+                            call_id: response.call_id,
+                            caller_id: currentUserId,
+                            receiver_id: response.receiver_id,
+                            call_type: callType,
+                            conversation_id: currentConversationId
+                        });
+                    }
+                } else {
+                    alert('Lỗi khởi tạo cuộc gọi: ' + response.error);
+                }
+            }, 'json');
+        }
+        
+        // Show call modal
+        function showCallModal(type, name, callType) {
+            $('#callerName').text(name);
+            $('#callType').text(callType === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại');
+            
+            if (type === 'incoming') {
+                $('#callStatus').text('Cuộc gọi đến...');
+                $('#callControls').html(`
+                    <button class="call-btn accept" onclick="acceptCall()">
+                        <i class="fas fa-phone"></i>
+                    </button>
+                    <button class="call-btn reject" onclick="rejectCall()">
+                        <i class="fas fa-phone-slash"></i>
+                    </button>
+                `);
+            } else {
+                $('#callStatus').text('Đang gọi...');
+                $('#callControls').html(`
+                    <button class="call-btn end" onclick="endCall()">
+                        <i class="fas fa-phone-slash"></i>
+                    </button>
+                `);
+            }
+            
+            $('#callModal').addClass('show');
+        }
+        
+        // Accept call
+        function acceptCall() {
+            if (!currentCall) return;
+            
+            $.post('src/controllers/call-controller.php?action=accept_call', {
+                call_id: currentCall.id
+            }, function(response) {
+                if (response.success) {
+                    $('#callModal').removeClass('show');
+                    
+                    if (currentCall.type === 'video') {
+                        startVideoCall();
+                    } else {
+                        startVoiceCall();
+                    }
+                    
+                    // Emit accept event
+                    if (isConnected && socket) {
+                        socket.emit('call_accepted', {
+                            call_id: currentCall.id,
+                            caller_id: currentCall.receiver_id,
+                            receiver_id: currentUserId
+                        });
+                    }
+                } else {
+                    alert('Lỗi chấp nhận cuộc gọi: ' + response.error);
+                }
+            }, 'json');
+        }
+        
+        // Reject call
+        function rejectCall() {
+            if (!currentCall) return;
+            
+            $.post('src/controllers/call-controller.php?action=reject_call', {
+                call_id: currentCall.id
+            }, function(response) {
+                $('#callModal').removeClass('show');
+                currentCall = null;
+                
+                // Emit reject event
+                if (isConnected && socket) {
+                    socket.emit('call_rejected', {
+                        call_id: currentCall.id,
+                        caller_id: currentCall.receiver_id,
+                        receiver_id: currentUserId
+                    });
+                }
+            }, 'json');
+        }
+        
+        // End call
+        function endCall() {
+            if (!currentCall) return;
+            
+            $.post('src/controllers/call-controller.php?action=end_call', {
+                call_id: currentCall.id
+            }, function(response) {
+                $('#callModal').removeClass('show');
+                $('#videoCallContainer').removeClass('show');
+                
+                // Stop all streams
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                    localStream = null;
+                }
+                
+                currentCall = null;
+                
+                // Emit end event
+                if (isConnected && socket) {
+                    socket.emit('call_ended', {
+                        call_id: currentCall.id,
+                        caller_id: currentUserId
+                    });
+                }
+            }, 'json');
+        }
+        
+        // Start video call
+        function startVideoCall() {
+            $('#videoCallContainer').addClass('show');
+            
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                    localStream = stream;
+                    document.getElementById('localVideo').srcObject = stream;
+                    
+                    // Initialize WebRTC peer connection
+                    initializePeerConnection();
+                })
+                .catch(error => {
+                    console.error('Error accessing media devices:', error);
+                    alert('Không thể truy cập camera/microphone');
+                });
+        }
+        
+        // Start voice call
+        function startVoiceCall() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    localStream = stream;
+                    initializePeerConnection();
+                })
+                .catch(error => {
+                    console.error('Error accessing microphone:', error);
+                    alert('Không thể truy cập microphone');
+                });
+        }
+        
+        // Initialize WebRTC peer connection
+        function initializePeerConnection() {
+            const configuration = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            };
+            
+            peerConnection = new RTCPeerConnection(configuration);
+            
+            // Add local stream to peer connection
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+            }
+            
+            // Handle remote stream
+            peerConnection.ontrack = event => {
+                remoteStream = event.streams[0];
+                document.getElementById('remoteVideo').srcObject = remoteStream;
+            };
+            
+            // Handle ICE candidates
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    // Send ICE candidate to remote peer via socket
+                    if (isConnected && socket) {
+                        socket.emit('ice_candidate', {
+                            call_id: currentCall.id,
+                            candidate: event.candidate
+                        });
+                    }
+                }
+            };
+        }
+        
+        // Toggle mute
+        function toggleMute() {
+            if (localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = !audioTrack.enabled;
+                    isMuted = !audioTrack.enabled;
+                    
+                    const icon = $('#muteBtn i');
+                    if (isMuted) {
+                        icon.removeClass('fa-microphone').addClass('fa-microphone-slash');
+                    } else {
+                        icon.removeClass('fa-microphone-slash').addClass('fa-microphone');
+                    }
+                }
+            }
+        }
+        
+        // Toggle camera
+        function toggleCamera() {
+            if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = !videoTrack.enabled;
+                    isCameraOff = !videoTrack.enabled;
+                    
+                    const icon = $('#cameraBtn i');
+                    if (isCameraOff) {
+                        icon.removeClass('fa-video').addClass('fa-video-slash');
+                    } else {
+                        icon.removeClass('fa-video-slash').addClass('fa-video');
+                    }
+                }
+            }
+        }
+        
+        // End video call
+        function endVideoCall() {
+            endCall();
+        }
+        
+        // Socket events for calls
+        function setupCallSocketEvents() {
+            if (socket) {
+                // Incoming call
+                socket.on('call_initiated', data => {
+                    if (data.receiver_id === currentUserId) {
+                        currentCall = {
+                            id: data.call_id,
+                            type: data.call_type,
+                            caller_id: data.caller_id,
+                            status: 'ringing'
+                        };
+                        
+                        showCallModal('incoming', 'Người gọi', data.call_type);
+                    }
+                });
+                
+                // Call accepted
+                socket.on('call_accepted', data => {
+                    if (data.caller_id === currentUserId) {
+                        $('#callModal').removeClass('show');
+                        
+                        if (currentCall.type === 'video') {
+                            startVideoCall();
+                        } else {
+                            startVoiceCall();
+                        }
+                    }
+                });
+                
+                // Call rejected
+                socket.on('call_rejected', data => {
+                    if (data.caller_id === currentUserId) {
+                        $('#callModal').removeClass('show');
+                        currentCall = null;
+                        alert('Cuộc gọi bị từ chối');
+                    }
+                });
+                
+                // Call ended
+                socket.on('call_ended', data => {
+                    $('#callModal').removeClass('show');
+                    $('#videoCallContainer').removeClass('show');
+                    
+                    if (localStream) {
+                        localStream.getTracks().forEach(track => track.stop());
+                        localStream = null;
+                    }
+                    
+                    currentCall = null;
+                });
+            }
+        }
+        
+        // Initialize everything
+        $(document).ready(() => {
+            // ... existing initialization code ...
+            setupMediaEvents();
+            setupCallSocketEvents();
+        });
     </script>
     
     <!-- Socket.IO -->

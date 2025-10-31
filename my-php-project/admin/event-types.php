@@ -4,13 +4,18 @@ include 'includes/admin-header.php';
 ?>
     
         <!-- Page Header -->
-        <div class="page-header">
-            <h1 class="page-title">
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <h1 class="page-title m-0">
                 <i class="fas fa-tags"></i>
                 Quản lý loại sự kiện
             </h1>
-            <p class="page-subtitle">Quản lý các loại sự kiện trong hệ thống</p>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-primary" onclick="showAddEventTypeModal()">
+                    <i class="fas fa-plus"></i> Thêm loại sự kiện
+                </button>
+            </div>
         </div>
+        <p class="page-subtitle">Quản lý các loại sự kiện trong hệ thống</p>
             
             <!-- Error/Success Messages -->
         <div class="error-message" id="errorMessage"></div>

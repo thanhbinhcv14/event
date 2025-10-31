@@ -88,6 +88,12 @@ try {
         case 'update_activity':
             updateUserActivity($pdo, $userId);
             break;
+        case 'get_media_messages':
+            getMediaMessages($pdo, $userId);
+            break;
+        case 'delete_message':
+            deleteMessage($pdo, $userId);
+            break;
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Action không hợp lệ: ' . $action]);
@@ -856,6 +862,106 @@ function updateUserActivity($pdo, $userId) {
         
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => 'Lỗi cập nhật hoạt động: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * Lấy tin nhắn media
+ */
+function getMediaMessages($pdo, $userId) {
+    $conversationId = $_GET['conversation_id'] ?? '';
+    
+    if (empty($conversationId)) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu ID cuộc trò chuyện']);
+        return;
+    }
+    
+    // Check if user has access to this conversation
+    $stmt = $pdo->prepare("
+        SELECT id FROM conversations 
+        WHERE id = ? AND (user1_id = ? OR user2_id = ?)
+    ");
+    $stmt->execute([$conversationId, $userId, $userId]);
+    
+    if (!$stmt->fetch()) {
+        echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập cuộc trò chuyện này']);
+        return;
+    }
+    
+    // Get media messages
+    $stmt = $pdo->prepare("
+        SELECT m.id,
+               m.conversation_id,
+               m.sender_id,
+               m.MessageText as message,
+               m.message_type,
+               m.file_path,
+               m.file_name,
+               m.file_size,
+               m.mime_type,
+               m.SentAt as created_at,
+               m.IsRead,
+               COALESCE(nv.HoTen, kh.HoTen, u.Email) as sender_name,
+               cm.thumbnail_path
+        FROM messages m
+        LEFT JOIN users u ON m.sender_id = u.ID_User
+        LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User
+        LEFT JOIN khachhanginfo kh ON u.ID_User = kh.ID_User
+        LEFT JOIN chat_media cm ON m.id = cm.message_id
+        WHERE m.conversation_id = ? 
+        AND m.message_type IN ('image', 'file', 'voice_call', 'video_call')
+        ORDER BY m.SentAt DESC
+        LIMIT 50
+    ");
+    $stmt->execute([$conversationId]);
+    $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    echo json_encode(['success' => true, 'messages' => $messages]);
+}
+
+/**
+ * Xóa tin nhắn
+ */
+function deleteMessage($pdo, $userId) {
+    $messageId = $_POST['message_id'] ?? '';
+    
+    if (empty($messageId)) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu ID tin nhắn']);
+        return;
+    }
+    
+    // Check if user has access to this message
+    $stmt = $pdo->prepare("
+        SELECT m.id, m.sender_id, m.message_type, m.file_path, cm.file_path as media_path
+        FROM messages m
+        LEFT JOIN chat_media cm ON m.id = cm.message_id
+        WHERE m.id = ? AND m.sender_id = ?
+    ");
+    $stmt->execute([$messageId, $userId]);
+    $message = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$message) {
+        echo json_encode(['success' => false, 'error' => 'Không có quyền xóa tin nhắn này']);
+        return;
+    }
+    
+    try {
+        // Delete file if exists
+        if ($message['file_path'] && file_exists($message['file_path'])) {
+            unlink($message['file_path']);
+        }
+        if ($message['media_path'] && file_exists($message['media_path'])) {
+            unlink($message['media_path']);
+        }
+        
+        // Delete from database
+        $stmt = $pdo->prepare("DELETE FROM messages WHERE id = ?");
+        $stmt->execute([$messageId]);
+        
+        echo json_encode(['success' => true, 'message' => 'Tin nhắn đã được xóa']);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => 'Lỗi xóa tin nhắn: ' . $e->getMessage()]);
     }
 }
 

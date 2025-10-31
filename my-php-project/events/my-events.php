@@ -374,76 +374,65 @@ $user = $_SESSION['user'];
         .event-details-content {
             max-height: 80vh;
             overflow-y: auto;
+            padding: 1rem;
         }
         
-        .event-image-section {
-            position: relative;
-            margin-bottom: 2rem;
+        .event-details-content h4 {
+            color: #495057;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e9ecef;
         }
         
-        .event-main-image {
-            width: 100%;
-            height: 300px;
-            object-fit: cover;
-            border-radius: 15px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        }
-        
-        .event-status-badge {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-        
-        .event-info-section {
+        .detail-section {
             background: #f8f9fa;
-            border-radius: 15px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-        }
-        
-        .event-info-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 1rem;
-            padding: 0.75rem;
-            background: white;
-            border-radius: 10px;
+            border-radius: 12px;
+            padding: 1.25rem;
+            height: 100%;
+            border: 1px solid #e9ecef;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
         
-        .event-info-item i {
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 10px;
-            margin-right: 1rem;
+        .section-header {
+            color: #495057;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #dee2e6;
+            font-size: 1rem;
+        }
+        
+        .section-header i {
+            margin-right: 0.5rem;
             font-size: 1.1rem;
         }
         
-        .event-info-content {
-            flex-grow: 1;
+        .detail-section .table {
+            margin-bottom: 0;
         }
         
-        .event-info-label {
-            font-size: 0.9rem;
+        .detail-section .table td {
+            padding: 0.5rem 0.5rem 0.5rem 0;
+            vertical-align: middle;
+            border: none;
+        }
+        
+        .detail-section .table td:first-child {
+            width: 45%;
             color: #6c757d;
-            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
         }
         
-        .event-info-value {
-            font-weight: 600;
+        .detail-section .table td:last-child {
             color: #333;
-            font-size: 1rem;
+            font-weight: 500;
+        }
+        
+        .detail-section .badge {
+            font-size: 0.85rem;
+            padding: 0.4rem 0.8rem;
+            font-weight: 600;
         }
         
         .reviews-section {
@@ -655,8 +644,8 @@ $user = $_SESSION['user'];
             cursor: pointer;
         }
         
-        .momo-logo {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+        .sepay-logo {
+            background: linear-gradient(135deg, #667eea, #764ba2);
             border-radius: 50%;
             width: 100px;
             height: 100px;
@@ -664,15 +653,15 @@ $user = $_SESSION['user'];
             align-items: center;
             justify-content: center;
             margin: 0 auto;
-            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
         }
         
-        .momo-logo i {
+        .sepay-logo i {
             color: white !important;
         }
         
-        .momo-logo-small {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+        .sepay-logo-small {
+            background: linear-gradient(135deg, #667eea, #764ba2);
             border-radius: 50%;
             width: 60px;
             height: 60px;
@@ -680,10 +669,10 @@ $user = $_SESSION['user'];
             align-items: center;
             justify-content: center;
             margin: 0 auto;
-            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
         }
         
-        .momo-logo-small i {
+        .sepay-logo-small i {
             color: white !important;
         }
         
@@ -724,9 +713,157 @@ $user = $_SESSION['user'];
         
         .qr-container {
             background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e9ecef;
+            text-align: center;
+        }
+        
+        .payment-info-compact {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .bank-info-compact {
+            background: white;
             border-radius: 10px;
             padding: 1rem;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e9ecef;
+            margin-top: 0.75rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .info-item {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+        }
+        
+        .info-item:hover {
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 6px;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .info-item small {
+            font-weight: 600;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .info-item strong {
+            color: #495057;
+            font-weight: 700;
+        }
+        
+        .info-item code {
+            background: #f8f9fa;
+            color: #e83e8c;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .info-item .text-primary {
+            color: #007bff !important;
+            font-weight: 700;
+        }
+        
+        .bank-info-card {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border: 1px solid #dee2e6;
+        }
+        
+        .bank-info-card h6 {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #495057;
+        }
+        
+        .bank-info-card table td {
+            padding: 0.5rem 0;
+            vertical-align: top;
+        }
+        
+        .bank-info-card code {
+            background: #e9ecef;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        /* Alert Styling */
+        .alert-info {
+            background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1) !important;
+            color: #0c5460 !important;
+        }
+        
+        .alert-success {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1) !important;
+            color: #155724 !important;
+        }
+        
+        .alert i {
+            margin-right: 0.5rem;
+        }
+        
+        /* Modal Styling */
+        .modal-header {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border-radius: 12px 12px 0 0;
+            border: none;
+            padding: 1.25rem 1.5rem;
+        }
+        
+        .modal-header .btn-close {
+            filter: invert(1);
+            opacity: 0.8;
+        }
+        
+        .modal-header .btn-close:hover {
+            opacity: 1;
+        }
+        
+        .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .modal-footer {
+            background: #f8f9fa;
+            border-radius: 0 0 12px 12px;
+            border: none;
+            padding: 1rem 1.5rem;
+        }
+        
+        .modal-footer .btn {
+            border-radius: 8px;
+            font-weight: 600;
+            padding: 0.5rem 1.25rem;
         }
         
         @media (max-width: 768px) {
@@ -857,27 +994,10 @@ $user = $_SESSION['user'];
         </div>
             </div>
             
-    <!-- Event Details Modal -->
-    <div class="modal fade" id="eventDetailsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalEventTitle">Chi tiết sự kiện</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="modalEventBody">
-                    <!-- Event details will be populated here -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Payment Modal -->
     <div class="modal fade" id="paymentModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title" id="paymentModalTitle">
@@ -889,75 +1009,19 @@ $user = $_SESSION['user'];
                     <!-- Payment details will be populated here -->
                 </div>
                 <div class="modal-footer" id="paymentModalFooter">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="button" class="btn btn-primary" onclick="processPayment()">
-                        <i class="fas fa-credit-card"></i> Xác nhận thanh toán
-                    </button>
+                    <div class="d-flex justify-content-between w-100">
+                        <div>
+                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Hủy</button>
+                            <button type="button" class="btn btn-primary" onclick="processPayment()">
+                                <i class="fas fa-credit-card"></i> Xác nhận thanh toán
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MoMo Payment Modal -->
-    <div class="modal fade" id="momoPaymentModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">
-                        <i class="fas fa-mobile-alt"></i> Thanh toán qua MoMo
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="text-center mb-4">
-                        <div class="momo-logo mb-3">
-                            <i class="fas fa-mobile-alt fa-4x text-danger"></i>
-                        </div>
-                        <h4 class="text-danger">MoMo Wallet</h4>
-                        <p class="text-muted">Thanh toán nhanh chóng và bảo mật</p>
-                    </div>
-                    
-                    <div class="payment-info-card">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-shield-alt text-success"></i> Bảo mật cao</h6>
-                                <ul class="text-start">
-                                    <li>Mã hóa SSL 256-bit</li>
-                                    <li>Xác thực 2 lớp</li>
-                                    <li>Bảo vệ thông tin cá nhân</li>
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-bolt text-warning"></i> Thanh toán nhanh</h6>
-                                <ul class="text-start">
-                                    <li>Xử lý trong vài giây</li>
-                                    <li>Xác nhận ngay lập tức</li>
-                                    <li>Không cần nhập thông tin</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i>
-                        <strong>Hướng dẫn:</strong>
-                        <ol class="text-start mt-2 mb-0">
-                            <li>Nhấn "Xác nhận thanh toán"</li>
-                            <li>Hệ thống sẽ chuyển hướng đến MoMo Gateway</li>
-                            <li>Đăng nhập và xác nhận thanh toán trên MoMo</li>
-                            <li>Quay lại trang web sau khi hoàn thành</li>
-                        </ol>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="button" class="btn btn-danger btn-lg" onclick="confirmMoMoPayment()">
-                        <i class="fas fa-mobile-alt"></i> Xác nhận thanh toán MoMo
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
     
     <!-- Event Details Modal -->
     <div class="modal fade" id="eventDetailsModal" tabindex="-1" aria-labelledby="eventDetailsModalLabel" aria-hidden="true">
@@ -1243,6 +1307,40 @@ $user = $_SESSION['user'];
             // Setup filters
             $('#statusFilter, #paymentFilter').on('change', filterEvents);
             $('#searchInput').on('keyup', filterEvents);
+
+            // Cancel pending payment when modal is closed and restore UI
+            const paymentModalEl = document.getElementById('paymentModal');
+            if (paymentModalEl) {
+                paymentModalEl.addEventListener('hidden.bs.modal', function () {
+                    try {
+                        const paymentData = $('#paymentModal').data('paymentData');
+                        // Clear modal UI immediately
+                        resetPaymentModal();
+                        // If a pending transaction exists, request cancel
+                        if (paymentData && paymentData.transaction_id) {
+                            $.ajax({
+                                url: '../src/controllers/payment.php',
+                                method: 'POST',
+                                dataType: 'json',
+                                data: {
+                                    action: 'cancel_payment',
+                                    transaction_id: paymentData.transaction_id
+                                }
+                            }).always(function() {
+                                // Clean stored data and refresh events to show payment button again
+                                $('#paymentModal').removeData('paymentData');
+                                loadMyEvents();
+                            });
+                        } else {
+                            // No created payment → just refresh list
+                            loadMyEvents();
+                        }
+                    } catch (e) {
+                        console.error('Error handling modal close:', e);
+                        loadMyEvents();
+                    }
+                });
+            }
         });
         
         // Load user's events
@@ -1297,8 +1395,8 @@ $user = $_SESSION['user'];
                             <div class="flex-grow-1">
                                 <h3 class="event-title">${event.TenSuKien}</h3>
                                 <div class="d-flex gap-2 mt-2">
-                                    <span class="status-badge ${statusClass}">${event.TrangThaiDuyet}</span>
-                                    <span class="status-badge ${paymentClass}">${event.TrangThaiThanhToan}</span>
+                                    <span class="status-badge ${statusClass}">${event.TrangThaiDuyet || 'Chờ duyệt'}</span>
+                                    <span class="status-badge ${paymentClass}">${event.TrangThaiThanhToan || 'Chưa thanh toán'}</span>
                                 </div>
                             </div>
                             <div class="text-end">
@@ -1351,7 +1449,7 @@ $user = $_SESSION['user'];
                             <button class="btn btn-primary btn-sm" onclick="viewEventDetails(${event.ID_DatLich})">
                                 <i class="fas fa-eye"></i> Xem chi tiết
                             </button>
-                            ${event.TrangThaiDuyet === 'Chờ duyệt' ? `
+                            ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Chờ duyệt' ? `
                             <button class="btn btn-warning btn-sm" onclick="editEvent(${event.ID_DatLich})">
                                 <i class="fas fa-edit"></i> Sửa
                             </button>
@@ -1359,12 +1457,14 @@ $user = $_SESSION['user'];
                                 <i class="fas fa-times"></i> Hủy
                             </button>
                             ` : ''}
-                            ${event.TrangThaiDuyet === 'Đã duyệt' && event.TrangThaiThanhToan === 'Chưa thanh toán' ? `
+                            ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' 
+                              && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Chưa thanh toán'
+                              && (!event.PendingPayments || event.PendingPayments == 0) ? `
                             <button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
                                 <i class="fas fa-credit-card"></i> Thanh toán
                             </button>
                             ` : ''}
-                            ${event.TrangThaiSuKien === 'Hoàn thành' && event.TrangThaiThanhToan === 'Đã thanh toán đủ' ? `
+                            ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Đã thanh toán đủ' ? `
                             <button class="btn btn-review btn-sm" onclick="openReviewModal(${event.ID_DatLich}, '${event.TenSuKien}')" 
                                     title="Đánh giá sự kiện đã hoàn thành">
                                 <i class="fas fa-star"></i> Đánh giá
@@ -1385,8 +1485,8 @@ $user = $_SESSION['user'];
             const searchTerm = $('#searchInput').val().toLowerCase();
             
             filteredEvents = allEvents.filter(event => {
-                const matchesStatus = !statusFilter || event.TrangThaiDuyet === statusFilter;
-                const matchesPayment = !paymentFilter || event.TrangThaiThanhToan === paymentFilter;
+                const matchesStatus = !statusFilter || (event.TrangThaiDuyet || 'Chờ duyệt') === statusFilter;
+                const matchesPayment = !paymentFilter || (event.TrangThaiThanhToan || 'Chưa thanh toán') === paymentFilter;
                 const matchesSearch = !searchTerm || 
                     event.TenSuKien.toLowerCase().includes(searchTerm) ||
                     (event.TenDiaDiem && event.TenDiaDiem.toLowerCase().includes(searchTerm));
@@ -1400,9 +1500,9 @@ $user = $_SESSION['user'];
         // Update statistics
         function updateStatistics() {
             const total = allEvents.length;
-            const pending = allEvents.filter(e => e.TrangThaiDuyet === 'Chờ duyệt').length;
-            const approved = allEvents.filter(e => e.TrangThaiDuyet === 'Đã duyệt').length;
-            const paid = allEvents.filter(e => e.TrangThaiThanhToan === 'Đã thanh toán đủ').length;
+            const pending = allEvents.filter(e => (e.TrangThaiDuyet || 'Chờ duyệt') === 'Chờ duyệt').length;
+            const approved = allEvents.filter(e => (e.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt').length;
+            const paid = allEvents.filter(e => (e.TrangThaiThanhToan || 'Chưa thanh toán') === 'Đã thanh toán đủ').length;
             
             $('#totalEvents').text(total);
             $('#pendingEvents').text(pending);
@@ -1422,7 +1522,12 @@ $user = $_SESSION['user'];
         
         // Get payment class
         function getPaymentClass(payment) {
-            switch(payment) {
+            // Handle null, undefined, or empty values
+            if (!payment || payment === null || payment === 'NULL' || payment.trim() === '') {
+                return 'status-pending';
+            }
+            
+            switch(payment.trim()) {
                 case 'Chưa thanh toán': return 'status-pending';
                 case 'Đã đặt cọc': return 'status-approved';
                 case 'Đã thanh toán đủ': return 'status-paid';
@@ -1436,101 +1541,6 @@ $user = $_SESSION['user'];
             return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
         }
         
-        // View event details
-        function viewEventDetails(eventId) {
-            const event = allEvents.find(e => e.ID_DatLich === eventId);
-            if (!event) return;
-            
-            const eventDate = formatDateTime(event.NgayBatDau);
-            const endDate = formatDateTime(event.NgayKetThuc);
-            const priceText = getLocationPriceText(event);
-            const budget = event.NganSach ? new Intl.NumberFormat('vi-VN').format(event.NganSach) : 'Chưa xác định';
-            const priceBreakdown = getEventPriceBreakdown(event);
-            
-            $('#modalEventTitle').text(event.TenSuKien);
-            $('#modalEventBody').html(`
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-info-circle text-primary"></i> Thông tin cơ bản</h6>
-                        <table class="table table-borderless">
-                            <tr><td><strong>Tên sự kiện:</strong></td><td>${event.TenSuKien}</td></tr>
-                            <tr><td><strong>Loại sự kiện:</strong></td><td>${event.TenLoai || 'Chưa xác định'}</td></tr>
-                            <tr><td><strong>Ngày bắt đầu:</strong></td><td>${eventDate}</td></tr>
-                            <tr><td><strong>Ngày kết thúc:</strong></td><td>${endDate}</td></tr>
-                            <tr><td><strong>Số khách dự kiến:</strong></td><td>${event.SoNguoiDuKien || 'Chưa xác định'}</td></tr>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-map-marker-alt text-primary"></i> Địa điểm</h6>
-                        <table class="table table-borderless">
-                            <tr><td><strong>Tên địa điểm:</strong></td><td>${event.TenDiaDiem || 'Chưa xác định'}</td></tr>
-                            <tr><td><strong>Địa chỉ:</strong></td><td>${event.DiaChi || 'Chưa xác định'}</td></tr>
-                            <tr><td><strong>Sức chứa:</strong></td><td>${event.SucChua || 'Chưa xác định'} người</td></tr>
-                            <tr><td><strong>Giá thuê:</strong></td><td>${priceText}</td></tr>
-                        </table>
-                    </div>
-                </div>
-                
-                <div class="row mt-3">
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-credit-card text-primary"></i> Chi tiết giá tiền</h6>
-                        <table class="table table-borderless">
-                            ${priceBreakdown.eventTypePrice > 0 ? `
-                            <tr><td><strong>Giá loại sự kiện:</strong></td><td><span class="text-info">${new Intl.NumberFormat('vi-VN').format(priceBreakdown.eventTypePrice)} VNĐ</span></td></tr>
-                            ` : ''}
-                            ${priceBreakdown.locationPrice > 0 ? `
-                            <tr><td><strong>Giá thuê địa điểm:</strong></td><td><span class="text-warning">${new Intl.NumberFormat('vi-VN').format(priceBreakdown.locationPrice)} VNĐ</span></td></tr>
-                            ` : ''}
-                            ${priceBreakdown.equipmentPrice > 0 ? `
-                            <tr><td><strong>Giá thiết bị:</strong></td><td><span class="text-danger">${new Intl.NumberFormat('vi-VN').format(priceBreakdown.equipmentPrice)} VNĐ</span></td></tr>
-                            ` : ''}
-                            <tr><td><strong>Tổng giá:</strong></td><td><span class="text-success fw-bold">${new Intl.NumberFormat('vi-VN').format(priceBreakdown.totalPrice)} VNĐ</span></td></tr>
-                            <tr><td><strong>Ngân sách:</strong></td><td>${budget} VNĐ</td></tr>
-                            <tr><td><strong>Trạng thái duyệt:</strong></td><td><span class="status-badge ${getStatusClass(event.TrangThaiDuyet)}">${event.TrangThaiDuyet}</span></td></tr>
-                            <tr><td><strong>Trạng thái thanh toán:</strong></td><td><span class="status-badge ${getPaymentClass(event.TrangThaiThanhToan)}">${event.TrangThaiThanhToan}</span></td></tr>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-user text-primary"></i> Thông tin liên hệ</h6>
-                        <table class="table table-borderless">
-                            <tr><td><strong>Họ tên:</strong></td><td>${event.HoTen || 'Chưa xác định'}</td></tr>
-                            <tr><td><strong>Số điện thoại:</strong></td><td>${event.SoDienThoai || 'Chưa xác định'}</td></tr>
-                        </table>
-                    </div>
-                </div>
-                
-                ${event.MoTa ? `
-                <div class="mt-3">
-                    <h6><i class="fas fa-align-left text-primary"></i> Mô tả</h6>
-                    <p class="text-muted">${event.MoTa}</p>
-                </div>
-                ` : ''}
-                
-                ${event.GhiChu ? `
-                <div class="mt-3">
-                    <h6><i class="fas fa-sticky-note text-primary"></i> Ghi chú</h6>
-                    <p class="text-muted">${event.GhiChu}</p>
-                </div>
-                ` : ''}
-                
-                <div class="mt-3">
-                    <h6><i class="fas fa-cogs text-primary"></i> Thiết bị đã đăng ký</h6>
-                    <div id="equipmentDetails_${event.ID_DatLich}">
-                        <div class="text-center">
-                            <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <small class="text-muted">Đang tải thiết bị...</small>
-                        </div>
-                    </div>
-                </div>
-            `);
-            
-            $('#eventDetailsModal').modal('show');
-            
-            // Load equipment details
-            loadEventEquipment(eventId);
-        }
         
         // Edit event
         function editEvent(eventId) {
@@ -1617,25 +1627,16 @@ $user = $_SESSION['user'];
                 <div class="mt-4">
                     <h6><i class="fas fa-credit-card text-primary"></i> Chọn phương thức thanh toán</h6>
                     <div class="row">
-                        <div class="col-md-4">
-                            <div class="card payment-method-card" data-method="momo">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-mobile-alt fa-3x text-danger mb-3"></i>
-                                    <h6>Ví MoMo</h6>
-                                    <small class="text-muted">Thanh toán qua ví điện tử</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card payment-method-card" data-method="banking">
+                        <div class="col-md-6">
+                            <div class="card payment-method-card" data-method="sepay">
                                 <div class="card-body text-center">
                                     <i class="fas fa-university fa-3x text-primary mb-3"></i>
-                                    <h6>Chuyển khoản</h6>
-                                    <small class="text-muted">Chuyển khoản ngân hàng</small>
+                                    <h6>SePay Banking</h6>
+                                    <small class="text-muted">Thanh toán qua ngân hàng</small>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <div class="card payment-method-card" data-method="cash">
                                 <div class="card-body text-center">
                                     <i class="fas fa-money-bill-wave fa-3x text-success mb-3"></i>
@@ -1673,38 +1674,10 @@ $user = $_SESSION['user'];
                 
                 <div class="mt-4" id="paymentDetails" style="display: none;">
                     <h6><i class="fas fa-info-circle text-primary"></i> Thông tin thanh toán</h6>
-                    <div id="momoDetails" class="payment-details" style="display: none;">
-                        <div class="alert alert-info">
-                            <h6><i class="fas fa-mobile-alt"></i> Thanh toán qua MoMo Gateway</h6>
-                            <div class="text-center">
-                                <div class="momo-logo-small mb-3">
-                                    <i class="fas fa-mobile-alt fa-2x text-danger"></i>
-                                </div>
-                                <h6 class="text-danger">MoMo Wallet</h6>
-                                <p class="text-muted mb-3">Thanh toán nhanh chóng và bảo mật qua MoMo Gateway</p>
-                                
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <h6><i class="fas fa-shield-alt text-success"></i> Bảo mật</h6>
-                                        <ul class="text-start small">
-                                            <li>Mã hóa SSL 256-bit</li>
-                                            <li>Xác thực 2 lớp</li>
-                                        </ul>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h6><i class="fas fa-bolt text-warning"></i> Tốc độ</h6>
-                                        <ul class="text-start small">
-                                            <li>Xử lý trong vài giây</li>
-                                            <li>Xác nhận ngay lập tức</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                
-                                <div class="alert alert-warning mt-3">
-                                    <i class="fas fa-info-circle"></i>
-                                    <strong>Lưu ý:</strong> Sau khi nhấn "Xác nhận thanh toán", bạn sẽ được chuyển hướng đến trang thanh toán MoMo để hoàn tất giao dịch.
-                                </div>
-                            </div>
+                    <div id="sepayDetails" class="payment-details" style="display: none;">
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle"></i>
+                            Sau khi nhấn "Xác nhận thanh toán", hệ thống sẽ hiển thị QR và thông tin ngân hàng.
                         </div>
                     </div>
                     <div id="bankingDetails" class="payment-details" style="display: none;">
@@ -1748,30 +1721,12 @@ $user = $_SESSION['user'];
                 
                 const method = $(this).data('method');
                 
-                if (method === 'momo') {
-                    // Show MoMo payment modal
-                    $('#momoPaymentModal').modal('show');
-                } else {
-                    $('.payment-details').hide();
-                    $(`#${method}Details`).show();
-                    $('#paymentDetails').show();
-                }
+                $('.payment-details').hide();
+                $(`#${method}Details`).show();
+                $('#paymentDetails').show();
             });
         }
         
-        // Confirm MoMo payment
-        function confirmMoMoPayment() {
-            // Close MoMo payment modal
-            $('#momoPaymentModal').modal('hide');
-            
-            // Set MoMo type to gateway (online only)
-            $('#paymentModal').data('momoType', 'gateway');
-            
-            // Show payment details
-            $('.payment-details').hide();
-            $('#momoDetails').show();
-            $('#paymentDetails').show();
-        }
         
         // Process payment
         function processPayment() {
@@ -1814,9 +1769,9 @@ $user = $_SESSION['user'];
                 // Choose payment API based on method
                 let apiAction, apiData;
                 
-                if (paymentMethod === 'momo') {
-                    // Use MoMo official API (Gateway only)
-                    apiAction = 'create_momo_payment';
+                if (paymentMethod === 'sepay') {
+                    // Use SePay for banking payments
+                    apiAction = 'create_sepay_payment';
                     apiData = {
                         action: apiAction,
                         event_id: event.ID_DatLich,
@@ -1836,29 +1791,27 @@ $user = $_SESSION['user'];
                 }
                 
                 // Process payment
+                console.log('Payment API Data:', apiData);
+                console.log('Payment URL:', '../src/controllers/payment.php');
+                
                 $.ajax({
                     url: '../src/controllers/payment.php',
                     method: 'POST',
                     data: apiData,
                     dataType: 'json',
                     success: function(response) {
+                        console.log('Payment Success Response:', response);
                         if (response.success) {
-                            if (paymentMethod === 'momo' && response.pay_url) {
-                                // Redirect to MoMo Gateway
-                                $('#paymentModalFooter').html(`
-                                    <div class="text-center">
-                                        <div class="alert alert-success">
-                                            <i class="fas fa-check-circle"></i>
-                                            <strong>Đang chuyển hướng đến MoMo...</strong>
-                                        </div>
-                                        <p>Vui lòng đợi trong giây lát...</p>
-                                    </div>
-                                `);
-                                
-                                // Redirect to MoMo Gateway
-                                setTimeout(() => {
-                                    window.location.href = response.pay_url;
-                                }, 2000);
+                            // For cash payments, do not show QR; mark as processing and return to list
+                            if (paymentMethod === 'cash') {
+                                alert('Yêu cầu thanh toán tiền mặt đã được tạo. Trạng thái: Đang xử lý.');
+                                $('#paymentModal').modal('hide');
+                                loadMyEvents();
+                                return;
+                            }
+                            if (response.bank_info) {
+                                // Show SePay banking info
+                                showSePayBankingModal(response);
                             } else if (response.qr_code) {
                                 // Show QR code for offline payment
                                 showQRCodeModal(response);
@@ -1872,8 +1825,10 @@ $user = $_SESSION['user'];
                             resetPaymentModal();
                         }
                     },
-                    error: function() {
-                        alert('Lỗi kết nối. Vui lòng thử lại.');
+                    error: function(xhr, status, error) {
+                        console.error('Payment Error:', xhr, status, error);
+                        console.error('Response Text:', xhr.responseText);
+                        alert('Lỗi kết nối. Vui lòng thử lại.\nStatus: ' + status + '\nError: ' + error);
                         resetPaymentModal();
                     }
                 });
@@ -1883,8 +1838,7 @@ $user = $_SESSION['user'];
         // Get payment method name
         function getPaymentMethodName(method) {
             switch(method) {
-                case 'momo': return 'Ví MoMo';
-                case 'banking': return 'Chuyển khoản ngân hàng';
+                case 'sepay': return 'SePay Banking';
                 case 'cash': return 'Tiền mặt';
                 default: return 'Phương thức thanh toán';
             }
@@ -1900,6 +1854,98 @@ $user = $_SESSION['user'];
             `);
         }
         
+        // Show SePay Banking Modal
+        function showSePayBankingModal(paymentData) {
+            const event = $('#paymentModal').data('event');
+            const paymentMethod = $('.payment-method-card.border-primary').data('method');
+            const paymentType = $('input[name="paymentType"]:checked').val();
+            
+            $('#paymentModalTitle').text(`Chuyển khoản - ${event.TenSuKien}`);
+            $('#paymentModalBody').html(`
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="qr-container mb-3">
+                            <div id="qrcode" class="d-flex justify-content-center"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="payment-info-compact">
+                            <h6 class="text-primary mb-3"><i class="fas fa-info-circle"></i> Thông tin thanh toán</h6>
+                            <div class="info-item mb-2">
+                                <small class="text-muted">Số tiền:</small><br>
+                                <strong class="text-primary">${new Intl.NumberFormat('vi-VN').format(paymentData.amount)} VNĐ</strong>
+                            </div>
+                            <div class="info-item mb-2">
+                                <small class="text-muted">Loại:</small><br>
+                                <span>${paymentType === 'deposit' ? 'Đặt cọc' : 'Thanh toán đủ'}</span>
+                            </div>
+                            <div class="info-item mb-3">
+                                <small class="text-muted">Mã giao dịch:</small><br>
+                                <code class="small">${paymentData.transaction_id}</code>
+                            </div>
+                            
+                            <div class="bank-info-compact">
+                                <h6 class="text-primary mb-2"><i class="fas fa-university"></i> Thông tin ngân hàng</h6>
+                                <div class="info-item mb-1">
+                                    <small class="text-muted">Ngân hàng:</small><br>
+                                    <strong>${paymentData.bank_info.bank_name}</strong>
+                                </div>
+                                <div class="info-item mb-1">
+                                    <small class="text-muted">Số tài khoản:</small><br>
+                                    <code class="small">${paymentData.bank_info.account_number}</code>
+                                </div>
+                                <div class="info-item mb-1">
+                                    <small class="text-muted">Chủ tài khoản:</small><br>
+                                    <span class="small">${paymentData.bank_info.account_name}</span>
+                                </div>
+                                <div class="info-item mb-2">
+                                    <small class="text-muted">Nội dung:</small><br>
+                                    <code class="small">${paymentData.bank_info.content}</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-mobile-alt"></i>
+                    <strong>Hướng dẫn:</strong> Mở app ngân hàng → Quét QR hoặc chuyển khoản theo thông tin trên
+                </div>
+                
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    <small>Sau khi chuyển khoản, hệ thống sẽ tự động cập nhật trạng thái.</small>
+                </div>
+            `);
+            
+            $('#paymentModalFooter').html(`
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${paymentData.transaction_id}')">
+                    <i class="fas fa-sync"></i> Kiểm tra trạng thái
+                </button>
+            `);
+            
+            // Store payment data for fallback
+            $('#paymentModal').data('paymentData', paymentData);
+            
+            // Generate QR Code for banking
+            generateQRCodeWithFallback(paymentData);
+
+            // Auto-poll payment status every 12s and redirect on success/failure
+            try {
+                if (window.__sepayPollTimer) {
+                    clearInterval(window.__sepayPollTimer);
+                }
+                window.__sepayPollTimer = setInterval(function() {
+                    try {
+                        checkPaymentStatus(paymentData.transaction_id);
+                    } catch(e) {
+                        console.warn('Auto check status error:', e);
+                    }
+                }, 12000);
+            } catch(e) { console.warn(e); }
+        }
+
         // Show QR Code Modal
         function showQRCodeModal(paymentData) {
             const event = $('#paymentModal').data('event');
@@ -1924,22 +1970,11 @@ $user = $_SESSION['user'];
                             <tr><td><strong>Số tiền:</strong></td><td><span class="text-primary fw-bold">${new Intl.NumberFormat('vi-VN').format(paymentData.amount)} VNĐ</span></td></tr>
                             <tr><td><strong>Loại thanh toán:</strong></td><td>${paymentType === 'deposit' ? 'Đặt cọc' : 'Thanh toán đủ'}</td></tr>
                             <tr><td><strong>Phương thức:</strong></td><td>${getPaymentMethodName(paymentMethod)}</td></tr>
-                            <tr><td><strong>Mã giao dịch:</strong></td><td><code>${paymentData.transaction_code}</code></td></tr>
+                            <tr><td><strong>Mã giao dịch:</strong></td><td><code>${paymentData.transaction_code || paymentData.transaction_id}</code></td></tr>
                         </table>
                     </div>
                     
-                    ${paymentMethod === 'momo' ? `
-                    <div class="alert alert-warning">
-                        <i class="fas fa-mobile-alt"></i>
-                        <strong>Hướng dẫn:</strong>
-                        <ol class="text-start mt-2">
-                            <li>Mở ứng dụng MoMo trên điện thoại</li>
-                            <li>Chọn "Quét mã QR" hoặc "Chuyển tiền"</li>
-                            <li>Quét mã QR ở trên</li>
-                            <li>Xác nhận thanh toán</li>
-                        </ol>
-                    </div>
-                    ` : ''}
+                    <!-- MoMo removed - using SePay only -->
                     
                     ${paymentMethod === 'banking' ? `
                     <div class="alert alert-primary">
@@ -1964,24 +1999,161 @@ $user = $_SESSION['user'];
             
             $('#paymentModalFooter').html(`
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${paymentData.transaction_code}')">
+                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${paymentData.transaction_code || paymentData.transaction_id}')">
                     <i class="fas fa-sync"></i> Kiểm tra trạng thái
                 </button>
             `);
             
-            // Generate QR Code
-            generateQRCode(paymentData.qr_code);
+            // Store payment data for fallback usage and generate QR with robust fallback
+            $('#paymentModal').data('paymentData', paymentData);
+            generateQRCodeWithFallback(paymentData);
+        }
+        
+        // Generate QR Code with Fallback
+        function generateQRCodeWithFallback(paymentData) {
+            console.log('Generating QR Code with fallback for:', paymentData);
+            
+            // Always use fallback for better reliability - VietQR is unstable
+            useFallbackQR(paymentData);
+        }
+        
+        // Use Fallback QR
+        function useFallbackQR(paymentData) {
+            console.log('Using fallback QR for:', paymentData);
+            
+            let fallbackUrl;
+            let qrData = '';
+            
+            try {
+                // 0) If original VietQR URL có sẵn, thử render qua proxy CDN để tránh lỗi kết nối trực tiếp
+                const proxiedVietQR = [];
+                if (paymentData.qr_code && typeof paymentData.qr_code === 'string') {
+                    const withoutProtocol = paymentData.qr_code.replace(/^https?:\/\//, '');
+                    proxiedVietQR.push(`https://images.weserv.nl/?url=${encodeURIComponent(withoutProtocol)}`);
+                    proxiedVietQR.push(`https://wsrv.nl/?url=${encodeURIComponent(withoutProtocol)}`);
+                }
+                if (paymentData.fallback_qr) {
+                    fallbackUrl = paymentData.fallback_qr;
+                } else if (paymentData.bank_info) {
+                    // Create QR with bank info
+                    qrData = `Bank: ${paymentData.bank_info.bank_name}\nAccount: ${paymentData.bank_info.account_number}\nAmount: ${paymentData.amount}\nContent: ${paymentData.bank_info.content}`;
+                    fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`;
+                } else {
+                    qrData = paymentData.qr_code || paymentData.transaction_id || 'QR_CODE';
+                    fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`;
+                }
+                
+                console.log('Fallback URL:', fallbackUrl);
+                
+                // Try multiple QR services for better reliability
+                const qrServices = [
+                    ...proxiedVietQR,
+                    fallbackUrl,
+                    `https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=${encodeURIComponent(qrData)}`,
+                    `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}&format=png`
+                ];
+                
+                let currentService = 0;
+                
+                function tryNextService() {
+                    if (currentService >= qrServices.length) {
+                        // All services failed, show manual info
+                        $('#qrcode').html(`
+                            <div class="alert alert-info text-center">
+                                <i class="fas fa-qrcode fa-3x mb-3 text-muted"></i>
+                                <h6>QR Code không khả dụng</h6>
+                                <p class="mb-2">Vui lòng chuyển khoản theo thông tin bên cạnh:</p>
+                                <div class="text-start">
+                                    <small><strong>Ngân hàng:</strong> ${paymentData.bank_info?.bank_name || 'N/A'}</small><br>
+                                    <small><strong>Số TK:</strong> ${paymentData.bank_info?.account_number || 'N/A'}</small><br>
+                                    <small><strong>Nội dung:</strong> ${paymentData.bank_info?.content || 'N/A'}</small>
+                                </div>
+                            </div>
+                        `);
+                        return;
+                    }
+                    
+                    const img = new Image();
+                    img.onload = function() {
+                        $('#qrcode').html(`
+                            <img src="${qrServices[currentService]}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px; max-height: 300px;">
+                        `);
+                    };
+                    img.onerror = function() {
+                        console.log(`QR service ${currentService} failed, trying next...`);
+                        currentService++;
+                        tryNextService();
+                    };
+                    img.src = qrServices[currentService];
+                }
+                
+                tryNextService();
+                
+            } catch (error) {
+                console.error('Error creating fallback QR:', error);
+                $('#qrcode').html(`
+                    <div class="alert alert-warning text-center">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <h6>Lỗi tạo QR Code</h6>
+                        <p class="mb-0">Vui lòng chuyển khoản theo thông tin bên cạnh</p>
+                    </div>
+                `);
+            }
         }
         
         // Generate QR Code
         function generateQRCode(qrString) {
-            // Simple QR code generation using a library or service
-            // For now, we'll use a QR code service
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
+            console.log('Generating QR Code for:', qrString);
             
-            $('#qrcode').html(`
-                <img src="${qrUrl}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px;">
-            `);
+            // Check if qrString is a URL or plain text
+            if (qrString && qrString.startsWith('http')) {
+                // If it's already a URL (VietQR), use it with fallback
+                const img = new Image();
+                img.onload = function() {
+                    $('#qrcode').html(`
+                        <img src="${qrString}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px; max-height: 300px;">
+                    `);
+                };
+                img.onerror = function() {
+                    console.log('VietQR failed, using fallback service');
+                    // Try to get fallback QR from payment data
+                    const paymentData = $('#paymentModal').data('paymentData');
+                    let fallbackUrl;
+                    
+                    if (paymentData && paymentData.fallback_qr) {
+                        fallbackUrl = paymentData.fallback_qr;
+                    } else {
+                        // Create fallback QR with bank info
+                        const bankInfo = paymentData ? paymentData.bank_info : null;
+                        if (bankInfo) {
+                            const fallbackData = `Bank: ${bankInfo.bank_name}\nAccount: ${bankInfo.account_number}\nAmount: ${paymentData.amount}\nContent: ${bankInfo.content}`;
+                            fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(fallbackData)}`;
+                        } else {
+                            fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
+                        }
+                    }
+                    
+                    $('#qrcode').html(`
+                        <img src="${fallbackUrl}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px; max-height: 300px;" 
+                             onerror="this.parentElement.innerHTML='<div class=\\"alert alert-warning\\"><i class=\\"fas fa-exclamation-triangle\\"></i> Không thể tải QR code. Vui lòng thử lại.</div>'">
+                    `);
+                };
+                img.src = qrString;
+            } else if (qrString) {
+                // If it's plain text, generate QR code using service with smaller size
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
+                $('#qrcode').html(`
+                    <img src="${qrUrl}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px; max-height: 300px;"
+                         onerror="this.parentElement.innerHTML='<div class=\\"alert alert-warning\\"><i class=\\"fas fa-exclamation-triangle\\"></i> Không thể tải QR code. Vui lòng thử lại.</div>'">
+                `);
+            } else {
+                $('#qrcode').html(`
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Không thể tạo mã QR. Vui lòng thử lại.
+                    </div>
+                `);
+            }
         }
         
         // Check payment status
@@ -2008,16 +2180,16 @@ $user = $_SESSION['user'];
                         const payment = response.payments.find(p => p.MaGiaoDich && p.MaGiaoDich.includes(transactionCode));
                         if (payment) {
                             if (payment.TrangThai === 'Thành công') {
-                                alert('Thanh toán thành công! Trạng thái đã được cập nhật.');
-                                $('#paymentModal').modal('hide');
-                                loadMyEvents(); // Reload events
+                                if (window.__sepayPollTimer) clearInterval(window.__sepayPollTimer);
+                                window.location.href = `../payment/success.php?order_id=${encodeURIComponent(payment.MaGiaoDich)}&amount=${encodeURIComponent(payment.SoTien)}`;
+                                return;
                             } else if (payment.TrangThai === 'Thất bại') {
-                                alert('Thanh toán thất bại. Vui lòng thử lại.');
-                                resetPaymentModal();
-                            } else {
-                                alert('Thanh toán đang được xử lý. Vui lòng đợi thêm.');
-                                resetPaymentModal();
+                                if (window.__sepayPollTimer) clearInterval(window.__sepayPollTimer);
+                                window.location.href = `../payment/failure.php?order_id=${encodeURIComponent(payment.MaGiaoDich)}&message=${encodeURIComponent('Thanh toán thất bại')}`;
+                                return;
                             }
+                            // Still pending – restore footer
+                            resetPaymentModal();
                         } else {
                             alert('Chưa tìm thấy thông tin thanh toán. Vui lòng thử lại sau.');
                             resetPaymentModal();
@@ -2158,6 +2330,9 @@ $user = $_SESSION['user'];
             const eventEndDate = formatDateTime(event.NgayKetThuc);
             const priceBreakdown = getEventPriceBreakdown(event);
             const totalPrice = new Intl.NumberFormat('vi-VN').format(priceBreakdown.totalPrice);
+            const eventTypePrice = new Intl.NumberFormat('vi-VN').format(priceBreakdown.eventTypePrice || 0);
+            const equipmentPrice = new Intl.NumberFormat('vi-VN').format(priceBreakdown.equipmentPrice || 0);
+            const budget = event.NganSach ? new Intl.NumberFormat('vi-VN').format(event.NganSach) : null;
             
             // Get status badge class
             const statusClass = getStatusClass(event.TrangThaiDuyet);
@@ -2165,182 +2340,188 @@ $user = $_SESSION['user'];
             
             // Get location image
             const locationImage = event.DiaDiemHinhAnh ? 
-                `img/diadiem/${event.DiaDiemHinhAnh}` : 
-                'img/diadiem/default.jpg';
+                `../img/diadiem/${event.DiaDiemHinhAnh}` : 
+                '../img/diadiem/default.jpg';
+            
+            // Calculate location price
+            const locationPriceText = getLocationPriceText(event);
             
             let html = `
                 <div class="event-details-content">
-                    <!-- Event Image Section -->
-                    <div class="event-image-section">
-                        <img src="${locationImage}" alt="${event.TenDiaDiem}" class="event-main-image" 
-                             onerror="this.src='img/diadiem/default.jpg'">
-                        <span class="event-status-badge ${statusClass}">${event.TrangThaiDuyet}</span>
+                    <!-- Modal Title with Event Name -->
+                    <h4 class="text-center mb-4">${event.TenSuKien}</h4>
+                    
+                    <!-- Grid Layout -->
+                    <div class="row g-3">
+                        <!-- Thông tin cơ bản (Top Left) -->
+                        <div class="col-md-6">
+                            <div class="detail-section">
+                                <h6 class="section-header">
+                                    <i class="fas fa-info-circle text-primary"></i> Thông tin cơ bản
+                                </h6>
+                                <table class="table table-borderless table-sm">
+                                    <tr>
+                                        <td><strong>Tên sự kiện:</strong></td>
+                                        <td>${event.TenSuKien}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Loại sự kiện:</strong></td>
+                                        <td>${event.TenLoai || 'Chưa xác định'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Ngày bắt đầu:</strong></td>
+                                        <td>${eventDate}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Ngày kết thúc:</strong></td>
+                                        <td>${eventEndDate}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Số khách dự kiến:</strong></td>
+                                        <td>${event.SoNguoiDuKien || 'Chưa xác định'}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Địa điểm (Top Right) -->
+                        <div class="col-md-6">
+                            <div class="detail-section">
+                                <h6 class="section-header">
+                                    <i class="fas fa-map-marker-alt text-primary"></i> Địa điểm
+                                </h6>
+                                <table class="table table-borderless table-sm">
+                                    <tr>
+                                        <td><strong>Tên địa điểm:</strong></td>
+                                        <td>${event.TenDiaDiem || 'Chưa xác định'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Địa chỉ:</strong></td>
+                                        <td>${event.DiaChi || 'Chưa xác định'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Sức chứa:</strong></td>
+                                        <td>${event.SucChua ? new Intl.NumberFormat('vi-VN').format(event.SucChua) + ' người' : 'Chưa xác định'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Giá thuê:</strong></td>
+                                        <td>${locationPriceText || 'Chưa có giá'}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Chi tiết giá tiền (Middle Left) -->
+                        <div class="col-md-6">
+                            <div class="detail-section">
+                                <h6 class="section-header">
+                                    <i class="fas fa-money-bill-wave text-primary"></i> Chi tiết giá tiền
+                                </h6>
+                                <table class="table table-borderless table-sm">
+                                    <tr>
+                                        <td><strong>Giá loại sự kiện:</strong></td>
+                                        <td>${eventTypePrice} VNĐ</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Giá thiết bị:</strong></td>
+                                        <td>${equipmentPrice} VNĐ</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Tổng giá:</strong></td>
+                                        <td><strong class="text-success">${totalPrice} VNĐ</strong></td>
+                                    </tr>
+                                    ${budget ? `
+                                    <tr>
+                                        <td><strong>Ngân sách:</strong></td>
+                                        <td>${budget} VNĐ</td>
+                                    </tr>
+                                    ` : ''}
+                                    <tr>
+                                        <td><strong>Trạng thái duyệt:</strong></td>
+                                        <td><span class="badge ${statusClass}">${event.TrangThaiDuyet || 'Chờ duyệt'}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Trạng thái thanh toán:</strong></td>
+                                        <td><span class="badge ${paymentClass}">${event.TrangThaiThanhToan || 'Chưa thanh toán'}</span></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Thông tin liên hệ (Middle Right) -->
+                        <div class="col-md-6">
+                            <div class="detail-section">
+                                <h6 class="section-header">
+                                    <i class="fas fa-user text-primary"></i> Thông tin liên hệ
+                                </h6>
+                                <table class="table table-borderless table-sm">
+                                    <tr>
+                                        <td><strong>Họ tên:</strong></td>
+                                        <td>${event.HoTen || 'Chưa xác định'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Số điện thoại:</strong></td>
+                                        <td>${event.SoDienThoai || 'Chưa xác định'}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                     
-                    <!-- Event Info Section -->
-                    <div class="event-info-section">
-                        <h3 class="mb-3"><i class="fas fa-calendar-alt"></i> Thông tin sự kiện</h3>
-                        
-                        <div class="event-info-item">
-                            <i class="fas fa-tag"></i>
-                            <div class="event-info-content">
-                                <div class="event-info-label">Tên sự kiện</div>
-                                <div class="event-info-value">${event.TenSuKien}</div>
+                    <!-- Thiết bị đã đăng ký (Bottom) -->
+                    ${equipment && equipment.length > 0 ? `
+                    <div class="mt-4">
+                        <div class="detail-section">
+                            <h6 class="section-header">
+                                <i class="fas fa-cogs text-primary"></i> Thiết bị đã đăng ký
+                            </h6>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Tên thiết bị</th>
+                                            <th>Loại</th>
+                                            <th>Hãng</th>
+                                            <th>Số lượng</th>
+                                            <th>Đơn vị</th>
+                                            <th>Giá</th>
+                                            <th>Ghi chú</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+            ` : ''}
+            
+            ${equipment && equipment.length > 0 ? equipment.map(item => {
+                const itemName = item.TenThietBi || item.TenCombo || 'Thiết bị';
+                const itemType = item.TenCombo ? 'Combo' : (item.LoaiThietBi || 'N/A');
+                const itemBrand = item.HangSX || 'N/A';
+                const itemQuantity = item.SoLuong || 1;
+                const itemUnit = item.TenCombo ? 'combo' : (item.DonViTinh || 'cái');
+                const itemPrice = new Intl.NumberFormat('vi-VN').format(item.DonGia || 0);
+                const itemNote = item.GhiChu || (item.TenCombo ? 'Combo thiết bị' : 'Thiết bị riêng lẻ');
+                
+                return `
+                                        <tr>
+                                            <td><strong>${itemName}</strong></td>
+                                            <td>${itemType}</td>
+                                            <td>${itemBrand}</td>
+                                            <td><span class="badge bg-primary">${itemQuantity}</span></td>
+                                            <td>${itemUnit}</td>
+                                            <td><strong class="text-success">${itemPrice} VNĐ</strong></td>
+                                            <td>${itemNote}</td>
+                                        </tr>
+                `;
+            }).join('') : ''}
+            
+            ${equipment && equipment.length > 0 ? `
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        
-                        <div class="event-info-item">
-                            <i class="fas fa-calendar"></i>
-                            <div class="event-info-content">
-                                <div class="event-info-label">Thời gian</div>
-                                <div class="event-info-value">${eventDate} - ${eventEndDate}</div>
-                            </div>
-                        </div>
-                        
-                        <div class="event-info-item">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <div class="event-info-content">
-                                <div class="event-info-label">Địa điểm</div>
-                                <div class="event-info-value">${event.TenDiaDiem || 'Chưa xác định'}</div>
-                            </div>
-                        </div>
-                        
-                        ${event.DiaChi ? `
-                        <div class="event-info-item">
-                            <i class="fas fa-location-arrow"></i>
-                            <div class="event-info-content">
-                                <div class="event-info-label">Địa chỉ</div>
-                                <div class="event-info-value">${event.DiaChi}</div>
-                            </div>
-                        </div>
-                        ` : ''}
-                        
-                        <div class="event-info-item">
-                            <i class="fas fa-users"></i>
-                            <div class="event-info-content">
-                                <div class="event-info-label">Số người dự kiến</div>
-                                <div class="event-info-value">${event.SoNguoiDuKien || 'Chưa xác định'} người</div>
-                            </div>
-                        </div>
-                        
-                        ${event.TenLoai ? `
-                        <div class="event-info-item">
-                            <i class="fas fa-star"></i>
-                            <div class="event-info-content">
-                                <div class="event-info-label">Loại sự kiện</div>
-                                <div class="event-info-value">${event.TenLoai}</div>
-                            </div>
-                        </div>
-                        ` : ''}
-                        
-                        <div class="event-info-item">
-                            <i class="fas fa-money-bill-wave"></i>
-                            <div class="event-info-content">
-                                <div class="event-info-label">Tổng giá</div>
-                                <div class="event-info-value text-success">${totalPrice} VNĐ</div>
-                            </div>
-                        </div>
-                        
-                        <div class="event-info-item">
-                            <i class="fas fa-info-circle"></i>
-                            <div class="event-info-content">
-                                <div class="event-info-label">Trạng thái thanh toán</div>
-                                <div class="event-info-value">
-                                    <span class="badge ${paymentClass}">${event.TrangThaiThanhToan}</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        ${event.MoTa ? `
-                        <div class="event-info-item">
-                            <i class="fas fa-file-alt"></i>
-                            <div class="event-info-content">
-                                <div class="event-info-label">Mô tả</div>
-                                <div class="event-info-value">${event.MoTa}</div>
-                            </div>
-                        </div>
-                        ` : ''}
                     </div>
+            ` : ''}
+                </div>
             `;
-            
-            // Add equipment section if exists
-            if (equipment && equipment.length > 0) {
-                html += `
-                    <div class="equipment-section">
-                        <h4 class="mb-3"><i class="fas fa-cogs"></i> Thiết bị đã đặt</h4>
-                `;
-                
-                equipment.forEach(item => {
-                    const itemName = item.TenThietBi || item.TenCombo || 'Thiết bị';
-                    const itemImage = item.ThietBiHinhAnh;
-                    const imagePath = itemImage ? 
-                        `img/thietbi/${itemImage}` : 
-                        'img/thietbi/default.jpg';
-                    const itemType = item.TenThietBi ? 'Thiết bị' : 'Combo';
-                    const itemPrice = new Intl.NumberFormat('vi-VN').format(item.DonGia);
-                    
-                    html += `
-                        <div class="equipment-item">
-                            <img src="${imagePath}" alt="${itemName}" class="equipment-image" 
-                                 onerror="this.src='img/thietbi/default.jpg'">
-                            <div class="equipment-info">
-                                <div class="equipment-name">${itemName}</div>
-                                <div class="equipment-details">
-                                    ${itemType} • Số lượng: ${item.SoLuong}
-                                    ${item.LoaiThietBi ? ` • Loại: ${item.LoaiThietBi}` : ''}
-                                </div>
-                            </div>
-                            <div class="equipment-price">${itemPrice} VNĐ</div>
-                        </div>
-                    `;
-                });
-                
-                html += `</div>`;
-            }
-            
-            // Add reviews section
-            if (reviews && reviews.length > 0) {
-                html += `
-                    <div class="reviews-section">
-                        <h4 class="mb-3"><i class="fas fa-star"></i> Đánh giá của khách hàng</h4>
-                `;
-                
-                reviews.forEach(review => {
-                    const reviewTime = review.ThoiGianDanhGia ? 
-                        new Date(review.ThoiGianDanhGia).toLocaleString('vi-VN') : 
-                        'Vừa đánh giá';
-                    const stars = '⭐'.repeat(review.DiemDanhGia);
-                    
-                    html += `
-                        <div class="review-item">
-                            <div class="review-header">
-                                <div class="review-rating">
-                                    <span class="review-stars">${stars}</span>
-                                    <span class="review-author">${review.TenKhachHang || 'Khách hàng'}</span>
-                                </div>
-                                <div class="review-time">${reviewTime}</div>
-                            </div>
-                            ${review.NoiDung ? `
-                            <div class="review-content">"${review.NoiDung}"</div>
-                            ` : ''}
-                        </div>
-                    `;
-                });
-                
-                html += `</div>`;
-            } else {
-                html += `
-                    <div class="reviews-section">
-                        <div class="text-center text-muted">
-                            <i class="fas fa-star fa-3x mb-3"></i>
-                            <h5>Chưa có đánh giá nào</h5>
-                            <p>Sự kiện này chưa có đánh giá từ khách hàng.</p>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            html += `</div>`;
             
             document.getElementById('eventDetailsModalBody').innerHTML = html;
         }

@@ -67,7 +67,7 @@ try {
         
         // Get event equipment details
         $stmt = $pdo->prepare("
-            SELECT ctds.*, tb.TenThietBi, tb.HinhAnh as ThietBiHinhAnh, tb.LoaiThietBi,
+            SELECT ctds.*, tb.TenThietBi, tb.HinhAnh as ThietBiHinhAnh, tb.LoaiThietBi, tb.HangSX, tb.DonViTinh,
                    cb.TenCombo
             FROM chitietdatsukien ctds
             LEFT JOIN thietbi tb ON ctds.ID_TB = tb.ID_TB

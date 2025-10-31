@@ -423,7 +423,8 @@ try {
                     SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue,
                            ls.TenLoai, ls.GiaCoBan, k.HoTen, k.SoDienThoai,
                            COALESCE(equipment_total.TongGiaThietBi, 0) as TongGiaThietBi,
-                           s.TrangThaiThucTe as TrangThaiSuKien
+                           s.TrangThaiThucTe as TrangThaiSuKien,
+                           COALESCE(pending_payments.PendingPayments, 0) as PendingPayments
                     FROM datlichsukien dl
                     INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
                     LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
@@ -435,6 +436,12 @@ try {
                         WHERE ID_TB IS NOT NULL OR ID_Combo IS NOT NULL
                         GROUP BY ID_DatLich
                     ) equipment_total ON dl.ID_DatLich = equipment_total.ID_DatLich
+                    LEFT JOIN (
+                        SELECT ID_DatLich, COUNT(*) as PendingPayments
+                        FROM thanhtoan
+                        WHERE TrangThai = 'Đang xử lý'
+                        GROUP BY ID_DatLich
+                    ) pending_payments ON pending_payments.ID_DatLich = dl.ID_DatLich
                     WHERE k.ID_User = ?
                     ORDER BY dl.NgayBatDau DESC
                 ");
