@@ -5,6 +5,8 @@
 define('SEPAY_PARTNER_CODE', 'SP-LIVE-BT953B7A');
 define('SEPAY_SECRET_KEY', 'spsk_live_dpzV8LVbzmCuMswSbVdQitHANPatgLLn');
 define('SEPAY_API_TOKEN', 'BN3FCA9DRCGR6TTHY110MIEYIKPANZBI8QZO9W0KXOEQISYSWDLMPWLFQX6HSPJP');
+define('SEPAY_WEBHOOK_TOKEN', 'BN3FCA9DRCGR6TTHY110MIEYIKPANZBI8QZO9W0KXOEQISYSWDLMPWLFQX6HSPJP'); // Webhook authentication token
+define('SEPAY_MATCH_PATTERN', 'SK'); // Pattern to match in transaction content (default: SK for SK{eventId}_{paymentId})
 define('SEPAY_ENVIRONMENT', 'production'); // 'sandbox' or 'production'
 define('SEPAY_CALLBACK_URL', 'https://sukien.info.vn/event/my-php-project/hooks/sepay-payment.php');
 

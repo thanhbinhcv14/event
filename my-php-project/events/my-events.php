@@ -1343,6 +1343,16 @@ $user = $_SESSION['user'];
             }
         });
         
+        // Check if event has passed payment deadline (event end time)
+        function isEventExpired(event) {
+            if (!event.NgayKetThuc) return false;
+            
+            const eventEndTime = new Date(event.NgayKetThuc);
+            const now = new Date();
+            
+            return eventEndTime < now;
+        }
+        
         // Load user's events
         function loadMyEvents() {
                     $('#eventsList').html(`
@@ -1358,6 +1368,12 @@ $user = $_SESSION['user'];
                 if (data.success) {
                     allEvents = data.events;
                     filteredEvents = allEvents;
+                    
+                    // Show notification if expired events were auto-cancelled
+                    if (data.cancelled_expired && data.cancelled_expired > 0) {
+                        showError(`Có ${data.cancelled_expired} sự kiện đã qua thời gian tổ chức và chưa thanh toán đủ đã được tự động hủy.`);
+                    }
+                    
                     displayEvents();
                     updateStatistics();
                 } else {
@@ -1385,18 +1401,31 @@ $user = $_SESSION['user'];
                 const statusClass = getStatusClass(event.TrangThaiDuyet);
                 const paymentClass = getPaymentClass(event.TrangThaiThanhToan);
                 const eventDate = formatDateTime(event.NgayBatDau);
+                const eventEndDate = formatDateTime(event.NgayKetThuc);
                 const priceText = getLocationPriceText(event);
                 const priceBreakdown = getEventPriceBreakdown(event);
                 const totalPrice = new Intl.NumberFormat('vi-VN').format(priceBreakdown.totalPrice);
                 
+                // Check if event has expired (passed end time)
+                const isExpired = isEventExpired(event);
+                const isFullyPaid = (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Đã thanh toán đủ';
+                const showExpiredWarning = isExpired && !isFullyPaid;
+                
                 html += `
                     <div class="event-card">
+                        ${showExpiredWarning ? `
+                        <div class="alert alert-danger mb-3" role="alert">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Đã qua thời gian thanh toán!</strong> Sự kiện này đã qua thời gian tổ chức (${eventEndDate}) và chưa thanh toán đủ. Sự kiện đã được tự động hủy.
+                        </div>
+                        ` : ''}
                         <div class="event-header">
                             <div class="flex-grow-1">
                                 <h3 class="event-title">${event.TenSuKien}</h3>
                                 <div class="d-flex gap-2 mt-2">
                                     <span class="status-badge ${statusClass}">${event.TrangThaiDuyet || 'Chờ duyệt'}</span>
                                     <span class="status-badge ${paymentClass}">${event.TrangThaiThanhToan || 'Chưa thanh toán'}</span>
+                                    ${showExpiredWarning ? `<span class="status-badge status-rejected"><i class="fas fa-clock"></i> Đã hết hạn</span>` : ''}
                                 </div>
                             </div>
                             <div class="text-end">
@@ -1459,9 +1488,15 @@ $user = $_SESSION['user'];
                             ` : ''}
                             ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' 
                               && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Chưa thanh toán'
-                              && (!event.PendingPayments || event.PendingPayments == 0) ? `
+                              && (!event.PendingPayments || event.PendingPayments == 0)
+                              && !isExpired ? `
                             <button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
                                 <i class="fas fa-credit-card"></i> Thanh toán
+                            </button>
+                            ` : ''}
+                            ${isExpired && !isFullyPaid ? `
+                            <button class="btn btn-secondary btn-sm" disabled title="Đã qua thời gian thanh toán">
+                                <i class="fas fa-clock"></i> Hết hạn thanh toán
                             </button>
                             ` : ''}
                             ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Đã thanh toán đủ' ? `

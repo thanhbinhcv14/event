@@ -244,6 +244,8 @@ try {
             // Validate dates
             $eventDate = $input['event_date'];
             $eventEndDate = $input['event_end_date'];
+            $eventTime = $input['event_time'] ?? '00:00';
+            $eventEndTime = $input['event_end_time'] ?? '00:00';
             $today = date('Y-m-d');
             
             if ($eventDate < $today) {
@@ -256,15 +258,37 @@ try {
                 exit();
             }
             
+            // Check if event start time is at least 12 hours from now
+            $eventStartDateTime = new DateTime($eventDate . ' ' . $eventTime);
+            $now = new DateTime();
+            $minDateTime = clone $now;
+            $minDateTime->modify('+12 hours'); // Add 12 hours to current time
+            
+            if ($eventStartDateTime < $minDateTime) {
+                $hoursDiff = ($eventStartDateTime->getTimestamp() - $now->getTimestamp()) / 3600;
+                $hoursLeft = max(0, floor($hoursDiff));
+                $minDateTimeStr = $minDateTime->format('d/m/Y H:i');
+                echo json_encode([
+                    'success' => false, 
+                    'error' => "Sự kiện phải được đăng ký trước ít nhất 12 giờ. Thời gian bắt đầu bạn chọn chỉ còn {$hoursLeft} giờ nữa. Vui lòng chọn thời gian sau {$minDateTimeStr}."
+                ]);
+                exit();
+            }
+            
             // Validate time if same date
             if ($eventDate === $eventEndDate) {
-                $eventTime = $input['event_time'];
-                $eventEndTime = $input['event_end_time'];
-                
                 if ($eventTime >= $eventEndTime) {
                     echo json_encode(['success' => false, 'error' => 'Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày']);
                     exit();
                 }
+            }
+            
+            // Check if event end time is in the past
+            $eventEndDateTime = new DateTime($eventEndDate . ' ' . $eventEndTime);
+            
+            if ($eventEndDateTime < $now) {
+                echo json_encode(['success' => false, 'error' => 'Thời gian kết thúc sự kiện đã qua. Bạn không thể đăng ký sự kiện với thời gian trong quá khứ.']);
+                exit();
             }
             
             // Debug: Log input data
@@ -419,6 +443,47 @@ try {
         case 'get_my_events':
             // Get user's registered events
             try {
+                // First, auto-cancel expired events that haven't been fully paid
+                $pdo->beginTransaction();
+                try {
+                    $stmt = $pdo->prepare("
+                        UPDATE datlichsukien 
+                        SET TrangThaiDuyet = 'Từ chối',
+                            GhiChu = CONCAT(IFNULL(GhiChu, ''), ' - Tự động hủy: Đã qua thời gian tổ chức và chưa thanh toán đủ (', NOW(), ')')
+                        WHERE ID_KhachHang IN (
+                            SELECT ID_KhachHang FROM khachhanginfo WHERE ID_User = ?
+                        )
+                        AND NgayKetThuc < NOW()
+                        AND TrangThaiThanhToan != 'Đã thanh toán đủ'
+                        AND TrangThaiDuyet != 'Từ chối'
+                        AND TrangThaiDuyet != 'Hoàn thành'
+                    ");
+                    $stmt->execute([$userId]);
+                    $cancelledCount = $stmt->rowCount();
+                    
+                    // Also cancel pending payments for expired events
+                    if ($cancelledCount > 0) {
+                        $stmt = $pdo->prepare("
+                            UPDATE thanhtoan t
+                            INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+                            SET t.TrangThai = 'Hủy',
+                                t.GhiChu = CONCAT(IFNULL(t.GhiChu, ''), ' - Tự động hủy: Sự kiện đã qua thời gian tổ chức')
+                            WHERE dl.ID_KhachHang IN (
+                                SELECT ID_KhachHang FROM khachhanginfo WHERE ID_User = ?
+                            )
+                            AND dl.NgayKetThuc < NOW()
+                            AND dl.TrangThaiThanhToan != 'Đã thanh toán đủ'
+                            AND t.TrangThai = 'Đang xử lý'
+                        ");
+                        $stmt->execute([$userId]);
+                    }
+                    
+                    $pdo->commit();
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    error_log("Error auto-cancelling expired events: " . $e->getMessage());
+                }
+                
                 $stmt = $pdo->prepare("
                     SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue,
                            ls.TenLoai, ls.GiaCoBan, k.HoTen, k.SoDienThoai,
@@ -448,7 +513,7 @@ try {
                 $stmt->execute([$userId]);
                 $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
-                echo json_encode(['success' => true, 'events' => $events]);
+                echo json_encode(['success' => true, 'events' => $events, 'cancelled_expired' => $cancelledCount ?? 0]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
             }
@@ -686,6 +751,8 @@ try {
                 // Validate dates
                 $eventDate = $input['event_date'];
                 $eventEndDate = $input['event_end_date'];
+                $eventTime = $input['event_time'] ?? '00:00';
+                $eventEndTime = $input['event_end_time'] ?? '00:00';
                 $today = date('Y-m-d');
                 
                 if ($eventDate < $today) {
@@ -698,15 +765,37 @@ try {
                     break;
                 }
                 
+                // Check if event start time is at least 12 hours from now
+                $eventStartDateTime = new DateTime($eventDate . ' ' . $eventTime);
+                $now = new DateTime();
+                $minDateTime = clone $now;
+                $minDateTime->modify('+12 hours'); // Add 12 hours to current time
+                
+                if ($eventStartDateTime < $minDateTime) {
+                    $hoursDiff = ($eventStartDateTime->getTimestamp() - $now->getTimestamp()) / 3600;
+                    $hoursLeft = max(0, floor($hoursDiff));
+                    $minDateTimeStr = $minDateTime->format('d/m/Y H:i');
+                    echo json_encode([
+                        'success' => false, 
+                        'error' => "Sự kiện phải được đăng ký trước ít nhất 12 giờ. Thời gian bắt đầu bạn chọn chỉ còn {$hoursLeft} giờ nữa. Vui lòng chọn thời gian sau {$minDateTimeStr}."
+                    ]);
+                    break;
+                }
+                
                 // Validate time if same date
                 if ($eventDate === $eventEndDate) {
-                    $eventTime = $input['event_time'];
-                    $eventEndTime = $input['event_end_time'];
-                    
                     if ($eventTime >= $eventEndTime) {
                         echo json_encode(['success' => false, 'error' => 'Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày']);
                         break;
                     }
+                }
+                
+                // Check if event end time is in the past
+                $eventEndDateTime = new DateTime($eventEndDate . ' ' . $eventEndTime);
+                
+                if ($eventEndDateTime < $now) {
+                    echo json_encode(['success' => false, 'error' => 'Thời gian kết thúc sự kiện đã qua. Bạn không thể cập nhật sự kiện với thời gian trong quá khứ.']);
+                    break;
                 }
                 
                 // Update event

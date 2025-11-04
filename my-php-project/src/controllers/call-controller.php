@@ -100,24 +100,91 @@ function initiateCall($pdo, $userId) {
     // Xác định người nhận
     $receiverId = ($conversation['user1_id'] == $userId) ? $conversation['user2_id'] : $conversation['user1_id'];
     
-    // Kiểm tra xem người nhận có đang trong cuộc gọi khác không
+    // Cleanup old/stale call sessions before checking
+    try {
+        // Cleanup call sessions older than 10 minutes
+        $stmt = $pdo->prepare("
+            UPDATE call_sessions 
+            SET status = 'ended', ended_at = NOW()
+            WHERE status IN ('initiated', 'ringing', 'accepted') 
+            AND started_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+        ");
+        $stmt->execute();
+        
+        // Cleanup call sessions that are initiated but not accepted after 30 seconds
+        $stmt = $pdo->prepare("
+            UPDATE call_sessions 
+            SET status = 'missed', ended_at = NOW()
+            WHERE status IN ('initiated', 'ringing')
+            AND started_at < DATE_SUB(NOW(), INTERVAL 30 SECOND)
+        ");
+        $stmt->execute();
+        
+        // Cleanup old call sessions for this conversation (nếu có call cũ chưa kết thúc)
+        $stmt = $pdo->prepare("
+            UPDATE call_sessions 
+            SET status = 'ended', ended_at = NOW()
+            WHERE conversation_id = ?
+            AND status IN ('initiated', 'ringing')
+            AND started_at < DATE_SUB(NOW(), INTERVAL 1 MINUTE)
+        ");
+        $stmt->execute([$conversationId]);
+        
+        // Cleanup call sessions for receiver that are not accepted after 30 seconds
+        $stmt = $pdo->prepare("
+            UPDATE call_sessions 
+            SET status = 'missed', ended_at = NOW()
+            WHERE receiver_id = ?
+            AND status IN ('initiated', 'ringing')
+            AND started_at < DATE_SUB(NOW(), INTERVAL 30 SECOND)
+        ");
+        $stmt->execute([$receiverId]);
+        
+        // Cleanup call sessions for caller that are not accepted after 30 seconds
+        $stmt = $pdo->prepare("
+            UPDATE call_sessions 
+            SET status = 'missed', ended_at = NOW()
+            WHERE caller_id = ?
+            AND status IN ('initiated', 'ringing')
+            AND started_at < DATE_SUB(NOW(), INTERVAL 30 SECOND)
+        ");
+        $stmt->execute([$userId]);
+        
+    } catch (Exception $e) {
+        // Log error but continue
+        error_log('Error cleaning up old call sessions: ' . $e->getMessage());
+    }
+    
+    // Kiểm tra xem người nhận có đang trong cuộc gọi khác không (chỉ kiểm tra trong 30 giây gần nhất và loại trừ conversation hiện tại)
     $stmt = $pdo->prepare("
-        SELECT id FROM call_sessions 
-        WHERE receiver_id = ? AND status IN ('initiated', 'ringing', 'accepted')
+        SELECT id, status, started_at FROM call_sessions 
+        WHERE receiver_id = ? 
+        AND status IN ('initiated', 'ringing', 'accepted')
+        AND started_at > DATE_SUB(NOW(), INTERVAL 30 SECOND)
+        AND conversation_id != ?
     ");
-    $stmt->execute([$receiverId]);
-    if ($stmt->fetch()) {
+    $stmt->execute([$receiverId, $conversationId]);
+    $activeCall = $stmt->fetch();
+    if ($activeCall) {
+        // Log để debug
+        error_log("Call blocked: Receiver {$receiverId} has active call session ID: {$activeCall['id']}, status: {$activeCall['status']}, started_at: {$activeCall['started_at']}");
         echo json_encode(['success' => false, 'error' => 'Người nhận đang bận']);
         return;
     }
     
-    // Kiểm tra xem caller có đang trong cuộc gọi khác không
+    // Kiểm tra xem caller có đang trong cuộc gọi khác không (chỉ kiểm tra trong 30 giây gần nhất và loại trừ conversation hiện tại)
     $stmt = $pdo->prepare("
-        SELECT id FROM call_sessions 
-        WHERE caller_id = ? AND status IN ('initiated', 'ringing', 'accepted')
+        SELECT id, status, started_at FROM call_sessions 
+        WHERE caller_id = ? 
+        AND status IN ('initiated', 'ringing', 'accepted')
+        AND started_at > DATE_SUB(NOW(), INTERVAL 30 SECOND)
+        AND conversation_id != ?
     ");
-    $stmt->execute([$userId]);
-    if ($stmt->fetch()) {
+    $stmt->execute([$userId, $conversationId]);
+    $activeCall = $stmt->fetch();
+    if ($activeCall) {
+        // Log để debug
+        error_log("Call blocked: Caller {$userId} has active call session ID: {$activeCall['id']}, status: {$activeCall['status']}, started_at: {$activeCall['started_at']}");
         echo json_encode(['success' => false, 'error' => 'Bạn đang trong cuộc gọi khác']);
         return;
     }

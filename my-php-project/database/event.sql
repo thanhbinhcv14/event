@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 29, 2025 lúc 07:23 AM
+-- Thời gian đã tạo: Th10 02, 2025 lúc 05:05 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -93,6 +93,13 @@ CREATE TABLE `call_sessions` (
   `duration` int(11) DEFAULT 0 COMMENT 'Duration in seconds',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `call_sessions`
+--
+
+INSERT INTO `call_sessions` (`id`, `conversation_id`, `caller_id`, `receiver_id`, `call_type`, `status`, `started_at`, `ended_at`, `duration`, `created_at`) VALUES
+(1, 1, 17, 3, 'voice', 'initiated', '2025-11-02 14:41:40', NULL, 0, '2025-11-02 14:41:40');
 
 -- --------------------------------------------------------
 
@@ -345,7 +352,7 @@ CREATE TABLE `conversations` (
 --
 
 INSERT INTO `conversations` (`id`, `user1_id`, `user2_id`, `created_at`, `updated_at`, `LastMessage_ID`) VALUES
-(1, 3, 17, '2025-10-09 07:09:35', '2025-10-12 12:27:17', 9),
+(1, 3, 17, '2025-10-09 07:09:35', '2025-11-02 14:41:40', 9),
 (2, 29, 17, '2025-10-09 07:09:35', '2025-10-09 07:09:35', NULL),
 (4, 3, 118, '2025-10-09 07:09:35', '2025-10-09 07:09:35', NULL),
 (5, 29, 118, '2025-10-09 07:09:35', '2025-10-09 07:09:35', NULL);
@@ -458,7 +465,8 @@ INSERT INTO `diadiem` (`ID_DD`, `TenDiaDiem`, `LoaiDiaDiem`, `DiaChi`, `SucChua`
 (7, 'Nhà thi đấu Phú Thọ', 'Trong nhà', 'Quận 11, TP.HCM', 5000, 7000000.00, 120000000.00, 'Cả hai', 'Địa điểm tổ chức thể thao, ca nhạc, triển lãm, phù hợp các sự kiện lớn', 'nha_thidau_phutho.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
 (8, 'Công viên 23/9', 'Ngoài trời', 'Phạm Ngũ Lão, Quận 1, TP.HCM', 3000, 8000000.00, 120000000.00, 'Cả hai', 'Địa điểm tổ chức lễ hội, hội chợ ngay trung tâm TP.HCM!', 'cv_23_9.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
 (9, 'Phố đi bộ Nguyễn Huệ', 'Ngoài trời', 'Nguyễn Huệ, Quận 1, TP.HCM', 5000, 8000000.00, 120000000.00, 'Cả hai', 'Không gian công cộng nổi tiếng, phù hợp sự kiện âm nhạc, văn hóa!', 'nguyen_hue.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
-(10, 'Công viên Tao Đàn', 'Ngoài trời', 'Quận 1, TP.HCM!', 2000, 6000000.00, 90000000.00, 'Cả hai', 'Công viên trung tâm, tổ chức hội hoa xuân và lễ hội văn hóa!', 'cv_taodan.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động');
+(10, 'Công viên Tao Đàn', 'Ngoài trời', 'Quận 1, TP.HCM!', 2000, 6000000.00, 90000000.00, 'Cả hai', 'Công viên trung tâm, tổ chức hội hoa xuân và lễ hội văn hóa!', 'cv_taodan.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
+(13, 'Capella Park View', 'Trong nhà', 'Số 3 Thủ Đức', 200, 1000.00, 2000.00, 'Cả hai', '', '690420c5f24bd_1761878213.jpg', '2025-10-31 02:36:53', '2025-10-31 02:36:53', 'Hoạt động');
 
 -- --------------------------------------------------------
 
@@ -593,7 +601,8 @@ INSERT INTO `loaisukien` (`ID_LoaiSK`, `TenLoai`, `MoTa`, `GiaCoBan`, `NgayTao`,
 (3, 'Thương mại - Quảng bá', 'Triển lãm, ra mắt sản phẩm, hội chợ', 6000000.00, '2025-09-08 10:51:44', '2025-10-25 14:49:29'),
 (4, 'Tiệc - Lễ kỷ niệm', 'Tiệc cưới, tiệc sinh nhật, Gala Dinner', 10000000.00, '2025-09-08 10:51:44', '2025-10-25 14:49:29'),
 (5, 'Thể thao - Giải trí', 'Giải bóng đá, eSports, hoạt động thể thao', 7000000.00, '2025-09-08 10:51:44', '2025-10-25 14:49:29'),
-(6, 'Cộng đồng - Xã hội', 'Sự kiện từ thiện, lễ hội cộng đồng, truyền thống', 4000000.00, '2025-09-08 10:51:44', '2025-10-25 14:49:29');
+(6, 'Cộng đồng - Xã hội', 'Sự kiện từ thiện, lễ hội cộng đồng, truyền thống', 4000000.00, '2025-09-08 10:51:44', '2025-10-25 14:49:29'),
+(8, 'Giáo dục - Đàm thoại', '', 1000.00, '2025-10-31 02:35:28', '2025-10-31 02:35:28');
 
 -- --------------------------------------------------------
 
@@ -626,7 +635,8 @@ INSERT INTO `messages` (`id`, `conversation_id`, `sender_id`, `MessageText`, `me
 (3, 2, 29, 'Chào bạn! Bạn cần hỗ trợ gì?', 'text', NULL, NULL, NULL, NULL, 0, '2025-10-09 14:09:35', '2025-10-10 23:17:17'),
 (5, 4, 3, 'Chào bạn! Tôi có thể hỗ trợ gì?', 'text', NULL, NULL, NULL, NULL, 1, '2025-10-09 14:09:35', '2025-10-12 23:20:43'),
 (6, 5, 29, 'Bạn cần tư vấn về sự kiện nào?', 'text', NULL, NULL, NULL, NULL, 0, '2025-10-09 14:09:35', '2025-10-10 23:17:17'),
-(9, 1, 3, 'hello', 'text', NULL, NULL, NULL, NULL, 1, '2025-10-12 19:27:17', '2025-10-12 23:08:39');
+(9, 1, 3, 'hello', 'text', NULL, NULL, NULL, NULL, 1, '2025-10-12 19:27:17', '2025-10-12 23:08:39'),
+(60, 1, 17, '[Cuộc gọi thoại]', 'voice_call', NULL, NULL, NULL, NULL, 0, '2025-11-02 21:41:40', '2025-11-02 21:41:40');
 
 -- --------------------------------------------------------
 
@@ -725,7 +735,9 @@ INSERT INTO `payment_history` (`id`, `payment_id`, `action`, `old_status`, `new_
 (16, 15, 'create_payment', 'Chưa thanh toán', 'Đang xử lý', 'Tạo thanh toán SePay - deposit', '2025-10-29 03:51:25'),
 (17, 16, 'create_payment', 'Chưa thanh toán', 'Đang xử lý', 'Tạo thanh toán SePay - deposit', '2025-10-29 03:55:18'),
 (18, 17, 'create_payment', 'Chưa thanh toán', 'Đang xử lý', 'Tạo thanh toán SePay - full', '2025-10-29 03:55:48'),
-(19, 18, 'create_payment', 'Chưa thanh toán', 'Đang xử lý', 'Tạo thanh toán SePay - deposit', '2025-10-29 03:58:36');
+(19, 18, 'create_payment', 'Chưa thanh toán', 'Đang xử lý', 'Tạo thanh toán SePay - deposit', '2025-10-29 03:58:36'),
+(20, 19, 'create_payment', 'Chưa thanh toán', 'Đang xử lý', 'Tạo thanh toán SePay - full', '2025-11-02 14:43:10'),
+(21, 19, 'cancel_payment', 'Đang xử lý', 'Hủy', 'Người dùng hủy thanh toán khi đóng modal', '2025-11-02 14:43:28');
 
 -- --------------------------------------------------------
 
@@ -799,6 +811,7 @@ CREATE TABLE `thanhtoan` (
   `PhuongThuc` enum('Chuyển khoản','Momo','ZaloPay','Visa/MasterCard','Tiền mặt') NOT NULL,
   `TrangThai` enum('Đang xử lý','Thành công','Thất bại','Đã hủy') DEFAULT 'Đang xử lý',
   `MaGiaoDich` varchar(100) DEFAULT NULL,
+  `SePayTransactionId` varchar(100) DEFAULT NULL COMMENT 'SePay transaction ID from webhook',
   `NgayThanhToan` timestamp NOT NULL DEFAULT current_timestamp(),
   `GhiChu` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -807,25 +820,26 @@ CREATE TABLE `thanhtoan` (
 -- Đang đổ dữ liệu cho bảng `thanhtoan`
 --
 
-INSERT INTO `thanhtoan` (`ID_ThanhToan`, `ID_DatLich`, `SoTien`, `LoaiThanhToan`, `PhuongThuc`, `TrangThai`, `MaGiaoDich`, `NgayThanhToan`, `GhiChu`) VALUES
-(1, 20, 12600000.00, 'Đặt cọc', 'Chuyển khoản', 'Thành công', 'TXN202510282254488259', '2025-10-28 21:54:48', 'Thanh toán Đặt cọc cho sự kiện: Sinh Nhật 23'),
-(2, 18, 34500000.00, 'Đặt cọc', 'Chuyển khoản', 'Đang xử lý', 'SEPAY_TEST_1761703855_8967', '2025-10-29 02:10:55', 'Test payment for SePay webhook integration - Event: Đá banh'),
-(3, 18, 34500000.00, '', 'Chuyển khoản', 'Đang xử lý', 'SEPAY_1761706975_1610', '2025-10-29 03:02:55', 'Thanh toán qua SePay - Đá banh'),
-(4, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761707908_1240', '2025-10-29 03:18:28', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761707908_1240'),
-(5, 18, 100000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_TEST_1761708002_4407', '2025-10-29 03:20:02', 'Test payment SePay Đặt cọc - SEPAY_TEST_1761708002_4407'),
-(6, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708023_8974', '2025-10-29 03:20:23', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708023_8974'),
-(7, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708080_8542', '2025-10-29 03:21:20', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708080_8542'),
-(8, 18, 100000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708573_7634', '2025-10-29 03:29:33', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708573_7634'),
-(9, 18, 100000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708668_8669', '2025-10-29 03:31:08', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708668_8669'),
-(10, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708739_6931', '2025-10-29 03:32:19', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708739_6931'),
-(11, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709007_5767', '2025-10-29 03:36:47', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709007_5767'),
-(12, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709277_5740', '2025-10-29 03:41:17', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709277_5740'),
-(13, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709415_3837', '2025-10-29 03:43:35', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709415_3837'),
-(14, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709659_9786', '2025-10-29 03:47:39', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709659_9786'),
-(15, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709885_5902', '2025-10-29 03:51:25', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709885_5902'),
-(16, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761710117_6431', '2025-10-29 03:55:17', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761710117_6431'),
-(17, 18, 115000000.00, 'Thanh toán đủ', '', 'Đang xử lý', 'SEPAY_1761710148_5737', '2025-10-29 03:55:48', 'Tạo thanh toán SePay Thanh toán đủ - SEPAY_1761710148_5737'),
-(18, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761710316_6652', '2025-10-29 03:58:36', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761710316_6652');
+INSERT INTO `thanhtoan` (`ID_ThanhToan`, `ID_DatLich`, `SoTien`, `LoaiThanhToan`, `PhuongThuc`, `TrangThai`, `MaGiaoDich`, `SePayTransactionId`, `NgayThanhToan`, `GhiChu`) VALUES
+(1, 20, 12600000.00, 'Đặt cọc', 'Chuyển khoản', 'Thành công', 'TXN202510282254488259', NULL, '2025-10-28 21:54:48', 'Thanh toán Đặt cọc cho sự kiện: Sinh Nhật 23'),
+(2, 18, 34500000.00, 'Đặt cọc', 'Chuyển khoản', 'Đang xử lý', 'SEPAY_TEST_1761703855_8967', NULL, '2025-10-29 02:10:55', 'Test payment for SePay webhook integration - Event: Đá banh'),
+(3, 18, 34500000.00, '', 'Chuyển khoản', 'Đang xử lý', 'SEPAY_1761706975_1610', NULL, '2025-10-29 03:02:55', 'Thanh toán qua SePay - Đá banh'),
+(4, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761707908_1240', NULL, '2025-10-29 03:18:28', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761707908_1240'),
+(5, 18, 100000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_TEST_1761708002_4407', NULL, '2025-10-29 03:20:02', 'Test payment SePay Đặt cọc - SEPAY_TEST_1761708002_4407'),
+(6, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708023_8974', NULL, '2025-10-29 03:20:23', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708023_8974'),
+(7, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708080_8542', NULL, '2025-10-29 03:21:20', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708080_8542'),
+(8, 18, 100000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708573_7634', NULL, '2025-10-29 03:29:33', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708573_7634'),
+(9, 18, 100000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708668_8669', NULL, '2025-10-29 03:31:08', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708668_8669'),
+(10, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708739_6931', NULL, '2025-10-29 03:32:19', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708739_6931'),
+(11, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709007_5767', NULL, '2025-10-29 03:36:47', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709007_5767'),
+(12, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709277_5740', NULL, '2025-10-29 03:41:17', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709277_5740'),
+(13, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709415_3837', NULL, '2025-10-29 03:43:35', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709415_3837'),
+(14, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709659_9786', NULL, '2025-10-29 03:47:39', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709659_9786'),
+(15, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709885_5902', NULL, '2025-10-29 03:51:25', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709885_5902'),
+(16, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761710117_6431', NULL, '2025-10-29 03:55:17', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761710117_6431'),
+(17, 18, 115000000.00, 'Thanh toán đủ', '', 'Đang xử lý', 'SEPAY_1761710148_5737', NULL, '2025-10-29 03:55:48', 'Tạo thanh toán SePay Thanh toán đủ - SEPAY_1761710148_5737'),
+(18, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761710316_6652', NULL, '2025-10-29 03:58:36', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761710316_6652'),
+(19, 17, 92150000.00, 'Thanh toán đủ', 'Chuyển khoản', '', 'SEPAY_1762094590_1284', NULL, '2025-11-02 14:43:10', 'Tạo thanh toán SePay Thanh toán đủ - SEPAY_1762094590_1284 - Đã hủy bởi người dùng');
 
 -- --------------------------------------------------------
 
@@ -869,7 +883,8 @@ INSERT INTO `thietbi` (`ID_TB`, `TenThietBi`, `LoaiThietBi`, `HangSX`, `SoLuong`
 (14, 'Bộ phát Wifi sự kiện', 'Phụ trợ', 'TP-Link', 4, 'Bộ', 400000.00, 'Phủ sóng wifi cho sự kiện', 'phatwifi_tplink.jpg', 'Sẵn sàng', '2025-09-08 11:26:11', '2025-09-08 11:26:11'),
 (15, 'Bộ đàm cầm tay', 'Phụ trợ', 'Motorola', 20, 'Cái', 150000.00, 'Liên lạc nội bộ cho nhân viên', 'bodam_motorola.jpg', 'Sẵn sàng', '2025-09-08 11:26:11', '2025-09-08 11:26:11'),
 (16, 'UPS lưu điện', 'Phụ trợ', 'APC', 6, 'Bộ', 700000.00, 'Bộ lưu điện dự phòng cho thiết bị sự kiện', 'ups_apc.jpg', 'Sẵn sàng', '2025-09-08 11:26:11', '2025-09-08 11:26:11'),
-(17, 'Loa Subwoofer', 'Âm thanh', NULL, 10, 'Cái', 18000000.00, 'Loa trầm công suất lớn cho sân khấu xịn lắm!', '68df8ab9c2e69_1759480505.webp', 'Sẵn sàng', '2025-10-03 01:35:05', '2025-10-25 10:16:38');
+(17, 'Loa Subwoofer', 'Âm thanh', NULL, 10, 'Cái', 18000000.00, 'Loa trầm công suất lớn cho sân khấu xịn lắm!', '68df8ab9c2e69_1759480505.webp', 'Sẵn sàng', '2025-10-03 01:35:05', '2025-10-25 10:16:38'),
+(18, 'Tai nghe kiểm âm nhét tai H5-MDR', 'Âm thanh', NULL, 10, 'Cái', 1000.00, '', '690420e659b40_1761878246.jpeg', 'Sẵn sàng', '2025-10-31 02:37:26', '2025-10-31 02:37:26');
 
 -- --------------------------------------------------------
 
@@ -896,8 +911,8 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`ID_User`, `Email`, `Password`, `FacebookID`, `GoogleID`, `ID_Role`, `TrangThai`, `NgayTao`, `NgayCapNhat`, `OnlineStatus`, `LastActivity`) VALUES
-(3, 'qtv1@gmail.com', '$2y$10$76AL.x2sD9yFnUQ2j6YlYeXXMAFp4HlCvHxNIVl5j8/.DSUmVl3im', NULL, NULL, 1, 'Hoạt động', '2025-09-19 23:54:54', '2025-10-29 02:36:49', 'Online', '2025-10-29 02:36:49'),
-(17, 'thanhbinh14062003@gmail.com', '$2y$10$vX5Lacdo5OaAIvtda/0CyOEldWJqSjOVJqr.YKd1O0OwIf9rz8tkS', NULL, NULL, 5, 'Hoạt động', '2025-09-23 20:48:28', '2025-10-29 01:32:37', 'Online', '2025-10-29 01:32:37'),
+(3, 'qtv1@gmail.com', '$2y$10$76AL.x2sD9yFnUQ2j6YlYeXXMAFp4HlCvHxNIVl5j8/.DSUmVl3im', NULL, NULL, 1, 'Hoạt động', '2025-09-19 23:54:54', '2025-10-31 02:34:56', 'Online', '2025-10-31 02:34:56'),
+(17, 'thanhbinh14062003@gmail.com', '$2y$10$vX5Lacdo5OaAIvtda/0CyOEldWJqSjOVJqr.YKd1O0OwIf9rz8tkS', NULL, NULL, 5, 'Hoạt động', '2025-09-23 20:48:28', '2025-11-02 14:42:56', 'Offline', '2025-11-02 14:41:32'),
 (29, 'qltc2@gmail.com', '$2y$10$ig.u6SQkmvukGKXF7lFlS.D7ikk0Aja1lZPgJzeGeUJAm5zselWP.', NULL, NULL, 2, 'Hoạt động', '2025-09-24 02:06:23', '2025-09-24 02:06:23', 'Offline', NULL),
 (39, 'nhanvien1@gmail.com', '$2y$10$aFB3cdypIGWJPW343j4vSOP82d5lc.y4FG0QjqTqZu7RIKeb25GIC', NULL, NULL, 4, 'Hoạt động', '2025-09-24 02:11:39', '2025-10-28 19:27:02', 'Offline', '2025-10-28 19:27:01'),
 (96, 'nhanvien2@gmail.com', '$2y$10$skx3dLcoSSUAt7SNyPDF5u8TNfIVSWGIhvoP6sN22F7LOu7JONQ9q', NULL, NULL, 4, 'Hoạt động', '2025-09-24 10:28:06', '2025-10-28 20:15:30', 'Offline', '2025-10-28 20:04:00'),
@@ -1126,7 +1141,13 @@ ALTER TABLE `sukien`
 --
 ALTER TABLE `thanhtoan`
   ADD PRIMARY KEY (`ID_ThanhToan`),
-  ADD KEY `ID_DatLich` (`ID_DatLich`);
+  ADD KEY `ID_DatLich` (`ID_DatLich`),
+  ADD KEY `idx_magiaodich` (`MaGiaoDich`),
+  ADD KEY `idx_trangthai` (`TrangThai`),
+  ADD KEY `idx_datlich_trangthai` (`ID_DatLich`,`TrangThai`),
+  ADD KEY `idx_ngaythanhtoan` (`NgayThanhToan`),
+  ADD KEY `idx_phuongthuc_trangthai` (`PhuongThuc`,`TrangThai`),
+  ADD KEY `idx_sepay_transaction_id` (`SePayTransactionId`);
 
 --
 -- Chỉ mục cho bảng `thietbi`
@@ -1171,7 +1192,7 @@ ALTER TABLE `baocaotiendo`
 -- AUTO_INCREMENT cho bảng `call_sessions`
 --
 ALTER TABLE `call_sessions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT cho bảng `chat_media`
@@ -1219,7 +1240,7 @@ ALTER TABLE `datlichsukien`
 -- AUTO_INCREMENT cho bảng `diadiem`
 --
 ALTER TABLE `diadiem`
-  MODIFY `ID_DD` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `ID_DD` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- AUTO_INCREMENT cho bảng `kehoachthuchien`
@@ -1243,13 +1264,13 @@ ALTER TABLE `lichlamviec`
 -- AUTO_INCREMENT cho bảng `loaisukien`
 --
 ALTER TABLE `loaisukien`
-  MODIFY `ID_LoaiSK` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `ID_LoaiSK` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT cho bảng `messages`
 --
 ALTER TABLE `messages`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=60;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=61;
 
 --
 -- AUTO_INCREMENT cho bảng `nhanvieninfo`
@@ -1267,7 +1288,7 @@ ALTER TABLE `payment_config`
 -- AUTO_INCREMENT cho bảng `payment_history`
 --
 ALTER TABLE `payment_history`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT cho bảng `phanquyen`
@@ -1285,13 +1306,13 @@ ALTER TABLE `sukien`
 -- AUTO_INCREMENT cho bảng `thanhtoan`
 --
 ALTER TABLE `thanhtoan`
-  MODIFY `ID_ThanhToan` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `ID_ThanhToan` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
 -- AUTO_INCREMENT cho bảng `thietbi`
 --
 ALTER TABLE `thietbi`
-  MODIFY `ID_TB` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+  MODIFY `ID_TB` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT cho bảng `users`

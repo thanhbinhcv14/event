@@ -974,15 +974,59 @@
             $('#eventEndDate').attr('min', today);
         }
         
+        // Helper function to check if event start time is at least 12 hours from now
+        function checkMinimum12Hours(eventDate, eventTime) {
+            if (!eventDate || !eventTime) return { valid: true };
+            
+            const eventStartDateTime = new Date(eventDate + 'T' + eventTime);
+            const now = new Date();
+            const minDateTime = new Date(now.getTime() + (12 * 60 * 60 * 1000)); // Add 12 hours
+            
+            if (eventStartDateTime < minDateTime) {
+                const hoursLeft = Math.ceil((eventStartDateTime - now) / (1000 * 60 * 60));
+                return {
+                    valid: false,
+                    hoursLeft: hoursLeft,
+                    minDateTime: minDateTime
+                };
+            }
+            
+            return { valid: true };
+        }
+        
         // Auto-set end date when start date changes
         $('#eventDate').on('change', function() {
             const startDate = $(this).val();
+            const startTime = $('#eventTime').val();
+            
             if (startDate) {
                 $('#eventEndDate').attr('min', startDate);
                 // If end date is before start date, set it to start date
                 const endDate = $('#eventEndDate').val();
                 if (endDate && endDate < startDate) {
                     $('#eventEndDate').val(startDate);
+                }
+                
+                // Check 12-hour minimum
+                if (startTime) {
+                    const checkResult = checkMinimum12Hours(startDate, startTime);
+                    if (!checkResult.valid) {
+                        showError(`Sự kiện phải được đăng ký trước ít nhất 12 giờ. Thời gian bắt đầu hiện tại chỉ còn ${checkResult.hoursLeft} giờ. Vui lòng chọn thời gian muộn hơn.`);
+                    }
+                }
+            }
+        });
+        
+        // Check 12-hour minimum when start time changes
+        $('#eventTime').on('change', function() {
+            const startDate = $('#eventDate').val();
+            const startTime = $(this).val();
+            
+            if (startDate && startTime) {
+                const checkResult = checkMinimum12Hours(startDate, startTime);
+                if (!checkResult.valid) {
+                    showError(`Sự kiện phải được đăng ký trước ít nhất 12 giờ. Thời gian bắt đầu hiện tại chỉ còn ${checkResult.hoursLeft} giờ. Vui lòng chọn thời gian muộn hơn.`);
+                    $(this).focus();
                 }
             }
         });
@@ -1008,6 +1052,17 @@
             if (startDate === endDate && startTime && endTime && endTime <= startTime) {
                 showError('Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày');
                 $(this).focus();
+            }
+            
+            // Check if event end time is in the past
+            if (endDate && endTime) {
+                const eventEndDateTime = new Date(endDate + 'T' + endTime);
+                const now = new Date();
+                
+                if (eventEndDateTime < now) {
+                    showError('Cảnh báo: Thời gian kết thúc sự kiện đã qua. Bạn không thể đăng ký sự kiện với thời gian trong quá khứ.');
+                    $(this).focus();
+                }
             }
         });
         
@@ -1240,30 +1295,58 @@
                 }
                 
                 // Validate dates
-                const eventDate = new Date($('#eventDate').val());
-                const eventEndDate = new Date($('#eventEndDate').val());
+                const eventDate = $('#eventDate').val();
+                const eventEndDate = $('#eventEndDate').val();
+                const eventTime = $('#eventTime').val();
+                const eventEndTime = $('#eventEndTime').val();
+                
+                const eventStartDateObj = new Date(eventDate);
+                const eventEndDateObj = new Date(eventEndDate);
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 
-                if (eventDate < today) {
+                if (eventStartDateObj < today) {
                     showError('Ngày bắt đầu không được là ngày trong quá khứ');
                     return false;
                 }
                 
-                if (eventEndDate < eventDate) {
+                if (eventEndDateObj < eventStartDateObj) {
                     showError('Ngày kết thúc không được trước ngày bắt đầu');
                     return false;
                 }
                 
+                // Check if event start time is at least 12 hours from now
+                const checkResult = checkMinimum12Hours(eventDate, eventTime);
+                if (!checkResult.valid) {
+                    const minDateTimeStr = checkResult.minDateTime.toLocaleString('vi-VN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    showError(`Sự kiện phải được đăng ký trước ít nhất 12 giờ. Thời gian bắt đầu bạn chọn chỉ còn ${checkResult.hoursLeft} giờ nữa. Vui lòng chọn thời gian sau ${minDateTimeStr}.`);
+                    $('#eventDate').focus();
+                    return false;
+                }
+                
                 // Validate time if same date
-                if (eventDate.getTime() === eventEndDate.getTime()) {
-                    const eventTime = $('#eventTime').val();
-                    const eventEndTime = $('#eventEndTime').val();
-                    
+                if (eventStartDateObj.getTime() === eventEndDateObj.getTime()) {
                     if (eventTime >= eventEndTime) {
                         showError('Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày');
                         return false;
                     }
+                }
+                
+                // Check if event end time is in the past
+                const eventEndDateTime = new Date(eventEndDate);
+                eventEndDateTime.setHours(parseInt(eventEndTime.split(':')[0]), parseInt(eventEndTime.split(':')[1]), 0, 0);
+                const now = new Date();
+                
+                if (eventEndDateTime < now) {
+                    showError('Cảnh báo: Thời gian kết thúc sự kiện đã qua. Bạn không thể đăng ký sự kiện với thời gian trong quá khứ. Vui lòng chọn thời gian trong tương lai.');
+                    $('#eventEndDate').focus();
+                    return false;
                 }
             } else if (currentStep === 2) {
                 if (!selectedLocation) {

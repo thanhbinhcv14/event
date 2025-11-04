@@ -9,7 +9,7 @@ const server = http.createServer(app);
 // Environment-based configuration for cPanel/Passenger
 const APP_BASE_PATH = (process.env.APP_BASE_PATH || '').replace(/\/$/, ''); // e.g. '/socket' in cPanel Application URL
 const SOCKET_IO_PATH = `${APP_BASE_PATH || ''}/socket.io` || '/socket.io';
-const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'https://sukien.info.vn,http://localhost:3000,http://localhost:3001')
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'https://sukien.info.vn,http://localhost,http://localhost:80,http://localhost:3000,http://localhost:3001,http://127.0.0.1,http://127.0.0.1:80')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
@@ -17,7 +17,30 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS || 'https://sukien.info.vn,http:/
 const io = socketIo(server, {
     path: SOCKET_IO_PATH,
     cors: {
-        origin: CORS_ORIGINS,
+        origin: function (origin, callback) {
+            // Allow requests with no origin (like mobile apps or curl requests)
+            if (!origin) {
+                console.log('CORS: Allowing request with no origin');
+                return callback(null, true);
+            }
+            
+            console.log('CORS: Checking origin:', origin);
+            
+            // Check if origin is in allowed list
+            if (CORS_ORIGINS.includes(origin)) {
+                console.log('CORS: Origin allowed (in list):', origin);
+                callback(null, true);
+            } else {
+                // Allow localhost origins (for development)
+                if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+                    console.log('CORS: Origin allowed (localhost):', origin);
+                    callback(null, true);
+                } else {
+                    console.log('CORS: Origin blocked:', origin);
+                    callback(new Error('Not allowed by CORS'));
+                }
+            }
+        },
         methods: ["GET", "POST"],
         credentials: true
     }
@@ -339,6 +362,115 @@ io.on('connection', (socket) => {
             
             // Remove from connected users
             connectedUsers.delete(socket.id);
+        }
+    });
+
+    // Handle call events
+    socket.on('call_initiated', (data) => {
+        const { call_id, caller_id, receiver_id, call_type, conversation_id } = data;
+        const userInfo = connectedUsers.get(socket.id);
+        
+        console.log(`📞 Call initiated event received:`, {
+            call_id,
+            caller_id,
+            receiver_id,
+            call_type,
+            conversation_id,
+            socket_id: socket.id,
+            user_info: userInfo
+        });
+        
+        // Verify caller identity (optional check - can be removed if not needed)
+        if (userInfo && userInfo.userId != caller_id) {
+            console.warn(`⚠️ Call initiated by wrong user. Expected ${caller_id}, got ${userInfo.userId}`);
+        }
+        
+        // Broadcast to receiver via user room (primary method)
+        console.log(`📤 Broadcasting call to user_${receiver_id}`);
+        io.to(`user_${receiver_id}`).emit('call_initiated', {
+            call_id,
+            caller_id,
+            receiver_id,
+            call_type,
+            conversation_id
+        });
+        
+        // Also broadcast to conversation room for backup (if receiver is in conversation)
+        if (conversation_id) {
+            console.log(`📤 Broadcasting call to conversation_${conversation_id}`);
+            io.to(`conversation_${conversation_id}`).emit('call_initiated', {
+                call_id,
+                caller_id,
+                receiver_id,
+                call_type,
+                conversation_id
+            });
+        }
+        
+        // Fallback: broadcast to all sockets and let client filter (last resort)
+        console.log(`📤 Broadcasting call to all sockets as fallback`);
+        socket.broadcast.emit('call_initiated', {
+            call_id,
+            caller_id,
+            receiver_id,
+            call_type,
+            conversation_id
+        });
+    });
+
+    socket.on('call_accepted', (data) => {
+        const { call_id, caller_id, receiver_id } = data;
+        const userInfo = connectedUsers.get(socket.id);
+        
+        if (userInfo && userInfo.userId == receiver_id) {
+            console.log(`✅ Call accepted: ${call_id} by ${receiver_id}`);
+            
+            // Notify caller
+            io.to(`user_${caller_id}`).emit('call_accepted', {
+                call_id,
+                caller_id,
+                receiver_id
+            });
+        }
+    });
+
+    socket.on('call_rejected', (data) => {
+        const { call_id, caller_id, receiver_id } = data;
+        const userInfo = connectedUsers.get(socket.id);
+        
+        if (userInfo && userInfo.userId == receiver_id) {
+            console.log(`❌ Call rejected: ${call_id} by ${receiver_id}`);
+            
+            // Notify caller
+            io.to(`user_${caller_id}`).emit('call_rejected', {
+                call_id,
+                caller_id,
+                receiver_id
+            });
+        }
+    });
+
+    socket.on('call_ended', (data) => {
+        const { call_id, caller_id, receiver_id } = data;
+        const userInfo = connectedUsers.get(socket.id);
+        
+        if (userInfo) {
+            console.log(`🔚 Call ended: ${call_id}`);
+            
+            // Notify the other party
+            if (userInfo.userId == caller_id && receiver_id) {
+                io.to(`user_${receiver_id}`).emit('call_ended', {
+                    call_id,
+                    caller_id,
+                    receiver_id
+                });
+            } else if (userInfo.userId == receiver_id && caller_id) {
+                io.to(`user_${caller_id}`).emit('call_ended', {
+                    call_id,
+                    caller_id,
+                    receiver_id
+                });
+            }
         }
     });
 

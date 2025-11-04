@@ -330,19 +330,26 @@ function getMessages($pdo, $userId) {
         return;
     }
     
-    // Get messages with proper field mapping
+    // Get messages with proper field mapping (including file/media fields)
     $stmt = $pdo->prepare("
         SELECT m.id,
                m.conversation_id,
                m.sender_id,
                m.MessageText as message,
+               m.message_type,
+               m.file_path,
+               m.file_name,
+               m.file_size,
+               m.mime_type,
                m.SentAt as created_at,
                m.IsRead,
-               COALESCE(nv.HoTen, kh.HoTen, u.Email) as sender_name
+               COALESCE(nv.HoTen, kh.HoTen, u.Email) as sender_name,
+               cm.thumbnail_path
         FROM messages m
         LEFT JOIN users u ON m.sender_id = u.ID_User
         LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User
         LEFT JOIN khachhanginfo kh ON u.ID_User = kh.ID_User
+        LEFT JOIN chat_media cm ON m.id = cm.message_id
         WHERE m.conversation_id = ?
         ORDER BY m.SentAt ASC
     ");
@@ -352,10 +359,10 @@ function getMessages($pdo, $userId) {
     // Debug logging
     error_log("Retrieved " . count($messages) . " messages for conversation $conversationId");
     
-    // Format messages for frontend
+    // Format messages for frontend (including file/media fields)
     $formattedMessages = [];
     foreach ($messages as $message) {
-        $formattedMessages[] = [
+        $formattedMessage = [
             'id' => $message['id'],
             'conversation_id' => $message['conversation_id'],
             'sender_id' => $message['sender_id'],
@@ -364,6 +371,28 @@ function getMessages($pdo, $userId) {
             'IsRead' => $message['IsRead'],
             'sender_name' => $message['sender_name']
         ];
+        
+        // Add file/media fields if they exist
+        if (!empty($message['message_type'])) {
+            $formattedMessage['message_type'] = $message['message_type'];
+        }
+        if (!empty($message['file_path'])) {
+            $formattedMessage['file_path'] = $message['file_path'];
+        }
+        if (!empty($message['file_name'])) {
+            $formattedMessage['file_name'] = $message['file_name'];
+        }
+        if (!empty($message['file_size'])) {
+            $formattedMessage['file_size'] = $message['file_size'];
+        }
+        if (!empty($message['mime_type'])) {
+            $formattedMessage['mime_type'] = $message['mime_type'];
+        }
+        if (!empty($message['thumbnail_path'])) {
+            $formattedMessage['thumbnail_path'] = $message['thumbnail_path'];
+        }
+        
+        $formattedMessages[] = $formattedMessage;
     }
     
     // Mark messages as read

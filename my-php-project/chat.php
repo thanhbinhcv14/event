@@ -360,6 +360,42 @@ if (!in_array($userRole, [1, 3, 5])) {
             flex-direction: column;
         }
         
+        .chat-header-bar {
+            padding: 1rem;
+            background: white;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-user-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-avatar-small {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.75rem;
+        }
+        
+        .user-details h6 {
+            margin: 0;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .user-details small {
+            font-size: 0.8rem;
+        }
+        
         .chat-messages {
             flex: 1;
             padding: 2rem;
@@ -780,37 +816,65 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         /* Media Message Styles */
         .media-message {
-            max-width: 300px;
+            max-width: 100%;
             margin: 0.5rem 0;
         }
         
         .media-message img {
-            max-width: 100%;
+            max-width: 300px;
+            max-height: 300px;
+            width: auto;
+            height: auto;
             border-radius: 10px;
             cursor: pointer;
             transition: transform 0.3s ease;
+            display: block;
+            object-fit: contain;
         }
         
         .media-message img:hover {
-            transform: scale(1.05);
+            transform: scale(1.02);
         }
         
         .media-message .file-info {
             background: rgba(255, 255, 255, 0.9);
-            padding: 0.5rem;
+            padding: 0.5rem 0.75rem;
             border-radius: 8px;
             margin-top: 0.25rem;
             font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            max-width: 100%;
+        }
+        
+        .media-message .file-info i {
+            font-size: 1rem;
+            color: #667eea;
         }
         
         .media-message .file-name {
             font-weight: 600;
             color: #333;
+            margin-bottom: 0;
+            font-size: 0.9rem;
         }
         
         .media-message .file-size {
             color: #666;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+        
+        /* Voice/Video Call message styling */
+        .media-message .file-info {
+            padding: 0.5rem 1rem;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
         }
         
         /* Call UI Styles */
@@ -1114,6 +1178,19 @@ if (!in_array($userRole, [1, 3, 5])) {
                 
                 <!-- Main Chat -->
                 <div class="chat-main">
+                    <!-- Chat Header -->
+                    <div class="chat-header-bar" id="chatHeaderBar" style="display: none;">
+                        <div class="chat-user-info">
+                            <div class="user-avatar-small">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="user-details">
+                                <h6 id="chatUserName">Chọn cuộc trò chuyện</h6>
+                                <small id="chatUserStatus" class="text-muted">Chưa chọn</small>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Messages -->
                     <div class="chat-messages" id="chatMessages">
                         <div class="welcome-screen">
@@ -1151,19 +1228,19 @@ if (!in_array($userRole, [1, 3, 5])) {
                     </div>
                     
                     <!-- Input -->
-                    <div class="chat-input">
+                    <div class="chat-input" id="chatInput">
                         <div class="chat-input-group">
-                            <input type="text" id="messageInput" placeholder="Nhập tin nhắn...">
-                            <button type="button" id="attachButton" title="Đính kèm file">
+                            <input type="text" id="messageInput" placeholder="Nhập tin nhắn..." disabled>
+                            <button type="button" id="attachButton" title="Đính kèm file" disabled>
                                 <i class="fas fa-paperclip"></i>
                             </button>
-                            <button type="button" id="voiceCallButton" title="Gọi thoại">
+                            <button type="button" id="voiceCallButton" title="Gọi thoại" disabled>
                                 <i class="fas fa-phone"></i>
                             </button>
-                            <button type="button" id="videoCallButton" title="Gọi video">
+                            <button type="button" id="videoCallButton" title="Gọi video" disabled>
                                 <i class="fas fa-video"></i>
                             </button>
-                            <button type="button" id="sendButton">
+                            <button type="button" id="sendButton" disabled>
                                 <i class="fas fa-paper-plane"></i>
                             </button>
                         </div>
@@ -1422,8 +1499,11 @@ if (!in_array($userRole, [1, 3, 5])) {
             socket.on('new_message', data => {
                 console.log('Received new message:', data);
                 if (data.conversation_id === currentConversationId) {
-                    addMessageToChat(data, false);
+                    // Kiểm tra xem message có phải là object với thuộc tính message không
+                    const messageData = typeof data === 'object' && data.message ? data.message : data;
+                    addMessageToChat(messageData, false);
                     scrollToBottom();
+                    markMessagesAsRead(currentConversationId);
                 } else {
                     loadConversations(); // cập nhật preview
                 }
@@ -1512,22 +1592,36 @@ if (!in_array($userRole, [1, 3, 5])) {
         // ✅ Hiển thị danh sách hội thoại
         function loadConversations() {
             $.getJSON('src/controllers/chat-controller.php?action=get_conversations', res => {
-                if (!res.success) return;
-                const list = res.conversations;
+                if (!res.success) {
+                    console.error('Error loading conversations:', res.error);
+                    $('#conversationsList').html('<p class="text-center text-danger">Lỗi tải cuộc trò chuyện</p>');
+                    return;
+                }
+                const list = res.conversations || [];
+                conversations = list; // Cập nhật biến global
                 let html = '';
-                list.forEach(c => {
-                    const time = new Date(c.updated_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
-                    html += `
-                    <div class="conversation-item" data-id="${c.id}" onclick="selectConversation(${c.id})">
-                        <div class="conversation-user">
-                            <span><span class="status-indicator ${c.is_online ? 'status-online' : 'status-offline'}"></span>${c.other_user_name}</span>
-                            ${c.unread_count>0?`<span class="conversation-badge">${c.unread_count}</span>`:''}
-                        </div>
-                        <div class="conversation-preview">${c.last_message||'Chưa có tin nhắn'}</div>
-                        <div class="conversation-time">${time}</div>
-                    </div>`;
-                });
-                $('#conversationsList').html(html||'<p class="text-center text-muted">Chưa có cuộc trò chuyện</p>');
+                if (list.length > 0) {
+                    list.forEach(c => {
+                        const time = new Date(c.updated_at || c.updated_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+                        const isOnline = c.is_online === true || c.is_online === 1 || c.is_online === '1';
+                        html += `
+                        <div class="conversation-item" data-id="${c.id}" onclick="selectConversation(${c.id})">
+                            <div class="conversation-user">
+                                <span><span class="status-indicator ${isOnline ? 'status-online' : 'status-offline'}" title="${isOnline ? 'Đang online' : 'Đang offline'}"></span>${c.other_user_name || 'Người dùng'}</span>
+                                ${c.unread_count > 0 ? `<span class="badge bg-danger rounded-pill">${c.unread_count}</span>` : ''}
+                            </div>
+                            <div class="conversation-preview">${c.last_message || 'Chưa có tin nhắn'}</div>
+                            <div class="conversation-time">${time}</div>
+                        </div>`;
+                    });
+                } else {
+                    html = '<p class="text-center text-muted">Chưa có cuộc trò chuyện</p>';
+                }
+                $('#conversationsList').html(html);
+            }).fail(function(xhr, status, error) {
+                console.error('AJAX Error loading conversations:', error);
+                console.error('Response:', xhr.responseText);
+                $('#conversationsList').html('<p class="text-center text-danger">Lỗi kết nối khi tải cuộc trò chuyện</p>');
             });
         }
         
@@ -1561,8 +1655,12 @@ if (!in_array($userRole, [1, 3, 5])) {
             }, function(data) {
                 if (data.success) {
                     console.log('Messages marked as read');
+                    // Reload conversations to update unread count
+                    loadConversations();
                 }
-            }, 'json');
+            }, 'json').fail(function(xhr, status, error) {
+                console.error('Error marking messages as read:', error);
+            });
         }
         
         // Display conversations
@@ -1628,13 +1726,31 @@ if (!in_array($userRole, [1, 3, 5])) {
             currentConversationId = id;
             $('.conversation-item').removeClass('active');
             $(`.conversation-item[data-id="${id}"]`).addClass('active');
+            
+            // Tìm conversation để lấy thông tin người dùng
+            const conversation = conversations.find(c => c.id == id);
+            if (conversation) {
+                // Cập nhật chat header
+                $('#chatUserName').text(conversation.other_user_name || 'Người dùng');
+                $('#chatUserStatus').text(conversation.is_online ? 'Đang online' : 'Đang offline');
+                $('#chatUserStatus').removeClass('text-muted text-success text-danger');
+                if (conversation.is_online) {
+                    $('#chatUserStatus').addClass('text-success');
+                } else {
+                    $('#chatUserStatus').addClass('text-danger');
+                }
+                $('#chatHeaderBar').show();
+            }
+            
+            $('.chat-input').show();
             $('#chatInput').show();
-            $('#messageInput,#sendButton').prop('disabled',false);
+            $('#messageInput,#sendButton,#voiceCallButton,#videoCallButton,#attachButton').prop('disabled',false);
             $('#typingIndicator').hide();
             if (socket && typeof socket.emit === 'function') {
                 socket.emit('join_conversation',{conversation_id:id});
             }
             loadMessages(id);
+            markMessagesAsRead(id);
         }
         
         // Enable input when no conversation is selected
@@ -1646,13 +1762,31 @@ if (!in_array($userRole, [1, 3, 5])) {
         // ✅ Load tin nhắn
         function loadMessages(convId){
             $.getJSON(`src/controllers/chat-controller.php?action=get_messages&conversation_id=${convId}`, res=>{
-                if(!res.success) return;
+                if(!res.success) {
+                    console.error('Error loading messages:', res.error);
+                    return;
+                }
                 let html='';
-                res.messages.forEach(m=>{
-                    html+=createMessageHTML(m);
-                });
-                $('#chatMessages').html(html);
-                scrollToBottom();
+                if (res.messages && res.messages.length > 0) {
+                    res.messages.forEach(m=>{
+                        html+=createMessageHTML(m);
+                    });
+                    $('#chatMessages').html(html);
+                    scrollToBottom();
+                } else {
+                    $('#chatMessages').html(`
+                        <div class="welcome-screen">
+                            <div class="welcome-icon">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <h4>Bắt đầu cuộc trò chuyện</h4>
+                            <p>Gửi tin nhắn đầu tiên để bắt đầu!</p>
+                        </div>
+                    `);
+                }
+            }).fail(function(xhr, status, error) {
+                console.error('AJAX Error loading messages:', error);
+                console.error('Response:', xhr.responseText);
             });
         }
         
@@ -2336,19 +2470,38 @@ if (!in_array($userRole, [1, 3, 5])) {
         function setupMediaEvents() {
             // File input change
             $('#fileInput').on('change', function(e) {
+                console.log('File input changed');
                 const file = e.target.files[0];
                 if (file) {
+                    console.log('File selected:', file.name, file.type, file.size);
                     uploadFile(file);
+                } else {
+                    console.log('No file selected');
                 }
             });
             
             // Attach button click
-            $('#attachButton').on('click', function() {
+            $(document).on('click', '#attachButton', function() {
+                console.log('Attach button clicked');
+                if ($(this).prop('disabled')) {
+                    console.log('Attach button is disabled');
+                    return;
+                }
+                if (!currentConversationId) {
+                    alert('Vui lòng chọn cuộc trò chuyện trước');
+                    return;
+                }
+                
+                // Trigger file input click
                 $('#fileInput').click();
+                console.log('File input clicked');
             });
             
             // Voice call button
-            $('#voiceCallButton').on('click', function() {
+            $(document).on('click', '#voiceCallButton', function() {
+                if ($(this).prop('disabled')) {
+                    return;
+                }
                 if (!currentConversationId) {
                     alert('Vui lòng chọn cuộc trò chuyện trước');
                     return;
@@ -2357,7 +2510,10 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
             
             // Video call button
-            $('#videoCallButton').on('click', function() {
+            $(document).on('click', '#videoCallButton', function() {
+                if ($(this).prop('disabled')) {
+                    return;
+                }
                 if (!currentConversationId) {
                     alert('Vui lòng chọn cuộc trò chuyện trước');
                     return;
@@ -2370,6 +2526,23 @@ if (!in_array($userRole, [1, 3, 5])) {
         function uploadFile(file) {
             if (!currentConversationId) {
                 alert('Vui lòng chọn cuộc trò chuyện trước');
+                return;
+            }
+            
+            // Validate file size (10MB max)
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            if (file.size > maxSize) {
+                alert('File quá lớn. Tối đa 10MB');
+                return;
+            }
+            
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+                                 'application/pdf', 'application/msword', 
+                                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                 'text/plain', 'application/zip', 'application/x-rar-compressed'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Loại file không được hỗ trợ. Vui lòng chọn file hình ảnh, PDF, Word, hoặc text.');
                 return;
             }
             
@@ -2388,6 +2561,10 @@ if (!in_array($userRole, [1, 3, 5])) {
                 </div>
             `;
             $('#chatMessages').append(progressHtml);
+            scrollToBottom();
+            
+            // Disable attach button during upload
+            $('#attachButton').prop('disabled', true);
             
             $.ajax({
                 url: 'src/controllers/media-upload.php',
@@ -2395,6 +2572,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 data: formData,
                 processData: false,
                 contentType: false,
+                timeout: 60000, // 60 seconds timeout
                 xhr: function() {
                     const xhr = new window.XMLHttpRequest();
                     xhr.upload.addEventListener("progress", function(evt) {
@@ -2407,27 +2585,87 @@ if (!in_array($userRole, [1, 3, 5])) {
                 },
                 success: function(response) {
                     $('.upload-progress').remove();
+                    $('#attachButton').prop('disabled', false);
+                    $('#fileInput').val(''); // Reset file input
+                    
+                    // Check if response is a string (JSON string)
+                    if (typeof response === 'string') {
+                        try {
+                            response = JSON.parse(response);
+                        } catch (e) {
+                            console.error('Error parsing response:', e);
+                            alert('Lỗi xử lý phản hồi từ server');
+                            return;
+                        }
+                    }
+                    
                     if (response.success) {
                         addMessageToChat(response.message, true);
                         scrollToBottom();
                         
+                        // Update conversation preview
+                        updateConversationPreview(currentConversationId, response.message.message || '[File]');
+                        
                         // Emit real-time event
-                        if (isConnected && socket) {
+                        if (isConnected && socket && typeof socket.emit === 'function') {
                             socket.emit('new_message', {
                                 conversation_id: currentConversationId,
-                                message: response.message.message,
+                                message: response.message.message || response.message.text,
                                 user_id: currentUserId,
                                 user_name: currentUserName,
                                 message_type: response.message.message_type
                             });
+                            
+                            socket.emit('broadcast_message', {
+                                conversation_id: currentConversationId,
+                                message: response.message,
+                                userId: currentUserId,
+                                timestamp: new Date().toISOString()
+                            });
+                        }
+                        
+                        // Refresh conversation list if not connected
+                        if (!isConnected) {
+                            setTimeout(function() {
+                                loadConversations();
+                            }, 500);
                         }
                     } else {
-                        alert('Lỗi upload: ' + response.error);
+                        alert('Lỗi upload: ' + (response.error || 'Unknown error'));
                     }
                 },
-                error: function() {
+                error: function(xhr, status, error) {
                     $('.upload-progress').remove();
-                    alert('Lỗi upload file');
+                    $('#attachButton').prop('disabled', false);
+                    $('#fileInput').val(''); // Reset file input
+                    
+                    console.error('Upload error:', status, error);
+                    console.error('Response:', xhr.responseText);
+                    
+                    let errorMessage = 'Lỗi upload file';
+                    
+                    if (status === 'timeout') {
+                        errorMessage = 'Timeout - Upload mất quá nhiều thời gian';
+                    } else if (status === 'parsererror') {
+                        errorMessage = 'Lỗi phân tích phản hồi từ server';
+                    } else if (xhr.status === 413) {
+                        errorMessage = 'File quá lớn. Vui lòng chọn file nhỏ hơn';
+                    } else if (xhr.status === 415) {
+                        errorMessage = 'Loại file không được hỗ trợ';
+                    } else if (xhr.status === 500) {
+                        errorMessage = 'Lỗi server nội bộ (500)';
+                    } else if (xhr.status === 404) {
+                        errorMessage = 'Không tìm thấy file upload handler (404)';
+                    } else if (xhr.responseText) {
+                        try {
+                            const errorResponse = JSON.parse(xhr.responseText);
+                            errorMessage = errorResponse.error || errorMessage;
+                        } catch (e) {
+                            // Keep default error message
+                        }
+                    }
+                    
+                    alert(errorMessage);
                 }
             });
         }
@@ -2439,10 +2677,158 @@ if (!in_array($userRole, [1, 3, 5])) {
             
             let messageContent = '';
             
+            // Get base path from current location - Auto detect for both localhost and production
+            const getBasePath = function() {
+                const path = window.location.pathname;
+                const hostname = window.location.hostname;
+                
+                // Production domain (sukien.info.vn)
+                if (hostname.includes('sukien.info.vn') || hostname.includes('sukien')) {
+                    // If at root, return empty or '/'
+                    if (path === '/' || path.split('/').filter(p => p).length === 0) {
+                        return '';
+                    }
+                    // Extract base path from current location
+                    // e.g., /chat.php -> '' (root), /admin/chat.php -> '' (root)
+                    const pathParts = path.split('/').filter(p => p);
+                    if (pathParts.length > 0 && pathParts[0] !== 'chat.php' && pathParts[0] !== 'admin') {
+                        // If there's a subdirectory, return it
+                        return '/' + pathParts[0] + '/';
+                    }
+                    // Root domain
+                    return '';
+                }
+                
+                // Localhost development - try to detect my-php-project
+                if (path.includes('/my-php-project/')) {
+                    return path.substring(0, path.indexOf('/my-php-project/') + '/my-php-project/'.length);
+                } else if (path.includes('/event/')) {
+                    return path.substring(0, path.indexOf('/event/') + '/event/'.length) + 'my-php-project/';
+                }
+                
+                // Default fallback - try to get from current path
+                // If we're at /chat.php, assume root
+                // If we're at /admin/chat.php, assume root
+                const pathParts = path.split('/').filter(p => p && p !== 'chat.php' && p !== 'admin');
+                if (pathParts.length > 0) {
+                    // There's a subdirectory
+                    return '/' + pathParts[0] + '/';
+                }
+                
+                // Root
+                return '';
+            };
+            const basePath = getBasePath();
+            
             if (m.message_type === 'image') {
+                // Fix file path - ensure correct path format
+                let imagePath = m.file_path || '';
+                
+                // Normalize path - remove '../' and 'my-php-project/' prefix if present
+                if (imagePath.startsWith('../')) {
+                    imagePath = imagePath.substring(3);
+                }
+                if (imagePath.startsWith('my-php-project/')) {
+                    imagePath = imagePath.substring(15);
+                }
+                
+                // Check if path already contains base path (to avoid duplication)
+                let pathAlreadyHasBase = false;
+                if (basePath && basePath !== '') {
+                    const basePathNoSlash = basePath.startsWith('/') ? basePath.substring(1) : basePath;
+                    if (imagePath.includes(basePathNoSlash) || imagePath.startsWith('/' + basePathNoSlash)) {
+                        pathAlreadyHasBase = true;
+                    }
+                }
+                
+                // Remove leading slash temporarily for processing
+                const hadLeadingSlash = imagePath.startsWith('/');
+                if (hadLeadingSlash) {
+                    imagePath = imagePath.substring(1);
+                }
+                
+                // Only add base path if not already present
+                if (!imagePath.startsWith('http') && imagePath.length > 0) {
+                    if (pathAlreadyHasBase) {
+                        // Path already has base, just ensure leading slash
+                        if (!imagePath.startsWith('/')) {
+                            imagePath = '/' + imagePath;
+                        }
+                    } else {
+                        // Add base path
+                        if (basePath === '') {
+                            if (!imagePath.startsWith('/')) {
+                                imagePath = '/' + imagePath;
+                            }
+                        } else {
+                            const base = basePath.endsWith('/') ? basePath : basePath + '/';
+                            imagePath = base + imagePath;
+                            if (!imagePath.startsWith('/')) {
+                                imagePath = '/' + imagePath;
+                            }
+                        }
+                    }
+                }
+                
+                // Use thumbnail if available for display, but use original for preview
+                let displayImagePath = imagePath;
+                if (m.thumbnail_path && !imagePath.startsWith('http')) {
+                    let thumbPath = m.thumbnail_path;
+                    
+                    // Normalize thumbnail path
+                    if (thumbPath.startsWith('../')) {
+                        thumbPath = thumbPath.substring(3);
+                    }
+                    if (thumbPath.startsWith('my-php-project/')) {
+                        thumbPath = thumbPath.substring(15);
+                    }
+                    
+                    // Check if thumbnail path already has base path
+                    let thumbAlreadyHasBase = false;
+                    if (basePath && basePath !== '') {
+                        const basePathNoSlash = basePath.startsWith('/') ? basePath.substring(1) : basePath;
+                        if (thumbPath.includes(basePathNoSlash) || thumbPath.startsWith('/' + basePathNoSlash)) {
+                            thumbAlreadyHasBase = true;
+                        }
+                    }
+                    
+                    // Remove leading slash temporarily
+                    const thumbHadLeadingSlash = thumbPath.startsWith('/');
+                    if (thumbHadLeadingSlash) {
+                        thumbPath = thumbPath.substring(1);
+                    }
+                    
+                    // Add base path if not already present
+                    if (!thumbPath.startsWith('http') && thumbPath.length > 0) {
+                        if (thumbAlreadyHasBase) {
+                            if (!thumbPath.startsWith('/')) {
+                                thumbPath = '/' + thumbPath;
+                            }
+                        } else {
+                            if (basePath === '') {
+                                if (!thumbPath.startsWith('/')) {
+                                    thumbPath = '/' + thumbPath;
+                                }
+                            } else {
+                                const base = basePath.endsWith('/') ? basePath : basePath + '/';
+                                thumbPath = base + thumbPath;
+                                if (!thumbPath.startsWith('/')) {
+                                    thumbPath = '/' + thumbPath;
+                                }
+                            }
+                        }
+                    }
+                    // Use thumbnail for display (faster loading)
+                    displayImagePath = thumbPath;
+                }
+                
                 messageContent = `
                     <div class="media-message">
-                        <img src="${m.file_path}" alt="Image" onclick="previewImage('${m.file_path}')">
+                        <img src="${displayImagePath}" alt="Image" onclick="previewImage('${imagePath}')" 
+                             data-full-image="${imagePath}"
+                             style="max-width: 300px; max-height: 300px; width: auto; height: auto; border-radius: 10px; cursor: pointer; transition: transform 0.3s ease; display: block; object-fit: contain;"
+                             onmouseover="this.style.transform='scale(1.02)'"
+                             onmouseout="this.style.transform='scale(1)'">
                         <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
                     </div>
                 `;
@@ -2458,12 +2844,14 @@ if (!in_array($userRole, [1, 3, 5])) {
                 `;
             } else if (m.message_type === 'voice_call' || m.message_type === 'video_call') {
                 const callType = m.message_type === 'video_call' ? 'Video Call' : 'Voice Call';
+                const callIcon = m.message_type === 'video_call' ? 'fa-video' : 'fa-phone';
                 messageContent = `
                     <div class="media-message">
-                        <div class="file-info">
-                            <i class="fas fa-phone"></i> ${callType}
+                        <div class="file-info" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 8px; font-size: 0.9rem;">
+                            <i class="fas ${callIcon}" style="color: #667eea; font-size: 1rem;"></i>
+                            <span style="color: #333; font-weight: 500;">${callType}</span>
                         </div>
-                        <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
+                        <div class="message-time" style="margin-top: 0.25rem;">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
                     </div>
                 `;
             } else {
@@ -2482,8 +2870,123 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // Preview image
         function previewImage(imagePath) {
-            $('#previewImage').attr('src', imagePath);
-            $('#imagePreviewModal').modal('show');
+            console.log('Preview image called with path:', imagePath);
+            
+            // Fix image path - Auto detect base path
+            const getBasePath = function() {
+                const path = window.location.pathname;
+                const hostname = window.location.hostname;
+                
+                // Production domain
+                if (hostname.includes('sukien.info.vn') || hostname.includes('sukien')) {
+                    const pathParts = path.split('/').filter(p => p);
+                    if (pathParts.length > 0 && pathParts[0] !== 'chat.php' && pathParts[0] !== 'admin') {
+                        return '/' + pathParts[0] + '/';
+                    }
+                    return '';
+                }
+                
+                // Localhost
+                if (path.includes('/my-php-project/')) {
+                    return path.substring(0, path.indexOf('/my-php-project/') + '/my-php-project/'.length);
+                } else if (path.includes('/event/')) {
+                    return path.substring(0, path.indexOf('/event/') + '/event/'.length) + 'my-php-project/';
+                }
+                
+                const pathParts = path.split('/').filter(p => p && p !== 'chat.php' && p !== 'admin');
+                if (pathParts.length > 0) {
+                    return '/' + pathParts[0] + '/';
+                }
+                return '';
+            };
+            const basePath = getBasePath();
+            console.log('Base path detected:', basePath);
+            
+            let fixedPath = imagePath;
+            
+            // Handle absolute URL
+            if (fixedPath.startsWith('http://') || fixedPath.startsWith('https://')) {
+                // Already absolute URL, use as is
+                console.log('Using absolute URL:', fixedPath);
+            } else {
+                // Normalize path - remove '../' and 'my-php-project/' prefix if present
+                if (fixedPath.startsWith('../')) {
+                    fixedPath = fixedPath.substring(3);
+                }
+                if (fixedPath.startsWith('my-php-project/')) {
+                    fixedPath = fixedPath.substring(15);
+                }
+                
+                // Check if path already contains base path (to avoid duplication)
+                let pathAlreadyHasBase = false;
+                if (basePath && basePath !== '') {
+                    // Remove leading slash from basePath for comparison
+                    const basePathNoSlash = basePath.startsWith('/') ? basePath.substring(1) : basePath;
+                    // Check if fixedPath already contains base path
+                    if (fixedPath.includes(basePathNoSlash) || fixedPath.startsWith('/' + basePathNoSlash)) {
+                        pathAlreadyHasBase = true;
+                        console.log('Path already contains base path, skipping addition');
+                    }
+                }
+                
+                // Remove leading slash temporarily for processing
+                const hadLeadingSlash = fixedPath.startsWith('/');
+                if (hadLeadingSlash) {
+                    fixedPath = fixedPath.substring(1);
+                }
+                
+                // Only add base path if not already present
+                if (fixedPath.length > 0) {
+                    if (pathAlreadyHasBase) {
+                        // Path already has base, just ensure leading slash
+                        if (!fixedPath.startsWith('/')) {
+                            fixedPath = '/' + fixedPath;
+                        }
+                    } else {
+                        // Add base path
+                        if (basePath === '') {
+                            if (!fixedPath.startsWith('/')) {
+                                fixedPath = '/' + fixedPath;
+                            }
+                        } else {
+                            const base = basePath.endsWith('/') ? basePath : basePath + '/';
+                            fixedPath = base + fixedPath;
+                            // Ensure leading slash
+                            if (!fixedPath.startsWith('/')) {
+                                fixedPath = '/' + fixedPath;
+                            }
+                        }
+                    }
+                }
+                console.log('Fixed path:', fixedPath);
+            }
+            
+            // Set image src and show modal
+            const $previewImg = $('#previewImage');
+            if ($previewImg.length === 0) {
+                console.error('Preview image element not found!');
+                alert('Không tìm thấy modal preview hình ảnh');
+                return;
+            }
+            
+            // Set src with error handling
+            $previewImg.attr('src', fixedPath);
+            $previewImg.on('error', function() {
+                console.error('Image failed to load:', fixedPath);
+                $(this).attr('src', 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5Lb0BuZyB0aGkgdGkgxrDhu6NhbmggaGluaDwvdGV4dD48L3N2Zz4=');
+                $(this).after('<div class="text-danger mt-2">Không thể tải hình ảnh. Đường dẫn: ' + fixedPath + '</div>');
+            });
+            
+            // Show modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('imagePreviewModal'));
+            if (modal) {
+                modal.show();
+            } else {
+                const newModal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
+                newModal.show();
+            }
+            
+            console.log('Modal shown with image path:', fixedPath);
         }
         
         // Format file size
@@ -2499,6 +3002,11 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // Initiate call
         function initiateCall(callType) {
+            if (!currentConversationId) {
+                alert('Vui lòng chọn cuộc trò chuyện trước khi gọi');
+                return;
+            }
+            
             $.post('src/controllers/call-controller.php?action=initiate_call', {
                 conversation_id: currentConversationId,
                 call_type: callType
@@ -2515,7 +3023,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     showCallModal('outgoing', response.receiver_name, callType);
                     
                     // Emit call event via socket
-                    if (isConnected && socket) {
+                    if (isConnected && socket && typeof socket.emit === 'function') {
                         socket.emit('call_initiated', {
                             call_id: response.call_id,
                             caller_id: currentUserId,
@@ -2527,7 +3035,11 @@ if (!in_array($userRole, [1, 3, 5])) {
                 } else {
                     alert('Lỗi khởi tạo cuộc gọi: ' + response.error);
                 }
-            }, 'json');
+            }, 'json').fail(function(xhr, status, error) {
+                console.error('Call initiation error:', error);
+                console.error('Response:', xhr.responseText);
+                alert('Lỗi kết nối khi khởi tạo cuộc gọi: ' + error);
+            });
         }
         
         // Show call modal
@@ -2559,7 +3071,10 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // Accept call
         function acceptCall() {
-            if (!currentCall) return;
+            if (!currentCall) {
+                console.error('No current call to accept');
+                return;
+            }
             
             $.post('src/controllers/call-controller.php?action=accept_call', {
                 call_id: currentCall.id
@@ -2574,46 +3089,71 @@ if (!in_array($userRole, [1, 3, 5])) {
                     }
                     
                     // Emit accept event
-                    if (isConnected && socket) {
+                    if (isConnected && socket && typeof socket.emit === 'function') {
                         socket.emit('call_accepted', {
                             call_id: currentCall.id,
-                            caller_id: currentCall.receiver_id,
+                            caller_id: currentCall.caller_id || currentCall.receiver_id,
                             receiver_id: currentUserId
                         });
                     }
                 } else {
                     alert('Lỗi chấp nhận cuộc gọi: ' + response.error);
                 }
-            }, 'json');
+            }, 'json').fail(function(xhr, status, error) {
+                console.error('Accept call error:', error);
+                alert('Lỗi khi chấp nhận cuộc gọi: ' + error);
+            });
         }
         
         // Reject call
         function rejectCall() {
-            if (!currentCall) return;
+            if (!currentCall) {
+                console.error('No current call to reject');
+                $('#callModal').removeClass('show');
+                return;
+            }
+            
+            const callId = currentCall.id;
+            const callerId = currentCall.caller_id || currentCall.receiver_id;
             
             $.post('src/controllers/call-controller.php?action=reject_call', {
-                call_id: currentCall.id
+                call_id: callId
             }, function(response) {
                 $('#callModal').removeClass('show');
                 currentCall = null;
                 
                 // Emit reject event
-                if (isConnected && socket) {
+                if (isConnected && socket && typeof socket.emit === 'function') {
                     socket.emit('call_rejected', {
-                        call_id: currentCall.id,
-                        caller_id: currentCall.receiver_id,
+                        call_id: callId,
+                        caller_id: callerId,
                         receiver_id: currentUserId
                     });
                 }
-            }, 'json');
+            }, 'json').fail(function(xhr, status, error) {
+                console.error('Reject call error:', error);
+                $('#callModal').removeClass('show');
+                currentCall = null;
+            });
         }
         
         // End call
         function endCall() {
-            if (!currentCall) return;
+            if (!currentCall) {
+                // Vẫn cleanup nếu không có currentCall
+                $('#callModal').removeClass('show');
+                $('#videoCallContainer').removeClass('show');
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                    localStream = null;
+                }
+                return;
+            }
+            
+            const callId = currentCall.id;
             
             $.post('src/controllers/call-controller.php?action=end_call', {
-                call_id: currentCall.id
+                call_id: callId
             }, function(response) {
                 $('#callModal').removeClass('show');
                 $('#videoCallContainer').removeClass('show');
@@ -2624,46 +3164,85 @@ if (!in_array($userRole, [1, 3, 5])) {
                     localStream = null;
                 }
                 
-                currentCall = null;
-                
-                // Emit end event
-                if (isConnected && socket) {
+                // Emit end event before clearing currentCall
+                if (isConnected && socket && typeof socket.emit === 'function') {
                     socket.emit('call_ended', {
-                        call_id: currentCall.id,
+                        call_id: callId,
                         caller_id: currentUserId
                     });
                 }
-            }, 'json');
+                
+                currentCall = null;
+            }, 'json').fail(function(xhr, status, error) {
+                console.error('End call error:', error);
+                // Cleanup anyway
+                $('#callModal').removeClass('show');
+                $('#videoCallContainer').removeClass('show');
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                    localStream = null;
+                }
+                currentCall = null;
+            });
         }
         
         // Start video call
         function startVideoCall() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('Trình duyệt của bạn không hỗ trợ video call. Vui lòng sử dụng trình duyệt khác.');
+                return;
+            }
+            
             $('#videoCallContainer').addClass('show');
             
             navigator.mediaDevices.getUserMedia({ video: true, audio: true })
                 .then(stream => {
                     localStream = stream;
-                    document.getElementById('localVideo').srcObject = stream;
+                    const localVideo = document.getElementById('localVideo');
+                    if (localVideo) {
+                        localVideo.srcObject = stream;
+                    }
                     
                     // Initialize WebRTC peer connection
                     initializePeerConnection();
                 })
                 .catch(error => {
                     console.error('Error accessing media devices:', error);
-                    alert('Không thể truy cập camera/microphone');
+                    $('#videoCallContainer').removeClass('show');
+                    let errorMessage = 'Không thể truy cập camera/microphone';
+                    if (error.name === 'NotAllowedError') {
+                        errorMessage = 'Vui lòng cho phép truy cập camera và microphone';
+                    } else if (error.name === 'NotFoundError') {
+                        errorMessage = 'Không tìm thấy camera/microphone';
+                    }
+                    alert(errorMessage);
                 });
         }
         
         // Start voice call
         function startVoiceCall() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('Trình duyệt của bạn không hỗ trợ voice call. Vui lòng sử dụng trình duyệt khác.');
+                return;
+            }
+            
             navigator.mediaDevices.getUserMedia({ audio: true })
                 .then(stream => {
                     localStream = stream;
                     initializePeerConnection();
+                    
+                    // Show voice call indicator
+                    showNotification('Cuộc gọi thoại đã bắt đầu', 'success');
                 })
                 .catch(error => {
                     console.error('Error accessing microphone:', error);
-                    alert('Không thể truy cập microphone');
+                    let errorMessage = 'Không thể truy cập microphone';
+                    if (error.name === 'NotAllowedError') {
+                        errorMessage = 'Vui lòng cho phép truy cập microphone';
+                    } else if (error.name === 'NotFoundError') {
+                        errorMessage = 'Không tìm thấy microphone';
+                    }
+                    alert(errorMessage);
                 });
         }
         
@@ -2748,24 +3327,38 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // Socket events for calls
         function setupCallSocketEvents() {
-            if (socket) {
+            if (socket && typeof socket.on === 'function') {
                 // Incoming call
                 socket.on('call_initiated', data => {
-                    if (data.receiver_id === currentUserId) {
+                    console.log('Received call_initiated event:', data);
+                    console.log('Checking receiver_id:', data.receiver_id, 'vs currentUserId:', currentUserId);
+                    console.log('Type comparison:', typeof data.receiver_id, typeof currentUserId);
+                    
+                    // Use == instead of === to handle string/number mismatch
+                    if (data.receiver_id == currentUserId || String(data.receiver_id) === String(currentUserId)) {
+                        console.log('✅ Call is for this user, showing modal');
                         currentCall = {
                             id: data.call_id,
                             type: data.call_type,
                             caller_id: data.caller_id,
+                            receiver_id: currentUserId,
                             status: 'ringing'
                         };
                         
-                        showCallModal('incoming', 'Người gọi', data.call_type);
+                        // Lấy tên người gọi từ conversation
+                        const conversation = conversations.find(c => c.id == data.conversation_id);
+                        const callerName = conversation ? conversation.other_user_name : 'Người gọi';
+                        
+                        showCallModal('incoming', callerName, data.call_type);
+                    } else {
+                        console.log('❌ Call is not for this user, ignoring');
                     }
                 });
                 
                 // Call accepted
                 socket.on('call_accepted', data => {
-                    if (data.caller_id === currentUserId) {
+                    console.log('Received call_accepted event:', data);
+                    if (data.caller_id === currentUserId && currentCall) {
                         $('#callModal').removeClass('show');
                         
                         if (currentCall.type === 'video') {
@@ -2778,6 +3371,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 
                 // Call rejected
                 socket.on('call_rejected', data => {
+                    console.log('Received call_rejected event:', data);
                     if (data.caller_id === currentUserId) {
                         $('#callModal').removeClass('show');
                         currentCall = null;
@@ -2787,6 +3381,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 
                 // Call ended
                 socket.on('call_ended', data => {
+                    console.log('Received call_ended event:', data);
                     $('#callModal').removeClass('show');
                     $('#videoCallContainer').removeClass('show');
                     
@@ -2797,6 +3392,8 @@ if (!in_array($userRole, [1, 3, 5])) {
                     
                     currentCall = null;
                 });
+            } else {
+                console.warn('Socket not available for call events');
             }
         }
         

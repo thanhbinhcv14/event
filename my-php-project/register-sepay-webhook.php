@@ -145,7 +145,28 @@ $webhookUrl = $protocol . '://' . $host . $scriptPath . '/hooks/sepay-payment.ph
                         <!-- Step 5 -->
                         <div class="card step-card mb-3">
                             <div class="card-body">
-                                <h5><span class="badge bg-primary">Bước 5</span> Chọn Events để nhận webhook</h5>
+                                <h5><span class="badge bg-primary">Bước 5</span> Cấu hình Authentication</h5>
+                                <p>Trong form đăng ký webhook, cần cấu hình authentication:</p>
+                                <div class="warning-box">
+                                    <ul class="mb-0">
+                                        <li><strong>Kiểu chứng thực:</strong> Api Key</li>
+                                        <li><strong>API Key:</strong> Nhập webhook token của bạn</li>
+                                    </ul>
+                                </div>
+                                <p class="mt-2">Webhook Token của bạn (copy và sử dụng làm API Key):</p>
+                                <div class="code-block" id="webhookTokenDisplay">
+                                    <?php echo defined('SEPAY_WEBHOOK_TOKEN') ? SEPAY_WEBHOOK_TOKEN : 'Chưa cấu hình'; ?>
+                                </div>
+                                <button class="btn btn-sm btn-secondary mt-2" onclick="copyWebhookToken()">
+                                    <i class="fas fa-copy"></i> Copy Token
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 6 -->
+                        <div class="card step-card mb-3">
+                            <div class="card-body">
+                                <h5><span class="badge bg-primary">Bước 6</span> Chọn Events để nhận webhook</h5>
                                 <p>Tích chọn các events sau:</p>
                                 <div class="success-box">
                                     <ul class="mb-0">
@@ -160,18 +181,18 @@ $webhookUrl = $protocol . '://' . $host . $scriptPath . '/hooks/sepay-payment.ph
                             </div>
                         </div>
 
-                        <!-- Step 6 -->
+                        <!-- Step 7 -->
                         <div class="card step-card mb-3">
                             <div class="card-body">
-                                <h5><span class="badge bg-primary">Bước 6</span> Xác nhận và lưu</h5>
+                                <h5><span class="badge bg-primary">Bước 7</span> Xác nhận và lưu</h5>
                                 <p>Kiểm tra lại thông tin và nhấn nút "Lưu" hoặc "Save" để hoàn tất đăng ký.</p>
                             </div>
                         </div>
 
-                        <!-- Step 7 -->
+                        <!-- Step 8 -->
                         <div class="card step-card mb-3">
                             <div class="card-body">
-                                <h5><span class="badge bg-primary">Bước 7</span> Test Webhook (Tùy chọn)</h5>
+                                <h5><span class="badge bg-primary">Bước 8</span> Test Webhook (Tùy chọn)</h5>
                                 <p>Sau khi đăng ký, bạn có thể test webhook bằng cách:</p>
                                 <ol>
                                     <li>Truy cập trang <a href="test-sepay-webhook.php"><strong>Test Webhook</strong></a></li>
@@ -206,6 +227,14 @@ $webhookUrl = $protocol . '://' . $host . $scriptPath . '/hooks/sepay-payment.ph
                             <tr>
                                 <th>Webhook Handler</th>
                                 <td><code>hooks/sepay-payment.php</code></td>
+                            </tr>
+                            <tr>
+                                <th>Webhook Token</th>
+                                <td><code><?php echo defined('SEPAY_WEBHOOK_TOKEN') ? substr(SEPAY_WEBHOOK_TOKEN, 0, 20) . '...' : 'Chưa cấu hình'; ?></code></td>
+                            </tr>
+                            <tr>
+                                <th>Match Pattern</th>
+                                <td><code><?php echo defined('SEPAY_MATCH_PATTERN') ? SEPAY_MATCH_PATTERN : 'SK'; ?></code></td>
                             </tr>
                         </table>
                     </div>
@@ -266,6 +295,26 @@ $webhookUrl = $protocol . '://' . $host . $scriptPath . '/hooks/sepay-payment.ph
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
                 alert('Đã copy URL vào clipboard!');
+            });
+        }
+        
+        function copyWebhookToken() {
+            const token = document.getElementById('webhookTokenDisplay').textContent.trim();
+            if (token === 'Chưa cấu hình') {
+                alert('Webhook token chưa được cấu hình!');
+                return;
+            }
+            navigator.clipboard.writeText(token).then(function() {
+                alert('Đã copy Webhook Token vào clipboard!');
+            }, function(err) {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = token;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('Đã copy Webhook Token vào clipboard!');
             });
         }
     </script>
