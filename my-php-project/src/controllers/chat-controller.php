@@ -58,6 +58,9 @@ try {
         case 'get_available_managers':
             getAvailableManagers($pdo);
             break;
+        case 'get_admin_user':
+            getAdminUser($pdo);
+            break;
         case 'search_conversations':
             searchConversations($pdo, $userId);
             break;
@@ -500,31 +503,91 @@ function sendMessage($pdo, $userId) {
 }
 
 /**
- * Lấy danh sách quản lý sự kiện
+ * Lấy danh sách quản lý sự kiện đang online (chỉ role 1 và 3)
  */
 function getAvailableManagers($pdo) {
+    // Thời gian threshold để tính online (5 phút)
+    $onlineThreshold = 300;
+    
+    // Chỉ lấy users role 1 và 3 đang online
+    // Kiểm tra: TrangThai = 'Hoạt động', OnlineStatus = 'Online', và LastActivity trong 5 phút
     $stmt = $pdo->prepare("
         SELECT u.ID_User as id,
                COALESCE(nv.HoTen, u.Email) as name,
                u.Email as email,
                u.TrangThai,
-               CASE WHEN u.TrangThai = 'Hoạt động' THEN 1 ELSE 0 END as is_online,
-               nv.ChuyenMon as specialization,
+               u.OnlineStatus,
+               u.LastActivity,
+               CASE 
+                   WHEN u.TrangThai = 'Hoạt động' 
+                        AND u.OnlineStatus = 'Online' 
+                        AND (u.LastActivity IS NULL 
+                             OR u.LastActivity = '' 
+                             OR TIMESTAMPDIFF(SECOND, u.LastActivity, NOW()) <= ?) 
+                   THEN 1 
+                   ELSE 0 
+               END as is_online,
+               nv.ChucVu as chuc_vu,
                p.RoleName,
                u.ID_Role
         FROM users u
         LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User
         LEFT JOIN phanquyen p ON u.ID_Role = p.ID_Role
-        WHERE u.ID_Role IN (1, 3) AND u.TrangThai = 'Hoạt động'
+        WHERE u.ID_Role IN (1, 3)
+        AND u.TrangThai = 'Hoạt động' 
+        AND u.OnlineStatus = 'Online'
+        AND (u.LastActivity IS NULL 
+             OR u.LastActivity = '' 
+             OR TIMESTAMPDIFF(SECOND, u.LastActivity, NOW()) <= ?)
         ORDER BY 
-            CASE WHEN u.TrangThai = 'Hoạt động' THEN 0 ELSE 1 END,
             u.ID_Role ASC,
             COALESCE(nv.HoTen, u.Email) ASC
     ");
-    $stmt->execute();
+    $stmt->execute([$onlineThreshold, $onlineThreshold]);
     $managers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode(['success' => true, 'managers' => $managers]);
+}
+
+/**
+ * Lấy ID của quản trị viên (role 1)
+ */
+function getAdminUser($pdo) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT ID_User 
+            FROM users 
+            WHERE ID_Role = 1 
+            AND TrangThai = 'Hoạt động'
+            ORDER BY ID_User ASC
+            LIMIT 1
+        ");
+        $stmt->execute();
+        $adminId = $stmt->fetchColumn();
+        
+        if ($adminId) {
+            echo json_encode(['success' => true, 'admin_id' => $adminId]);
+        } else {
+            // Dự phòng: lấy user đầu tiên có role 1
+            $stmt = $pdo->prepare("
+                SELECT ID_User 
+                FROM users 
+                WHERE ID_Role = 1
+                ORDER BY ID_User ASC
+                LIMIT 1
+            ");
+            $stmt->execute();
+            $adminId = $stmt->fetchColumn();
+            
+            if ($adminId) {
+                echo json_encode(['success' => true, 'admin_id' => $adminId]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Không tìm thấy quản trị viên']);
+            }
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => 'Lỗi: ' . $e->getMessage()]);
+    }
 }
 
 /**

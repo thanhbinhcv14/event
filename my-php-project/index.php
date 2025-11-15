@@ -803,7 +803,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             position: fixed;
             bottom: 30px;
             right: 30px;
-            z-index: 1000;
+            z-index: 9999;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -853,11 +853,13 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             background: white;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            z-index: 1000;
+            z-index: 10000;
             transform: translateY(100%);
             transition: all 0.3s ease;
             opacity: 0;
             visibility: hidden;
+            display: flex;
+            flex-direction: column;
         }
         
         .chat-widget.show {
@@ -877,10 +879,11 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         }
         
         .chat-widget-body {
-            height: 350px;
+            flex: 1;
             overflow-y: auto;
             padding: 15px;
             background: #f8f9fa;
+            min-height: 0;
         }
         
         .chat-widget-footer {
@@ -922,6 +925,61 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             color: #333;
             border: 1px solid #e9ecef;
             border-bottom-left-radius: 4px;
+        }
+        
+        /* Typing indicator animation */
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 16px;
+            background: #f0f0f0;
+            border-radius: 18px;
+            min-width: 60px;
+            justify-content: center;
+        }
+        
+        .typing-indicator span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            animation: typing-bounce 1.4s ease-in-out infinite;
+            display: inline-block;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+        }
+        
+        .typing-indicator span:nth-child(1) {
+            animation-delay: 0s;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing-bounce {
+            0%, 60%, 100% {
+                transform: translateY(0) scale(1);
+                opacity: 0.6;
+            }
+            30% {
+                transform: translateY(-12px) scale(1.1);
+                opacity: 1;
+            }
+        }
+        
+        /* Loading indicator trong message assistant */
+        .message.assistant #loadingIndicator,
+        #loadingIndicator {
+            margin-bottom: 12px;
+        }
+        
+        .message.assistant .typing-indicator {
+            background: #f5f5f5;
         }
         
         /* Style for links in chat messages */
@@ -1787,9 +1845,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                             <i class="fa fa-user-plus me-2"></i>Đăng ký ngay
                         </a>
                         <?php endif; ?>
-                        <button class="floating-chat-btn" onclick="openChatWidget()" title="Chat Hỗ Trợ AI">
-                            <i class="fas fa-robot"></i>
-                        </button>
                     </div>
                 </div>
                 <div class="col-lg-6 text-center">
@@ -1992,17 +2047,17 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         </div>
     </footer>
 
-    <!-- Chat Widget - AI Assistant (Available for all users) -->
+    <!-- Chat Widget - Hỗ trợ trực tuyến (Available for all users) -->
     <div class="chat-widget" id="chatWidget">
         <div class="chat-widget-header">
             <div class="d-flex align-items-center">
-                <i class="fas fa-robot me-2"></i>
+                <i class="fas fa-headset me-2"></i>
                 <div>
-                    <h6 class="mb-0">Chat Hỗ Trợ AI</h6>
-                    <small>Trợ lý thông minh</small>
+                    <h6 class="mb-0">Hỗ trợ trực tuyến</h6>
+                    <small>Nhân viên tư vấn</small>
                 </div>
             </div>
-            <button class="btn btn-sm btn-outline-light" onclick="closeChatWidget()">
+            <button class="btn btn-sm btn-outline-light" onclick="closeChatWidget()" type="button">
                 <i class="fas fa-times"></i>
             </button>
         </div>
@@ -2041,34 +2096,52 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         <div class="chat-widget-footer">
             <div class="input-group">
                 <input type="text" class="form-control" id="chatInput" placeholder="Nhập câu hỏi..." maxlength="500">
-                <button class="btn btn-primary" type="button" onclick="sendChatMessage()">
+                <button class="btn btn-primary" type="button" onclick="sendChatMessage()" id="sendChatBtn">
                     <i class="fas fa-paper-plane"></i>
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- Floating Chat Button -->
+    <button class="floating-chat-btn" onclick="openChatWidget()" title="Chat hỗ trợ trực tuyến" id="floatingChatBtn">
+        <i class="fas fa-comments"></i>
+    </button>
+
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chat Widget Script -->
+    <script src="assets/js/gemini-chat-widget.js"></script>
     <!-- Socket.IO with fallback -->
     <script>
-        // Try to load Socket.IO from local server first
+        // Auto-detect Socket.IO server URL
+        const getSocketServerURL = function() {
+            const protocol = window.location.protocol;
+            if (window.location.hostname.includes('sukien.info.vn')) {
+                return protocol + '//ws.sukien.info.vn';  // VPS WebSocket server
+            }
+            return 'http://localhost:3000';  // Localhost development
+        };
+        
+        const socketServerURL = getSocketServerURL();
+        
+        // Try to load Socket.IO from WebSocket server first
         const socketScript = document.createElement('script');
-        socketScript.src = 'http://localhost:3000/socket.io/socket.io.js';
+        socketScript.src = socketServerURL + '/socket.io/socket.io.js';
         socketScript.onerror = function() {
-            console.warn('Local Socket.IO server not available, using CDN fallback');
+            console.warn('WebSocket server not available, using CDN fallback');
             const cdnScript = document.createElement('script');
             cdnScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
             cdnScript.onload = function() {
                 console.log('Socket.IO loaded from CDN');
             };
             cdnScript.onerror = function() {
-                console.error('Failed to load Socket.IO from both local server and CDN');
+                console.error('Failed to load Socket.IO from both WebSocket server and CDN');
             };
             document.head.appendChild(cdnScript);
         };
         socketScript.onload = function() {
-            console.log('Socket.IO loaded from local server');
+            console.log('Socket.IO loaded from WebSocket server:', socketServerURL);
         };
         document.head.appendChild(socketScript);
     </script>
@@ -2413,842 +2486,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             <?php endif; ?>
         }
 
-        // Chat Widget Toggle
-        let isChatOpen = false;
-        
-        // Smart AI Memory System
-        let conversationHistory = [];
-        let userPreferences = {
-            eventType: null,
-            budget: null,
-            location: null,
-            timePreference: null
-        };
-        
-        // Load conversation history from localStorage
-        function loadConversationHistory() {
-            const saved = localStorage.getItem('chatHistory');
-            if (saved) {
-                conversationHistory = JSON.parse(saved);
-            }
-        }
-        
-        // Save conversation history to localStorage
-        function saveConversationHistory() {
-            localStorage.setItem('chatHistory', JSON.stringify(conversationHistory));
-        }
-        
-        // Clear conversation history when user leaves
-        function clearConversationHistory() {
-            conversationHistory = [];
-            userPreferences = {
-                eventType: null,
-                budget: null,
-                location: null,
-                timePreference: null
-            };
-            localStorage.removeItem('chatHistory');
-            localStorage.removeItem('userPreferences');
-        }
-        
-        // Auto-response after 5 minutes of inactivity
-        let inactivityTimer = null;
-        let lastActivityTime = Date.now();
-        
-        function resetInactivityTimer() {
-            lastActivityTime = Date.now();
-            if (inactivityTimer) {
-                clearTimeout(inactivityTimer);
-            }
-            
-            // Set timer for 5 minutes (300000ms)
-            inactivityTimer = setTimeout(() => {
-                if (isChatOpen) {
-                    addChatMessage("Bạn có cần hỗ trợ thêm gì không? Tôi sẵn sàng giúp đỡ!", 'assistant');
-                    // Show quick suggestions after auto-response
-                    setTimeout(() => {
-                        forceShowQuickSuggestions();
-                    }, 500);
-                }
-            }, 300000); // 5 minutes
-        }
-        
-        // Load user preferences from localStorage
-        function loadUserPreferences() {
-            const saved = localStorage.getItem('userPreferences');
-            if (saved) {
-                userPreferences = JSON.parse(saved);
-            }
-        }
-        
-        // Save user preferences to localStorage
-        function saveUserPreferences() {
-            localStorage.setItem('userPreferences', JSON.stringify(userPreferences));
-        }
-        
-        function openChatWidget() {
-            const chatWidget = document.querySelector('.chat-widget');
-            const chatBtn = document.querySelector('.floating-chat-btn');
-            
-            if (!isChatOpen) {
-                // Load conversation history and preferences
-                loadConversationHistory();
-                loadUserPreferences();
-                
-                // Show chat widget
-                if (chatWidget) {
-                    chatWidget.classList.add('show');
-                    isChatOpen = true;
-                    
-                    // Change button icon to close
-            if (chatBtn) {
-                        chatBtn.innerHTML = '<i class="fas fa-times"></i>';
-                        chatBtn.title = 'Đóng chat';
-                    }
-                    
-                    // Start inactivity timer when chat opens
-                    resetInactivityTimer();
-                    
-                    // Show smart welcome message if no previous conversation
-                    if (conversationHistory.length === 0) {
-                        // Clear any existing messages first
-                        const chatMessages = document.getElementById('chatMessages');
-                        if (chatMessages) {
-                            chatMessages.innerHTML = '';
-                        }
-                        
-                        // Show quick suggestions immediately - no delay
-                        const quickSuggestions = document.getElementById('quickSuggestions');
-                        if (quickSuggestions) {
-                            quickSuggestions.style.display = 'grid';
-                            quickSuggestions.style.visibility = 'visible';
-                            quickSuggestions.style.opacity = '1';
-                            quickSuggestions.style.position = 'relative';
-                            quickSuggestions.style.zIndex = '10';
-                            console.log('Quick suggestions should be visible now');
-                        } else {
-                            console.log('Quick suggestions element not found!');
-                            // Try to find it by class name
-                            const quickSuggestionsByClass = document.querySelector('.quick-suggestions');
-                            console.log('Quick suggestions by class:', quickSuggestionsByClass);
-                            if (quickSuggestionsByClass) {
-                                quickSuggestionsByClass.style.display = 'grid';
-                                quickSuggestionsByClass.style.visibility = 'visible';
-                                quickSuggestionsByClass.style.opacity = '1';
-                                quickSuggestionsByClass.style.position = 'relative';
-                                quickSuggestionsByClass.style.zIndex = '10';
-                                console.log('Quick suggestions found by class and made visible');
-                            } else {
-                                // Create quick suggestions if they don't exist
-                                createQuickSuggestions();
-                            }
-                        }
-                        
-                setTimeout(() => {
-                            showSmartWelcome();
-                        }, 500);
-                    } else {
-                        // Restore previous conversation
-                        restoreConversation();
-                        // Show quick suggestions for existing conversations too
-                        setTimeout(() => { forceShowQuickSuggestions(); }, 500);
-                    }
-                }
-            } else {
-                // Hide chat widget
-                closeChatWidget();
-            }
-        }
-        
-        // Smart welcome message based on user preferences
-        function showSmartWelcome() {
-            let welcomeMessage = `Xin chào! Tôi có thể giúp bạn đăng ký sự kiện, tính toán chi phí và hỗ trợ chuẩn bị. Bạn cần hỗ trợ gì?`;
-            
-            addChatMessage(welcomeMessage, 'assistant');
-            
-            // Show smart suggestions immediately after welcome message
-            setTimeout(() => {
-                showSmartSuggestions();
-            }, 500);
-        }
-        
-        // Force show quick suggestions
-        function forceShowQuickSuggestions() {
-            const quickSuggestions = document.getElementById('quickSuggestions');
-            if (quickSuggestions) {
-                quickSuggestions.style.display = 'grid';
-                quickSuggestions.style.visibility = 'visible';
-                quickSuggestions.style.opacity = '1';
-                showSmartSuggestions();
-            }
-        }
-        
-        // Ensure quick suggestions are always visible
-        function ensureQuickSuggestionsVisible() {
-            const quickSuggestions = document.getElementById('quickSuggestions');
-            if (quickSuggestions) {
-                quickSuggestions.style.display = 'grid';
-                quickSuggestions.style.visibility = 'visible';
-                quickSuggestions.style.opacity = '1';
-                console.log('Quick suggestions should be visible now');
-            } else {
-                console.log('Quick suggestions element not found!');
-                // Try to create it if it doesn't exist
-                createQuickSuggestions();
-            }
-        }
-        
-        // Create quick suggestions if they don't exist
-        function createQuickSuggestions() {
-            const chatMessages = document.getElementById('chatMessages');
-            if (chatMessages && !document.getElementById('quickSuggestions')) {
-                const quickSuggestions = document.createElement('div');
-                quickSuggestions.className = 'quick-suggestions';
-                quickSuggestions.id = 'quickSuggestions';
-                quickSuggestions.innerHTML = `
-                    <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn đăng ký sự kiện')">
-                        <i class="fas fa-calendar-plus"></i>
-                        <span>Đăng ký sự kiện</span>
-                    </div>
-                    <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn xem giá dịch vụ')">
-                        <i class="fas fa-dollar-sign"></i>
-                        <span>Xem giá</span>
-                    </div>
-                    <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn thanh toán')">
-                        <i class="fas fa-credit-card"></i>
-                        <span>Thanh toán</span>
-                    </div>
-                    <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn kiểm tra trạng thái sự kiện')">
-                        <i class="fas fa-search"></i>
-                        <span>Trạng thái</span>
-                    </div>
-                    <div class="suggestion-item" onclick="sendQuickMessage('Tôi cần hỗ trợ')">
-                        <i class="fas fa-question-circle"></i>
-                        <span>Hỗ trợ</span>
-                    </div>
-                    <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn hủy sự kiện')">
-                        <i class="fas fa-times-circle"></i>
-                        <span>Hủy sự kiện</span>
-                    </div>
-                `;
-                chatMessages.appendChild(quickSuggestions);
-                console.log('Quick suggestions created and added to chat');
-            }
-        }
-        
-        // Test function to show quick suggestions
-        function testQuickSuggestions() {
-            console.log('Testing quick suggestions...');
-            const quickSuggestions = document.getElementById('quickSuggestions');
-            console.log('Quick suggestions element:', quickSuggestions);
-            if (quickSuggestions) {
-                quickSuggestions.style.display = 'block';
-                showSmartSuggestions();
-                console.log('Quick suggestions should be visible now');
-            } else {
-                console.log('Quick suggestions element not found!');
-            }
-        }
-        
-        // Restore previous conversation
-        function restoreConversation() {
-            const chatMessages = document.getElementById('chatMessages');
-            chatMessages.innerHTML = '';
-            
-            // Add last 10 messages
-            const recentMessages = conversationHistory.slice(-10);
-            recentMessages.forEach(msg => {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${msg.sender}`;
-                
-                // For assistant messages, allow HTML (including links)
-                // For user messages, escape HTML for security
-                const content = msg.sender === 'assistant' ? msg.text : escapeHtml(msg.text);
-                
-                messageDiv.innerHTML = `
-                    <div class="message-content">
-                        <div>${content}</div>
-                    </div>
-                `;
-                
-                chatMessages.appendChild(messageDiv);
-            });
-            
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
-        function closeChatWidget() {
-            const chatWidget = document.querySelector('.chat-widget');
-            const chatBtn = document.querySelector('.floating-chat-btn');
-            
-            if (chatWidget) {
-                chatWidget.classList.remove('show');
-                isChatOpen = false;
-                
-                // Change button icon back to robot
-                if (chatBtn) {
-                    chatBtn.innerHTML = '<i class="fas fa-robot"></i>';
-                    chatBtn.title = 'Chat Hỗ Trợ AI';
-                }
-            }
-        }
-        
-        // Send chat message
-        function sendChatMessage() {
-            const input = document.getElementById('chatInput');
-            const message = input.value.trim();
-            
-            if (!message) return;
-            
-            // Add user message
-            addChatMessage(message, 'user');
-            input.value = '';
-            
-            // Simulate AI response
-            setTimeout(() => {
-                const response = generateAIResponse(message);
-                addChatMessage(response, 'assistant');
-            }, 1000);
-        }
-        
-        // Add message to chat
-        function addChatMessage(text, sender) {
-            const chatMessages = document.getElementById('chatMessages');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${sender}`;
-            
-            // For assistant messages, allow HTML (including links)
-            // For user messages, escape HTML for security
-            const content = sender === 'assistant' ? text : escapeHtml(text);
-            
-            messageDiv.innerHTML = `
-                <div class="message-content">
-                    <div>${content}</div>
-                </div>
-            `;
-            
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-            
-            // Save to conversation history
-            conversationHistory.push({
-                text: text,
-                sender: sender,
-                timestamp: new Date().toISOString()
-            });
-            
-            // Keep only last 50 messages
-            if (conversationHistory.length > 50) {
-                conversationHistory = conversationHistory.slice(-50);
-            }
-            
-            saveConversationHistory();
-            
-            // Reset inactivity timer when user sends a message
-            if (sender === 'user') {
-                resetInactivityTimer();
-            }
-        }
-        
-        // Smart AI Knowledge Base
-        const aiKnowledge = {
-            // Event types and their requirements
-            eventTypes: {
-                'hội nghị': {
-                    equipment: ['Micro không dây', 'Loa', 'Máy chiếu', 'Màn hình LED'],
-                    location: 'Hội trường lớn',
-                    duration: '4-8 giờ',
-                    capacity: '50-500 người'
-                },
-                'tiệc cưới': {
-                    equipment: ['Hệ thống âm thanh', 'Ánh sáng trang trí', 'Bàn ghế', 'Khán đài'],
-                    location: 'Sân khấu hoặc ngoài trời',
-                    duration: '6-12 giờ',
-                    capacity: '100-300 người'
-                },
-                'hội thảo': {
-                    equipment: ['Micro', 'Máy chiếu', 'Bảng trắng', 'Ghế ngồi'],
-                    location: 'Phòng họp',
-                    duration: '2-4 giờ',
-                    capacity: '20-100 người'
-                },
-                'sự kiện thể thao': {
-                    equipment: ['Hệ thống âm thanh', 'Màn hình LED', 'Ghế khán đài', 'Thiết bị thể thao'],
-                    location: 'Sân vận động',
-                    duration: '2-6 giờ',
-                    capacity: '200-1000 người'
-                }
-            },
-            
-            // Pricing information
-            pricing: {
-                'hội trường lớn': '2,000,000 - 5,000,000 VNĐ/ngày',
-                'phòng họp': '500,000 - 1,500,000 VNĐ/ngày',
-                'ngoài trời': '1,000,000 - 3,000,000 VNĐ/ngày',
-                'sân khấu': '1,500,000 - 4,000,000 VNĐ/ngày'
-            },
-            
-            // Equipment pricing
-            equipmentPricing: {
-                'âm thanh': '500,000 - 2,000,000 VNĐ/bộ',
-                'ánh sáng': '300,000 - 1,500,000 VNĐ/bộ',
-                'video': '800,000 - 3,000,000 VNĐ/bộ',
-                'nội thất': '200,000 - 800,000 VNĐ/bộ'
-            }
-        };
-        
-        // Smart context analysis with memory
-        function analyzeContext(message) {
-            const lowerMessage = message.toLowerCase();
-            const context = {
-                intent: null,
-                eventType: null,
-                urgency: 'normal',
-                userType: 'customer',
-                hasPreviousContext: conversationHistory.length > 0,
-                userPreferences: userPreferences
-            };
-            
-            // Detect intent with smart patterns
-            const intentPatterns = {
-                'register': ['đăng ký', 'tạo', 'tổ chức', 'làm', 'muốn'],
-                'pricing': ['giá', 'phí', 'chi phí', 'tiền', 'bao nhiêu', 'cost'],
-                'status': ['trạng thái', 'kiểm tra', 'xem', 'như thế nào', 'đâu'],
-                'cancel': ['hủy', 'xóa', 'thôi', 'không muốn', 'dừng'],
-                'help': ['giúp', 'hỗ trợ', 'không biết', 'làm sao', 'như thế nào'],
-                'modify': ['sửa', 'thay đổi', 'cập nhật', 'chỉnh'],
-                'compare': ['so sánh', 'khác nhau', 'nào tốt hơn', 'chọn']
-            };
-            
-            for (const [intent, patterns] of Object.entries(intentPatterns)) {
-                if (patterns.some(pattern => lowerMessage.includes(pattern))) {
-                    context.intent = intent;
-                    break;
-                }
-            }
-            
-            // Detect event type with fuzzy matching
-            for (const [type, info] of Object.entries(aiKnowledge.eventTypes)) {
-                if (lowerMessage.includes(type) || lowerMessage.includes(type.replace(' ', ''))) {
-                    context.eventType = type;
-                    // Update user preferences
-                    userPreferences.eventType = type;
-                    saveUserPreferences();
-                    break;
-                }
-            }
-            
-            // Detect urgency with smart patterns
-            const urgentPatterns = ['gấp', 'khẩn cấp', 'ngay', 'lập tức', 'urgent', 'asap'];
-            if (urgentPatterns.some(pattern => lowerMessage.includes(pattern))) {
-                context.urgency = 'urgent';
-            }
-            
-            // Detect budget preferences
-            const budgetPatterns = [
-                { pattern: 'rẻ', budget: 'low' },
-                { pattern: 'tiết kiệm', budget: 'low' },
-                { pattern: 'vừa phải', budget: 'medium' },
-                { pattern: 'trung bình', budget: 'medium' },
-                { pattern: 'cao cấp', budget: 'high' },
-                { pattern: 'premium', budget: 'high' },
-                { pattern: 'sang trọng', budget: 'high' }
-            ];
-            
-            for (const { pattern, budget } of budgetPatterns) {
-                if (lowerMessage.includes(pattern)) {
-                    userPreferences.budget = budget;
-                    saveUserPreferences();
-                    break;
-                }
-            }
-            
-            // Detect location preferences
-            const locationPatterns = [
-                { pattern: 'trong nhà', location: 'indoor' },
-                { pattern: 'ngoài trời', location: 'outdoor' },
-                { pattern: 'hội trường', location: 'hall' },
-                { pattern: 'phòng họp', location: 'meeting' }
-            ];
-            
-            for (const { pattern, location } of locationPatterns) {
-                if (lowerMessage.includes(pattern)) {
-                    userPreferences.location = location;
-                    saveUserPreferences();
-                    break;
-                }
-            }
-            
-            // Analyze conversation history for context
-            if (conversationHistory.length > 0) {
-                const recentMessages = conversationHistory.slice(-5);
-                const recentText = recentMessages.map(msg => msg.text).join(' ').toLowerCase();
-                
-                // Check for follow-up questions
-                if (recentText.includes('đăng ký') && lowerMessage.includes('tiếp theo')) {
-                    context.intent = 'register_followup';
-                }
-                
-                // Check for clarification requests
-                if (lowerMessage.includes('có thể') || lowerMessage.includes('được không')) {
-                    context.intent = 'clarification';
-                }
-            }
-            
-            return context;
-        }
-        
-        // Generate smart AI response
-        function generateAIResponse(message) {
-            const context = analyzeContext(message);
-            const lowerMessage = message.toLowerCase();
-            
-            // Personalized greeting
-            if (lowerMessage.includes('xin chào') || lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
-                return `Xin chào! Tôi có thể giúp bạn đăng ký sự kiện, tính toán chi phí và hỗ trợ chuẩn bị. Bạn cần hỗ trợ gì?`;
-            }
-            
-            // Event registration with smart suggestions
-            if (context.intent === 'register' || lowerMessage.includes('đăng ký') || lowerMessage.includes('sự kiện')) {
-                if (context.eventType) {
-                    const eventInfo = aiKnowledge.eventTypes[context.eventType];
-                    let response = `Tuyệt vời! Bạn muốn tổ chức ${context.eventType.toUpperCase()}. Đây là gợi ý thông minh của tôi:\n\n📋 **Thiết bị cần thiết:**\n${eventInfo.equipment.map(item => `• ${item}`).join('\n')}\n\n🏢 **Địa điểm phù hợp:** ${eventInfo.location}\n⏰ **Thời gian dự kiến:** ${eventInfo.duration}\n👥 **Sức chứa:** ${eventInfo.capacity}\n\n💰 **Chi phí ước tính:** ${aiKnowledge.pricing[eventInfo.location]}\n\n`;
-                    
-                    // Add personalized suggestions based on user preferences
-                    if (userPreferences.budget === 'low') {
-                        response += `💡 **Gợi ý tiết kiệm:**\n• Chọn thiết bị cơ bản\n• Tận dụng combo giảm giá\n• Đặt trước 1 tháng để có giá tốt\n\n`;
-                    } else if (userPreferences.budget === 'high') {
-                        response += `💎 **Gợi ý cao cấp:**\n• Thiết bị premium chất lượng cao\n• Dịch vụ VIP\n• Hỗ trợ 24/7\n\n`;
-                    }
-                    
-                    if (userPreferences.location === 'outdoor') {
-                        response += `🌤️ **Lưu ý ngoài trời:**\n• Chuẩn bị mái che phòng mưa\n• Hệ thống âm thanh chống ồn\n• Điện năng dự phòng\n\n`;
-                    }
-                    
-                    response += `Bạn có muốn tôi tạo kế hoạch chi tiết không?`;
-                    return response;
-                } else {
-                    let response = `Tôi có thể giúp bạn đăng ký sự kiện! Hãy cho tôi biết:\n\nLoại sự kiện: Hội nghị, Tiệc cưới, Hội thảo, Thể thao?\nSố lượng người: Bao nhiêu người tham dự?\nThời gian: Khi nào tổ chức?\nĐịa điểm: Trong nhà hay ngoài trời?\n\n`;
-                    
-                    // Add smart suggestions based on previous preferences
-                    if (userPreferences.eventType) {
-                        response += `Gợi ý: Tôi thấy bạn quan tâm đến ${userPreferences.eventType}. Bạn có muốn tiếp tục với loại sự kiện này không?\n\n`;
-                    }
-                    
-                    response += `Để đăng ký sự kiện, bạn có thể truy cập: <a href='register.php' target='_blank'>Trang đăng ký sự kiện</a>\n\nTôi sẽ phân tích và đưa ra gợi ý tối ưu nhất!`;
-                    return response;
-                }
-            }
-            
-            // Payment processing
-            if (lowerMessage.includes('thanh toán') || lowerMessage.includes('payment') || lowerMessage.includes('tiền')) {
-                return "THANH TOÁN DỊCH VỤ\n\nTôi có thể giúp bạn:\n\nPhương thức thanh toán:\n• Chuyển khoản ngân hàng\n• Thanh toán trực tiếp\n• Thanh toán online (VNPay, MoMo)\n• Thanh toán bằng thẻ tín dụng\n\nThông tin cần thiết:\n• Số tài khoản ngân hàng\n• Mã số sự kiện\n• Số tiền cần thanh toán\n• Thời hạn thanh toán\n\nHỗ trợ thanh toán:\n• Hướng dẫn từng bước\n• Kiểm tra trạng thái thanh toán\n• Xử lý sự cố thanh toán\n\nĐể thanh toán trực tuyến, bạn có thể truy cập: <a href='payment.php' target='_blank'>Trang thanh toán</a>\n\nBạn cần hỗ trợ thanh toán gì cụ thể?";
-            }
-            
-            // Smart pricing analysis with dynamic pricing
-            if (context.intent === 'pricing' || lowerMessage.includes('giá') || lowerMessage.includes('phí')) {
-                let response = "BẢNG GIÁ DỊCH VỤ (GIÁ BIẾN ĐỘNG)\n\n";
-                
-                // Add dynamic pricing explanation
-                response += "💰 GIÁ BIẾN ĐỘNG THEO THỜI GIAN:\n";
-                response += "• Buổi sáng (6:00-12:00): Giá gốc\n";
-                response += "• Buổi chiều (12:00-18:00): +10%\n";
-                response += "• Buổi tối (18:00-22:00): +25%\n";
-                response += "• Ban đêm (22:00-6:00): +30%\n\n";
-                
-                response += "📅 GIÁ BIẾN ĐỘNG THEO NGÀY:\n";
-                response += "• Ngày thường (T2-T6): Giá gốc\n";
-                response += "• Cuối tuần (T7-CN): +20%\n";
-                response += "• Ngày lễ: +40%\n\n";
-                
-                if (context.eventType) {
-                    const eventInfo = aiKnowledge.eventTypes[context.eventType];
-                    response += `${context.eventType.toUpperCase()}:\n`;
-                    response += `Địa điểm: ${aiKnowledge.pricing[eventInfo.location]} (có thể tăng 10-40%)\n`;
-                    response += `Âm thanh: ${aiKnowledge.equipmentPricing['âm thanh']} (giá cố định)\n`;
-                    response += `Ánh sáng: ${aiKnowledge.equipmentPricing['ánh sáng']} (giá cố định)\n`;
-                    response += `Video: ${aiKnowledge.equipmentPricing['video']} (giá cố định)\n`;
-                    response += `Nội thất: ${aiKnowledge.equipmentPricing['nội thất']} (giá cố định)\n\n`;
-                    response += `Tổng ước tính: ${calculateTotalCost(eventInfo)} (chưa tính giá động)\n\n`;
-                } else {
-                    response += "ĐỊA ĐIỂM (GIÁ BIẾN ĐỘNG):\n";
-                    for (const [location, price] of Object.entries(aiKnowledge.pricing)) {
-                        response += `• ${location}: ${price} (có thể tăng 10-40%)\n`;
-                    }
-                    response += "\nTHIẾT BỊ (GIÁ CỐ ĐỊNH):\n";
-                    for (const [equipment, price] of Object.entries(aiKnowledge.equipmentPricing)) {
-                        response += `• ${equipment}: ${price}\n`;
-                    }
-                }
-                
-                // Add savings suggestions
-                response += "\n💡 GỢI Ý TIẾT KIỆM:\n";
-                response += "• Chọn buổi sáng để tiết kiệm 25-30%\n";
-                response += "• Tránh cuối tuần và ngày lễ\n";
-                response += "• Đặt trước 1-2 tháng để có giá tốt\n\n";
-                
-                response += "Để xem bảng giá chi tiết và tính giá động, bạn có thể truy cập: <a href='services.php' target='_blank'>Trang dịch vụ</a>";
-                return response;
-            }
-            
-            // Status checking with smart insights
-            if (context.intent === 'status' || lowerMessage.includes('trạng thái')) {
-                return "KIỂM TRA TRẠNG THÁI SỰ KIỆN\n\nTôi có thể giúp bạn:\n\nXem trạng thái sự kiện:\n• Chờ duyệt (thời gian xử lý: 1-2 ngày)\n• Đã duyệt (có thể bắt đầu chuẩn bị)\n• Từ chối (tôi sẽ giải thích lý do)\n\nPhân tích tiến độ:\n• Thời gian còn lại\n• Công việc cần làm\n• Rủi ro tiềm ẩn\n\nGợi ý tối ưu:\n• Cải thiện kế hoạch\n• Giảm chi phí\n• Tăng hiệu quả\n\nBạn muốn kiểm tra sự kiện nào?";
-            }
-            
-            // Smart help system
-            if (context.intent === 'help' || lowerMessage.includes('giúp') || lowerMessage.includes('không biết')) {
-                return "HỆ THỐNG HỖ TRỢ KHÁCH HÀNG\n\nTôi có thể giúp bạn:\n\nPhân tích nhu cầu:\n• Xác định loại sự kiện phù hợp\n• Tính toán chi phí chính xác\n• Đề xuất timeline phù hợp\n\nGợi ý hữu ích:\n• Thiết bị cần thiết\n• Địa điểm lý tưởng\n• Cách tiết kiệm chi phí\n\nHỗ trợ chuẩn bị:\n• Tạo kế hoạch chi tiết\n• Gửi thông báo nhắc nhở\n• Theo dõi tiến độ\n\nHãy mô tả sự kiện bạn muốn tổ chức!";
-            }
-            
-            // Smart cancellation
-            if (context.intent === 'cancel' || lowerMessage.includes('hủy')) {
-                return "HỦY SỰ KIỆN\n\nTrước khi hủy, hãy cân nhắc:\n\nChi phí hủy:\n• Phí hủy: 10-30% tổng chi phí\n• Hoàn tiền: 70-90% (tùy thời điểm)\n\nGiải pháp thay thế:\n• Hoãn sự kiện\n• Chuyển đổi loại sự kiện\n• Giảm quy mô\n\nHỗ trợ:\n• Tôi có thể tìm giải pháp thay thế\n• Liên hệ admin để thương lượng\n• Đề xuất cách tối ưu chi phí\n\nBạn có chắc muốn hủy không? Tôi có thể giúp tìm giải pháp tốt hơn!";
-            }
-            
-            // Smart gratitude response
-            if (lowerMessage.includes('cảm ơn') || lowerMessage.includes('thank') || lowerMessage.includes('tốt')) {
-                const responses = [
-                    "Rất vui được giúp đỡ bạn! 😊 Nếu có thêm câu hỏi, đừng ngại hỏi nhé!",
-                    "Không có gì! Tôi luôn sẵn sàng hỗ trợ bạn! 🚀",
-                    "Cảm ơn bạn đã tin tưởng! Tôi sẽ tiếp tục cải thiện để phục vụ tốt hơn! 💪",
-                    "Rất hạnh phúc khi được giúp đỡ bạn! Chúc bạn có sự kiện thành công! 🎉"
-                ];
-                return responses[Math.floor(Math.random() * responses.length)];
-            }
-            
-            // Smart time-based responses
-            if (lowerMessage.includes('giờ') || lowerMessage.includes('thời gian') || lowerMessage.includes('khi nào')) {
-                const now = new Date();
-                const timeInfo = {
-                    hour: now.getHours(),
-                    day: now.getDay(),
-                    date: now.getDate(),
-                    month: now.getMonth() + 1
-                };
-                
-                let timeResponse = `🕐 **THÔNG TIN THỜI GIAN THÔNG MINH**\n\n`;
-                timeResponse += `⏰ Hiện tại: ${now.toLocaleString('vi-VN')}\n`;
-                timeResponse += `📅 Ngày trong tuần: ${getDayName(timeInfo.day)}\n`;
-                timeResponse += `🌅 Thời gian tốt nhất để tổ chức sự kiện: 9h-17h (thứ 2-6)\n`;
-                timeResponse += `🎉 Cuối tuần: 8h-22h (thứ 7, CN)\n\n`;
-                timeResponse += `💡 **Gợi ý thông minh:**\n`;
-                
-                if (timeInfo.hour < 9) {
-                    timeResponse += `• Sáng sớm: Phù hợp sự kiện thể thao, yoga\n`;
-                } else if (timeInfo.hour < 12) {
-                    timeResponse += `• Buổi sáng: Tốt cho hội thảo, hội nghị\n`;
-                } else if (timeInfo.hour < 18) {
-                    timeResponse += `• Buổi chiều: Lý tưởng cho tiệc cưới, sự kiện cộng đồng\n`;
-                } else {
-                    timeResponse += `• Buổi tối: Hoàn hảo cho tiệc, ca nhạc, giải trí\n`;
-                }
-                
-                return timeResponse;
-            }
-            
-            // Smart weather and seasonal suggestions
-            if (lowerMessage.includes('thời tiết') || lowerMessage.includes('mùa') || lowerMessage.includes('nhiệt độ')) {
-                const month = new Date().getMonth() + 1;
-                let seasonalAdvice = "🌤️ **GỢI Ý THEO MÙA THÔNG MINH**\n\n";
-                
-                if (month >= 3 && month <= 5) {
-                    seasonalAdvice += "🌸 **MÙA XUÂN (Tháng 3-5):**\n";
-                    seasonalAdvice += "• Thời tiết mát mẻ, ít mưa\n";
-                    seasonalAdvice += "• Phù hợp: Tiệc cưới, sự kiện ngoài trời\n";
-                    seasonalAdvice += "• Lưu ý: Chuẩn bị mái che phòng mưa\n";
-                } else if (month >= 6 && month <= 8) {
-                    seasonalAdvice += "☀️ **MÙA HÈ (Tháng 6-8):**\n";
-                    seasonalAdvice += "• Nắng nóng, nhiệt độ cao\n";
-                    seasonalAdvice += "• Phù hợp: Sự kiện trong nhà, hội trường\n";
-                    seasonalAdvice += "• Lưu ý: Cần điều hòa, nước uống\n";
-                } else if (month >= 9 && month <= 11) {
-                    seasonalAdvice += "🍂 **MÙA THU (Tháng 9-11):**\n";
-                    seasonalAdvice += "• Thời tiết dễ chịu, ít mưa\n";
-                    seasonalAdvice += "• Phù hợp: Mọi loại sự kiện\n";
-                    seasonalAdvice += "• Lưu ý: Thời điểm vàng cho sự kiện\n";
-                } else {
-                    seasonalAdvice += "❄️ **MÙA ĐÔNG (Tháng 12-2):**\n";
-                    seasonalAdvice += "• Lạnh, có thể có mưa\n";
-                    seasonalAdvice += "• Phù hợp: Sự kiện trong nhà\n";
-                    seasonalAdvice += "• Lưu ý: Cần sưởi ấm, che mưa\n";
-                }
-                
-                return seasonalAdvice;
-            }
-            
-            // Smart follow-up suggestions
-            if (context.intent === 'register_followup') {
-                return `🚀 **BƯỚC TIẾP THEO THÔNG MINH**\n\nDựa trên cuộc trò chuyện trước, tôi khuyến nghị:\n\n📋 **Danh sách việc cần làm:**\n1. Xác nhận thông tin sự kiện\n2. Chọn thiết bị phù hợp\n3. Đặt lịch kiểm tra địa điểm\n4. Chuẩn bị tài liệu cần thiết\n\n💡 **Gợi ý tối ưu:**\n• Tôi có thể tạo timeline chi tiết\n• Gửi checklist chuẩn bị\n• Nhắc nhở các mốc thời gian quan trọng\n\nBạn muốn tôi tạo kế hoạch chi tiết không?`;
-            }
-            
-            // Smart clarification responses
-            if (context.intent === 'clarification') {
-                return `🤔 **LÀM RÕ THÔNG TIN THÔNG MINH**\n\nTôi hiểu bạn cần làm rõ thêm. Dựa trên ngữ cảnh, tôi có thể giúp:\n\n🎯 **Phân tích chi tiết:**\n• Giải thích rõ hơn về dịch vụ\n• So sánh các lựa chọn\n• Đưa ra ví dụ cụ thể\n\n💡 **Gợi ý thông minh:**\n• Tôi có thể tạo demo trực quan\n• Cung cấp tài liệu tham khảo\n• Kết nối với chuyên gia\n\nBạn muốn tôi giải thích chi tiết về vấn đề gì?`;
-            }
-            
-            // Smart comparison suggestions
-            if (context.intent === 'compare') {
-                return `⚖️ **SO SÁNH THÔNG MINH**\n\nTôi có thể giúp bạn so sánh:\n\n🏢 **Địa điểm:**\n• Hội trường vs Phòng họp\n• Trong nhà vs Ngoài trời\n• Sức chứa và tiện nghi\n\n🎵 **Thiết bị:**\n• Cơ bản vs Cao cấp\n• Chi phí vs Chất lượng\n• Phù hợp với loại sự kiện\n\n💰 **Gói dịch vụ:**\n• Tiết kiệm vs Premium\n• Bao gồm vs Không bao gồm\n• Giá trị thực tế\n\nBạn muốn so sánh cụ thể gì?`;
-            }
-            
-            // Smart modification suggestions
-            if (context.intent === 'modify') {
-                return `✏️ **CHỈNH SỬA THÔNG MINH**\n\nTôi có thể giúp bạn:\n\n📝 **Cập nhật thông tin:**\n• Thay đổi thời gian sự kiện\n• Điều chỉnh số lượng người\n• Chuyển đổi loại sự kiện\n\n🔄 **Tối ưu hóa:**\n• Giảm chi phí không cần thiết\n• Cải thiện trải nghiệm\n• Tăng hiệu quả\n\n⚠️ **Lưu ý quan trọng:**\n• Phí thay đổi có thể áp dụng\n• Cần xác nhận lại với admin\n• Thời gian xử lý: 1-2 ngày\n\nBạn muốn thay đổi gì cụ thể?`;
-            }
-            
-            // Default smart response with learning capability
-            return `🤖 **PHÂN TÍCH THÔNG MINH**\n\nTôi hiểu bạn đang hỏi về: "${message}"\n\nDựa trên phân tích AI và lịch sử cuộc trò chuyện, tôi khuyến nghị:\n\n🎯 **Hành động tiếp theo:**\n1. Xác định rõ nhu cầu cụ thể\n2. Tham khảo các gợi ý của tôi\n3. Liên hệ hỗ trợ nếu cần\n\n💡 **Gợi ý thông minh:**\n• Tôi có thể tạo kế hoạch chi tiết\n• Tính toán chi phí chính xác\n• Đề xuất giải pháp tối ưu\n• Học hỏi từ cuộc trò chuyện trước\n\n🔍 **Tìm hiểu thêm:**\n• Hỏi cụ thể hơn về vấn đề\n• Mô tả chi tiết nhu cầu\n• Chia sẻ ngân sách dự kiến\n\nBạn muốn tôi phân tích sâu hơn không?`;
-        }
-        
-        // Helper functions
-        function calculateTotalCost(eventInfo) {
-            // Simple cost calculation (in real app, this would be more sophisticated)
-            const baseCost = 2000000; // Base cost
-            const equipmentCost = eventInfo.equipment.length * 500000; // Equipment cost
-            const capacityCost = eventInfo.capacity.includes('100') ? 1000000 : 2000000; // Capacity cost
-            return `${(baseCost + equipmentCost + capacityCost).toLocaleString('vi-VN')} VNĐ`;
-        }
-        
-        function getDayName(day) {
-            const days = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
-            return days[day];
-        }
-        
-        // Escape HTML
-        function escapeHtml(text) {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-        }
-        
-        // Send quick message from suggestions
-        function sendQuickMessage(message) {
-            const input = document.getElementById('chatInput');
-            input.value = message;
-            sendChatMessage();
-            
-            // Hide quick suggestions after use
-            const quickSuggestions = document.getElementById('quickSuggestions');
-            if (quickSuggestions) {
-                quickSuggestions.style.display = 'none';
-            }
-        }
-        
-        // Show smart quick suggestions based on context
-        function showSmartSuggestions() {
-            const quickSuggestions = document.getElementById('quickSuggestions');
-            if (!quickSuggestions) return;
-            
-            // Clear existing suggestions
-            quickSuggestions.innerHTML = '';
-            
-            // Generate suggestions based on user preferences and context
-            let suggestions = [];
-            
-            if (userPreferences.eventType) {
-                suggestions.push({
-                    icon: 'fas fa-calendar-check',
-                    text: `Tiếp tục ${userPreferences.eventType}`,
-                    message: `Tôi muốn tiếp tục với ${userPreferences.eventType}`
-                });
-            }
-            
-            if (userPreferences.budget === 'low') {
-                suggestions.push({
-                    icon: 'fas fa-piggy-bank',
-                    text: 'Gói tiết kiệm',
-                    message: 'Tôi muốn xem gói dịch vụ tiết kiệm'
-                });
-            } else if (userPreferences.budget === 'high') {
-                suggestions.push({
-                    icon: 'fas fa-crown',
-                    text: 'Gói cao cấp',
-                    message: 'Tôi muốn xem gói dịch vụ cao cấp'
-                });
-            }
-            
-            // Default suggestions
-            suggestions.push(
-                {
-                    icon: 'fas fa-calendar-plus',
-                    text: 'Đăng ký sự kiện',
-                    message: 'Tôi muốn đăng ký sự kiện'
-                },
-                {
-                    icon: 'fas fa-dollar-sign',
-                    text: 'Xem giá',
-                    message: 'Tôi muốn xem giá dịch vụ'
-                },
-                {
-                    icon: 'fas fa-credit-card',
-                    text: 'Thanh toán',
-                    message: 'Tôi muốn thanh toán'
-                },
-                {
-                    icon: 'fas fa-search',
-                    text: 'Trạng thái',
-                    message: 'Tôi muốn kiểm tra trạng thái sự kiện'
-                },
-                {
-                    icon: 'fas fa-question-circle',
-                    text: 'Hỗ trợ',
-                    message: 'Tôi cần hỗ trợ'
-                },
-                {
-                    icon: 'fas fa-times-circle',
-                    text: 'Hủy sự kiện',
-                    message: 'Tôi muốn hủy sự kiện'
-                }
-            );
-            
-            // Limit to 6 suggestions
-            suggestions = suggestions.slice(0, 6);
-            
-            // Create suggestion items
-            suggestions.forEach(suggestion => {
-                const item = document.createElement('div');
-                item.className = 'suggestion-item';
-                item.onclick = () => sendQuickMessage(suggestion.message);
-                item.innerHTML = `
-                    <i class="${suggestion.icon}"></i>
-                    <span>${suggestion.text}</span>
-                `;
-                quickSuggestions.appendChild(item);
-            });
-        }
-        
-        // Event listeners for page lifecycle
-        window.addEventListener('beforeunload', function() {
-            // Clear conversation history when user leaves
-            clearConversationHistory();
-        });
-        
-        window.addEventListener('unload', function() {
-            // Clear conversation history when user leaves
-            clearConversationHistory();
-        });
-        
-        // Start inactivity timer when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            resetInactivityTimer();
-            
-            // Ensure quick suggestions are visible on page load
-            setTimeout(() => {
-                const quickSuggestions = document.getElementById('quickSuggestions');
-                if (quickSuggestions) {
-                    quickSuggestions.style.display = 'grid';
-                    quickSuggestions.style.visibility = 'visible';
-                    quickSuggestions.style.opacity = '1';
-                    console.log('Quick suggestions made visible on page load');
-                }
-            }, 100);
-        });
+        // Gemini AI Chat Widget - Load external script
         
     </script>
     

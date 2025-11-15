@@ -28,12 +28,12 @@ class SocketClient {
         $hostname = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
         
         if (strpos($hostname, 'sukien.info.vn') !== false || strpos($hostname, 'sukien') !== false) {
-            // Production: Node.js app is mounted at /nodeapp
-            // Structure: /home/vhieqivuhosting/nodeapp/ (Node.js) and /home/vhieqivuhosting/public_html/ (PHP)
+            // Hybrid: WebSocket chạy trên VPS riêng (ws.sukien.info.vn)
+            // PHP chạy trên shared hosting (sukien.info.vn)
             $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-            $this->socketUrl = $protocol . '://' . $hostname;
-            $this->socketPort = null; // No port for same-domain requests
-            $this->socketPath = '/nodeapp'; // Node.js app mount point in cPanel
+            $this->socketUrl = $protocol . '://ws.sukien.info.vn';  // VPS WebSocket server
+            $this->socketPort = null; // No port for HTTPS/HTTP
+            $this->socketPath = ''; // No base path for Hybrid setup
         } else {
             // Localhost development
             $this->socketUrl = 'http://localhost';

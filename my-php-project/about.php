@@ -663,7 +663,5 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- Chat Widget - AI Assistant -->
-    <?php include 'chat-widget.php'; ?>
 </body>
 </html>

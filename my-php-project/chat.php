@@ -140,6 +140,29 @@ if (!in_array($userRole, [1, 3, 5])) {
             opacity: 0.9;
             position: relative;
             z-index: 1;
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .connection-status.online {
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.2), rgba(40, 167, 69, 0.1));
+        }
+        
+        .connection-status.offline {
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.2), rgba(220, 53, 69, 0.1));
+        }
+        
+        .connection-status.connecting {
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.2), rgba(255, 193, 7, 0.1));
+        }
+        
+        .connection-text {
+            font-size: 0.85rem;
+            color: white;
+            font-weight: 500;
+            white-space: nowrap;
         }
         
         .connection-indicator {
@@ -1128,7 +1151,7 @@ if (!in_array($userRole, [1, 3, 5])) {
 <body>
     <div class="container-fluid">
         <div class="chat-container">
-            <!-- Header -->
+            <!-- Phần đầu trang -->
             <div class="chat-header">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
@@ -1148,6 +1171,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                             <div class="connection-indicator" id="connectionIndicator">
                                 <div class="status-dot offline"></div>
                             </div>
+                            <span class="connection-text" id="connectionText">Đang kết nối...</span>
                         </div>
                         <a href="index.php" class="btn-home">
                             <i class="fas fa-home"></i>
@@ -1156,9 +1180,9 @@ if (!in_array($userRole, [1, 3, 5])) {
                 </div>
             </div>
             
-            <!-- Chat Content -->
+            <!-- Nội dung chat -->
             <div class="chat-content">
-                <!-- Sidebar -->
+                <!-- Thanh bên danh sách cuộc trò chuyện -->
                 <div class="chat-sidebar">
                     <div class="sidebar-header">
                         <h6><i class="fas fa-comments"></i> Cuộc trò chuyện</h6>
@@ -1176,9 +1200,9 @@ if (!in_array($userRole, [1, 3, 5])) {
                     </div>
                 </div>
                 
-                <!-- Main Chat -->
+                <!-- Khu vực chat chính -->
                 <div class="chat-main">
-                    <!-- Chat Header -->
+                    <!-- Thanh header của cuộc trò chuyện -->
                     <div class="chat-header-bar" id="chatHeaderBar" style="display: none;">
                         <div class="chat-user-info">
                             <div class="user-avatar-small">
@@ -1191,7 +1215,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                         </div>
                     </div>
                     
-                    <!-- Messages -->
+                    <!-- Khu vực hiển thị tin nhắn -->
                     <div class="chat-messages" id="chatMessages">
                         <div class="welcome-screen">
                             <div class="welcome-icon">
@@ -1219,7 +1243,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                         </div>
                     </div>
                     
-                    <!-- Typing Indicator -->
+                    <!-- Chỉ báo đang nhập -->
                     <div class="typing-indicator" id="typingIndicator">
                         <i class="fas fa-circle fa-xs"></i>
                         <i class="fas fa-circle fa-xs"></i>
@@ -1227,7 +1251,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                         <span class="ms-2">Đang nhập...</span>
                     </div>
                     
-                    <!-- Input -->
+                    <!-- Ô nhập tin nhắn -->
                     <div class="chat-input" id="chatInput">
                         <div class="chat-input-group">
                             <input type="text" id="messageInput" placeholder="Nhập tin nhắn..." disabled>
@@ -1251,7 +1275,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         </div>
     </div>
 
-    <!-- Manager Selection Modal -->
+    <!-- Modal chọn quản lý sự kiện -->
     <div class="modal fade" id="managerSelectionModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -1264,27 +1288,22 @@ if (!in_array($userRole, [1, 3, 5])) {
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-6">
-                            <h6>Lọc theo chuyên môn:</h6>
-                            <select class="form-select mb-3" id="specializationFilter">
-                                <option value="">Tất cả chuyên môn</option>
-                                <option value="wedding">Đám cưới</option>
-                                <option value="corporate">Sự kiện doanh nghiệp</option>
-                                <option value="birthday">Tiệc sinh nhật</option>
-                                <option value="conference">Hội nghị</option>
+                            <h6>Lọc theo vai trò:</h6>
+                            <select class="form-select mb-3" id="roleFilter">
+                                <option value="">Tất cả vai trò</option>
+                                <option value="1">Quản trị viên</option>
+                                <option value="3">Quản lý sự kiện</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <h6>Lọc theo trạng thái:</h6>
-                            <select class="form-select mb-3" id="statusFilter">
-                                <option value="">Tất cả trạng thái</option>
-                                <option value="online">Đang online</option>
-                                <option value="busy">Bận</option>
-                                <option value="available">Có thể hỗ trợ</option>
-                            </select>
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-info-circle"></i>
+                                <small>Chỉ hiển thị nhân viên đang online (Role 1 và 3)</small>
+                            </div>
                         </div>
                     </div>
                     <div id="managersList">
-                        <!-- Managers will be loaded here -->
+                        <!-- Danh sách nhân viên sẽ được tải vào đây -->
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1297,7 +1316,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         </div>
     </div>
 
-    <!-- Call Modal -->
+    <!-- Modal cuộc gọi -->
     <div class="call-modal" id="callModal">
         <div class="call-container">
             <div class="call-avatar">
@@ -1319,7 +1338,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         </div>
     </div>
 
-    <!-- Video Call Container -->
+    <!-- Container cuộc gọi video -->
     <div class="video-call-container" id="videoCallContainer">
         <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
         <video id="localVideo" class="local-video" autoplay playsinline muted></video>
@@ -1336,7 +1355,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         </div>
     </div>
 
-    <!-- Image Preview Modal -->
+    <!-- Modal xem trước hình ảnh -->
     <div class="modal fade" id="imagePreviewModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -1353,7 +1372,7 @@ if (!in_array($userRole, [1, 3, 5])) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Socket.IO - Use CDN for production, local server for development -->
+    <!-- Socket.IO - Sử dụng CDN cho production, local server cho development -->
     <script>
     // Load Socket.IO client
     (function() {
@@ -1435,7 +1454,8 @@ if (!in_array($userRole, [1, 3, 5])) {
             loadConversations();
             setupChatEvents();
             setupMediaEvents();
-            setupCallSocketEvents();
+            // ✅ setupCallSocketEvents() will be called in socket.on('connect')
+            // to ensure socket is connected before setting up event listeners
             showUserInfo();
             startAutoRefresh();
             
@@ -1584,6 +1604,9 @@ if (!in_array($userRole, [1, 3, 5])) {
                     socket.emit('join_conversation', { conversation_id: currentConversationId });
                 }
                 console.log('Socket connected, joined user room:', currentUserId);
+                
+                // ✅ Setup call socket events AFTER socket is connected
+                setupCallSocketEvents();
             });
             
             socket.on('connect_error', (error) => {
@@ -1646,6 +1669,11 @@ if (!in_array($userRole, [1, 3, 5])) {
                 socket.emit('join_user_room', { userId: currentUserId });
                 if (currentConversationId) {
                     socket.emit('join_conversation', { conversation_id: currentConversationId });
+                }
+                
+                // ✅ Re-setup call socket events after reconnect
+                if (!socket._callEventsSetup) {
+                    setupCallSocketEvents();
                 }
             });
             
@@ -2237,11 +2265,26 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // ✅ Cập nhật trạng thái kết nối
         function updateConnectionStatus(status, text) {
+            const statusEl = $('#connectionStatus');
             const indicator = $('#connectionIndicator .status-dot');
+            const textEl = $('#connectionText');
+            
+            // Update status dot
             indicator.removeClass('online offline connecting').addClass(status);
             
-            // Thêm tooltip để hiển thị text khi hover
-            indicator.attr('title', text);
+            // Update connection status container
+            statusEl.removeClass('online offline connecting').addClass(status);
+            
+            // Update text
+            if (textEl.length) {
+                textEl.text(text || 'Đang kết nối...');
+            }
+            
+            // Update tooltip
+            indicator.attr('title', text || 'Đang kết nối...');
+            statusEl.attr('title', text || 'Đang kết nối...');
+            
+            console.log('Connection status updated:', status, text);
         }
         
         // Show typing indicator
@@ -2343,37 +2386,92 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // Manager selection functions
+        // Quản lý chọn nhân viên
+        let allManagers = []; // Lưu danh sách tất cả managers để filter
+        
         function showManagerSelection() {
             const modal = new bootstrap.Modal(document.getElementById('managerSelectionModal'));
             modal.show();
             loadAvailableManagers();
         }
         
+        // Tải danh sách nhân viên đang online (chỉ role 1 và 3)
         function loadAvailableManagers() {
             $.get('src/controllers/chat-controller.php?action=get_available_managers', function(data) {
                 if (data.success) {
-                    // Ưu tiên hiển thị nhân viên online trước
-                    const onlineManagers = data.managers.filter(manager => manager.is_online);
-                    const offlineManagers = data.managers.filter(manager => !manager.is_online);
-                    const sortedManagers = [...onlineManagers, ...offlineManagers];
+                    // Lưu danh sách managers
+                    allManagers = data.managers || [];
                     
-                    if (sortedManagers.length > 0) {
-                        displayManagers(sortedManagers);
+                    if (allManagers.length > 0) {
+                        // Áp dụng filter và hiển thị
+                        applyFilters();
                     } else {
-                        // Nếu không có manager nào, fallback về admin
-                        loadAdminFallback();
+                        // Nếu không có manager nào online, tự động chuyển cho quản trị viên
+                        console.log('Không có nhân viên nào online, tự động chuyển cho quản trị viên');
+                        autoAssignToAdmin();
                     }
                 } else {
-                    // Fallback về admin nếu không load được managers
-                    loadAdminFallback();
+                    // Nếu không load được, tự động chuyển cho quản trị viên
+                    console.log('Không load được managers, tự động chuyển cho quản trị viên');
+                    autoAssignToAdmin();
                 }
             }, 'json').fail(function() {
-                // Fallback về admin nếu có lỗi
-                loadAdminFallback();
+                // Nếu có lỗi, tự động chuyển cho quản trị viên
+                console.log('Lỗi load managers, tự động chuyển cho quản trị viên');
+                autoAssignToAdmin();
             });
         }
         
+        // Áp dụng filter theo role
+        function applyFilters() {
+            const role = $('#roleFilter').val();
+            
+            let filteredManagers = [...allManagers];
+            
+            // Lọc theo role (ID_Role)
+            if (role) {
+                filteredManagers = filteredManagers.filter(manager => {
+                    return String(manager.ID_Role) === String(role);
+                });
+            }
+            
+            // Hiển thị danh sách đã lọc
+            if (filteredManagers.length > 0) {
+                displayManagers(filteredManagers);
+            } else {
+                // Nếu không có manager nào phù hợp với filter, tự động chuyển cho quản trị viên
+                console.log('Không có nhân viên nào phù hợp với filter, tự động chuyển cho quản trị viên');
+                autoAssignToAdmin();
+            }
+        }
+        
+        // Tự động chuyển cho quản trị viên (role 1)
+        function autoAssignToAdmin() {
+            // Đóng modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('managerSelectionModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Tìm admin (role 1)
+            $.get('src/controllers/chat-controller.php?action=get_admin_user', function(data) {
+                if (data.success && data.admin_id) {
+                    // Tạo conversation với admin
+                    createConversationWithManager(data.admin_id);
+                    showNotification('Không có nhân viên nào online. Bạn đã được chuyển đến Quản trị viên.', 'info');
+                } else {
+                    // Fallback: thử tạo conversation với admin ID = 1
+                    createConversationWithManager(1);
+                    showNotification('Không có nhân viên nào online. Bạn đã được chuyển đến Quản trị viên.', 'info');
+                }
+            }, 'json').fail(function() {
+                // Fallback: thử tạo conversation với admin ID = 1
+                createConversationWithManager(1);
+                showNotification('Không có nhân viên nào online. Bạn đã được chuyển đến Quản trị viên.', 'info');
+            });
+        }
+        
+        // Hiển thị fallback khi không có nhân viên online (không dùng nữa, đã thay bằng autoAssignToAdmin)
         function loadAdminFallback() {
             $('#managersList').html(`
                 <div class="alert alert-info">
@@ -2410,61 +2508,46 @@ if (!in_array($userRole, [1, 3, 5])) {
             }, 'json');
         }
         
+        // Hiển thị danh sách managers
         function displayManagers(managers) {
             let html = '';
             
-            // Hiển thị thống kê online
-            const onlineCount = managers.filter(m => m.is_online).length;
-            const offlineCount = managers.filter(m => !m.is_online).length;
+            // Hiển thị thống kê
             const totalCount = managers.length;
             
             html += `
                 <div class="alert alert-info mb-3">
                     <i class="fas fa-users"></i>
-                    <strong>${onlineCount}/${totalCount}</strong> nhân viên đang online
-                    ${offlineCount > 0 ? `<br><small class="text-muted"><i class="fas fa-user-slash text-danger"></i> ${offlineCount} nhân viên offline</small>` : ''}
+                    <strong>${totalCount}</strong> nhân viên đang online
                 </div>
             `;
             
             managers.forEach(manager => {
-                const statusClass = manager.is_online ? 'success' : 'danger';
-                const statusText = manager.is_online ? 'Đang online' : 'Offline';
-                const statusIcon = manager.is_online ? 'fa-circle' : 'fa-circle';
-                const cardClass = manager.is_online ? 'border-success' : 'border-danger';
-                
                 html += `
-                    <div class="card mb-3 manager-card ${cardClass}" data-manager-id="${manager.id}">
+                    <div class="card mb-3 manager-card border-success" data-manager-id="${manager.id}">
                         <div class="card-body">
                             <div class="row align-items-center">
                                 <div class="col-md-8">
                                     <h6 class="card-title mb-1">
                                         <i class="fas fa-user-tie text-primary"></i>
                                         ${manager.name}
-                                        ${manager.is_online ? 
-                                            '<span class="badge bg-success ms-2">ONLINE</span>' : 
-                                            '<span class="badge bg-danger ms-2">OFFLINE</span>'
-                                        }
+                                        <span class="badge bg-success ms-2">ONLINE</span>
                                     </h6>
                                     <p class="card-text text-muted mb-1">
                                         <i class="fas fa-envelope"></i> ${manager.email}
                                     </p>
                                     <p class="card-text text-muted mb-1">
-                                        <i class="fas fa-briefcase"></i> ${manager.specialization || 'Tổng quát'}
+                                        <i class="fas fa-user-tag"></i> ${manager.RoleName || 'Nhân viên'}
                                     </p>
-                                    <span class="badge bg-${statusClass}">
-                                        <i class="fas ${statusIcon}"></i> ${statusText}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-circle"></i> Đang online
                                     </span>
-                                    ${!manager.is_online ? 
-                                        '<br><small class="text-muted"><i class="fas fa-info-circle"></i> Tin nhắn sẽ được trả lời khi họ online</small>' : 
-                                        ''
-                                    }
                                 </div>
                                 <div class="col-md-4 text-end">
-                                    <button class="btn ${manager.is_online ? 'btn-success' : 'btn-danger'} btn-sm" 
+                                    <button class="btn btn-success btn-sm" 
                                             onclick="selectManager(${manager.id})"
-                                            ${!manager.is_online ? 'title="Nhân viên này đang offline - Tin nhắn sẽ được trả lời khi họ online"' : ''}>
-                                        <i class="fas ${manager.is_online ? 'fa-comments' : 'fa-user-slash'}"></i> 
-                                        ${manager.is_online ? 'Chat ngay' : 'Offline'}
+                                            title="Chat với nhân viên này">
+                                        <i class="fas fa-comments"></i> Chat ngay
                                     </button>
                                 </div>
                             </div>
@@ -2473,47 +2556,20 @@ if (!in_array($userRole, [1, 3, 5])) {
                 `;
             });
             
-            // Thêm nút fallback về admin nếu không có ai online
-            if (onlineCount === 0) {
-                html += `
-                    <div class="alert alert-warning mt-3">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <strong>Không có nhân viên nào online</strong><br>
-                        <small class="text-muted">Tất cả nhân viên đang offline. Bạn có thể:</small>
-                        <ul class="mb-2 mt-2">
-                            <li>Chat với nhân viên offline (tin nhắn sẽ được trả lời khi họ online)</li>
-                            <li>Chuyển đến quản trị viên để được hỗ trợ ngay lập tức</li>
-                        </ul>
-                    </div>
-                    <div class="text-center">
-                        <button class="btn btn-primary" onclick="createConversationWithAdmin()">
-                            <i class="fas fa-user-shield"></i> Chat với Quản trị viên
-                        </button>
-                    </div>
-                `;
-            }
-            
             $('#managersList').html(html);
         }
         
+        // Chọn manager để chat
         function selectManager(managerId) {
-            // Close modal
+            // Đóng modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('managerSelectionModal'));
             modal.hide();
             
-            // Kiểm tra trạng thái online của manager
-            const managerCard = $(`.manager-card[data-manager-id="${managerId}"]`);
-            const isOnline = managerCard.find('.badge.bg-success').length > 0;
-            
-            if (!isOnline) {
-                // Hiển thị thông báo cho nhân viên offline
-                showNotification('Nhân viên này đang offline. Tin nhắn sẽ được trả lời khi họ online.', 'warning');
-            }
-            
-            // Create conversation with selected manager
+            // Tạo conversation với manager được chọn
             createConversationWithManager(managerId);
         }
         
+        // Tạo conversation với manager được chọn
         function createConversationWithManager(managerId) {
             $.post('src/controllers/chat-controller.php?action=create_conversation', {
                 other_user_id: managerId
@@ -2530,34 +2586,14 @@ if (!in_array($userRole, [1, 3, 5])) {
             }, 'json');
         }
         
+        // Tạo conversation tự động (tự động phân bổ)
         function createAutoConversation() {
-            // Close modal if open
+            // Đóng modal nếu đang mở
             const modal = bootstrap.Modal.getInstance(document.getElementById('managerSelectionModal'));
             if (modal) modal.hide();
             
-            // Tạo conversation tự động với ưu tiên nhân viên online
-            $.post('src/controllers/chat-controller.php?action=create_conversation', {
-                other_user_id: 'auto_online' // Server sẽ tìm nhân viên online trước
-            }, function(data) {
-                if (data.success) {
-                    currentConversationId = data.conversation_id;
-                    $('#messageInput').prop('disabled', false);
-                    $('#sendButton').prop('disabled', false);
-                    loadConversations();
-                    loadMessages(data.conversation_id);
-                    
-                    // Hiển thị thông báo về người được chọn
-                    if (data.assigned_staff) {
-                        showNotification(`Đã kết nối với ${data.assigned_staff.name} (${data.assigned_staff.role})`, 'success');
-                    }
-                } else {
-                    // Nếu không tìm được nhân viên online, fallback về admin
-                    createConversationWithAdmin();
-                }
-            }, 'json').fail(function() {
-                // Nếu có lỗi, fallback về admin
-                createConversationWithAdmin();
-            });
+            // Tự động chuyển cho quản trị viên nếu không có nhân viên online
+            loadAvailableManagers();
         }
         
         function showNotification(message, type = 'info', icon = null) {
@@ -2613,10 +2649,19 @@ if (!in_array($userRole, [1, 3, 5])) {
             }, 5000);
         }
         
-        // Filter managers
-        $('#specializationFilter, #statusFilter').on('change', function() {
-            // Implement filtering logic here
-            console.log('Filter changed');
+        // Lọc managers theo role
+        $(document).on('change', '#roleFilter', function() {
+            console.log('Filter changed:', {
+                role: $('#roleFilter').val()
+            });
+            
+            // Áp dụng filter nếu managers đã được load
+            if (allManagers.length > 0) {
+                applyFilters();
+            } else {
+                // Reload managers nếu chưa load
+                loadAvailableManagers();
+            }
         });
         
         // Update conversation preview
@@ -3283,20 +3328,41 @@ if (!in_array($userRole, [1, 3, 5])) {
             }
             
             // Ensure modal is visible
-            $('#callModal').addClass('show');
+            $('#callModal').addClass('show').css('display', 'flex');
             console.log('✅ Call modal shown with type:', type);
             
             // Debug: Check if buttons are in DOM
             setTimeout(() => {
                 const acceptBtn = $('#callControls .call-btn.accept');
                 const rejectBtn = $('#callControls .call-btn.reject');
+                const modalVisible = $('#callModal').hasClass('show');
+                const modalDisplay = $('#callModal').css('display');
+                
                 console.log('🔍 Button check:', {
                     acceptBtn: acceptBtn.length,
                     rejectBtn: rejectBtn.length,
                     acceptBtnVisible: acceptBtn.is(':visible'),
                     rejectBtnVisible: rejectBtn.is(':visible'),
-                    callControlsHTML: $('#callControls').html()
+                    callControlsHTML: $('#callControls').html(),
+                    modalVisible: modalVisible,
+                    modalDisplay: modalDisplay
                 });
+                
+                // Force show modal and buttons if not visible
+                if (!modalVisible || modalDisplay === 'none') {
+                    console.warn('⚠️ Modal not visible, forcing show');
+                    $('#callModal').addClass('show').css('display', 'flex');
+                }
+                
+                // Force show buttons if not visible
+                if (type === 'incoming') {
+                    if (acceptBtn.length > 0 && !acceptBtn.is(':visible')) {
+                        acceptBtn.css('display', 'flex');
+                    }
+                    if (rejectBtn.length > 0 && !rejectBtn.is(':visible')) {
+                        rejectBtn.css('display', 'flex');
+                    }
+                }
             }, 100);
         }
         
@@ -3712,7 +3778,15 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // Socket events for calls
         function setupCallSocketEvents() {
+            // Prevent duplicate event listeners
+            if (socket._callEventsSetup) {
+                console.log('⚠️ Call socket events already setup, skipping...');
+                return;
+            }
+            
             if (socket && typeof socket.on === 'function') {
+                // Mark as setup to prevent duplicates
+                socket._callEventsSetup = true;
                 // Incoming call
                 socket.on('call_initiated', data => {
                     console.log('Received call_initiated event:', data);
@@ -3727,6 +3801,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                             type: data.call_type,
                             caller_id: data.caller_id,
                             receiver_id: currentUserId,
+                            conversation_id: data.conversation_id,
                             status: 'ringing'
                         };
                         
@@ -3734,9 +3809,34 @@ if (!in_array($userRole, [1, 3, 5])) {
                         const conversation = conversations.find(c => c.id == data.conversation_id);
                         const callerName = conversation ? conversation.other_user_name : 'Người gọi';
                         
+                        console.log('📞 Showing call modal for:', callerName);
+                        console.log('📞 Call type:', data.call_type);
+                        
+                        // Show modal with accept/reject buttons
                         showCallModal('incoming', callerName, data.call_type);
+                        
+                        // Force show modal if it doesn't show
+                        setTimeout(() => {
+                            const modalElement = document.getElementById('callModal');
+                            if (modalElement) {
+                                const modalVisible = $('#callModal').hasClass('show');
+                                const modalDisplay = $('#callModal').css('display');
+                                
+                                console.log('🔍 Modal check:', {
+                                    modalVisible: modalVisible,
+                                    modalDisplay: modalDisplay,
+                                    modalElement: modalElement
+                                });
+                                
+                                if (!modalVisible || modalDisplay === 'none') {
+                                    console.warn('⚠️ Modal not visible, forcing show');
+                                    $('#callModal').addClass('show').css('display', 'flex');
+                                }
+                            }
+                        }, 100);
                     } else {
                         console.log('❌ Call is not for this user, ignoring');
+                        console.log('❌ Receiver ID:', data.receiver_id, 'Current User ID:', currentUserId);
                     }
                 });
                 
@@ -3845,12 +3945,8 @@ if (!in_array($userRole, [1, 3, 5])) {
             }
         }
         
-        // Initialize everything
-        $(document).ready(() => {
-            // ... existing initialization code ...
-            setupMediaEvents();
-            setupCallSocketEvents();
-        });
+        // Note: setupCallSocketEvents() is now called in socket.on('connect')
+        // to ensure socket is connected before setting up event listeners
     </script>
 
 </body>

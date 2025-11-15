@@ -46,12 +46,24 @@
         });
         
         // Initialize Socket.IO for real-time notifications
+        // Auto-detect Socket.IO server URL
+        const getSocketServerURL = function() {
+            const protocol = window.location.protocol;
+            if (window.location.hostname.includes('sukien.info.vn')) {
+                return protocol + '//ws.sukien.info.vn';  // VPS WebSocket server
+            }
+            return 'http://localhost:3000';  // Localhost development
+        };
+        
+        const socketServerURL = getSocketServerURL();
         let socket;
         try {
-            socket = io('http://localhost:3000');
+            socket = io(socketServerURL, {
+                path: '/socket.io'
+            });
             
             socket.on('connect', function() {
-                console.log('Connected to server');
+                console.log('Connected to server:', socketServerURL);
             });
             
             socket.on('notification', function(data) {

@@ -41,14 +41,25 @@ const io = socketIo(server, {
     cors: {
         origin: function (origin, callback) {
             if (!origin) {
+                // Same-origin request (no origin header)
                 return callback(null, true);
             }
             
+            // Allow all subdomains of sukien.info.vn (including www)
+            if (origin.includes('sukien.info.vn')) {
+                console.log('✅ CORS: Allowed - sukien.info.vn subdomain:', origin);
+                return callback(null, true);
+            }
+            
+            // Check CORS_ORIGINS list
             if (CORS_ORIGINS.includes(origin)) {
+                console.log('✅ CORS: Allowed - in CORS_ORIGINS:', origin);
                 callback(null, true);
             } else if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+                console.log('✅ CORS: Allowed - localhost:', origin);
                 callback(null, true);
             } else {
+                console.log('❌ CORS: Rejected -', origin);
                 callback(new Error('Not allowed by CORS'));
             }
         },
@@ -939,12 +950,26 @@ if (!isLocalhost) {
                     path: SOCKET_IO_PATH,
                     cors: {
                         origin: function (origin, callback) {
-                            if (!origin) return callback(null, true);
+                            if (!origin) {
+                                // Same-origin request (no origin header)
+                                return callback(null, true);
+                            }
+                            
+                            // Allow all subdomains of sukien.info.vn (including www)
+                            if (origin.includes('sukien.info.vn')) {
+                                console.log('✅ CORS: Allowed - sukien.info.vn subdomain:', origin);
+                                return callback(null, true);
+                            }
+                            
+                            // Check CORS_ORIGINS list
                             if (CORS_ORIGINS.includes(origin)) {
+                                console.log('✅ CORS: Allowed - in CORS_ORIGINS:', origin);
                                 callback(null, true);
                             } else if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+                                console.log('✅ CORS: Allowed - localhost:', origin);
                                 callback(null, true);
                             } else {
+                                console.log('❌ CORS: Rejected -', origin);
                                 callback(new Error('Not allowed by CORS'));
                             }
                         },

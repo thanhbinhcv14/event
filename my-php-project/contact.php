@@ -700,7 +700,5 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         });
     </script>
     
-    <!-- Chat Widget - AI Assistant -->
-    <?php include 'chat-widget.php'; ?>
 </body>
 </html>
