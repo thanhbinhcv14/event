@@ -974,27 +974,48 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- Socket.IO with fallback -->
+<!-- Socket.IO - Use CDN for production, local server for development -->
 <script>
-    // Try to load Socket.IO from local server first
-    const socketScript = document.createElement('script');
-    socketScript.src = 'http://localhost:3000/socket.io/socket.io.js';
-    socketScript.onerror = function() {
-        console.warn('Local Socket.IO server not available, using CDN fallback');
-        const cdnScript = document.createElement('script');
-        cdnScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
-        cdnScript.onload = function() {
-            console.log('Socket.IO loaded from CDN');
-        };
-        cdnScript.onerror = function() {
-            console.error('Failed to load Socket.IO from both local server and CDN');
-        };
-        document.head.appendChild(cdnScript);
-    };
-    socketScript.onload = function() {
-        console.log('Socket.IO loaded from local server');
-    };
-    document.head.appendChild(socketScript);
+    // Load Socket.IO client
+    (function() {
+        const hostname = window.location.hostname;
+        const isProduction = hostname.includes('sukien.info.vn') || hostname.includes('sukien');
+        
+        // For production, use CDN directly (more reliable on cPanel)
+        // For localhost, try local server first, then CDN fallback
+        let socketScript = document.createElement('script');
+        
+        if (isProduction) {
+            // Production: Use CDN directly
+            socketScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+            socketScript.onload = function() {
+                console.log('Socket.IO loaded from CDN (production)');
+            };
+            socketScript.onerror = function() {
+                console.error('Failed to load Socket.IO from CDN');
+            };
+        } else {
+            // Development: Try local server first
+            socketScript.src = 'http://localhost:3000/socket.io/socket.io.js';
+            socketScript.onerror = function() {
+                console.warn('Local Socket.IO server not available, using CDN fallback');
+                const cdnScript = document.createElement('script');
+                cdnScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+                cdnScript.onload = function() {
+                    console.log('Socket.IO loaded from CDN');
+                };
+                cdnScript.onerror = function() {
+                    console.error('Failed to load Socket.IO from both server and CDN');
+                };
+                document.head.appendChild(cdnScript);
+            };
+            socketScript.onload = function() {
+                console.log('Socket.IO loaded from local server');
+            };
+        }
+        
+        document.head.appendChild(socketScript);
+    })();
 </script>
 <script>
 let chatSocket;
@@ -1011,6 +1032,12 @@ let remoteStream = null;
 let peerConnection = null;
 let isMuted = false;
 let isCameraOff = false;
+
+// Interval IDs for polling/auto-refresh (to prevent multiple intervals)
+let pollingInterval1 = null;
+let pollingInterval2 = null;
+let autoRefreshInterval = null;
+let activityInterval = null;
 
 // Initialize chat
 $(document).ready(function() {
@@ -1106,19 +1133,93 @@ function initializeSocket() {
     }
     
     console.log('Socket.IO available, creating connection...');
-    chatSocket = io('http://localhost:3000', {
-        timeout: 3000,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        forceNew: true,
-        transports: ['websocket', 'polling']
-    });
+    
+    // Detect environment and set Socket.IO server URL
+    // ✅ FIX: Dùng base URL với mount point, path là relative
+    const getSocketServerURL = function() {
+        const protocol = window.location.protocol;
+        
+        // Hybrid: WebSocket chạy trên VPS riêng (ws.sukien.info.vn)
+        // PHP chạy trên shared hosting (sukien.info.vn)
+        if (window.location.hostname.includes('sukien.info.vn')) {
+            return protocol + '//ws.sukien.info.vn';  // VPS WebSocket server
+        }
+        
+        // Localhost development
+        return 'http://localhost:3000';
+    };
+    
+    const socketServerURL = getSocketServerURL();
+    console.log('📡 Connecting to Socket.IO server:', socketServerURL);
+    
+    // Get SOCKET_PATH for path option
+    // ✅ FIX: Path option phải là relative path từ base URL
+    // Nếu base URL = 'https://sukien.info.vn/nodeapp', path = '/socket.io'
+    // → Socket.IO client tạo request: 'https://sukien.info.vn/nodeapp/socket.io/...'
+    const getSocketPath = function() {
+        // ✅ SỬA: Luôn dùng relative path '/socket.io'
+        // Server sẽ normalize /nodeapp/socket.io → /socket.io
+        return '/socket.io';
+    };
+    
+    const socketPath = getSocketPath();
+    console.log('📡 Socket.IO path:', socketPath);
+    console.log('📡 Full Socket.IO URL:', socketServerURL + socketPath);
+    
+    // Check if Socket.IO library is loaded
+    if (typeof io === 'undefined') {
+        console.error('❌ Socket.IO library not loaded!');
+        updateConnectionStatus('disconnected', 'Socket.IO library chưa được tải');
+        return;
+    }
+    
+    // Create Socket.IO connection with improved error handling
+    try {
+        // Validate variables before creating connection
+        if (!socketServerURL) {
+            throw new Error('socketServerURL is not defined');
+        }
+        if (!socketPath) {
+            throw new Error('socketPath is not defined');
+        }
+        
+        chatSocket = io(socketServerURL, {
+            path: socketPath,
+            transports: ['polling', 'websocket'], // Try polling first, then websocket
+            timeout: 20000,
+            reconnection: true,
+            reconnectionAttempts: Infinity, // Keep trying to reconnect
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 10000,
+            forceNew: false,
+            autoConnect: true,
+            // Add query parameters for debugging
+            query: {
+                clientType: 'admin',
+                timestamp: Date.now()
+            }
+        });
+        
+        console.log('📡 Socket.IO connection initiated');
+        console.log('📡 Connection details:', {
+            url: socketServerURL,
+            path: socketPath,
+            fullPath: socketServerURL + socketPath
+        });
+    } catch (error) {
+        console.error('❌ Failed to create Socket.IO connection:', error);
+        console.error('Error stack:', error.stack);
+        updateConnectionStatus('disconnected', 'Lỗi tạo kết nối: ' + (error.message || 'Unknown error'));
+        return;
+    }
     
     chatSocket.on('connect', function() {
-        console.log('Admin chat connected');
+        console.log('✅ Admin chat connected successfully');
         isConnected = true;
         updateConnectionStatus('connected', 'Đã kết nối');
+        
+        // Stop polling mode when connected
+        stopPollingMode();
         
         // Join admin room
         chatSocket.emit('authenticate', {
@@ -1126,6 +1227,10 @@ function initializeSocket() {
             userRole: <?php echo $userRole; ?>,
             userName: currentUserName
         });
+        
+        // Ensure user is in their own room for receiving calls
+        chatSocket.emit('join_user_room', { userId: currentUserId });
+        console.log('Admin joined user room:', currentUserId);
         
         // Rejoin current conversation if any
         if (currentConversationId) {
@@ -1138,14 +1243,55 @@ function initializeSocket() {
     
     console.log('Socket.IO event handlers set up successfully');
     
-    chatSocket.on('disconnect', function() {
-        console.log('Admin chat disconnected');
+    chatSocket.on('connect_error', function(error) {
+        console.error('❌ Admin chat connection error:', error);
+        console.error('Error type:', error.type);
+        console.error('Error message:', error.message);
+        console.error('Error description:', error.description);
+        console.error('Connection URL:', socketServerURL);
+        console.error('Connection Path:', socketPath);
+        console.error('Full connection URL:', socketServerURL + socketPath);
+        
+        // Check if server is reachable
+        const healthCheckUrl = socketServerURL + (socketPath.includes('/nodeapp') ? '/nodeapp/health' : '/health');
+        console.log('🔍 Checking server health at:', healthCheckUrl);
+        
+        fetch(healthCheckUrl)
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    console.error('❌ Server health check failed:', response.status);
+                    throw new Error('Health check failed');
+                }
+            })
+            .then(data => {
+                console.log('✅ Server is reachable:', data);
+                console.log('💡 Possible causes: CORS issue, path mismatch, or Socket.IO not properly configured');
+                console.log('💡 Server path:', data.path || 'unknown');
+            })
+            .catch(err => {
+                console.error('❌ Cannot reach server:', err);
+                console.log('💡 Server may not be running or URL is incorrect');
+                console.log('💡 Expected server at:', socketServerURL);
+            });
+        
+        isConnected = false;
+        updateConnectionStatus('disconnected', 'Lỗi kết nối: ' + (error.message || error.description || 'Unknown error'));
+        // Start polling mode as fallback
+        if (!isConnected) {
+            startPollingMode();
+        }
+    });
+    
+    chatSocket.on('disconnect', function(reason) {
+        console.warn('⚠️ Admin chat disconnected:', reason);
         isConnected = false;
         updateConnectionStatus('disconnected', 'Mất kết nối');
     });
     
-    chatSocket.on('reconnect', function() {
-        console.log('Admin chat reconnected');
+    chatSocket.on('reconnect', function(attemptNumber) {
+        console.log('🔄 Admin chat reconnected after', attemptNumber, 'attempts');
         isConnected = true;
         updateConnectionStatus('connected', 'Đã kết nối lại');
         
@@ -1156,16 +1302,24 @@ function initializeSocket() {
             userName: currentUserName
         });
         
+        // Ensure user is in their own room for receiving calls
+        chatSocket.emit('join_user_room', { userId: currentUserId });
+        console.log('Admin reconnected, joined user room:', currentUserId);
+        
         // Rejoin current conversation if any
         if (currentConversationId) {
             chatSocket.emit('join_conversation', { conversation_id: currentConversationId });
         }
     });
     
-    chatSocket.on('connect_error', function(error) {
-        console.error('Admin chat connection error:', error);
+    chatSocket.on('reconnect_attempt', function() {
+        console.log('🔄 Attempting to reconnect...');
+    });
+    
+    chatSocket.on('reconnect_failed', function() {
+        console.error('❌ Admin chat reconnection failed');
         isConnected = false;
-        updateConnectionStatus('disconnected', 'Lỗi kết nối - Chế độ offline');
+        updateConnectionStatus('disconnected', 'Không thể kết nối lại');
         startPollingMode();
     });
     
@@ -1251,9 +1405,10 @@ function initializeSocket() {
     
     // Setup call socket events
     chatSocket.on('call_initiated', function(data) {
-        console.log('Received call_initiated event:', data);
-        console.log('Checking receiver_id:', data.receiver_id, 'vs currentUserId:', currentUserId);
-        console.log('Type comparison:', typeof data.receiver_id, typeof currentUserId);
+        console.log('📞 Received call_initiated event:', data);
+        console.log('📞 Checking receiver_id:', data.receiver_id, 'vs currentUserId:', currentUserId);
+        console.log('📞 Type comparison:', typeof data.receiver_id, typeof currentUserId);
+        console.log('📞 Conversation ID:', data.conversation_id);
         
         // Use == instead of === to handle string/number mismatch
         if (data.receiver_id == currentUserId || String(data.receiver_id) === String(currentUserId)) {
@@ -1263,15 +1418,34 @@ function initializeSocket() {
                 type: data.call_type,
                 caller_id: data.caller_id,
                 receiver_id: currentUserId,
+                conversation_id: data.conversation_id,
                 status: 'ringing'
             };
             
             const conversation = conversations.find(c => c.id == data.conversation_id);
             const callerName = conversation ? conversation.other_user_name : 'Người gọi';
             
+            console.log('📞 Showing call modal for:', callerName);
+            console.log('📞 Call type:', data.call_type);
+            
+            // Show modal with accept/reject buttons
             showCallModal('incoming', callerName, data.call_type);
+            
+            // Force show modal if Bootstrap modal doesn't show
+            setTimeout(() => {
+                const modalElement = document.getElementById('callModal');
+                if (modalElement) {
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (!modal || !modal._isShown) {
+                        console.warn('⚠️ Modal not shown, forcing show');
+                        const newModal = new bootstrap.Modal(modalElement);
+                        newModal.show();
+                    }
+                }
+            }, 100);
         } else {
             console.log('❌ Call is not for this user, ignoring');
+            console.log('❌ Receiver ID:', data.receiver_id, 'Current User ID:', currentUserId);
         }
     });
     
@@ -1293,7 +1467,7 @@ function initializeSocket() {
         if (data.caller_id === currentUserId) {
             $('#callModal').modal('hide');
             currentCall = null;
-            alert('Cuộc gọi bị từ chối');
+            showNotification(data.message || 'Cuộc gọi bị từ chối', 'warning', 'fa-times-circle');
         }
     });
     
@@ -1307,7 +1481,70 @@ function initializeSocket() {
             localStream = null;
         }
         
+        // ✅ Hiển thị thông báo
+        if (data.message) {
+            showNotification(data.message, 'info');
+        }
+        
         currentCall = null;
+    });
+    
+    // ✅ Call busy - Receiver đang trong cuộc gọi khác
+    chatSocket.on('call_busy', function(data) {
+        console.log('Received call_busy event:', data);
+        $('#callModal').modal('hide');
+        currentCall = null;
+        
+        showNotification(data.message || `${data.receiver_name} đang bận trong cuộc gọi khác`, 'warning');
+    });
+    
+    // ✅ Call timeout - Cuộc gọi không được trả lời
+    chatSocket.on('call_timeout', function(data) {
+        console.log('Received call_timeout event:', data);
+        $('#callModal').modal('hide');
+        currentCall = null;
+        
+        showNotification(data.message || 'Cuộc gọi không được trả lời sau 30 giây', 'warning');
+    });
+    
+    // ✅ Call notification - Các thông báo khác về cuộc gọi
+    chatSocket.on('call_notification', function(data) {
+        console.log('Received call_notification event:', data);
+        
+        let notificationType = 'info';
+        let icon = 'fa-info-circle';
+        
+        switch(data.type) {
+            case 'calling':
+                notificationType = 'info';
+                icon = 'fa-phone';
+                break;
+            case 'call_active':
+                notificationType = 'success';
+                icon = 'fa-check-circle';
+                break;
+            case 'call_rejected':
+                notificationType = 'warning';
+                icon = 'fa-times-circle';
+                break;
+            case 'call_ended':
+                notificationType = 'info';
+                icon = 'fa-phone-slash';
+                break;
+            case 'missed_call_busy':
+                notificationType = 'warning';
+                icon = 'fa-exclamation-triangle';
+                break;
+            case 'cannot_call':
+                notificationType = 'danger';
+                icon = 'fa-ban';
+                break;
+            default:
+                notificationType = 'info';
+                icon = 'fa-info-circle';
+        }
+        
+        showNotification(data.message || 'Thông báo cuộc gọi', notificationType, icon);
     });
 }
 
@@ -1463,6 +1700,9 @@ function selectConversation(conversationId) {
     // Join conversation room for real-time updates
     if (isConnected && chatSocket) {
         chatSocket.emit('join_conversation', { conversation_id: conversationId });
+        // Also ensure user is in their own room for receiving calls
+        chatSocket.emit('join_user_room', { userId: currentUserId });
+        console.log('Admin joined conversation room:', conversationId, 'and user room:', currentUserId);
     }
     
     // Load messages with real-time updates
@@ -2067,6 +2307,12 @@ function setupEventHandlers() {
         }
     });
     
+    // Xóa event listeners cũ trước khi attach mới (tránh duplicate)
+    $(document).off('click', '#attachButton');
+    $(document).off('click', '#voiceCallButton');
+    $(document).off('click', '#videoCallButton');
+    $('#fileInput').off('change');
+    
     // Attach button
     $(document).on('click', '#attachButton', function() {
         if ($(this).prop('disabled')) return;
@@ -2098,6 +2344,8 @@ function setupEventHandlers() {
         const file = e.target.files[0];
         if (file && currentConversationId) {
             uploadFile(file);
+            // Reset file input sau khi upload để có thể chọn lại cùng file
+            $(this).val('');
         }
     });
     
@@ -2367,36 +2615,72 @@ function updateMessageReadStatus(messageId) {
 
 // Auto-refresh conversations every 30 seconds if not connected
 function startAutoRefresh() {
+    // Clear existing intervals first to prevent duplicates
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+    if (activityInterval) {
+        clearInterval(activityInterval);
+        activityInterval = null;
+    }
+    
+    // Only start if not connected
     if (!isConnected) {
-        setInterval(function() {
-            loadConversations();
-            loadOnlineUsers();
+        autoRefreshInterval = setInterval(function() {
+            if (!isConnected) {
+                loadConversations();
+                loadOnlineUsers();
+            }
         }, 30000);
     }
     
     // Update user activity every 2 minutes to maintain online status
-    setInterval(function() {
+    activityInterval = setInterval(function() {
         updateUserActivity();
     }, 120000); // 2 minutes
 }
 
 // Start polling mode for real-time messaging
 function startPollingMode() {
+    // Prevent multiple polling modes from running
+    if (pollingInterval1 || pollingInterval2) {
+        console.log('Polling mode already running, skipping...');
+        return;
+    }
+    
     console.log('Starting polling mode for real-time messaging');
     
     // Poll for new messages every 2 seconds
-    setInterval(function() {
-        if (currentConversationId) {
-            checkForNewMessages();
+    pollingInterval1 = setInterval(function() {
+        if (!isConnected) {
+            if (currentConversationId) {
+                checkForNewMessages();
+            }
+            loadConversations();
+            loadOnlineUsers();
         }
-        loadConversations();
-        loadOnlineUsers();
     }, 2000);
     
     // Poll for conversation updates every 5 seconds
-    setInterval(function() {
-        loadConversations();
+    pollingInterval2 = setInterval(function() {
+        if (!isConnected) {
+            loadConversations();
+        }
     }, 5000);
+}
+
+// Stop polling mode
+function stopPollingMode() {
+    console.log('Stopping polling mode...');
+    if (pollingInterval1) {
+        clearInterval(pollingInterval1);
+        pollingInterval1 = null;
+    }
+    if (pollingInterval2) {
+        clearInterval(pollingInterval2);
+        pollingInterval2 = null;
+    }
 }
 
 // Check for new messages in current conversation
@@ -2420,6 +2704,60 @@ function checkForNewMessages() {
     }).fail(function() {
         console.log('Failed to check for new messages');
     });
+}
+
+// Show notification function (for call notifications and other alerts)
+function showNotification(message, type = 'info', icon = null) {
+    let alertClass, notificationIcon;
+    
+    // Nếu icon được truyền vào, dùng icon đó, nếu không thì dùng default
+    if (icon) {
+        notificationIcon = icon;
+    } else {
+        switch(type) {
+            case 'success':
+                notificationIcon = 'fa-check-circle';
+                break;
+            case 'warning':
+                notificationIcon = 'fa-exclamation-triangle';
+                break;
+            case 'error':
+            case 'danger':
+                notificationIcon = 'fa-exclamation-circle';
+                break;
+            default:
+                notificationIcon = 'fa-info-circle';
+        }
+    }
+    
+    switch(type) {
+        case 'success':
+            alertClass = 'alert-success';
+            break;
+        case 'warning':
+            alertClass = 'alert-warning';
+            break;
+        case 'error':
+        case 'danger':
+            alertClass = 'alert-danger';
+            break;
+        default:
+            alertClass = 'alert-info';
+    }
+    
+    const notification = $(`
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed" role="alert" style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+            <i class="fas ${notificationIcon}"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+    
+    $('body').prepend(notification);
+    
+    // Tự động ẩn sau 5 giây
+    setTimeout(() => {
+        notification.alert('close');
+    }, 5000);
 }
 
 // Show notification for new messages
@@ -2631,12 +2969,10 @@ $(document).ready(function() {
     loadTransferOptions();
 });
 
-// Auto refresh conversations every 30 seconds
-setInterval(() => {
-    if (isConnected) {
-        loadConversations();
-    }
-}, 30000);
+// Auto refresh conversations every 30 seconds (only when connected)
+// Note: This is handled by startAutoRefresh() when disconnected
+// and by Socket.IO events when connected, so this global interval is not needed
+// Removed to prevent duplicate intervals
 
 // ==================== CALL FUNCTIONS ====================
 
@@ -2664,13 +3000,17 @@ function initiateCall(callType) {
             
             // Emit call event via socket
             if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
-                chatSocket.emit('call_initiated', {
+                const callData = {
                     call_id: response.call_id,
                     caller_id: currentUserId,
                     receiver_id: response.receiver_id,
                     call_type: callType,
                     conversation_id: currentConversationId
-                });
+                };
+                console.log('📞 Admin emitting call_initiated event:', callData);
+                chatSocket.emit('call_initiated', callData);
+            } else {
+                console.warn('⚠️ Socket not connected, cannot emit call event');
             }
         } else {
             alert('Lỗi khởi tạo cuộc gọi: ' + response.error);
@@ -2683,29 +3023,98 @@ function initiateCall(callType) {
 
 // Show call modal
 function showCallModal(type, name, callType) {
+    console.log('📞 Admin showCallModal called:', { type, name, callType });
+    
     $('#callerName').text(name);
     $('#callType').text(callType === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại');
     
     if (type === 'incoming') {
         $('#callStatus').text('Cuộc gọi đến...');
+        // Clear existing buttons first
+        $('#callControls').empty();
+        // Add both accept and reject buttons with inline styles to ensure visibility
         $('#callControls').html(`
-            <button class="btn btn-success btn-lg me-2" onclick="acceptCall()">
+            <button class="btn btn-success btn-lg me-2" onclick="acceptCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
                 <i class="fas fa-phone"></i>
             </button>
-            <button class="btn btn-danger btn-lg" onclick="rejectCall()">
+            <button class="btn btn-danger btn-lg" onclick="rejectCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
                 <i class="fas fa-phone-slash"></i>
             </button>
         `);
+        console.log('✅ Admin incoming call - Added accept and reject buttons');
     } else {
         $('#callStatus').text('Đang gọi...');
         $('#callControls').html(`
-            <button class="btn btn-danger btn-lg" onclick="endCall()">
+            <button class="btn btn-danger btn-lg" id="endCallBtn" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
                 <i class="fas fa-phone-slash"></i>
             </button>
         `);
+        
+        // Attach event listener to end call button
+        $('#endCallBtn').off('click').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📞 End call button clicked (outgoing)');
+            endCall();
+        });
+        
+        console.log('📤 Admin outgoing call - Added end button only');
     }
     
-    $('#callModal').modal('show');
+    // Show modal using Bootstrap
+    const modalElement = document.getElementById('callModal');
+    if (modalElement) {
+        // Try to get existing modal instance
+        let modal = bootstrap.Modal.getInstance(modalElement);
+        
+        // If no instance exists, create new one
+        if (!modal) {
+            modal = new bootstrap.Modal(modalElement);
+        }
+        
+        // Show modal
+        modal.show();
+        console.log('✅ Admin call modal shown with type:', type);
+        
+        // Ensure modal is visible
+        setTimeout(() => {
+            if (!$(modalElement).hasClass('show')) {
+                console.warn('⚠️ Modal not visible, forcing show');
+                $(modalElement).addClass('show').css('display', 'block');
+                $('.modal-backdrop').addClass('show');
+            }
+        }, 50);
+    } else {
+        console.error('❌ Call modal element not found!');
+    }
+    
+    // Debug: Check if buttons are in DOM
+    setTimeout(() => {
+        const acceptBtn = $('#callControls .btn-success');
+        const rejectBtn = $('#callControls .btn-danger');
+        const endBtn = $('#callControls .btn-danger');
+        console.log('🔍 Admin button check:', {
+            acceptBtn: acceptBtn.length,
+            rejectBtn: rejectBtn.length,
+            endBtn: endBtn.length,
+            acceptBtnVisible: acceptBtn.is(':visible'),
+            rejectBtnVisible: rejectBtn.is(':visible'),
+            endBtnVisible: endBtn.is(':visible'),
+            callControlsHTML: $('#callControls').html(),
+            modalVisible: $('#callModal').hasClass('show'),
+            modalDisplay: $('#callModal').css('display')
+        });
+        
+        // Force show buttons if not visible
+        if (type === 'incoming') {
+            if (acceptBtn.length > 0 && !acceptBtn.is(':visible')) {
+                acceptBtn.css('display', 'inline-flex');
+            }
+            if (rejectBtn.length > 0 && !rejectBtn.is(':visible')) {
+                rejectBtn.css('display', 'inline-flex');
+            }
+        }
+    }, 100);
 }
 
 // Accept call
@@ -2719,11 +3128,11 @@ function acceptCall() {
         call_id: currentCall.id
     }, function(response) {
         if (response.success) {
-            $('#callModal').modal('hide');
-            
             if (currentCall.type === 'video') {
+                $('#callModal').modal('hide');
                 startVideoCall();
             } else {
+                // For voice call, don't hide modal yet - show active call UI
                 startVoiceCall();
             }
             
@@ -2777,28 +3186,90 @@ function rejectCall() {
 
 // End call
 function endCall() {
-    if (!currentCall) {
-        $('#callModal').modal('hide');
-        $('#videoCallContainer').hide();
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
+    console.log('📞 End call function called');
+    console.log('📞 Current call:', currentCall);
+    console.log('📞 Local stream:', localStream);
+    console.log('📞 Remote stream:', remoteStream);
+    console.log('📞 Peer connection:', peerConnection);
+    
+    // Hide all call UIs immediately
+    $('#callModal').modal('hide');
+    $('#videoCallContainer').hide();
+    
+    // Stop local stream
+    if (localStream) {
+        try {
+            localStream.getTracks().forEach(track => {
+                track.stop();
+                console.log('📞 Stopped local track:', track.kind);
+            });
             localStream = null;
+            console.log('✅ Local stream stopped');
+        } catch (e) {
+            console.error('Error stopping local stream:', e);
         }
+    }
+    
+    // Stop remote stream
+    if (remoteStream) {
+        try {
+            remoteStream.getTracks().forEach(track => {
+                track.stop();
+                console.log('📞 Stopped remote track:', track.kind);
+            });
+            remoteStream = null;
+            console.log('✅ Remote stream stopped');
+        } catch (e) {
+            console.error('Error stopping remote stream:', e);
+        }
+    }
+    
+    // Close peer connection
+    if (peerConnection) {
+        try {
+            peerConnection.close();
+            peerConnection = null;
+            console.log('✅ Peer connection closed');
+        } catch (e) {
+            console.error('Error closing peer connection:', e);
+        }
+    }
+    
+    // If no currentCall, just cleanup and return
+    if (!currentCall) {
+        console.log('⚠️ No currentCall, cleanup done');
+        currentCall = null;
         return;
     }
     
     const callId = currentCall.id;
+    console.log('📞 Ending call with ID:', callId);
     
+    // Call backend to end call
     $.post('../src/controllers/call-controller.php?action=end_call', {
         call_id: callId
     }, function(response) {
+        console.log('📞 End call response:', response);
+        
+        // Hide UIs again (in case they were shown)
         $('#callModal').modal('hide');
         $('#videoCallContainer').hide();
         
-        // Stop all streams
+        // Stop all streams again (in case they weren't stopped)
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
+        }
+        
+        if (remoteStream) {
+            remoteStream.getTracks().forEach(track => track.stop());
+            remoteStream = null;
+        }
+        
+        // Close peer connection again
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
         }
         
         // Emit end event before clearing currentCall
@@ -2807,21 +3278,41 @@ function endCall() {
                 call_id: callId,
                 caller_id: currentUserId
             });
+            console.log('✅ Call ended event emitted');
         }
         
         currentCall = null;
+        console.log('✅ Call ended successfully');
     }, 'json').fail(function(xhr, status, error) {
-        console.error('End call error:', error);
-        // Cleanup anyway
+        console.error('❌ End call error:', error);
+        console.error('Response:', xhr.responseText);
+        
+        // Cleanup anyway even if backend call fails
         $('#callModal').modal('hide');
         $('#videoCallContainer').hide();
+        
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
         }
+        
+        if (remoteStream) {
+            remoteStream.getTracks().forEach(track => track.stop());
+            remoteStream = null;
+        }
+        
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+        
         currentCall = null;
+        console.log('✅ Cleanup done despite error');
     });
 }
+
+// Make endCall globally accessible
+window.endCall = endCall;
 
 // Start video call
 function startVideoCall() {
@@ -2830,6 +3321,10 @@ function startVideoCall() {
         return;
     }
     
+    // Hide call modal first
+    $('#callModal').modal('hide');
+    
+    // Show video call container
     $('#videoCallContainer').show();
     
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
@@ -2865,7 +3360,9 @@ function startVoiceCall() {
         .then(stream => {
             localStream = stream;
             initializePeerConnection();
-            alert('Cuộc gọi thoại đã bắt đầu');
+            
+            // Show voice call UI with end call button
+            showVoiceCallUI();
         })
         .catch(error => {
             console.error('Error accessing microphone:', error);
@@ -2877,6 +3374,37 @@ function startVoiceCall() {
             }
             alert(errorMessage);
         });
+}
+
+// Show voice call UI
+function showVoiceCallUI() {
+    // Get caller/receiver name
+    const conversation = conversations.find(c => c.id == currentConversationId);
+    const otherUserName = conversation ? conversation.other_user_name : 'Người gọi';
+    
+    // Update call modal to show active call state
+    $('#callerName').text(otherUserName);
+    $('#callType').text('Cuộc gọi thoại');
+    $('#callStatus').text('Đang gọi...');
+    
+    // Show end call button only
+    $('#callControls').html(`
+        <button class="btn btn-danger btn-lg" id="endCallBtn" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
+            <i class="fas fa-phone-slash"></i>
+        </button>
+    `);
+    
+    // Attach event listener to end call button
+    $('#endCallBtn').off('click').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('📞 End call button clicked (voice call)');
+        endCall();
+    });
+    
+    // Show modal
+    $('#callModal').modal('show');
+    console.log('✅ Admin voice call UI shown with end call button');
 }
 
 // Initialize WebRTC peer connection
@@ -3042,23 +3570,8 @@ function uploadFile(file) {
                 // Update conversation preview
                 updateConversationPreview(currentConversationId, response.message.message || '[File]');
                 
-                // Emit real-time event
-                if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
-                    chatSocket.emit('new_message', {
-                        conversation_id: currentConversationId,
-                        message: response.message.message || response.message.text,
-                        user_id: currentUserId,
-                        user_name: currentUserName,
-                        message_type: response.message.message_type
-                    });
-                    
-                    chatSocket.emit('broadcast_message', {
-                        conversation_id: currentConversationId,
-                        message: response.message,
-                        userId: currentUserId,
-                        timestamp: new Date().toISOString()
-                    });
-                }
+                // Note: Không emit Socket.IO event ở đây vì message đã được broadcast từ server
+                // Nếu emit sẽ gây duplicate message (1 lần từ AJAX success, 1 lần từ Socket.IO event)
                 
                 // Refresh conversation list if not connected
                 if (!isConnected) {

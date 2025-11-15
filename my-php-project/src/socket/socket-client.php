@@ -7,10 +7,39 @@
 class SocketClient {
     private $socketUrl;
     private $socketPort;
+    private $socketPath;
     
-    public function __construct($url = 'http://localhost', $port = 3000) {
-        $this->socketUrl = $url;
-        $this->socketPort = $port;
+    public function __construct($url = null, $port = null, $path = null) {
+        // Auto-detect environment
+        if ($url === null || $port === null) {
+            $this->detectEnvironment();
+        } else {
+            $this->socketUrl = $url;
+            $this->socketPort = $port;
+            $this->socketPath = $path ?? '';
+        }
+    }
+    
+    /**
+     * Auto-detect Socket.IO server URL based on environment
+     */
+    private function detectEnvironment() {
+        // Check if running on production
+        $hostname = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+        
+        if (strpos($hostname, 'sukien.info.vn') !== false || strpos($hostname, 'sukien') !== false) {
+            // Production: Node.js app is mounted at /nodeapp
+            // Structure: /home/vhieqivuhosting/nodeapp/ (Node.js) and /home/vhieqivuhosting/public_html/ (PHP)
+            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $this->socketUrl = $protocol . '://' . $hostname;
+            $this->socketPort = null; // No port for same-domain requests
+            $this->socketPath = '/nodeapp'; // Node.js app mount point in cPanel
+        } else {
+            // Localhost development
+            $this->socketUrl = 'http://localhost';
+            $this->socketPort = 3000;
+            $this->socketPath = '';
+        }
     }
     
     /**
@@ -71,10 +100,28 @@ class SocketClient {
     }
     
     /**
-     * Send data to Socket.IO server
+     * Send data to Socket.IO server via HTTP endpoint
+     * Note: Socket.IO doesn't directly accept HTTP POST for events
+     * This is a placeholder - actual events should be emitted from client-side JavaScript
+     * For server-side PHP, we can use HTTP API endpoint if available
      */
     private function sendToSocket($event, $data) {
-        $url = $this->socketUrl . ':' . $this->socketPort . '/socket.io/';
+        // Build Socket.IO server URL
+        $baseUrl = $this->socketUrl;
+        if ($this->socketPort) {
+            $baseUrl .= ':' . $this->socketPort;
+        }
+        
+        // For production, API endpoint is at /nodeapp/api/emit
+        // For localhost, API endpoint is at http://localhost:3000/api/emit
+        // The socketPath is only for Socket.IO connection, not for HTTP API
+        if ($this->socketPath) {
+            // Production: Add /nodeapp prefix for API endpoint
+            $url = $baseUrl . $this->socketPath . '/api/emit';
+        } else {
+            // Localhost: Direct API endpoint
+            $url = $baseUrl . '/api/emit';
+        }
         
         // Create cURL request
         $ch = curl_init();
@@ -85,11 +132,7 @@ class SocketClient {
             'data' => $data
         ]));
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-            'Content-Length: ' . strlen(json_encode([
-                'event' => $event,
-                'data' => $data
-            ]))
+            'Content-Type: application/json'
         ]);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 5);
@@ -97,10 +140,15 @@ class SocketClient {
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
         curl_close($ch);
         
         // Log the result
-        error_log("Socket notification sent: $event, HTTP Code: $httpCode");
+        if ($curlError) {
+            error_log("Socket notification error: $event, cURL Error: $curlError");
+        } else {
+            error_log("Socket notification sent: $event, HTTP Code: $httpCode");
+        }
         
         return $httpCode === 200;
     }
@@ -109,11 +157,33 @@ class SocketClient {
      * Get Socket.IO client script
      */
     public function getClientScript($userId = null, $userRole = null, $userName = null) {
+        // Build Socket.IO server URL for client
+        $socketServerUrl = $this->socketUrl;
+        if ($this->socketPort) {
+            $socketServerUrl .= ':' . $this->socketPort;
+        }
+        
+        // Socket.IO client script URL
+        // In production: https://sukien.info.vn/nodeapp/socket.io/socket.io.js
+        // In localhost: http://localhost:3000/socket.io/socket.io.js
+        $clientScriptUrl = $socketServerUrl;
+        if ($this->socketPath) {
+            $clientScriptUrl .= $this->socketPath;
+        }
+        $clientScriptUrl .= '/socket.io/socket.io.js';
+        
+        // Socket.IO connection path (for io() constructor)
+        // In production: /nodeapp/socket.io (full path from root)
+        // In localhost: /socket.io (direct path)
+        $socketPath = $this->socketPath ? $this->socketPath . '/socket.io' : '/socket.io';
+        
         $script = "
-        <script src=\"{$this->socketUrl}:{$this->socketPort}/socket.io/socket.io.js\"></script>
+        <script src=\"{$clientScriptUrl}\"></script>
         <script>
             // Initialize Socket.IO connection
-            const socket = io('{$this->socketUrl}:{$this->socketPort}');
+            const socket = io('{$socketServerUrl}', {
+                path: '{$socketPath}'
+            });
             
             // Connection status
             socket.on('connect', function() {

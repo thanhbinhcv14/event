@@ -1,0 +1,6 @@
+{
+  "nodejs": true,
+  "app_type": "node",
+  "startup_file": "socket-server.js"
+}
+

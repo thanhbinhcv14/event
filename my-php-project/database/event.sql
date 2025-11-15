@@ -948,7 +948,10 @@ CREATE TABLE `webhook_logs` (
 ALTER TABLE `baocaosuco`
   ADD PRIMARY KEY (`ID_BaoCao`),
   ADD KEY `ID_NhanVien` (`ID_NhanVien`),
-  ADD KEY `ID_QuanLy` (`ID_QuanLy`);
+  ADD KEY `ID_QuanLy` (`ID_QuanLy`),
+  ADD KEY `idx_trangthai` (`TrangThai`),
+  ADD KEY `idx_mucdo` (`MucDo`),
+  ADD KEY `idx_ngaybaocao` (`NgayBaoCao`);
 
 --
 -- Chỉ mục cho bảng `baocaotiendo`
@@ -956,7 +959,9 @@ ALTER TABLE `baocaosuco`
 ALTER TABLE `baocaotiendo`
   ADD PRIMARY KEY (`ID_BaoCao`),
   ADD KEY `ID_NhanVien` (`ID_NhanVien`),
-  ADD KEY `ID_QuanLy` (`ID_QuanLy`);
+  ADD KEY `ID_QuanLy` (`ID_QuanLy`),
+  ADD KEY `idx_trangthai` (`TrangThai`),
+  ADD KEY `idx_ngaybaocao` (`NgayBaoCao`);
 
 --
 -- Chỉ mục cho bảng `call_sessions`
@@ -990,7 +995,9 @@ ALTER TABLE `chitietdatsukien`
 ALTER TABLE `chitietkehoach`
   ADD PRIMARY KEY (`ID_ChiTiet`),
   ADD KEY `ID_KeHoach` (`ID_KeHoach`),
-  ADD KEY `ID_NhanVien` (`ID_NhanVien`);
+  ADD KEY `ID_NhanVien` (`ID_NhanVien`),
+  ADD KEY `idx_trangthai` (`TrangThai`),
+  ADD KEY `idx_kehoach_trangthai` (`ID_KeHoach`, `TrangThai`);
 
 --
 -- Chỉ mục cho bảng `combo`
@@ -1027,7 +1034,8 @@ ALTER TABLE `conversations`
   ADD UNIQUE KEY `unique_conversation` (`user1_id`,`user2_id`),
   ADD KEY `user1_id` (`user1_id`),
   ADD KEY `user2_id` (`user2_id`),
-  ADD KEY `fk_conversations_lastmessage` (`LastMessage_ID`);
+  ADD KEY `fk_conversations_lastmessage` (`LastMessage_ID`),
+  ADD KEY `idx_updated_at` (`updated_at`);
 
 --
 -- Chỉ mục cho bảng `danhgia`
@@ -1035,7 +1043,10 @@ ALTER TABLE `conversations`
 ALTER TABLE `danhgia`
   ADD PRIMARY KEY (`ID_DanhGia`),
   ADD KEY `ID_SuKien` (`ID_SuKien`),
-  ADD KEY `ID_KhachHang` (`ID_KhachHang`);
+  ADD KEY `ID_KhachHang` (`ID_KhachHang`),
+  ADD KEY `idx_trangthai` (`TrangThai`),
+  ADD KEY `idx_thoigiandanhgia` (`ThoiGianDanhGia`),
+  ADD KEY `idx_sukien_reviews` (`ID_SuKien`, `TrangThai`, `ThoiGianDanhGia`);
 
 --
 -- Chỉ mục cho bảng `datlichsukien`
@@ -1044,13 +1055,24 @@ ALTER TABLE `datlichsukien`
   ADD PRIMARY KEY (`ID_DatLich`),
   ADD KEY `fk_datlich_khachhang` (`ID_KhachHang`),
   ADD KEY `fk_datlich_diadiem` (`ID_DD`),
-  ADD KEY `fk_datlich_loaisk` (`ID_LoaiSK`);
+  ADD KEY `fk_datlich_loaisk` (`ID_LoaiSK`),
+  ADD KEY `idx_trangthaiduyet` (`TrangThaiDuyet`),
+  ADD KEY `idx_trangthaithanhtoan` (`TrangThaiThanhToan`),
+  ADD KEY `idx_ngaytao` (`NgayTao`),
+  ADD KEY `idx_ngaybatdau` (`NgayBatDau`),
+  ADD KEY `idx_ngayketthuc` (`NgayKetThuc`),
+  ADD KEY `idx_autocancel` (`TrangThaiDuyet`, `TrangThaiThanhToan`, `NgayTao`),
+  ADD KEY `idx_khachhang_ngaybatdau` (`ID_KhachHang`, `NgayBatDau`),
+  ADD KEY `idx_trangthai_ngaytao` (`TrangThaiDuyet`, `NgayTao`);
 
 --
 -- Chỉ mục cho bảng `diadiem`
 --
 ALTER TABLE `diadiem`
-  ADD PRIMARY KEY (`ID_DD`);
+  ADD PRIMARY KEY (`ID_DD`),
+  ADD KEY `idx_trangthaihoatdong` (`TrangThaiHoatDong`),
+  ADD KEY `idx_loaidiadiem` (`LoaiDiaDiem`),
+  ADD KEY `idx_status_type` (`TrangThaiHoatDong`, `LoaiDiaDiem`);
 
 --
 -- Chỉ mục cho bảng `diadiem_loaisk`
@@ -1065,7 +1087,9 @@ ALTER TABLE `diadiem_loaisk`
 ALTER TABLE `kehoachthuchien`
   ADD PRIMARY KEY (`ID_KeHoach`),
   ADD KEY `id_sukien` (`ID_SuKien`),
-  ADD KEY `id_nhanvien` (`ID_NhanVien`);
+  ADD KEY `id_nhanvien` (`ID_NhanVien`),
+  ADD KEY `idx_trangthai` (`TrangThai`),
+  ADD KEY `idx_ngaybatdau` (`NgayBatDau`);
 
 --
 -- Chỉ mục cho bảng `khachhanginfo`
@@ -1082,7 +1106,12 @@ ALTER TABLE `lichlamviec`
   ADD KEY `fk_llv_datlich` (`ID_DatLich`),
   ADD KEY `fk_llv_nhanvien` (`ID_NhanVien`),
   ADD KEY `id_kehoach` (`ID_KeHoach`),
-  ADD KEY `fk_llv_ct` (`ID_ChiTiet`);
+  ADD KEY `fk_llv_ct` (`ID_ChiTiet`),
+  ADD KEY `idx_trangthai` (`TrangThai`),
+  ADD KEY `idx_ngaybatdau` (`NgayBatDau`),
+  ADD KEY `idx_ngayketthuc` (`NgayKetThuc`),
+  ADD KEY `idx_nhanvien_ngaybatdau` (`ID_NhanVien`, `NgayBatDau`),
+  ADD KEY `idx_datlich_trangthai` (`ID_DatLich`, `TrangThai`);
 
 --
 -- Chỉ mục cho bảng `loaisukien`
@@ -1098,7 +1127,10 @@ ALTER TABLE `messages`
   ADD KEY `conversation_id` (`conversation_id`),
   ADD KEY `sender_id` (`sender_id`),
   ADD KEY `created_at` (`SentAt`),
-  ADD KEY `idx_messages_type` (`message_type`);
+  ADD KEY `idx_messages_type` (`message_type`),
+  ADD KEY `idx_isread` (`IsRead`),
+  ADD KEY `idx_conversation_unread` (`conversation_id`, `sender_id`, `IsRead`),
+  ADD KEY `idx_conversation_sentat` (`conversation_id`, `SentAt`);
 
 --
 -- Chỉ mục cho bảng `nhanvieninfo`
@@ -1119,7 +1151,9 @@ ALTER TABLE `payment_config`
 --
 ALTER TABLE `payment_history`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `fk_payment_history_payment` (`payment_id`);
+  ADD KEY `fk_payment_history_payment` (`payment_id`),
+  ADD KEY `idx_created_at` (`created_at`),
+  ADD KEY `idx_payment_created` (`payment_id`, `created_at`);
 
 --
 -- Chỉ mục cho bảng `phanquyen`
@@ -1134,7 +1168,9 @@ ALTER TABLE `phanquyen`
 ALTER TABLE `sukien`
   ADD PRIMARY KEY (`ID_SuKien`),
   ADD UNIQUE KEY `MaSuKien` (`MaSuKien`),
-  ADD KEY `fk_sukien_datlich` (`ID_DatLich`);
+  ADD KEY `fk_sukien_datlich` (`ID_DatLich`),
+  ADD KEY `idx_trangthaithucte` (`TrangThaiThucTe`),
+  ADD KEY `idx_ngaybatdau_thucte` (`NgayBatDauThucTe`);
 
 --
 -- Chỉ mục cho bảng `thanhtoan`
@@ -1147,13 +1183,18 @@ ALTER TABLE `thanhtoan`
   ADD KEY `idx_datlich_trangthai` (`ID_DatLich`,`TrangThai`),
   ADD KEY `idx_ngaythanhtoan` (`NgayThanhToan`),
   ADD KEY `idx_phuongthuc_trangthai` (`PhuongThuc`,`TrangThai`),
-  ADD KEY `idx_sepay_transaction_id` (`SePayTransactionId`);
+  ADD KEY `idx_sepay_transaction_id` (`SePayTransactionId`),
+  ADD KEY `idx_phuongthuc` (`PhuongThuc`),
+  ADD KEY `idx_datlich_loaithanhtoan` (`ID_DatLich`, `LoaiThanhToan`);
 
 --
 -- Chỉ mục cho bảng `thietbi`
 --
 ALTER TABLE `thietbi`
-  ADD PRIMARY KEY (`ID_TB`);
+  ADD PRIMARY KEY (`ID_TB`),
+  ADD KEY `idx_trangthai` (`TrangThai`),
+  ADD KEY `idx_loaithietbi` (`LoaiThietBi`),
+  ADD KEY `idx_status_loai` (`TrangThai`, `LoaiThietBi`);
 
 --
 -- Chỉ mục cho bảng `users`
@@ -1163,14 +1204,20 @@ ALTER TABLE `users`
   ADD UNIQUE KEY `Email` (`Email`),
   ADD UNIQUE KEY `FacebookID` (`FacebookID`),
   ADD UNIQUE KEY `GoogleID` (`GoogleID`),
-  ADD KEY `ID_Role` (`ID_Role`);
+  ADD KEY `ID_Role` (`ID_Role`),
+  ADD KEY `idx_onlinestatus` (`OnlineStatus`),
+  ADD KEY `idx_lastactivity` (`LastActivity`),
+  ADD KEY `idx_status_online` (`TrangThai`, `OnlineStatus`);
 
 --
 -- Chỉ mục cho bảng `webhook_logs`
 --
 ALTER TABLE `webhook_logs`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `fk_webhook_payment` (`payment_id`);
+  ADD KEY `fk_webhook_payment` (`payment_id`),
+  ADD KEY `idx_processed` (`processed`),
+  ADD KEY `idx_created_at` (`created_at`),
+  ADD KEY `idx_unprocessed` (`processed`, `created_at`);
 
 --
 -- AUTO_INCREMENT cho các bảng đã đổ

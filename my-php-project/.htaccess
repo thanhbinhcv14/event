@@ -1,17 +1,75 @@
+# # Set default directory index
+# DirectoryIndex index.php index.html index.htm
 
+# RewriteEngine On
+
+# # Detect base path automatically
+# RewriteBase /
+
+# # If accessing root and index.php exists, serve it
+# RewriteCond %{REQUEST_URI} ^/$
+# RewriteCond %{REQUEST_FILENAME} !-f
+# RewriteRule ^$ index.php [L]
+
+# # Allow direct access to controller files
+# RewriteCond %{REQUEST_URI} ^/src/controllers/.*\.php$
+# RewriteRule ^(.*)$ - [L]
+
+# # Redirect Trailing Slashes...
+# RewriteCond %{REQUEST_FILENAME} !-d
+# RewriteRule ^(.+)/$ /$1 [L,R=301]
+
+# # Handle Front Controller...
+# RewriteCond %{REQUEST_FILENAME} !-f
+# RewriteCond %{REQUEST_FILENAME} !-d
+# RewriteRule ^ index.php [L]
+
+# RewriteEngine On
+# RewriteCond %{REQUEST_URI} ^/socket.io [NC]
+# RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
+
+
+# ============================================================
+# .htaccess for public_html/ - iNET (Apache + Passenger + PHP)
+# Structure: /home/vhieqivuhosting/nodeapp/ (Node.js) 
+#            /home/vhieqivuhosting/public_html/ (PHP)
+# ============================================================
+# Note: /nodeapp/* requests are handled by cPanel Passenger
+#       /socket.io requests are proxied to Node.js as fallback
+# ============================================================
+
+# Set default directory index
+DirectoryIndex index.php index.html index.htm
 
 RewriteEngine On
 RewriteBase /
+
+# ============================================================
+# 1. Proxy Socket.IO requests to Node.js (đặt lên trên)
+# ============================================================
+# Proxy /socket.io requests to Node.js server
+# This serves as a fallback if Passenger routing has issues
+RewriteCond %{REQUEST_URI} ^/socket.io [NC]
+RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
+
+# ============================================================
+# 2. Xử lý PHP routing (Front Controller)
+# ============================================================
+
+# Nếu truy cập root thì đưa về index.php
+RewriteCond %{REQUEST_URI} ^/$
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^$ index.php [L]
 
 # Allow direct access to controller files
 RewriteCond %{REQUEST_URI} ^/src/controllers/.*\.php$
 RewriteRule ^(.*)$ - [L]
 
-# Redirect Trailing Slashes...
+# Redirect Trailing Slashes
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.+)/$ /$1 [L,R=301]
 
-# Handle Front Controller...
+# Front Controller
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [L]
