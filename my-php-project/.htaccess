@@ -65,6 +65,10 @@ RewriteRule ^$ index.php [L]
 RewriteCond %{REQUEST_URI} ^/src/controllers/.*\.php$
 RewriteRule ^(.*)$ - [L]
 
+# Allow direct access to hooks directory (for webhooks)
+RewriteCond %{REQUEST_URI} ^/hooks/.*\.php$
+RewriteRule ^(.*)$ - [L]
+
 # Redirect Trailing Slashes
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.+)/$ /$1 [L,R=301]

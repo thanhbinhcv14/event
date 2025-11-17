@@ -103,17 +103,121 @@ try {
     $stmt->execute([$staffInfo['ID_NhanVien']]);
     $recentReports = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // QUAN TRỌNG: Lấy dữ liệu thanh toán từ các sự kiện mà nhân viên tham gia
+    // Lấy từ cả lichlamviec và chitietkehoach
+    $paymentStats = [
+        'total_payments' => 0,
+        'total_amount' => 0,
+        'by_status' => ['Đang xử lý' => 0, 'Thành công' => 0, 'Thất bại' => 0, 'Đã hủy' => 0],
+        'by_method' => ['Chuyển khoản' => 0, 'Momo' => 0, 'ZaloPay' => 0, 'Visa/MasterCard' => 0, 'Tiền mặt' => 0],
+        'by_type' => ['Đặt cọc' => 0, 'Thanh toán đủ' => 0, 'Hoàn tiền' => 0],
+        'monthly_payments' => []
+    ];
+    
+    // Lấy danh sách ID_DatLich từ các công việc của nhân viên
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT ID_DatLich 
+        FROM lichlamviec 
+        WHERE ID_NhanVien = ? AND ID_DatLich IS NOT NULL
+        UNION
+        SELECT DISTINCT kht.ID_DatLich
+        FROM chitietkehoach ctk
+        LEFT JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+        WHERE ctk.ID_NhanVien = ? AND kht.ID_DatLich IS NOT NULL
+    ");
+    $stmt->execute([$staffInfo['ID_NhanVien'], $staffInfo['ID_NhanVien']]);
+    $eventIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    if (!empty($eventIds)) {
+        $placeholders = implode(',', array_fill(0, count($eventIds), '?'));
+        
+        // Thống kê thanh toán theo trạng thái
+        $stmt = $pdo->prepare("
+            SELECT 
+                TrangThai,
+                COUNT(*) as count,
+                SUM(SoTien) as total_amount
+            FROM thanhtoan
+            WHERE ID_DatLich IN ($placeholders)
+            GROUP BY TrangThai
+        ");
+        $stmt->execute($eventIds);
+        $statusStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($statusStats as $stat) {
+            $paymentStats['by_status'][$stat['TrangThai']] = (int)$stat['count'];
+            $paymentStats['total_payments'] += (int)$stat['count'];
+            $paymentStats['total_amount'] += (float)$stat['total_amount'];
+        }
+        
+        // Thống kê thanh toán theo phương thức
+        $stmt = $pdo->prepare("
+            SELECT 
+                PhuongThuc,
+                COUNT(*) as count,
+                SUM(SoTien) as total_amount
+            FROM thanhtoan
+            WHERE ID_DatLich IN ($placeholders)
+            GROUP BY PhuongThuc
+        ");
+        $stmt->execute($eventIds);
+        $methodStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($methodStats as $stat) {
+            $paymentStats['by_method'][$stat['PhuongThuc']] = (int)$stat['count'];
+        }
+        
+        // Thống kê thanh toán theo loại
+        $stmt = $pdo->prepare("
+            SELECT 
+                LoaiThanhToan,
+                COUNT(*) as count,
+                SUM(SoTien) as total_amount
+            FROM thanhtoan
+            WHERE ID_DatLich IN ($placeholders) AND LoaiThanhToan != ''
+            GROUP BY LoaiThanhToan
+        ");
+        $stmt->execute($eventIds);
+        $typeStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($typeStats as $stat) {
+            $paymentStats['by_type'][$stat['LoaiThanhToan']] = (int)$stat['count'];
+        }
+        
+        // Thống kê thanh toán theo tháng (12 tháng gần nhất)
+        $stmt = $pdo->prepare("
+            SELECT 
+                DATE_FORMAT(NgayThanhToan, '%Y-%m') as month,
+                COUNT(*) as count,
+                SUM(SoTien) as total_amount
+            FROM thanhtoan
+            WHERE ID_DatLich IN ($placeholders)
+            AND NgayThanhToan >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(NgayThanhToan, '%Y-%m')
+            ORDER BY month ASC
+        ");
+        $stmt->execute($eventIds);
+        $paymentStats['monthly_payments'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
 } catch (Exception $e) {
     $stats = ['total_assignments' => 0, 'completed' => 0, 'in_progress' => 0, 'pending' => 0, 'issues' => 0];
     $monthlyStats = [];
     $recentReports = [];
+    $paymentStats = [
+        'total_payments' => 0,
+        'total_amount' => 0,
+        'by_status' => ['Đang xử lý' => 0, 'Thành công' => 0, 'Thất bại' => 0, 'Đã hủy' => 0],
+        'by_method' => ['Chuyển khoản' => 0, 'Momo' => 0, 'ZaloPay' => 0, 'Visa/MasterCard' => 0, 'Tiền mặt' => 0],
+        'by_type' => ['Đặt cọc' => 0, 'Thanh toán đủ' => 0, 'Hoàn tiền' => 0],
+        'monthly_payments' => []
+    ];
     $staffInfo = ['HoTen' => 'Nhân viên', 'ChucVu' => 'Staff'];
     error_log("Error fetching staff reports: " . $e->getMessage());
     echo "<!-- Error: " . $e->getMessage() . " -->";
 }
 ?>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
         .stats-card {
             background: white;
@@ -150,15 +254,6 @@ try {
             height: 400px !important;
         }
         
-        #monthlyChart {
-            max-height: 400px !important;
-            height: 400px !important;
-        }
-        
-        #statusChart {
-            max-height: 300px !important;
-            height: 300px !important;
-        }
         
         .report-card {
             background: white;
@@ -252,32 +347,6 @@ try {
         </div>
     </div>
     <?php endif; ?>
-
-    <!-- Charts Row -->
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <div class="chart-card">
-                <h5 class="mb-3">
-                    <i class="fas fa-chart-bar text-primary"></i>
-                    Hiệu suất theo tháng
-                </h5>
-                <div style="height: 400px; position: relative;">
-                    <canvas id="monthlyChart"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="chart-card">
-                <h5 class="mb-3">
-                    <i class="fas fa-pie-chart text-success"></i>
-                    Phân bố trạng thái
-                </h5>
-                <div style="height: 300px; position: relative;">
-                    <canvas id="statusChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Action Buttons -->
     <div class="row mb-4">
@@ -407,6 +476,79 @@ try {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Charts Section -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="chart-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-chart-pie text-success"></i>
+                    Thống kê thanh toán theo trạng thái
+                </h5>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="paymentStatusChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="chart-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-chart-bar text-primary"></i>
+                    Thống kê thanh toán theo phương thức
+                </h5>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="paymentMethodChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="chart-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-chart-pie text-warning"></i>
+                    Thống kê thanh toán theo loại
+                </h5>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="paymentTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="chart-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-chart-line text-info"></i>
+                    Thanh toán theo tháng (12 tháng gần nhất)
+                </h5>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="paymentMonthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Payment Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number text-primary"><?= $paymentStats['total_payments'] ?></div>
+                <div class="stats-label">Tổng giao dịch</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number text-success"><?= number_format($paymentStats['total_amount'], 0, ',', '.') ?> VNĐ</div>
+                <div class="stats-label">Tổng số tiền</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="stats-number text-info"><?= $paymentStats['by_status']['Thành công'] ?></div>
+                <div class="stats-label">Giao dịch thành công</div>
             </div>
         </div>
     </div>
@@ -607,116 +749,289 @@ try {
         </div>
     </div>
 
+    <!-- Chart.js - Phải load trước khi khởi tạo biểu đồ -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // Hide loading overlay
-        window.addEventListener('load', function() {
+        // Hide loading overlay và khởi tạo biểu đồ
+        document.addEventListener('DOMContentLoaded', function() {
             const loadingOverlay = document.getElementById('pageLoading');
             if (loadingOverlay) {
                 loadingOverlay.style.display = 'none';
             }
-        });
-
-        // Wait for DOM to be ready before initializing charts
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeCharts();
-        });
-
-        // Initialize charts function
-        function initializeCharts() {
-            try {
-                // Monthly Performance Chart
-                const monthlyCtx = document.getElementById('monthlyChart');
-                if (monthlyCtx) {
-                    const monthlyData = <?= json_encode($monthlyStats) ?>;
-                    
-                    // Handle empty data
-                    if (!monthlyData || monthlyData.length === 0) {
-                        monthlyCtx.parentElement.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-chart-line fa-2x mb-2"></i><p>Chưa có dữ liệu thống kê</p></div>';
-                        return;
-                    }
-                    
-                    new Chart(monthlyCtx.getContext('2d'), {
-                        type: 'line',
-                        data: {
-                            labels: monthlyData.map(item => item.month),
-                            datasets: [{
-                                label: 'Tổng công việc',
-                                data: monthlyData.map(item => item.assignments),
-                                borderColor: '#667eea',
-                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                                tension: 0.4
-                            }, {
-                                label: 'Hoàn thành',
-                                data: monthlyData.map(item => item.completed),
-                                borderColor: '#28a745',
-                                backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                                tension: 0.4
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    position: 'top',
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true
-                                }
-                            }
-                        }
-                    });
+            
+            // Đợi một chút để đảm bảo Chart.js đã load
+            setTimeout(function() {
+                if (typeof Chart !== 'undefined') {
+                    console.log('Chart.js loaded, initializing payment charts...');
+                    initializePaymentCharts();
+                } else {
+                    console.error('Chart.js is not available');
+                    // Thử load lại
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+                    script.onload = function() {
+                        console.log('Chart.js loaded dynamically');
+                        initializePaymentCharts();
+                    };
+                    script.onerror = function() {
+                        console.error('Failed to load Chart.js');
+                    };
+                    document.head.appendChild(script);
                 }
-
-                // Status Distribution Chart
-                const statusCtx = document.getElementById('statusChart');
+            }, 100);
+        });
+        
+        // Initialize payment charts
+        function initializePaymentCharts() {
+            try {
+                const paymentStats = <?= json_encode($paymentStats) ?>;
+                console.log('Payment Stats:', paymentStats);
+                console.log('Chart.js available:', typeof Chart !== 'undefined');
+                
+                if (typeof Chart === 'undefined') {
+                    console.error('Chart.js is not loaded');
+                    alert('Chart.js chưa được tải. Vui lòng tải lại trang.');
+                    return;
+                }
+                
+                // Kiểm tra canvas elements
+                const statusCtx = document.getElementById('paymentStatusChart');
+                const methodCtx = document.getElementById('paymentMethodChart');
+                const typeCtx = document.getElementById('paymentTypeChart');
+                const monthlyCtx = document.getElementById('paymentMonthlyChart');
+                
+                console.log('Canvas elements found:', {
+                    statusCtx: !!statusCtx,
+                    methodCtx: !!methodCtx,
+                    typeCtx: !!typeCtx,
+                    monthlyCtx: !!monthlyCtx
+                });
+                
+                // Payment Status Chart (Doughnut)
                 if (statusCtx) {
-                    const statsData = [
-                        <?= $stats['completed'] ?>,
-                        <?= $stats['in_progress'] ?>,
-                        <?= $stats['pending'] ?>,
-                        <?= $stats['issues'] ?>
+                    console.log('Creating payment status chart...');
+                    const statusData = [
+                        paymentStats.by_status && paymentStats.by_status['Đang xử lý'] ? paymentStats.by_status['Đang xử lý'] : 0,
+                        paymentStats.by_status && paymentStats.by_status['Thành công'] ? paymentStats.by_status['Thành công'] : 0,
+                        paymentStats.by_status && paymentStats.by_status['Thất bại'] ? paymentStats.by_status['Thất bại'] : 0,
+                        paymentStats.by_status && paymentStats.by_status['Đã hủy'] ? paymentStats.by_status['Đã hủy'] : 0
                     ];
-                    
-                    // Check if all values are zero
-                    if (statsData.every(val => val === 0)) {
-                        statusCtx.parentElement.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-pie-chart fa-2x mb-2"></i><p>Chưa có dữ liệu phân bố</p></div>';
-                        return;
-                    }
+                    console.log('Status data:', statusData);
                     
                     new Chart(statusCtx.getContext('2d'), {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['Hoàn thành', 'Đang thực hiện', 'Chưa làm', 'Báo sự cố'],
-                            datasets: [{
-                                data: statsData,
-                                backgroundColor: [
-                                    '#28a745',
-                                    '#ffc107',
-                                    '#6c757d',
-                                    '#dc3545'
-                                ]
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom',
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Đang xử lý', 'Thành công', 'Thất bại', 'Đã hủy'],
+                        datasets: [{
+                            data: statusData,
+                            backgroundColor: [
+                                '#ffc107',
+                                '#28a745',
+                                '#dc3545',
+                                '#6c757d'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 15,
+                                    usePointStyle: true
                                 }
                             }
                         }
-                    });
+                    }
+                });
+                    console.log('Payment status chart created');
+                } else {
+                    console.warn('paymentStatusChart canvas not found');
                 }
-            } catch (error) {
-                console.error('Error initializing charts:', error);
+            
+            // Payment Method Chart (Bar)
+            if (methodCtx) {
+                console.log('Creating payment method chart...');
+                const methodData = [
+                    paymentStats.by_method && paymentStats.by_method['Chuyển khoản'] ? paymentStats.by_method['Chuyển khoản'] : 0,
+                    paymentStats.by_method && paymentStats.by_method['Momo'] ? paymentStats.by_method['Momo'] : 0,
+                    paymentStats.by_method && paymentStats.by_method['ZaloPay'] ? paymentStats.by_method['ZaloPay'] : 0,
+                    paymentStats.by_method && paymentStats.by_method['Visa/MasterCard'] ? paymentStats.by_method['Visa/MasterCard'] : 0,
+                    paymentStats.by_method && paymentStats.by_method['Tiền mặt'] ? paymentStats.by_method['Tiền mặt'] : 0
+                ];
+                console.log('Method data:', methodData);
+                
+                new Chart(methodCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['Chuyển khoản', 'Momo', 'ZaloPay', 'Visa/MasterCard', 'Tiền mặt'],
+                        datasets: [{
+                            label: 'Số lượng giao dịch',
+                            data: methodData,
+                            backgroundColor: [
+                                '#007bff',
+                                '#e83e8c',
+                                '#20c997',
+                                '#fd7e14',
+                                '#6f42c1'
+                            ],
+                            borderRadius: 8,
+                            borderSkipped: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('Payment method chart created');
+            } else {
+                console.warn('paymentMethodChart canvas not found');
             }
+            
+            // Payment Type Chart (Doughnut)
+            if (typeCtx) {
+                console.log('Creating payment type chart...');
+                const typeData = [
+                    paymentStats.by_type && paymentStats.by_type['Đặt cọc'] ? paymentStats.by_type['Đặt cọc'] : 0,
+                    paymentStats.by_type && paymentStats.by_type['Thanh toán đủ'] ? paymentStats.by_type['Thanh toán đủ'] : 0,
+                    paymentStats.by_type && paymentStats.by_type['Hoàn tiền'] ? paymentStats.by_type['Hoàn tiền'] : 0
+                ];
+                console.log('Type data:', typeData);
+                
+                new Chart(typeCtx.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Đặt cọc', 'Thanh toán đủ', 'Hoàn tiền'],
+                        datasets: [{
+                            data: typeData,
+                            backgroundColor: [
+                                '#17a2b8',
+                                '#28a745',
+                                '#ffc107'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 15,
+                                    usePointStyle: true
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('Payment type chart created');
+            } else {
+                console.warn('paymentTypeChart canvas not found');
+            }
+            
+            // Monthly Payment Chart (Line)
+            if (monthlyCtx) {
+                if (paymentStats.monthly_payments && paymentStats.monthly_payments.length > 0) {
+                    console.log('Creating monthly payment chart...');
+                    new Chart(monthlyCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: paymentStats.monthly_payments.map(item => item.month),
+                        datasets: [{
+                            label: 'Số lượng giao dịch',
+                            data: paymentStats.monthly_payments.map(item => item.count),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        }, {
+                            label: 'Tổng số tiền (triệu VNĐ)',
+                            data: paymentStats.monthly_payments.map(item => (item.total_amount / 1000000).toFixed(2)),
+                            borderColor: '#28a745',
+                            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Số lượng giao dịch'
+                                }
+                            },
+                            y1: {
+                                beginAtZero: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Tổng tiền (triệu VNĐ)'
+                                },
+                                grid: {
+                                    drawOnChartArea: false
+                                }
+                            }
+                        }
+                    }
+                });
+                    console.log('Monthly payment chart created');
+                } else {
+                    console.log('No monthly payment data, showing empty message');
+                    monthlyCtx.parentElement.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-chart-line fa-2x mb-2"></i><p>Chưa có dữ liệu thanh toán</p></div>';
+                }
+            } else {
+                console.warn('paymentMonthlyChart canvas not found');
+            }
+            
+            console.log('Payment charts initialized successfully');
+        } catch (error) {
+            console.error('Error initializing payment charts:', error);
+            // Show error message
+            const chartContainers = document.querySelectorAll('#paymentStatusChart, #paymentMethodChart, #paymentTypeChart, #paymentMonthlyChart');
+            chartContainers.forEach(container => {
+                if (container && container.parentElement) {
+                    container.parentElement.innerHTML = '<div class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle fa-2x mb-2"></i><p>Lỗi khi tải biểu đồ</p></div>';
+                }
+            });
         }
+        }
+
 
         // Show note function
         function showNote(note) {

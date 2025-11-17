@@ -1,0 +1,17 @@
+# Allow direct access to webhook files
+# This ensures webhook endpoints can be accessed from external services
+
+<Files "*.php">
+    Order allow,deny
+    Allow from all
+</Files>
+
+# Disable directory listing
+Options -Indexes
+
+# Allow POST requests (required for webhooks)
+<Limit POST>
+    Order allow,deny
+    Allow from all
+</Limit>
+

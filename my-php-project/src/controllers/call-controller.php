@@ -100,9 +100,9 @@ function initiateCall($pdo, $userId) {
     // Xác định người nhận
     $receiverId = ($conversation['user1_id'] == $userId) ? $conversation['user2_id'] : $conversation['user1_id'];
     
-    // Cleanup old/stale call sessions before checking
+    // QUAN TRỌNG: Cleanup tất cả call sessions cũ trước khi kiểm tra busy
     try {
-        // Cleanup call sessions older than 10 minutes
+        // 1. Cleanup call sessions cũ hơn 10 phút (bất kỳ status nào)
         $stmt = $pdo->prepare("
             UPDATE call_sessions 
             SET status = 'ended', ended_at = NOW()
@@ -111,42 +111,43 @@ function initiateCall($pdo, $userId) {
         ");
         $stmt->execute();
         
-        // Cleanup call sessions that are initiated but not accepted after 30 seconds
-        $stmt = $pdo->prepare("
-            UPDATE call_sessions 
-            SET status = 'missed', ended_at = NOW()
-            WHERE status IN ('initiated', 'ringing')
-            AND started_at < DATE_SUB(NOW(), INTERVAL 30 SECOND)
-        ");
-        $stmt->execute();
-        
-        // Cleanup old call sessions for this conversation (nếu có call cũ chưa kết thúc)
+        // 2. Cleanup TẤT CẢ call sessions cũ của conversation này (không chỉ cũ hơn 1 phút)
+        // Điều này đảm bảo không có call cũ nào của conversation này còn sót lại
         $stmt = $pdo->prepare("
             UPDATE call_sessions 
             SET status = 'ended', ended_at = NOW()
             WHERE conversation_id = ?
             AND status IN ('initiated', 'ringing')
-            AND started_at < DATE_SUB(NOW(), INTERVAL 1 MINUTE)
+            AND id NOT IN (
+                SELECT id FROM (
+                    SELECT id FROM call_sessions 
+                    WHERE conversation_id = ? 
+                    AND status IN ('initiated', 'ringing', 'accepted')
+                    ORDER BY started_at DESC 
+                    LIMIT 1
+                ) AS latest
+            )
         ");
-        $stmt->execute([$conversationId]);
+        $stmt->execute([$conversationId, $conversationId]);
         
-        // Cleanup call sessions for receiver that are not accepted after 30 seconds
+        // 3. Cleanup call sessions của receiver với status 'initiated' hoặc 'ringing' cũ hơn 5 giây
+        // Chỉ giữ lại call đang ring (trong 5 giây gần nhất) hoặc đang accepted
         $stmt = $pdo->prepare("
             UPDATE call_sessions 
             SET status = 'missed', ended_at = NOW()
             WHERE receiver_id = ?
             AND status IN ('initiated', 'ringing')
-            AND started_at < DATE_SUB(NOW(), INTERVAL 30 SECOND)
+            AND started_at < DATE_SUB(NOW(), INTERVAL 5 SECOND)
         ");
         $stmt->execute([$receiverId]);
         
-        // Cleanup call sessions for caller that are not accepted after 30 seconds
+        // 4. Cleanup call sessions của caller với status 'initiated' hoặc 'ringing' cũ hơn 5 giây
         $stmt = $pdo->prepare("
             UPDATE call_sessions 
             SET status = 'missed', ended_at = NOW()
             WHERE caller_id = ?
             AND status IN ('initiated', 'ringing')
-            AND started_at < DATE_SUB(NOW(), INTERVAL 30 SECOND)
+            AND started_at < DATE_SUB(NOW(), INTERVAL 5 SECOND)
         ");
         $stmt->execute([$userId]);
         
@@ -155,12 +156,17 @@ function initiateCall($pdo, $userId) {
         error_log('Error cleaning up old call sessions: ' . $e->getMessage());
     }
     
-    // Kiểm tra xem người nhận có đang trong cuộc gọi khác không (chỉ kiểm tra trong 30 giây gần nhất và loại trừ conversation hiện tại)
+    // QUAN TRỌNG: Chỉ coi là "busy" nếu:
+    // 1. Có call với status 'accepted' (đang thực sự gọi) - bất kỳ thời gian nào
+    // 2. Có call với status 'initiated' hoặc 'ringing' trong 5 giây gần nhất (đang ring)
+    // 3. Loại trừ conversation hiện tại (cho phép gọi lại cùng conversation)
     $stmt = $pdo->prepare("
         SELECT id, status, started_at FROM call_sessions 
         WHERE receiver_id = ? 
-        AND status IN ('initiated', 'ringing', 'accepted')
-        AND started_at > DATE_SUB(NOW(), INTERVAL 30 SECOND)
+        AND (
+            (status = 'accepted') OR 
+            (status IN ('initiated', 'ringing') AND started_at > DATE_SUB(NOW(), INTERVAL 5 SECOND))
+        )
         AND conversation_id != ?
     ");
     $stmt->execute([$receiverId, $conversationId]);
@@ -172,12 +178,14 @@ function initiateCall($pdo, $userId) {
         return;
     }
     
-    // Kiểm tra xem caller có đang trong cuộc gọi khác không (chỉ kiểm tra trong 30 giây gần nhất và loại trừ conversation hiện tại)
+    // Kiểm tra caller có đang trong cuộc gọi khác không (tương tự logic trên)
     $stmt = $pdo->prepare("
         SELECT id, status, started_at FROM call_sessions 
         WHERE caller_id = ? 
-        AND status IN ('initiated', 'ringing', 'accepted')
-        AND started_at > DATE_SUB(NOW(), INTERVAL 30 SECOND)
+        AND (
+            (status = 'accepted') OR 
+            (status IN ('initiated', 'ringing') AND started_at > DATE_SUB(NOW(), INTERVAL 5 SECOND))
+        )
         AND conversation_id != ?
     ");
     $stmt->execute([$userId, $conversationId]);
@@ -345,6 +353,7 @@ function rejectCall($pdo, $userId) {
 
 /**
  * Kết thúc cuộc gọi
+ * QUAN TRỌNG: Cho phép end call ở mọi trạng thái (initiated, ringing, accepted)
  */
 function endCall($pdo, $userId) {
     $callId = $_POST['call_id'] ?? '';
@@ -354,27 +363,46 @@ function endCall($pdo, $userId) {
         return;
     }
     
-    // Kiểm tra quyền và trạng thái cuộc gọi
+    // Kiểm tra quyền và trạng thái cuộc gọi - Cho phép end ở mọi trạng thái
     $stmt = $pdo->prepare("
         SELECT id, caller_id, receiver_id, call_type, status, started_at 
         FROM call_sessions 
-        WHERE id = ? AND (caller_id = ? OR receiver_id = ?) AND status = 'accepted'
+        WHERE id = ? AND (caller_id = ? OR receiver_id = ?) 
+        AND status IN ('initiated', 'ringing', 'accepted')
     ");
     $stmt->execute([$callId, $userId, $userId]);
     $call = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$call) {
-        echo json_encode(['success' => false, 'error' => 'Cuộc gọi không tồn tại hoặc không thể kết thúc']);
+        // Nếu không tìm thấy call, vẫn trả về success để frontend có thể cleanup
+        echo json_encode([
+            'success' => true,
+            'call_id' => $callId,
+            'status' => 'ended',
+            'message' => 'Cuộc gọi đã được kết thúc'
+        ]);
         return;
     }
     
     try {
-        // Tính toán thời lượng cuộc gọi
-        $startedAt = new DateTime($call['started_at']);
-        $endedAt = new DateTime();
-        $duration = $endedAt->getTimestamp() - $startedAt->getTimestamp();
+        // Tính toán thời lượng cuộc gọi (nếu có started_at)
+        $duration = 0;
+        if ($call['started_at']) {
+            try {
+                $startedAt = new DateTime($call['started_at']);
+                $endedAt = new DateTime();
+                $duration = $endedAt->getTimestamp() - $startedAt->getTimestamp();
+                // Đảm bảo duration không âm
+                if ($duration < 0) {
+                    $duration = 0;
+                }
+            } catch (Exception $e) {
+                error_log('Error calculating call duration: ' . $e->getMessage());
+                $duration = 0;
+            }
+        }
         
-        // Cập nhật trạng thái cuộc gọi
+        // Cập nhật trạng thái cuộc gọi - Cho phép end ở mọi trạng thái
         $stmt = $pdo->prepare("
             UPDATE call_sessions 
             SET status = 'ended', ended_at = NOW(), duration = ?
@@ -386,11 +414,19 @@ function endCall($pdo, $userId) {
             'success' => true,
             'call_id' => $callId,
             'duration' => $duration,
-            'status' => 'ended'
+            'status' => 'ended',
+            'message' => 'Cuộc gọi đã được kết thúc'
         ]);
         
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => 'Lỗi kết thúc cuộc gọi: ' . $e->getMessage()]);
+        error_log('Error ending call: ' . $e->getMessage());
+        // Vẫn trả về success để frontend có thể cleanup
+        echo json_encode([
+            'success' => true,
+            'call_id' => $callId,
+            'status' => 'ended',
+            'message' => 'Cuộc gọi đã được kết thúc (có lỗi nhỏ khi lưu)'
+        ]);
     }
 }
 

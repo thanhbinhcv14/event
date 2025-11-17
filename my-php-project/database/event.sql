@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 02, 2025 lúc 05:05 PM
+-- Thời gian đã tạo: Th10 16, 2025 lúc 10:58 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -413,21 +413,22 @@ CREATE TABLE `datlichsukien` (
   `GhiChu` text DEFAULT NULL,
   `NgayTao` timestamp NOT NULL DEFAULT current_timestamp(),
   `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `LoaiThueApDung` enum('Theo giờ','Theo ngày') DEFAULT NULL
+  `LoaiThueApDung` enum('Theo giờ','Theo ngày') DEFAULT NULL,
+  `ID_Phong` int(11) DEFAULT NULL COMMENT 'ID phòng (chỉ dùng cho địa điểm trong nhà)'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Đang đổ dữ liệu cho bảng `datlichsukien`
 --
 
-INSERT INTO `datlichsukien` (`ID_DatLich`, `ID_KhachHang`, `TenSuKien`, `MoTa`, `NgayBatDau`, `NgayKetThuc`, `ID_DD`, `ID_LoaiSK`, `SoNguoiDuKien`, `NganSach`, `TongTien`, `TienCoc`, `TienConLai`, `TienCocYeuCau`, `TrangThaiDuyet`, `TrangThaiThanhToan`, `GhiChu`, `NgayTao`, `NgayCapNhat`, `LoaiThueApDung`) VALUES
-(6, 17, 'Tiệc cuối năm', NULL, '2025-12-22 18:00:00', '2025-10-23 19:00:00', 9, 6, 200, 20000000000.00, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-11 21:53:38', '2025-10-28 20:52:43', NULL),
-(13, 17, 'Sự kiện cuối năm 2024', '', '2024-12-31 18:00:00', '2025-01-01 02:00:00', 1, 6, 200, 1240000000.00, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-12 23:40:42', '2025-10-28 20:33:51', NULL),
-(16, 5, 'lieen hoan', '', '2025-10-14 12:00:00', '2025-10-14 14:00:00', 2, 2, 123, 123.00, 0.00, 0.00, 0.00, 0.00, 'Chờ duyệt', 'Chưa thanh toán', 'Đăng ký từ website', '2025-10-13 01:35:12', '2025-10-13 01:35:12', NULL),
-(17, 5, 'Hội nghị đàm thoại', 'Hội nghị đàm thoại', '2025-10-27 06:00:00', '2025-10-27 22:00:00', 1, 1, 500, 10000000.00, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-26 04:36:43', '2025-10-26 09:01:03', NULL),
-(18, 5, 'Đá banh', '', '2025-10-27 09:00:00', '2025-10-27 22:10:00', 7, 5, 123, 130000000.00, 115000000.00, 34500000.00, 80500000.00, 0.00, 'Đã duyệt', '', '', '2025-10-26 05:16:00', '2025-10-29 02:10:55', NULL),
-(20, 5, 'Sinh Nhật 23', '', '2025-10-29 18:20:00', '2025-10-29 23:20:00', 1, 4, 100, 100000000.00, 42000000.00, 12600000.00, 29400000.00, 0.00, 'Đã duyệt', 'Đã thanh toán đủ', '', '2025-10-26 09:18:30', '2025-10-28 21:57:14', NULL),
-(21, 5, 'Hội nghị đàm thoại', 'Hội nghị', '2025-10-27 10:00:00', '2025-10-28 10:00:00', 1, 1, 500, 10000000.00, 132000000.00, 0.00, 0.00, 0.00, 'Chờ duyệt', 'Chưa thanh toán', NULL, '2025-10-26 11:10:40', '2025-10-26 11:21:59', NULL);
+INSERT INTO `datlichsukien` (`ID_DatLich`, `ID_KhachHang`, `TenSuKien`, `MoTa`, `NgayBatDau`, `NgayKetThuc`, `ID_DD`, `ID_LoaiSK`, `SoNguoiDuKien`, `NganSach`, `TongTien`, `TienCoc`, `TienConLai`, `TienCocYeuCau`, `TrangThaiDuyet`, `TrangThaiThanhToan`, `GhiChu`, `NgayTao`, `NgayCapNhat`, `LoaiThueApDung`, `ID_Phong`) VALUES
+(6, 17, 'Tiệc cuối năm', NULL, '2025-12-22 18:00:00', '2025-10-23 19:00:00', 9, 6, 200, 20000000000.00, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-11 21:53:38', '2025-10-28 20:52:43', NULL, NULL),
+(13, 17, 'Sự kiện cuối năm 2024', '', '2024-12-31 18:00:00', '2025-01-01 02:00:00', 1, 6, 200, 1240000000.00, 0.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-10-12 23:40:42', '2025-10-28 20:33:51', NULL, NULL),
+(16, 5, 'lieen hoan', '', '2025-10-14 12:00:00', '2025-10-14 14:00:00', 2, 2, 123, 123.00, 0.00, 0.00, 0.00, 0.00, 'Từ chối', 'Chưa thanh toán', 'Đăng ký từ website - Tự động hủy: Đã qua thời gian tổ chức và chưa thanh toán đủ (2025-11-17 04:55:02)', '2025-10-13 01:35:12', '2025-11-16 21:55:02', NULL, NULL),
+(17, 5, 'Hội nghị đàm thoại', 'Hội nghị đàm thoại', '2025-10-27 06:00:00', '2025-10-27 22:00:00', 1, 1, 500, 10000000.00, 0.00, 0.00, 0.00, 0.00, 'Từ chối', 'Chưa thanh toán', ' - Tự động hủy: Đã qua thời gian tổ chức và chưa thanh toán đủ (2025-11-17 04:55:02)', '2025-10-26 04:36:43', '2025-11-16 21:55:02', NULL, NULL),
+(18, 5, 'Đá banh', '', '2025-10-27 09:00:00', '2025-10-27 22:10:00', 7, 5, 123, 130000000.00, 115000000.00, 34500000.00, 80500000.00, 0.00, 'Từ chối', '', ' - Tự động hủy: Đã qua thời gian tổ chức và chưa thanh toán đủ (2025-11-17 04:55:02)', '2025-10-26 05:16:00', '2025-11-16 21:55:02', NULL, NULL),
+(20, 5, 'Sinh Nhật 23', '', '2025-10-29 18:20:00', '2025-10-29 23:20:00', 1, 4, 100, 100000000.00, 42000000.00, 12600000.00, 29400000.00, 0.00, 'Đã duyệt', 'Đã thanh toán đủ', '', '2025-10-26 09:18:30', '2025-10-28 21:57:14', NULL, NULL),
+(21, 5, 'Hội nghị đàm thoại', 'Hội nghị', '2025-10-27 10:00:00', '2025-10-28 10:00:00', 1, 1, 500, 10000000.00, 132000000.00, 0.00, 0.00, 0.00, 'Từ chối', 'Chưa thanh toán', ' - Tự động hủy: Đã qua thời gian tổ chức và chưa thanh toán đủ (2025-11-17 04:55:02)', '2025-10-26 11:10:40', '2025-11-16 21:55:02', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -439,7 +440,12 @@ CREATE TABLE `diadiem` (
   `ID_DD` int(11) NOT NULL,
   `TenDiaDiem` varchar(255) NOT NULL,
   `LoaiDiaDiem` enum('Trong nhà','Ngoài trời') NOT NULL,
-  `DiaChi` varchar(255) NOT NULL,
+  `DiaChi` varchar(255) NOT NULL COMMENT 'Địa chỉ đầy đủ (tự động tạo từ các thành phần)',
+  `SoNha` varchar(50) DEFAULT NULL COMMENT 'Số nhà',
+  `DuongPho` varchar(255) DEFAULT NULL COMMENT 'Đường/Phố',
+  `PhuongXa` varchar(100) DEFAULT NULL COMMENT 'Phường/Xã',
+  `QuanHuyen` varchar(100) DEFAULT NULL COMMENT 'Quận/Huyện',
+  `TinhThanh` varchar(100) DEFAULT NULL COMMENT 'Tỉnh/Thành phố',
   `SucChua` int(11) NOT NULL,
   `GiaThueGio` decimal(15,2) DEFAULT NULL,
   `GiaThueNgay` decimal(15,2) DEFAULT NULL,
@@ -455,18 +461,114 @@ CREATE TABLE `diadiem` (
 -- Đang đổ dữ liệu cho bảng `diadiem`
 --
 
-INSERT INTO `diadiem` (`ID_DD`, `TenDiaDiem`, `LoaiDiaDiem`, `DiaChi`, `SucChua`, `GiaThueGio`, `GiaThueNgay`, `LoaiThue`, `MoTa`, `HinhAnh`, `NgayTao`, `NgayCapNhat`, `TrangThaiHoatDong`) VALUES
-(1, 'Trung tâm Hội nghị White Palace', 'Trong nhà', '194 Hoàng Văn Thụ, Quận Phú Nhuận, TP.HCM', 1500, 5000000.00, 90000000.00, 'Cả hai', 'Không gian sang trọng, phù hợp hội nghị và tiệc cưới', 'whitepalace.jpg', '2025-09-08 10:10:14', '2025-10-26 05:39:14', 'Hoạt động'),
-(2, 'Nhà hát Thành phố Hồ Chí Minh', 'Trong nhà', '07 Công Trường Lam Sơn, Quận 1, TP.HCM', 500, 3000000.00, 60000000.00, 'Cả hai', 'Địa điểm sang trọng, phù hợp các chương trình nghệ thuật', 'nhahat_tphcm.jpg', '2025-09-08 10:10:14', '2025-10-26 05:39:14', 'Hoạt động'),
-(3, 'Nhà thi đấu Quân khu 7', 'Trong nhà', '202 Hoàng Văn Thụ, Quận Tân Bình, TP.HCM', 5000, 7000000.00, 120000000.00, 'Cả hai', 'Địa điểm tổ chức sự kiện, thi đấu thể thao trong nhà', 'nhathidau_qk7.jpg', '2025-09-08 10:10:14', '2025-10-26 05:39:14', 'Hoạt động'),
-(4, 'Trung tâm GEM Center', 'Trong nhà', '08 Nguyễn Bỉnh Khiêm, Quận 1, TP.HCM', 1000, 5000000.00, 90000000.00, 'Cả hai', 'Địa điểm tổ chức hội nghị và sự kiện doanh nghiệp', 'gemcenter.jpg', '2025-09-08 10:10:14', '2025-10-26 05:39:14', 'Hoạt động'),
-(5, 'Trung tâm Hội nghị Riverside Palace', 'Trong nhà', '360D Bến Vân Đồn, Quận 4, TP.HCM', 1200, 5000000.00, 90000000.00, 'Cả hai', 'Không gian tiệc cưới, hội nghị sang trọng tại trung tâm TP.HCM', 'riverside_palace.jpg', '2025-09-08 10:10:14', '2025-10-26 05:39:14', 'Hoạt động'),
-(6, 'Sân vận động Thống Nhất', 'Ngoài trời', '138 Đào Duy Từ, Quận 10, TP.HCM', 25000, 10000000.00, 150000000.00, 'Cả hai', 'Sân vận động trung tâm TP.HCM, phù hợp biểu diễn ca nhạc', 'svd_thongnhat.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
-(7, 'Nhà thi đấu Phú Thọ', 'Trong nhà', 'Quận 11, TP.HCM', 5000, 7000000.00, 120000000.00, 'Cả hai', 'Địa điểm tổ chức thể thao, ca nhạc, triển lãm, phù hợp các sự kiện lớn', 'nha_thidau_phutho.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
-(8, 'Công viên 23/9', 'Ngoài trời', 'Phạm Ngũ Lão, Quận 1, TP.HCM', 3000, 8000000.00, 120000000.00, 'Cả hai', 'Địa điểm tổ chức lễ hội, hội chợ ngay trung tâm TP.HCM!', 'cv_23_9.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
-(9, 'Phố đi bộ Nguyễn Huệ', 'Ngoài trời', 'Nguyễn Huệ, Quận 1, TP.HCM', 5000, 8000000.00, 120000000.00, 'Cả hai', 'Không gian công cộng nổi tiếng, phù hợp sự kiện âm nhạc, văn hóa!', 'nguyen_hue.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
-(10, 'Công viên Tao Đàn', 'Ngoài trời', 'Quận 1, TP.HCM!', 2000, 6000000.00, 90000000.00, 'Cả hai', 'Công viên trung tâm, tổ chức hội hoa xuân và lễ hội văn hóa!', 'cv_taodan.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
-(13, 'Capella Park View', 'Trong nhà', 'Số 3 Thủ Đức', 200, 1000.00, 2000.00, 'Cả hai', '', '690420c5f24bd_1761878213.jpg', '2025-10-31 02:36:53', '2025-10-31 02:36:53', 'Hoạt động');
+INSERT INTO `diadiem` (`ID_DD`, `TenDiaDiem`, `LoaiDiaDiem`, `DiaChi`, `SoNha`, `DuongPho`, `PhuongXa`, `QuanHuyen`, `TinhThanh`, `SucChua`, `GiaThueGio`, `GiaThueNgay`, `LoaiThue`, `MoTa`, `HinhAnh`, `NgayTao`, `NgayCapNhat`, `TrangThaiHoatDong`) VALUES
+(1, 'Trung tâm Hội nghị White Palace', 'Trong nhà', '194 Hoàng Văn Thụ, Quận Phú Nhuận, TP.HCM', '194', 'Hoàng Văn Thụ', NULL, 'Quận Phú Nhuận', 'TP.HCM', 1500, 5000000.00, 90000000.00, 'Cả hai', 'Không gian sang trọng, phù hợp hội nghị và tiệc cưới', 'whitepalace.jpg', '2025-09-08 10:10:14', '2025-10-26 05:39:14', 'Hoạt động'),
+(2, 'Nhà hát Thành phố Hồ Chí Minh', 'Trong nhà', '07 Công Trường Lam Sơn, Quận 1, TP.HCM', '07', 'Công Trường Lam Sơn', NULL, 'Quận 1', 'TP.HCM', 500, 3000000.00, 60000000.00, 'Cả hai', 'Địa điểm sang trọng, phù hợp các chương trình nghệ thuật', 'nhahat_tphcm.jpg', '2025-09-08 10:10:14', '2025-10-26 05:39:14', 'Hoạt động'),
+(3, 'Nhà thi đấu Quân khu 7', 'Trong nhà', '202 Hoàng Văn Thụ, Quận Tân Bình, TP.HCM', '202', 'Hoàng Văn Thụ', NULL, 'Quận Tân Bình', 'TP.HCM', 5000, 7000000.00, 120000000.00, 'Cả hai', 'Địa điểm tổ chức sự kiện, thi đấu thể thao trong nhà', 'nhathidau_qk7.jpg', '2025-09-08 10:10:14', '2025-10-26 05:39:14', 'Hoạt động'),
+(4, 'Trung tâm GEM Center', 'Trong nhà', '08 Nguyễn Bỉnh Khiêm, Quận 1, TP.HCM', '08', 'Nguyễn Bỉnh Khiêm', NULL, 'Quận 1', 'TP.HCM', 1000, 5000000.00, 90000000.00, 'Cả hai', 'Địa điểm tổ chức hội nghị và sự kiện doanh nghiệp', 'gemcenter.jpg', '2025-09-08 10:10:14', '2025-10-26 05:39:14', 'Hoạt động'),
+(5, 'Trung tâm Hội nghị Riverside Palace', 'Trong nhà', '360D Bến Vân Đồn, Quận 4, TP.HCM', '360D', 'Bến Vân Đồn', NULL, 'Quận 4', 'TP.HCM', 1200, 5000000.00, 90000000.00, 'Cả hai', 'Không gian tiệc cưới, hội nghị sang trọng tại trung tâm TP.HCM', 'riverside_palace.jpg', '2025-09-08 10:10:14', '2025-10-26 05:39:14', 'Hoạt động'),
+(6, 'Sân vận động Thống Nhất', 'Ngoài trời', '138 Đào Duy Từ, Quận 10, TP.HCM', '138', 'Đào Duy Từ', NULL, 'Quận 10', 'TP.HCM', 25000, 10000000.00, 150000000.00, 'Cả hai', 'Sân vận động trung tâm TP.HCM, phù hợp biểu diễn ca nhạc', 'svd_thongnhat.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
+(7, 'Nhà thi đấu Phú Thọ', 'Trong nhà', 'Quận 11, TP.HCM', NULL, NULL, NULL, 'Quận 11', 'TP.HCM', 5000, 7000000.00, 120000000.00, 'Cả hai', 'Địa điểm tổ chức thể thao, ca nhạc, triển lãm, phù hợp các sự kiện lớn', 'nha_thidau_phutho.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
+(8, 'Công viên 23/9', 'Ngoài trời', 'Phạm Ngũ Lão, Quận 1, TP.HCM', NULL, 'Phạm Ngũ Lão', NULL, 'Quận 1', 'TP.HCM', 3000, 8000000.00, 120000000.00, 'Cả hai', 'Địa điểm tổ chức lễ hội, hội chợ ngay trung tâm TP.HCM!', 'cv_23_9.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
+(9, 'Phố đi bộ Nguyễn Huệ', 'Ngoài trời', 'Nguyễn Huệ, Quận 1, TP.HCM', NULL, 'Nguyễn Huệ', NULL, 'Quận 1', 'TP.HCM', 5000, 8000000.00, 120000000.00, 'Cả hai', 'Không gian công cộng nổi tiếng, phù hợp sự kiện âm nhạc, văn hóa!', 'nguyen_hue.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
+(10, 'Công viên Tao Đàn', 'Ngoài trời', 'Quận 1, TP.HCM', NULL, NULL, NULL, 'Quận 1', 'TP.HCM', 2000, 6000000.00, 90000000.00, 'Cả hai', 'Công viên trung tâm, tổ chức hội hoa xuân và lễ hội văn hóa!', 'cv_taodan.jpg', '2025-09-08 10:10:28', '2025-10-26 05:39:14', 'Hoạt động'),
+(13, 'Capella Park View', 'Trong nhà', 'Số 3 Thủ Đức, TP.HCM', 'Số 3', NULL, NULL, 'Thủ Đức', 'TP.HCM', 200, 1000.00, 2000.00, 'Cả hai', '', '690420c5f24bd_1761878213.jpg', '2025-10-31 02:36:53', '2025-10-31 02:36:53', 'Hoạt động');
+
+--
+-- Bẫy `diadiem`
+--
+DELIMITER $$
+CREATE TRIGGER `trg_diadiem_insert_diachi` BEFORE INSERT ON `diadiem` FOR EACH ROW BEGIN
+    DECLARE full_address VARCHAR(255);
+    
+    -- Tạo địa chỉ đầy đủ từ các thành phần
+    SET full_address = '';
+    
+    IF NEW.SoNha IS NOT NULL AND NEW.SoNha != '' THEN
+        SET full_address = CONCAT(full_address, NEW.SoNha, ' ');
+    END IF;
+    
+    IF NEW.DuongPho IS NOT NULL AND NEW.DuongPho != '' THEN
+        SET full_address = CONCAT(full_address, NEW.DuongPho);
+        IF NEW.PhuongXa IS NOT NULL AND NEW.PhuongXa != '' OR 
+           NEW.QuanHuyen IS NOT NULL AND NEW.QuanHuyen != '' OR 
+           NEW.TinhThanh IS NOT NULL AND NEW.TinhThanh != '' THEN
+            SET full_address = CONCAT(full_address, ', ');
+        END IF;
+    END IF;
+    
+    IF NEW.PhuongXa IS NOT NULL AND NEW.PhuongXa != '' THEN
+        SET full_address = CONCAT(full_address, NEW.PhuongXa);
+        IF NEW.QuanHuyen IS NOT NULL AND NEW.QuanHuyen != '' OR 
+           NEW.TinhThanh IS NOT NULL AND NEW.TinhThanh != '' THEN
+            SET full_address = CONCAT(full_address, ', ');
+        END IF;
+    END IF;
+    
+    IF NEW.QuanHuyen IS NOT NULL AND NEW.QuanHuyen != '' THEN
+        SET full_address = CONCAT(full_address, NEW.QuanHuyen);
+        IF NEW.TinhThanh IS NOT NULL AND NEW.TinhThanh != '' THEN
+            SET full_address = CONCAT(full_address, ', ');
+        END IF;
+    END IF;
+    
+    IF NEW.TinhThanh IS NOT NULL AND NEW.TinhThanh != '' THEN
+        SET full_address = CONCAT(full_address, NEW.TinhThanh);
+    END IF;
+    
+    -- Cập nhật DiaChi nếu đã có đủ thông tin
+    IF full_address != '' THEN
+        SET NEW.DiaChi = TRIM(full_address);
+    END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `trg_diadiem_update_diachi` BEFORE UPDATE ON `diadiem` FOR EACH ROW BEGIN
+    DECLARE full_address VARCHAR(255);
+    
+    -- Tạo địa chỉ đầy đủ từ các thành phần
+    SET full_address = '';
+    
+    IF NEW.SoNha IS NOT NULL AND NEW.SoNha != '' THEN
+        SET full_address = CONCAT(full_address, NEW.SoNha, ' ');
+    END IF;
+    
+    IF NEW.DuongPho IS NOT NULL AND NEW.DuongPho != '' THEN
+        SET full_address = CONCAT(full_address, NEW.DuongPho);
+        IF NEW.PhuongXa IS NOT NULL AND NEW.PhuongXa != '' OR 
+           NEW.QuanHuyen IS NOT NULL AND NEW.QuanHuyen != '' OR 
+           NEW.TinhThanh IS NOT NULL AND NEW.TinhThanh != '' THEN
+            SET full_address = CONCAT(full_address, ', ');
+        END IF;
+    END IF;
+    
+    IF NEW.PhuongXa IS NOT NULL AND NEW.PhuongXa != '' THEN
+        SET full_address = CONCAT(full_address, NEW.PhuongXa);
+        IF NEW.QuanHuyen IS NOT NULL AND NEW.QuanHuyen != '' OR 
+           NEW.TinhThanh IS NOT NULL AND NEW.TinhThanh != '' THEN
+            SET full_address = CONCAT(full_address, ', ');
+        END IF;
+    END IF;
+    
+    IF NEW.QuanHuyen IS NOT NULL AND NEW.QuanHuyen != '' THEN
+        SET full_address = CONCAT(full_address, NEW.QuanHuyen);
+        IF NEW.TinhThanh IS NOT NULL AND NEW.TinhThanh != '' THEN
+            SET full_address = CONCAT(full_address, ', ');
+        END IF;
+    END IF;
+    
+    IF NEW.TinhThanh IS NOT NULL AND NEW.TinhThanh != '' THEN
+        SET full_address = CONCAT(full_address, NEW.TinhThanh);
+    END IF;
+    
+    -- Cập nhật DiaChi nếu đã có đủ thông tin
+    IF full_address != '' THEN
+        SET NEW.DiaChi = TRIM(full_address);
+    END IF;
+END
+$$
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -767,6 +869,40 @@ INSERT INTO `phanquyen` (`ID_Role`, `RoleName`, `MoTa`, `TrangThai`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Cấu trúc bảng cho bảng `phong`
+--
+
+CREATE TABLE `phong` (
+  `ID_Phong` int(11) NOT NULL,
+  `ID_DD` int(11) NOT NULL,
+  `TenPhong` varchar(255) NOT NULL,
+  `SucChua` int(11) NOT NULL,
+  `GiaThueGio` decimal(15,2) DEFAULT NULL,
+  `GiaThueNgay` decimal(15,2) DEFAULT NULL,
+  `LoaiThue` enum('Theo giờ','Theo ngày','Cả hai') DEFAULT 'Cả hai',
+  `MoTa` text DEFAULT NULL,
+  `TrangThai` enum('Sẵn sàng','Đang sử dụng','Bảo trì') DEFAULT 'Sẵn sàng',
+  `NgayTao` timestamp NOT NULL DEFAULT current_timestamp(),
+  `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `phong`
+--
+
+INSERT INTO `phong` (`ID_Phong`, `ID_DD`, `TenPhong`, `SucChua`, `GiaThueGio`, `GiaThueNgay`, `LoaiThue`, `MoTa`, `TrangThai`, `NgayTao`, `NgayCapNhat`) VALUES
+(1, 1, 'Phòng Hội nghị A', 300, 1500000.00, 25000000.00, 'Cả hai', 'Phòng hội nghị lớn, trang bị đầy đủ thiết bị', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(2, 1, 'Phòng Hội nghị B', 200, 1200000.00, 20000000.00, 'Cả hai', 'Phòng hội nghị vừa, phù hợp họp nhóm', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(3, 1, 'Phòng Tiệc C', 500, 2000000.00, 35000000.00, 'Cả hai', 'Phòng tiệc lớn, sang trọng', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(4, 2, 'Sân khấu chính', 500, 3000000.00, 60000000.00, 'Cả hai', 'Sân khấu chính của nhà hát', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(5, 4, 'Phòng Hội nghị 1', 250, 1500000.00, 25000000.00, 'Cả hai', 'Phòng hội nghị tầng 1', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(6, 4, 'Phòng Hội nghị 2', 300, 1800000.00, 30000000.00, 'Cả hai', 'Phòng hội nghị tầng 2', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(7, 4, 'Phòng Hội nghị 3', 200, 1200000.00, 20000000.00, 'Cả hai', 'Phòng hội nghị tầng 3', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(8, 13, 'Phòng vip', 200, 1000.00, 2000.00, 'Cả hai', NULL, 'Sẵn sàng', '2025-11-16 21:57:19', '2025-11-16 21:57:19');
+
+-- --------------------------------------------------------
+
+--
 -- Cấu trúc bảng cho bảng `sukien`
 --
 
@@ -800,6 +936,33 @@ INSERT INTO `sukien` (`ID_SuKien`, `ID_DatLich`, `MaSuKien`, `TenSuKien`, `NgayB
 -- --------------------------------------------------------
 
 --
+-- Cấu trúc bảng cho bảng `tb_transactions`
+--
+
+CREATE TABLE `tb_transactions` (
+  `id` int(11) NOT NULL,
+  `gateway` varchar(100) NOT NULL COMMENT 'Tên ngân hàng/gateway (VietinBank, VCB, etc.)',
+  `transaction_date` datetime NOT NULL DEFAULT '1970-01-01 00:00:00' COMMENT 'Thời gian giao dịch từ SePay',
+  `account_number` varchar(100) DEFAULT NULL COMMENT 'Số tài khoản nhận tiền',
+  `sub_account` varchar(250) DEFAULT NULL COMMENT 'Tài khoản phụ (nếu có)',
+  `amount_in` decimal(20,2) NOT NULL DEFAULT 0.00 COMMENT 'Số tiền vào',
+  `amount_out` decimal(20,2) NOT NULL DEFAULT 0.00 COMMENT 'Số tiền ra',
+  `accumulated` decimal(20,2) NOT NULL DEFAULT 0.00 COMMENT 'Số dư tích lũy',
+  `code` varchar(250) DEFAULT NULL COMMENT 'Mã giao dịch từ ngân hàng',
+  `transaction_content` text DEFAULT NULL COMMENT 'Nội dung chuyển khoản (chứa payment ID)',
+  `reference_number` varchar(255) DEFAULT NULL COMMENT 'Số tham chiếu',
+  `body` text DEFAULT NULL COMMENT 'Mô tả giao dịch',
+  `transfer_type` enum('in','out') DEFAULT NULL COMMENT 'Loại giao dịch: in (tiền vào) hoặc out (tiền ra)',
+  `transfer_amount` decimal(20,2) DEFAULT NULL COMMENT 'Số tiền giao dịch',
+  `sepay_transaction_id` varchar(100) DEFAULT NULL COMMENT 'ID giao dịch từ SePay (unique)',
+  `payment_id` int(11) DEFAULT NULL COMMENT 'ID thanh toán trong hệ thống (liên kết với bảng thanhtoan)',
+  `processed` tinyint(1) DEFAULT 0 COMMENT 'Đã xử lý payment chưa (0=chưa, 1=đã xử lý)',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp() COMMENT 'Thời gian lưu vào database'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Bảng lưu tất cả giao dịch từ SePay Webhook - Tối ưu hóa với index composite';
+
+-- --------------------------------------------------------
+
+--
 -- Cấu trúc bảng cho bảng `thanhtoan`
 --
 
@@ -822,23 +985,23 @@ CREATE TABLE `thanhtoan` (
 
 INSERT INTO `thanhtoan` (`ID_ThanhToan`, `ID_DatLich`, `SoTien`, `LoaiThanhToan`, `PhuongThuc`, `TrangThai`, `MaGiaoDich`, `SePayTransactionId`, `NgayThanhToan`, `GhiChu`) VALUES
 (1, 20, 12600000.00, 'Đặt cọc', 'Chuyển khoản', 'Thành công', 'TXN202510282254488259', NULL, '2025-10-28 21:54:48', 'Thanh toán Đặt cọc cho sự kiện: Sinh Nhật 23'),
-(2, 18, 34500000.00, 'Đặt cọc', 'Chuyển khoản', 'Đang xử lý', 'SEPAY_TEST_1761703855_8967', NULL, '2025-10-29 02:10:55', 'Test payment for SePay webhook integration - Event: Đá banh'),
-(3, 18, 34500000.00, '', 'Chuyển khoản', 'Đang xử lý', 'SEPAY_1761706975_1610', NULL, '2025-10-29 03:02:55', 'Thanh toán qua SePay - Đá banh'),
-(4, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761707908_1240', NULL, '2025-10-29 03:18:28', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761707908_1240'),
-(5, 18, 100000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_TEST_1761708002_4407', NULL, '2025-10-29 03:20:02', 'Test payment SePay Đặt cọc - SEPAY_TEST_1761708002_4407'),
-(6, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708023_8974', NULL, '2025-10-29 03:20:23', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708023_8974'),
-(7, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708080_8542', NULL, '2025-10-29 03:21:20', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708080_8542'),
-(8, 18, 100000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708573_7634', NULL, '2025-10-29 03:29:33', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708573_7634'),
-(9, 18, 100000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708668_8669', NULL, '2025-10-29 03:31:08', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708668_8669'),
-(10, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761708739_6931', NULL, '2025-10-29 03:32:19', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708739_6931'),
-(11, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709007_5767', NULL, '2025-10-29 03:36:47', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709007_5767'),
-(12, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709277_5740', NULL, '2025-10-29 03:41:17', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709277_5740'),
-(13, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709415_3837', NULL, '2025-10-29 03:43:35', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709415_3837'),
-(14, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709659_9786', NULL, '2025-10-29 03:47:39', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709659_9786'),
-(15, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761709885_5902', NULL, '2025-10-29 03:51:25', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709885_5902'),
-(16, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761710117_6431', NULL, '2025-10-29 03:55:17', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761710117_6431'),
-(17, 18, 115000000.00, 'Thanh toán đủ', '', 'Đang xử lý', 'SEPAY_1761710148_5737', NULL, '2025-10-29 03:55:48', 'Tạo thanh toán SePay Thanh toán đủ - SEPAY_1761710148_5737'),
-(18, 18, 34500000.00, 'Đặt cọc', '', 'Đang xử lý', 'SEPAY_1761710316_6652', NULL, '2025-10-29 03:58:36', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761710316_6652'),
+(2, 18, 34500000.00, 'Đặt cọc', 'Chuyển khoản', '', 'SEPAY_TEST_1761703855_8967', NULL, '2025-10-29 02:10:55', 'Test payment for SePay webhook integration - Event: Đá banh - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(3, 18, 34500000.00, '', 'Chuyển khoản', '', 'SEPAY_1761706975_1610', NULL, '2025-10-29 03:02:55', 'Thanh toán qua SePay - Đá banh - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(4, 18, 34500000.00, 'Đặt cọc', '', '', 'SEPAY_1761707908_1240', NULL, '2025-10-29 03:18:28', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761707908_1240 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(5, 18, 100000.00, 'Đặt cọc', '', '', 'SEPAY_TEST_1761708002_4407', NULL, '2025-10-29 03:20:02', 'Test payment SePay Đặt cọc - SEPAY_TEST_1761708002_4407 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(6, 18, 34500000.00, 'Đặt cọc', '', '', 'SEPAY_1761708023_8974', NULL, '2025-10-29 03:20:23', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708023_8974 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(7, 18, 34500000.00, 'Đặt cọc', '', '', 'SEPAY_1761708080_8542', NULL, '2025-10-29 03:21:20', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708080_8542 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(8, 18, 100000.00, 'Đặt cọc', '', '', 'SEPAY_1761708573_7634', NULL, '2025-10-29 03:29:33', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708573_7634 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(9, 18, 100000.00, 'Đặt cọc', '', '', 'SEPAY_1761708668_8669', NULL, '2025-10-29 03:31:08', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708668_8669 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(10, 18, 34500000.00, 'Đặt cọc', '', '', 'SEPAY_1761708739_6931', NULL, '2025-10-29 03:32:19', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761708739_6931 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(11, 18, 34500000.00, 'Đặt cọc', '', '', 'SEPAY_1761709007_5767', NULL, '2025-10-29 03:36:47', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709007_5767 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(12, 18, 34500000.00, 'Đặt cọc', '', '', 'SEPAY_1761709277_5740', NULL, '2025-10-29 03:41:17', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709277_5740 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(13, 18, 34500000.00, 'Đặt cọc', '', '', 'SEPAY_1761709415_3837', NULL, '2025-10-29 03:43:35', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709415_3837 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(14, 18, 34500000.00, 'Đặt cọc', '', '', 'SEPAY_1761709659_9786', NULL, '2025-10-29 03:47:39', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709659_9786 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(15, 18, 34500000.00, 'Đặt cọc', '', '', 'SEPAY_1761709885_5902', NULL, '2025-10-29 03:51:25', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761709885_5902 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(16, 18, 34500000.00, 'Đặt cọc', '', '', 'SEPAY_1761710117_6431', NULL, '2025-10-29 03:55:17', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761710117_6431 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(17, 18, 115000000.00, 'Thanh toán đủ', '', '', 'SEPAY_1761710148_5737', NULL, '2025-10-29 03:55:48', 'Tạo thanh toán SePay Thanh toán đủ - SEPAY_1761710148_5737 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
+(18, 18, 34500000.00, 'Đặt cọc', '', '', 'SEPAY_1761710316_6652', NULL, '2025-10-29 03:58:36', 'Tạo thanh toán SePay Đặt cọc - SEPAY_1761710316_6652 - Tự động hủy: Sự kiện đã qua thời gian tổ chức'),
 (19, 17, 92150000.00, 'Thanh toán đủ', 'Chuyển khoản', '', 'SEPAY_1762094590_1284', NULL, '2025-11-02 14:43:10', 'Tạo thanh toán SePay Thanh toán đủ - SEPAY_1762094590_1284 - Đã hủy bởi người dùng');
 
 -- --------------------------------------------------------
@@ -911,7 +1074,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`ID_User`, `Email`, `Password`, `FacebookID`, `GoogleID`, `ID_Role`, `TrangThai`, `NgayTao`, `NgayCapNhat`, `OnlineStatus`, `LastActivity`) VALUES
-(3, 'qtv1@gmail.com', '$2y$10$76AL.x2sD9yFnUQ2j6YlYeXXMAFp4HlCvHxNIVl5j8/.DSUmVl3im', NULL, NULL, 1, 'Hoạt động', '2025-09-19 23:54:54', '2025-10-31 02:34:56', 'Online', '2025-10-31 02:34:56'),
+(3, 'qtv1@gmail.com', '$2y$10$76AL.x2sD9yFnUQ2j6YlYeXXMAFp4HlCvHxNIVl5j8/.DSUmVl3im', NULL, NULL, 1, 'Hoạt động', '2025-09-19 23:54:54', '2025-11-16 21:56:40', 'Online', '2025-11-16 21:56:40'),
 (17, 'thanhbinh14062003@gmail.com', '$2y$10$vX5Lacdo5OaAIvtda/0CyOEldWJqSjOVJqr.YKd1O0OwIf9rz8tkS', NULL, NULL, 5, 'Hoạt động', '2025-09-23 20:48:28', '2025-11-02 14:42:56', 'Offline', '2025-11-02 14:41:32'),
 (29, 'qltc2@gmail.com', '$2y$10$ig.u6SQkmvukGKXF7lFlS.D7ikk0Aja1lZPgJzeGeUJAm5zselWP.', NULL, NULL, 2, 'Hoạt động', '2025-09-24 02:06:23', '2025-09-24 02:06:23', 'Offline', NULL),
 (39, 'nhanvien1@gmail.com', '$2y$10$aFB3cdypIGWJPW343j4vSOP82d5lc.y4FG0QjqTqZu7RIKeb25GIC', NULL, NULL, 4, 'Hoạt động', '2025-09-24 02:11:39', '2025-10-28 19:27:02', 'Offline', '2025-10-28 19:27:01'),
@@ -997,7 +1160,7 @@ ALTER TABLE `chitietkehoach`
   ADD KEY `ID_KeHoach` (`ID_KeHoach`),
   ADD KEY `ID_NhanVien` (`ID_NhanVien`),
   ADD KEY `idx_trangthai` (`TrangThai`),
-  ADD KEY `idx_kehoach_trangthai` (`ID_KeHoach`, `TrangThai`);
+  ADD KEY `idx_kehoach_trangthai` (`ID_KeHoach`,`TrangThai`);
 
 --
 -- Chỉ mục cho bảng `combo`
@@ -1046,7 +1209,7 @@ ALTER TABLE `danhgia`
   ADD KEY `ID_KhachHang` (`ID_KhachHang`),
   ADD KEY `idx_trangthai` (`TrangThai`),
   ADD KEY `idx_thoigiandanhgia` (`ThoiGianDanhGia`),
-  ADD KEY `idx_sukien_reviews` (`ID_SuKien`, `TrangThai`, `ThoiGianDanhGia`);
+  ADD KEY `idx_sukien_reviews` (`ID_SuKien`,`TrangThai`,`ThoiGianDanhGia`);
 
 --
 -- Chỉ mục cho bảng `datlichsukien`
@@ -1061,9 +1224,10 @@ ALTER TABLE `datlichsukien`
   ADD KEY `idx_ngaytao` (`NgayTao`),
   ADD KEY `idx_ngaybatdau` (`NgayBatDau`),
   ADD KEY `idx_ngayketthuc` (`NgayKetThuc`),
-  ADD KEY `idx_autocancel` (`TrangThaiDuyet`, `TrangThaiThanhToan`, `NgayTao`),
-  ADD KEY `idx_khachhang_ngaybatdau` (`ID_KhachHang`, `NgayBatDau`),
-  ADD KEY `idx_trangthai_ngaytao` (`TrangThaiDuyet`, `NgayTao`);
+  ADD KEY `idx_autocancel` (`TrangThaiDuyet`,`TrangThaiThanhToan`,`NgayTao`),
+  ADD KEY `idx_khachhang_ngaybatdau` (`ID_KhachHang`,`NgayBatDau`),
+  ADD KEY `idx_trangthai_ngaytao` (`TrangThaiDuyet`,`NgayTao`),
+  ADD KEY `fk_datlich_phong` (`ID_Phong`);
 
 --
 -- Chỉ mục cho bảng `diadiem`
@@ -1072,7 +1236,12 @@ ALTER TABLE `diadiem`
   ADD PRIMARY KEY (`ID_DD`),
   ADD KEY `idx_trangthaihoatdong` (`TrangThaiHoatDong`),
   ADD KEY `idx_loaidiadiem` (`LoaiDiaDiem`),
-  ADD KEY `idx_status_type` (`TrangThaiHoatDong`, `LoaiDiaDiem`);
+  ADD KEY `idx_status_type` (`TrangThaiHoatDong`,`LoaiDiaDiem`),
+  ADD KEY `idx_tinhthanh` (`TinhThanh`),
+  ADD KEY `idx_quanhuyen` (`QuanHuyen`),
+  ADD KEY `idx_phuongxa` (`PhuongXa`),
+  ADD KEY `idx_tinhthanh_quanhuyen` (`TinhThanh`,`QuanHuyen`),
+  ADD KEY `idx_tinhthanh_quanhuyen_phuongxa` (`TinhThanh`,`QuanHuyen`,`PhuongXa`);
 
 --
 -- Chỉ mục cho bảng `diadiem_loaisk`
@@ -1110,8 +1279,8 @@ ALTER TABLE `lichlamviec`
   ADD KEY `idx_trangthai` (`TrangThai`),
   ADD KEY `idx_ngaybatdau` (`NgayBatDau`),
   ADD KEY `idx_ngayketthuc` (`NgayKetThuc`),
-  ADD KEY `idx_nhanvien_ngaybatdau` (`ID_NhanVien`, `NgayBatDau`),
-  ADD KEY `idx_datlich_trangthai` (`ID_DatLich`, `TrangThai`);
+  ADD KEY `idx_nhanvien_ngaybatdau` (`ID_NhanVien`,`NgayBatDau`),
+  ADD KEY `idx_datlich_trangthai` (`ID_DatLich`,`TrangThai`);
 
 --
 -- Chỉ mục cho bảng `loaisukien`
@@ -1129,8 +1298,8 @@ ALTER TABLE `messages`
   ADD KEY `created_at` (`SentAt`),
   ADD KEY `idx_messages_type` (`message_type`),
   ADD KEY `idx_isread` (`IsRead`),
-  ADD KEY `idx_conversation_unread` (`conversation_id`, `sender_id`, `IsRead`),
-  ADD KEY `idx_conversation_sentat` (`conversation_id`, `SentAt`);
+  ADD KEY `idx_conversation_unread` (`conversation_id`,`sender_id`,`IsRead`),
+  ADD KEY `idx_conversation_sentat` (`conversation_id`,`SentAt`);
 
 --
 -- Chỉ mục cho bảng `nhanvieninfo`
@@ -1153,7 +1322,7 @@ ALTER TABLE `payment_history`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_payment_history_payment` (`payment_id`),
   ADD KEY `idx_created_at` (`created_at`),
-  ADD KEY `idx_payment_created` (`payment_id`, `created_at`);
+  ADD KEY `idx_payment_created` (`payment_id`,`created_at`);
 
 --
 -- Chỉ mục cho bảng `phanquyen`
@@ -1161,6 +1330,15 @@ ALTER TABLE `payment_history`
 ALTER TABLE `phanquyen`
   ADD PRIMARY KEY (`ID_Role`),
   ADD UNIQUE KEY `TenRole` (`RoleName`);
+
+--
+-- Chỉ mục cho bảng `phong`
+--
+ALTER TABLE `phong`
+  ADD PRIMARY KEY (`ID_Phong`),
+  ADD KEY `ID_DD` (`ID_DD`),
+  ADD KEY `idx_trangthai` (`TrangThai`),
+  ADD KEY `idx_diadiem_trangthai` (`ID_DD`,`TrangThai`);
 
 --
 -- Chỉ mục cho bảng `sukien`
@@ -1171,6 +1349,24 @@ ALTER TABLE `sukien`
   ADD KEY `fk_sukien_datlich` (`ID_DatLich`),
   ADD KEY `idx_trangthaithucte` (`TrangThaiThucTe`),
   ADD KEY `idx_ngaybatdau_thucte` (`NgayBatDauThucTe`);
+
+--
+-- Chỉ mục cho bảng `tb_transactions`
+--
+ALTER TABLE `tb_transactions`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `idx_sepay_transaction_id` (`sepay_transaction_id`),
+  ADD KEY `idx_account_number` (`account_number`),
+  ADD KEY `idx_transaction_date` (`transaction_date`),
+  ADD KEY `idx_transaction_content` (`transaction_content`(255)),
+  ADD KEY `idx_payment_id` (`payment_id`),
+  ADD KEY `idx_processed` (`processed`),
+  ADD KEY `idx_transfer_type` (`transfer_type`),
+  ADD KEY `idx_created_at` (`created_at`),
+  ADD KEY `idx_account_date` (`account_number`,`transaction_date`),
+  ADD KEY `idx_processed_date` (`processed`,`transaction_date`),
+  ADD KEY `idx_payment_processed` (`payment_id`,`processed`),
+  ADD KEY `idx_transfer_type_date` (`transfer_type`,`transaction_date`);
 
 --
 -- Chỉ mục cho bảng `thanhtoan`
@@ -1185,7 +1381,7 @@ ALTER TABLE `thanhtoan`
   ADD KEY `idx_phuongthuc_trangthai` (`PhuongThuc`,`TrangThai`),
   ADD KEY `idx_sepay_transaction_id` (`SePayTransactionId`),
   ADD KEY `idx_phuongthuc` (`PhuongThuc`),
-  ADD KEY `idx_datlich_loaithanhtoan` (`ID_DatLich`, `LoaiThanhToan`);
+  ADD KEY `idx_datlich_loaithanhtoan` (`ID_DatLich`,`LoaiThanhToan`);
 
 --
 -- Chỉ mục cho bảng `thietbi`
@@ -1194,7 +1390,7 @@ ALTER TABLE `thietbi`
   ADD PRIMARY KEY (`ID_TB`),
   ADD KEY `idx_trangthai` (`TrangThai`),
   ADD KEY `idx_loaithietbi` (`LoaiThietBi`),
-  ADD KEY `idx_status_loai` (`TrangThai`, `LoaiThietBi`);
+  ADD KEY `idx_status_loai` (`TrangThai`,`LoaiThietBi`);
 
 --
 -- Chỉ mục cho bảng `users`
@@ -1207,7 +1403,7 @@ ALTER TABLE `users`
   ADD KEY `ID_Role` (`ID_Role`),
   ADD KEY `idx_onlinestatus` (`OnlineStatus`),
   ADD KEY `idx_lastactivity` (`LastActivity`),
-  ADD KEY `idx_status_online` (`TrangThai`, `OnlineStatus`);
+  ADD KEY `idx_status_online` (`TrangThai`,`OnlineStatus`);
 
 --
 -- Chỉ mục cho bảng `webhook_logs`
@@ -1217,7 +1413,7 @@ ALTER TABLE `webhook_logs`
   ADD KEY `fk_webhook_payment` (`payment_id`),
   ADD KEY `idx_processed` (`processed`),
   ADD KEY `idx_created_at` (`created_at`),
-  ADD KEY `idx_unprocessed` (`processed`, `created_at`);
+  ADD KEY `idx_unprocessed` (`processed`,`created_at`);
 
 --
 -- AUTO_INCREMENT cho các bảng đã đổ
@@ -1344,10 +1540,22 @@ ALTER TABLE `phanquyen`
   MODIFY `ID_Role` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
+-- AUTO_INCREMENT cho bảng `phong`
+--
+ALTER TABLE `phong`
+  MODIFY `ID_Phong` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
 -- AUTO_INCREMENT cho bảng `sukien`
 --
 ALTER TABLE `sukien`
   MODIFY `ID_SuKien` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+
+--
+-- AUTO_INCREMENT cho bảng `tb_transactions`
+--
+ALTER TABLE `tb_transactions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT cho bảng `thanhtoan`
@@ -1455,7 +1663,8 @@ ALTER TABLE `conversations`
 ALTER TABLE `datlichsukien`
   ADD CONSTRAINT `fk_datlich_diadiem` FOREIGN KEY (`ID_DD`) REFERENCES `diadiem` (`ID_DD`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_datlich_khachhang` FOREIGN KEY (`ID_KhachHang`) REFERENCES `khachhanginfo` (`ID_KhachHang`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_datlich_loaisk` FOREIGN KEY (`ID_LoaiSK`) REFERENCES `loaisukien` (`ID_LoaiSK`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `fk_datlich_loaisk` FOREIGN KEY (`ID_LoaiSK`) REFERENCES `loaisukien` (`ID_LoaiSK`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_datlich_phong` FOREIGN KEY (`ID_Phong`) REFERENCES `phong` (`ID_Phong`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `kehoachthuchien`
@@ -1499,10 +1708,22 @@ ALTER TABLE `payment_history`
   ADD CONSTRAINT `fk_payment_history_payment` FOREIGN KEY (`payment_id`) REFERENCES `thanhtoan` (`ID_ThanhToan`) ON DELETE CASCADE;
 
 --
+-- Các ràng buộc cho bảng `phong`
+--
+ALTER TABLE `phong`
+  ADD CONSTRAINT `phong_ibfk_1` FOREIGN KEY (`ID_DD`) REFERENCES `diadiem` (`ID_DD`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
 -- Các ràng buộc cho bảng `sukien`
 --
 ALTER TABLE `sukien`
   ADD CONSTRAINT `fk_sukien_datlich` FOREIGN KEY (`ID_DatLich`) REFERENCES `datlichsukien` (`ID_DatLich`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Các ràng buộc cho bảng `tb_transactions`
+--
+ALTER TABLE `tb_transactions`
+  ADD CONSTRAINT `fk_transaction_payment` FOREIGN KEY (`payment_id`) REFERENCES `thanhtoan` (`ID_ThanhToan`) ON DELETE SET NULL;
 
 --
 -- Các ràng buộc cho bảng `thanhtoan`

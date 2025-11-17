@@ -23,105 +23,62 @@ if (!in_array($userRole, [1, 3, 5])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Hỗ trợ - Event Management System</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             position: relative;
-            overflow-x: hidden;
-        }
-        
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.2) 0%, transparent 50%);
-            z-index: -1;
-            animation: backgroundShift 20s ease-in-out infinite;
-        }
-        
-        @keyframes backgroundShift {
-            0%, 100% { transform: translateX(0) translateY(0); }
-            25% { transform: translateX(-10px) translateY(-5px); }
-            50% { transform: translateX(10px) translateY(5px); }
-            75% { transform: translateX(-5px) translateY(10px); }
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
         }
         
         .chat-container {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 25px;
-            box-shadow: 
-                0 25px 50px rgba(0, 0, 0, 0.15),
-                0 0 0 1px rgba(255, 255, 255, 0.2);
-            margin: 2rem auto;
+            background: #ffffff;
+            margin: 0;
             overflow: hidden;
-            max-width: 1200px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            animation: containerFloat 6s ease-in-out infinite;
-        }
-        
-        @keyframes containerFloat {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-5px); }
+            width: 100%;
+            height: 100vh;
+            border: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
         }
         
         .chat-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 1.5rem 2rem;
+            padding: 1rem 1.5rem;
             position: relative;
-            overflow: hidden;
-        }
-        
-        .chat-header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-            animation: headerShine 8s ease-in-out infinite;
-        }
-        
-        @keyframes headerShine {
-            0%, 100% { transform: rotate(0deg) scale(1); }
-            50% { transform: rotate(180deg) scale(1.1); }
         }
         
         .header-icon {
-            width: 60px;
-            height: 60px;
+            width: 40px;
+            height: 40px;
             background: rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 1rem;
-            backdrop-filter: blur(10px);
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            margin-right: 0.75rem;
         }
         
         .header-icon i {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             color: white;
         }
         
         .header-content h1 {
             margin: 0;
-            font-size: 2rem;
-            font-weight: 700;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            font-size: 1.5rem;
+            font-weight: 600;
             position: relative;
             z-index: 1;
         }
@@ -136,14 +93,14 @@ if (!in_array($userRole, [1, 3, 5])) {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            font-size: 0.9rem;
-            opacity: 0.9;
             position: relative;
             z-index: 1;
-            padding: 0.25rem 0.75rem;
-            border-radius: 15px;
-            background: rgba(255, 255, 255, 0.1);
+            padding: 0.5rem;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
             transition: all 0.3s ease;
+            min-width: 40px;
+            justify-content: center;
         }
         
         .connection-status.online {
@@ -163,6 +120,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             color: white;
             font-weight: 500;
             white-space: nowrap;
+            display: none; /* Ẩn text, chỉ hiển thị icon */
         }
         
         .connection-indicator {
@@ -221,10 +179,10 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .btn-home {
-            width: 45px;
-            height: 45px;
+            width: 40px;
+            height: 40px;
             background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            border: none;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -232,14 +190,12 @@ if (!in_array($userRole, [1, 3, 5])) {
             color: white;
             text-decoration: none;
             transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
             position: relative;
             z-index: 1;
         }
         
         .btn-home:hover {
             background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.05);
             color: white;
         }
         
@@ -281,29 +237,15 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         .chat-content {
             display: flex;
-            height: 650px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            height: calc(100vh - 80px);
+            background: #f8f9fa;
             position: relative;
         }
         
-        .chat-content::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: 
-                radial-gradient(circle at 10% 20%, rgba(102, 126, 234, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 90% 80%, rgba(118, 75, 162, 0.05) 0%, transparent 50%);
-            pointer-events: none;
-        }
-        
         .chat-sidebar {
-            width: 320px;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(15px);
-            border-right: 1px solid rgba(222, 226, 230, 0.3);
+            width: 300px;
+            background: #ffffff;
+            border-right: 1px solid #dee2e6;
             display: flex;
             flex-direction: column;
             position: relative;
@@ -311,46 +253,47 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .sidebar-header {
-            padding: 1.5rem 1.5rem 1rem 1.5rem;
-            border-bottom: 1px solid rgba(222, 226, 230, 0.3);
+            padding: 1rem;
+            border-bottom: 1px solid #dee2e6;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(255, 255, 255, 0.8);
+            background: #ffffff;
         }
         
         .sidebar-header h6 {
             margin: 0;
             font-weight: 600;
             color: #495057;
+            font-size: 0.95rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
         
         .btn-new-chat {
-            width: 35px;
-            height: 35px;
+            width: 32px;
+            height: 32px;
             border: none;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: #667eea;
             color: white;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             cursor: pointer;
+            font-size: 0.9rem;
         }
         
         .btn-new-chat:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            background: #5568d3;
         }
         
         .sidebar-content {
             flex: 1;
             overflow-y: auto;
-            padding: 1rem;
+            padding: 0.5rem;
         }
         
         .loading-state {
@@ -384,7 +327,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .chat-header-bar {
-            padding: 1rem;
+            padding: 0.75rem 1rem;
             background: white;
             border-bottom: 1px solid #dee2e6;
             display: flex;
@@ -398,8 +341,8 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .user-avatar-small {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             background: linear-gradient(45deg, #667eea, #764ba2);
             color: white;
@@ -407,12 +350,14 @@ if (!in_array($userRole, [1, 3, 5])) {
             align-items: center;
             justify-content: center;
             margin-right: 0.75rem;
+            font-size: 0.9rem;
         }
         
         .user-details h6 {
             margin: 0;
             font-weight: 600;
             color: #333;
+            font-size: 0.95rem;
         }
         
         .user-details small {
@@ -421,35 +366,16 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         .chat-messages {
             flex: 1;
-            padding: 2rem;
+            padding: 1rem;
             overflow-y: auto;
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            background: #ffffff;
             position: relative;
         }
         
-        .chat-messages::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: 
-                radial-gradient(circle at 20% 20%, rgba(102, 126, 234, 0.03) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.03) 0%, transparent 50%);
-            pointer-events: none;
-        }
-        
         .message {
-            margin-bottom: 1.5rem;
+            margin-bottom: 0.75rem;
             display: flex;
             align-items: flex-start;
-            animation: messageSlide 0.3s ease-out;
-        }
-        
-        @keyframes messageSlide {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
         }
         
         .message.sent {
@@ -461,25 +387,21 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .message-content {
-            max-width: 75%;
-            padding: 1rem 1.25rem;
-            border-radius: 25px;
+            max-width: 70%;
+            padding: 0.75rem 1rem;
+            border-radius: 18px;
             position: relative;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
         }
         
         .message.sent .message-content {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background: #667eea;
             color: white;
-            border-bottom-right-radius: 8px;
-            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+            border-bottom-right-radius: 4px;
         }
         
         .message.received .message-content {
-            background: rgba(255, 255, 255, 0.95);
+            background: #f1f3f5;
             color: #333;
-            border: 1px solid #e9ecef;
             border-bottom-left-radius: 4px;
         }
         
@@ -494,7 +416,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .chat-input {
-            padding: 1rem;
+            padding: 0.75rem 1rem;
             background: white;
             border-top: 1px solid #dee2e6;
         }
@@ -502,168 +424,148 @@ if (!in_array($userRole, [1, 3, 5])) {
         .chat-input-group {
             display: flex;
             gap: 0.5rem;
+            align-items: center;
         }
         
         .chat-input input {
             flex: 1;
-            border: 2px solid #e9ecef;
-            border-radius: 25px;
-            padding: 0.75rem 1rem;
-            font-size: 1rem;
-            transition: all 0.3s ease;
+            border: 1px solid #dee2e6;
+            border-radius: 20px;
+            padding: 0.6rem 1rem;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
         }
         
         .chat-input input:focus {
             border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
             outline: none;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
         }
         
         .chat-input button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background: #667eea;
             border: none;
             border-radius: 50%;
-            width: 45px;
-            height: 45px;
+            width: 40px;
+            height: 40px;
             color: white;
-            font-size: 1.1rem;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
-            position: relative;
-            overflow: hidden;
-            margin-left: 0.5rem;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
         
         .chat-input button#sendButton {
-            width: 55px;
-            height: 55px;
-            font-size: 1.3rem;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            box-shadow: 0 4px 20px rgba(40, 167, 69, 0.3);
+            width: 40px;
+            height: 40px;
+            background: #28a745;
         }
         
         .chat-input button#voiceCallButton {
-            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
-            box-shadow: 0 4px 20px rgba(23, 162, 184, 0.3);
+            background: #17a2b8;
         }
         
         .chat-input button#videoCallButton {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-            box-shadow: 0 4px 20px rgba(220, 53, 69, 0.3);
+            background: #dc3545;
         }
         
         .chat-input button#attachButton {
-            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
-            box-shadow: 0 4px 20px rgba(108, 117, 125, 0.3);
+            background: #6c757d;
         }
         
-        .chat-input button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transition: left 0.5s;
-        }
-        
-        .chat-input button:hover {
-            transform: scale(1.15) rotate(5deg);
-            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
-        }
-        
-        .chat-input button:hover::before {
-            left: 100%;
+        .chat-input button:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: scale(1.05);
         }
         
         .chat-input button:disabled {
-            opacity: 0.6;
-            transform: none;
-            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.2);
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         
         .conversation-item {
-            padding: 1.25rem;
-            border-bottom: 1px solid rgba(233, 236, 239, 0.5);
+            padding: 0.75rem;
+            border-bottom: 1px solid #e9ecef;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             position: relative;
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(5px);
-        }
-        
-        .conversation-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%);
-            opacity: 0;
-            transition: opacity 0.3s ease;
+            background: #ffffff;
+            border-radius: 8px;
+            margin-bottom: 0.25rem;
         }
         
         .conversation-item:hover {
-            background: rgba(102, 126, 234, 0.05);
-            transform: translateX(5px);
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
-        }
-        
-        .conversation-item:hover::before {
-            opacity: 1;
+            background: #f8f9fa;
         }
         
         .conversation-item.active {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
-            border-left: 5px solid #667eea;
-            transform: translateX(8px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
+            background: #e7f3ff;
+            border-left: 3px solid #667eea;
         }
         
         .conversation-user {
             font-weight: 600;
             color: #333;
             margin-bottom: 0.25rem;
+            font-size: 0.9rem;
         }
         
         .conversation-preview {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #6c757d;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            margin-bottom: 0.25rem;
         }
         
         .conversation-time {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #adb5bd;
-            margin-top: 0.25rem;
         }
         
         .status-indicator {
             display: inline-block;
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            margin-right: 0.6rem;
+            margin-right: 0.5rem;
             position: relative;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
         
         .status-online {
-            background: linear-gradient(135deg, #28a745, #20c997);
-            animation: statusPulse 2s ease-in-out infinite;
-        }
-        
-        @keyframes statusPulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.2); opacity: 0.8; }
+            background: #28a745;
         }
         
         .status-offline {
             background: #6c757d;
+        }
+        
+        .customer-search {
+            padding: 0.75rem;
+            border-bottom: 1px solid #dee2e6;
+            background: #ffffff;
+        }
+        
+        .customer-search .input-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .customer-search input {
+            flex: 1;
+            border: 1px solid #dee2e6;
+            border-radius: 20px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+        }
+        
+        .customer-search button {
+            border-radius: 20px;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #dee2e6;
         }
         
         .typing-indicator {
@@ -684,63 +586,41 @@ if (!in_array($userRole, [1, 3, 5])) {
             justify-content: center;
             height: 100%;
             text-align: center;
-            padding: 3rem 2rem;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+            padding: 2rem;
         }
         
         .welcome-icon {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            width: 60px;
+            height: 60px;
+            background: #667eea;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 2rem;
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            margin-bottom: 1.5rem;
         }
         
         .welcome-icon i {
-            font-size: 2rem;
+            font-size: 1.5rem;
             color: white;
         }
         
         .welcome-screen h4 {
             color: #495057;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             font-weight: 600;
+            font-size: 1.1rem;
         }
         
         .welcome-screen p {
             color: #6c757d;
-            margin-bottom: 2rem;
-            font-size: 1.1rem;
-        }
-        
-        .welcome-actions {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-        
-        .welcome-actions .btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 25px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .welcome-actions .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
         }
         
         .welcome-info {
             display: flex;
-            gap: 2rem;
+            gap: 1.5rem;
             flex-wrap: wrap;
             justify-content: center;
         }
@@ -750,11 +630,12 @@ if (!in_array($userRole, [1, 3, 5])) {
             align-items: center;
             gap: 0.5rem;
             color: #6c757d;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
         
         .info-item i {
             color: #667eea;
+            font-size: 0.9rem;
         }
         
         /* Online status styles */
@@ -823,19 +704,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         }
         
-        .user-info {
-            margin-top: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-        
-        .user-info span {
-            position: relative;
-            z-index: 1;
-        }
+        /* Removed user-info styles - không sử dụng nữa */
         
         /* Media Message Styles */
         .media-message {
@@ -912,10 +781,11 @@ if (!in_array($userRole, [1, 3, 5])) {
             display: none;
             align-items: center;
             justify-content: center;
+            flex-direction: column;
         }
         
         .call-modal.show {
-            display: flex;
+            display: flex !important;
         }
         
         .call-container {
@@ -926,6 +796,8 @@ if (!in_array($userRole, [1, 3, 5])) {
             max-width: 400px;
             width: 90%;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            margin: auto;
+            position: relative;
         }
         
         .call-avatar {
@@ -1085,72 +957,56 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         @media (max-width: 768px) {
-            .chat-container {
-                margin: 1rem;
-                border-radius: 15px;
-            }
-            
             .chat-header {
-                padding: 1rem;
+                padding: 0.75rem 1rem;
             }
             
             .header-content h1 {
-                font-size: 1.5rem;
+                font-size: 1.25rem;
             }
             
             .header-icon {
-                width: 45px;
-                height: 45px;
-                margin-right: 0.75rem;
+                width: 36px;
+                height: 36px;
+                margin-right: 0.5rem;
             }
             
             .header-icon i {
-                font-size: 1.2rem;
+                font-size: 1rem;
             }
             
             .btn-home {
-                width: 40px;
-                height: 40px;
+                width: 36px;
+                height: 36px;
             }
             
             .chat-content {
                 flex-direction: column;
-                height: auto;
+                height: calc(100vh - 70px);
             }
             
             .chat-sidebar {
                 width: 100%;
-                height: 200px;
+                height: 180px;
             }
             
             .sidebar-header {
-                padding: 1rem;
-            }
-            
-            .welcome-actions {
-                flex-direction: column;
-                gap: 0.75rem;
-            }
-            
-            .welcome-actions .btn {
-                width: 100%;
-                justify-content: center;
+                padding: 0.75rem;
             }
             
             .welcome-info {
                 flex-direction: column;
-                gap: 1rem;
+                gap: 0.75rem;
             }
             
             .chat-main {
-                height: 400px;
+                height: calc(100vh - 280px);
             }
         }
     </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="chat-container">
+    <div class="chat-container" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100vh; margin: 0; padding: 0;">
             <!-- Phần đầu trang -->
             <div class="chat-header">
                 <div class="d-flex justify-content-between align-items-center">
@@ -1160,11 +1016,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                         </div>
                         <div class="header-content">
                             <h1>Chat Hỗ trợ</h1>
-                        <div class="user-info" id="userInfo" style="display: none;">
-                                <span id="userName">Đang tải...</span>
-                                <span id="userRole" class="role-badge"></span>
                         </div>
-                    </div>
                     </div>
                     <div class="header-actions">
                         <div class="connection-status" id="connectionStatus">
@@ -1189,6 +1041,14 @@ if (!in_array($userRole, [1, 3, 5])) {
                         <button class="btn-new-chat" id="newChatBtn" title="Tạo cuộc trò chuyện mới">
                             <i class="fas fa-plus"></i>
                         </button>
+                    </div>
+                    <div class="customer-search">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="conversationSearch" placeholder="Tìm kiếm cuộc trò chuyện...">
+                            <button class="btn btn-outline-secondary" type="button">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="sidebar-content">
                         <div id="conversationsList">
@@ -1354,6 +1214,9 @@ if (!in_array($userRole, [1, 3, 5])) {
             </button>
         </div>
     </div>
+    
+    <!-- Audio element cho voice call (ẩn) -->
+    <audio id="remoteAudio" autoplay playsinline style="display: none;" volume="1.0"></audio>
 
     <!-- Modal xem trước hình ảnh -->
     <div class="modal fade" id="imagePreviewModal" tabindex="-1">
@@ -1372,6 +1235,8 @@ if (!in_array($userRole, [1, 3, 5])) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- WebRTC Adapter.js - Tương thích cross-browser -->
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
     <!-- Socket.IO - Sử dụng CDN cho production, local server cho development -->
     <script>
     // Load Socket.IO client
@@ -1416,6 +1281,30 @@ if (!in_array($userRole, [1, 3, 5])) {
     })();
     </script>
     <script>
+        // Helper function để tự động phát hiện đường dẫn API đúng
+        function getApiPath(relativePath) {
+            const path = window.location.pathname;
+            const hostname = window.location.hostname;
+            
+            // Production domain
+            if (hostname.includes('sukien.info.vn') || hostname.includes('sukien')) {
+                if (path.includes('/my-php-project/')) {
+                    return '/my-php-project/' + relativePath;
+                }
+                return '/' + relativePath;
+            }
+            
+            // Localhost development
+            if (path.includes('/my-php-project/')) {
+                return '/my-php-project/' + relativePath;
+            } else if (path.includes('/event/')) {
+                return '/event/my-php-project/' + relativePath;
+            }
+            
+            // Fallback: relative path
+            return '../' + relativePath;
+        }
+        
         let socket = null;
         let currentConversationId = null;
         let currentUserId = <?php 
@@ -1449,15 +1338,39 @@ if (!in_array($userRole, [1, 3, 5])) {
             // Set initial connecting status
             updateConnectionStatus('connecting', 'Đang kết nối...');
             
+            // Khởi tạo socket ngay lập tức
             initSocket();
+            
+            // Các hàm khác
             setUserOnline(); // Set user online
             loadConversations();
             setupChatEvents();
             setupMediaEvents();
             // ✅ setupCallSocketEvents() will be called in socket.on('connect')
             // to ensure socket is connected before setting up event listeners
-            showUserInfo();
+            setupQuickReplies(); // Setup quick reply buttons
+            setupConversationSearch(); // Setup search functionality
             startAutoRefresh();
+            
+            // QUAN TRỌNG: Thêm interval để kiểm tra và reconnect nếu cần
+            // Kiểm tra mỗi 10 giây xem socket có đang connected không
+            setInterval(() => {
+                if (typeof io !== 'undefined' && (!socket || !socket.connected)) {
+                    console.log('🔄 Socket not connected, attempting to reconnect...');
+                    if (socket) {
+                        // Nếu socket tồn tại nhưng không connected, thử reconnect
+                        if (socket.disconnected) {
+                            socket.connect();
+                        } else {
+                            // Nếu socket không tồn tại, khởi tạo lại
+                            initSocket();
+                        }
+                    } else {
+                        // Nếu socket chưa tồn tại, khởi tạo
+                        initSocket();
+                    }
+                }
+            }, 10000); // Kiểm tra mỗi 10 giây
             
             // Set user offline when page is closed
             $(window).on('beforeunload', function() {
@@ -1465,48 +1378,86 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         });
         
-        // ✅ Hiển thị thông tin user
-        function showUserInfo() {
-            const userData = <?php echo json_encode($_SESSION['user'] ?? []); ?>;
-            
-            if (userData && Object.keys(userData).length > 0) {
-                $('#userName').text(userData.HoTen || userData.Email || 'Người dùng');
-                
-                // Display role badge
-                const role = userData.ID_Role || userData.role;
-                const roleNames = {
-                    1: 'Quản trị viên',
-                    2: 'Quản lý tổ chức', 
-                    3: 'Quản lý sự kiện',
-                    4: 'Nhân viên',
-                    5: 'Khách hàng'
-                };
-                
-                if (role && [1, 3, 5].includes(parseInt(role))) {
-                    const roleName = roleNames[role] || 'Người dùng';
-                    let roleClass = '';
-                    if (role == 1) roleClass = 'role-admin';
-                    else if (role == 3) roleClass = 'role-event-manager';
-                    else if (role == 5) roleClass = 'role-customer';
-                    
-                    $('#userRole').text(roleName).addClass(roleClass);
+        // ✅ Setup quick reply buttons
+        function setupQuickReplies() {
+            $(document).on('click', '.quick-reply', function(e) {
+                e.preventDefault();
+                const message = $(this).data('message');
+                if (message && currentConversationId) {
+                    $('#messageInput').val(message);
+                    sendMessage();
+                } else if (message && !currentConversationId) {
+                    alert('Vui lòng chọn hoặc tạo cuộc trò chuyện trước');
                 }
-                
-                $('#userInfo').show();
-            } else {
-                $('#userName').text('Người dùng');
-                $('#userInfo').show();
-            }
+            });
         }
         
-        // ✅ Kết nối Socket.IO
+        // ✅ Setup conversation search
+        function setupConversationSearch() {
+            $('#conversationSearch').on('input', function() {
+                const searchTerm = $(this).val().toLowerCase().trim();
+                if (searchTerm === '') {
+                    displayConversations();
+                    return;
+                }
+                
+                const filtered = conversations.filter(conv => {
+                    const name = (conv.other_user_name || '').toLowerCase();
+                    const preview = (conv.last_message || '').toLowerCase();
+                    return name.includes(searchTerm) || preview.includes(searchTerm);
+                });
+                
+                if (filtered.length === 0) {
+                    $('#conversationsList').html('<p class="text-center text-muted mt-3" style="font-size: 0.85rem;">Không tìm thấy cuộc trò chuyện nào</p>');
+                } else {
+                    let html = '';
+                    filtered.forEach(conv => {
+                        const time = new Date(conv.updated_at).toLocaleTimeString('vi-VN', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        const isOnline = conv.is_online === true || conv.is_online === 1 || conv.is_online === '1';
+                        html += `
+                        <div class="conversation-item" data-id="${conv.id}" onclick="selectConversation(${conv.id})">
+                            <div class="conversation-user">
+                                <span><span class="status-indicator ${isOnline ? 'status-online' : 'status-offline'}" title="${isOnline ? 'Đang online' : 'Đang offline'}"></span>${conv.other_user_name || 'Người dùng'}</span>
+                                ${conv.unread_count > 0 ? `<span class="badge bg-danger rounded-pill" style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">${conv.unread_count}</span>` : ''}
+                            </div>
+                            <div class="conversation-preview">${conv.last_message || 'Chưa có tin nhắn'}</div>
+                            <div class="conversation-time">${time}</div>
+                        </div>`;
+                    });
+                    $('#conversationsList').html(html);
+                }
+            });
+        }
+        
+        // ✅ Kết nối Socket.IO - Tự động reconnect liên tục như admin/chat.php
         function initSocket() {
-            // Check if Socket.IO is available
+            console.log('Initializing Socket.IO...');
+            
+            // Kiểm tra Socket.IO có sẵn không
             if (typeof io === 'undefined') {
                 console.warn('Socket.IO not loaded, chat will work without real-time features');
                 isConnected = false;
                 updateConnectionStatus('offline', 'Chế độ offline - Không có kết nối real-time');
                 return;
+            }
+            
+            console.log('Socket.IO available, creating connection...');
+            
+            // QUAN TRỌNG: Nếu socket đã tồn tại và đang connected, không tạo lại
+            if (socket && socket.connected) {
+                console.log('📡 Socket already connected, skipping re-init');
+                return;
+            }
+            
+            // QUAN TRỌNG: Nếu socket đã tồn tại nhưng disconnected, đóng nó trước khi tạo mới
+            if (socket && !socket.connected) {
+                console.log('📡 Closing existing disconnected socket before re-init');
+                socket.removeAllListeners();
+                socket.disconnect();
+                socket = null;
             }
             
         // Detect environment and set Socket.IO server URL
@@ -1558,16 +1509,17 @@ if (!in_array($userRole, [1, 3, 5])) {
                 throw new Error('socketPath is not defined');
             }
             
+            // QUAN TRỌNG: Tạo socket mới với cấu hình reconnect tự động
             socket = io(socketServerURL, {
                 path: socketPath,
                 transports: ['polling', 'websocket'], // Try polling first, then websocket
-                reconnection: true,
-                reconnectionAttempts: Infinity, // Keep trying to reconnect
-                reconnectionDelay: 1000,
-                reconnectionDelayMax: 10000,
+                reconnection: true, // Bật tự động reconnect
+                reconnectionAttempts: Infinity, // Tiếp tục thử kết nối lại vô hạn
+                reconnectionDelay: 1000, // Delay 1 giây trước khi thử lại
+                reconnectionDelayMax: 10000, // Delay tối đa 10 giây
                 timeout: 20000,
-                forceNew: false,
-                autoConnect: true,
+                forceNew: false, // Không force tạo connection mới nếu đã có
+                autoConnect: true, // Tự động kết nối ngay khi tạo
                 // Add query parameters for debugging
                 query: {
                     clientType: 'web',
@@ -1593,17 +1545,23 @@ if (!in_array($userRole, [1, 3, 5])) {
                 console.log('✅ Socket.IO connected successfully');
                 isConnected = true;
                 updateConnectionStatus('online', 'Đã kết nối realtime');
+                
+                // Authenticate ngay khi connect
                 socket.emit('authenticate', {
                     userId: currentUserId,
                     userRole: currentUserRole,
                     userName: currentUserName
                 });
+                
                 // Ensure user is in their own room for receiving calls
                 socket.emit('join_user_room', { userId: currentUserId });
+                console.log('Socket connected, joined user room:', currentUserId);
+                
+                // Tham gia lại conversation hiện tại nếu có
                 if (currentConversationId) {
                     socket.emit('join_conversation', { conversation_id: currentConversationId });
+                    console.log('Rejoined conversation:', currentConversationId);
                 }
-                console.log('Socket connected, joined user room:', currentUserId);
                 
                 // ✅ Setup call socket events AFTER socket is connected
                 setupCallSocketEvents();
@@ -1614,77 +1572,82 @@ if (!in_array($userRole, [1, 3, 5])) {
                 console.error('Error type:', error.type);
                 console.error('Error message:', error.message);
                 console.error('Error description:', error.description);
-                console.error('Connection URL:', socketServerURL);
-                console.error('Connection Path:', socketPath);
-                console.error('Full URL:', socketServerURL + socketPath);
-                
-                // Check if server is reachable
-                const healthCheckUrl = socketServerURL + (socketPath.includes('/nodeapp') ? '/nodeapp/health' : '/health');
-                console.log('🔍 Checking server health at:', healthCheckUrl);
-                
-                fetch(healthCheckUrl)
-                    .then(response => {
-                        if (response.ok) {
-                            return response.json();
-                        } else {
-                            console.error('❌ Server health check failed:', response.status);
-                            throw new Error('Health check failed');
-                        }
-                    })
-                    .then(data => {
-                        console.log('✅ Server is reachable:', data);
-                        console.log('💡 Possible causes:');
-                        console.log('   - CORS issue');
-                        console.log('   - Path mismatch (server expects different path)');
-                        console.log('   - Socket.IO server not fully started');
-                        console.log('   - Passenger routing issue');
-                        console.log('💡 Server path info:', data.path || 'unknown');
-                    })
-                    .catch(err => {
-                        console.error('❌ Cannot reach server:', err);
-                        console.log('💡 Server may not be running or URL is incorrect');
-                        console.log('💡 Expected server at:', socketServerURL);
-                        console.log('💡 Expected Socket.IO at:', socketServerURL + socketPath);
-                    });
                 
                 isConnected = false;
-                updateConnectionStatus('offline', 'Lỗi kết nối: ' + (error.message || error.description || 'Unknown error'));
+                // Hiển thị connecting thay vì offline để người dùng biết đang thử kết nối lại
+                updateConnectionStatus('connecting', 'Đang kết nối...');
+                
+                // Socket.IO sẽ tự động retry với cấu hình reconnection: true
+                // Không cần thêm logic retry ở đây
             });
             
             socket.on('disconnect', (reason) => {
                 console.warn('⚠️ Socket.IO disconnected:', reason);
                 isConnected = false;
-                updateConnectionStatus('offline', 'Đã ngắt kết nối');
+                
+                // Chỉ hiển thị offline nếu không phải là reconnect attempt
+                if (reason !== 'io server disconnect' && reason !== 'transport close') {
+                    updateConnectionStatus('offline', 'Đã ngắt kết nối');
+                } else {
+                    // Nếu là transport close, có thể đang reconnect
+                    updateConnectionStatus('connecting', 'Đang kết nối lại...');
+                }
+            });
+            
+            socket.on('reconnect_attempt', (attemptNumber) => {
+                console.log('🔄 Attempting to reconnect... (attempt', attemptNumber, ')');
+                updateConnectionStatus('connecting', 'Đang kết nối lại... (' + attemptNumber + ')');
             });
             
             socket.on('reconnect', (attemptNumber) => {
                 console.log('🔄 Socket.IO reconnected after', attemptNumber, 'attempts');
                 isConnected = true;
-                updateConnectionStatus('online', 'Đã kết nối lại');
+                updateConnectionStatus('online', 'Đã kết nối realtime');
+                
+                // QUAN TRỌNG: Re-authenticate và rejoin rooms sau khi reconnect
                 socket.emit('authenticate', { 
                     userId: currentUserId, 
                     userRole: currentUserRole, 
                     userName: currentUserName 
                 });
                 socket.emit('join_user_room', { userId: currentUserId });
+                console.log('✅ Reconnected, re-authenticated and re-joined user room:', currentUserId);
+                
+                // Tham gia lại conversation hiện tại nếu có
                 if (currentConversationId) {
                     socket.emit('join_conversation', { conversation_id: currentConversationId });
+                    console.log('✅ Rejoined conversation:', currentConversationId);
                 }
                 
-                // ✅ Re-setup call socket events after reconnect
+                // ✅ Re-setup call socket events after reconnect nếu chưa setup
                 if (!socket._callEventsSetup) {
                     setupCallSocketEvents();
                 }
             });
             
-            socket.on('reconnect_attempt', () => {
-                console.log('🔄 Attempting to reconnect...');
-            });
-            
             socket.on('reconnect_failed', () => {
-                console.error('❌ Socket.IO reconnection failed');
+                console.error('❌ Socket.IO reconnection failed - will retry automatically');
                 isConnected = false;
-                updateConnectionStatus('offline', 'Không thể kết nối lại');
+                updateConnectionStatus('connecting', 'Đang thử kết nối lại...');
+                
+                // QUAN TRỌNG: Socket.IO với reconnectionAttempts: Infinity sẽ tự động retry
+                // Nhưng nếu reconnect_failed được gọi, có thể cần khởi tạo lại socket
+                // Đợi 5 giây rồi thử lại nếu vẫn chưa connected
+                setTimeout(() => {
+                    if (!isConnected && (!socket || !socket.connected)) {
+                        console.log('🔄 Reconnect failed, reinitializing socket...');
+                        // Đóng socket cũ và tạo lại
+                        if (socket) {
+                            socket.removeAllListeners();
+                            socket.disconnect();
+                            socket = null;
+                        }
+                        // Khởi tạo lại socket sau 2 giây
+                        setTimeout(() => {
+                            initSocket();
+                        }, 2000);
+                    }
+                }, 5000);
             });
             
             // 🟢 Nhận tin nhắn mới realtime
@@ -1746,7 +1709,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         // ✅ Set user online
         function setUserOnline() {
             $.ajax({
-                url: 'src/controllers/chat-controller.php?action=set_user_online',
+                url: getApiPath('src/controllers/chat-controller.php?action=set_user_online'),
                 type: 'POST',
                 dataType: 'json',
                 success: function(data) {
@@ -1758,6 +1721,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 },
                 error: function(xhr, status, error) {
                     console.error('Error setting user online:', error);
+                    console.error('API URL:', getApiPath('src/controllers/chat-controller.php?action=set_user_online'));
                 }
             });
         }
@@ -1765,7 +1729,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         // ✅ Set user offline
         function setUserOffline() {
             $.ajax({
-                url: 'src/controllers/chat-controller.php?action=set_user_offline',
+                url: getApiPath('src/controllers/chat-controller.php?action=set_user_offline'),
                 type: 'POST',
                 dataType: 'json',
                 success: function(data) {
@@ -1777,13 +1741,14 @@ if (!in_array($userRole, [1, 3, 5])) {
                 },
                 error: function(xhr, status, error) {
                     console.error('Error setting user offline:', error);
+                    console.error('API URL:', getApiPath('src/controllers/chat-controller.php?action=set_user_offline'));
                 }
             });
         }
         
         // ✅ Hiển thị danh sách hội thoại
         function loadConversations() {
-            $.getJSON('src/controllers/chat-controller.php?action=get_conversations', res => {
+            $.getJSON(getApiPath('src/controllers/chat-controller.php?action=get_conversations'), res => {
                 if (!res.success) {
                     console.error('Error loading conversations:', res.error);
                     $('#conversationsList').html('<p class="text-center text-danger">Lỗi tải cuộc trò chuyện</p>');
@@ -1842,7 +1807,9 @@ if (!in_array($userRole, [1, 3, 5])) {
         function markMessagesAsRead(conversationId) {
             if (!conversationId) return;
             
-            $.post('src/controllers/chat-controller.php?action=mark_as_read', {
+            const apiUrl = getApiPath('src/controllers/chat-controller.php?action=mark_as_read');
+            
+            $.post(apiUrl, {
                 conversation_id: conversationId
             }, function(data) {
                 if (data.success) {
@@ -1852,6 +1819,9 @@ if (!in_array($userRole, [1, 3, 5])) {
                 }
             }, 'json').fail(function(xhr, status, error) {
                 console.error('Error marking messages as read:', error);
+                console.error('API URL:', apiUrl);
+                console.error('Response:', xhr.responseText);
+                console.error('Status:', xhr.status);
             });
         }
         
@@ -1956,9 +1926,19 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // ✅ Load tin nhắn
         function loadMessages(convId){
-            $.getJSON(`src/controllers/chat-controller.php?action=get_messages&conversation_id=${convId}`, res=>{
-                if(!res.success) {
-                    console.error('Error loading messages:', res.error);
+            const apiUrl = getApiPath(`src/controllers/chat-controller.php?action=get_messages&conversation_id=${convId}`);
+            
+            $.getJSON(apiUrl, res=>{
+                if(!res || !res.success) {
+                    console.error('AJAX Error loading messages:', res ? res.error : 'Response is undefined');
+                    console.error('Response:', res);
+                    console.error('API URL:', apiUrl);
+                    $('#chatMessages').html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            Lỗi tải tin nhắn: ${res ? res.error : 'Không nhận được phản hồi từ server'}
+                        </div>
+                    `);
                     return;
                 }
                 let html='';
@@ -2121,7 +2101,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             sendButton.prop('disabled', true);
             
             $.ajax({
-                url: 'src/controllers/chat-controller.php?action=send_message',
+                url: getApiPath('src/controllers/chat-controller.php?action=send_message'),
                 method: 'POST',
                 dataType: 'json',
                 timeout: 10000,
@@ -2213,7 +2193,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             button.disabled = true;
             
             $.ajax({
-                url: 'src/controllers/chat-controller.php?action=create_conversation',
+                url: getApiPath('src/controllers/chat-controller.php?action=create_conversation'),
                 method: 'POST',
                 dataType: 'json',
                 timeout: 10000,
@@ -2263,7 +2243,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // ✅ Cập nhật trạng thái kết nối
+        // ✅ Cập nhật trạng thái kết nối - Chỉ hiển thị nút xanh/đỏ (icon)
         function updateConnectionStatus(status, text) {
             const statusEl = $('#connectionStatus');
             const indicator = $('#connectionIndicator .status-dot');
@@ -2275,14 +2255,15 @@ if (!in_array($userRole, [1, 3, 5])) {
             // Update connection status container
             statusEl.removeClass('online offline connecting').addClass(status);
             
-            // Update text
+            // Ẩn text, chỉ hiển thị icon (nút xanh/đỏ)
             if (textEl.length) {
-                textEl.text(text || 'Đang kết nối...');
+                textEl.hide(); // Ẩn text
             }
             
-            // Update tooltip
-            indicator.attr('title', text || 'Đang kết nối...');
-            statusEl.attr('title', text || 'Đang kết nối...');
+            // Update tooltip với text đầy đủ
+            const tooltipText = text || (status === 'online' ? 'Đã kết nối realtime' : status === 'offline' ? 'Chế độ offline' : 'Đang kết nối...');
+            indicator.attr('title', tooltipText);
+            statusEl.attr('title', tooltipText);
             
             console.log('Connection status updated:', status, text);
         }
@@ -2397,7 +2378,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // Tải danh sách nhân viên đang online (chỉ role 1 và 3)
         function loadAvailableManagers() {
-            $.get('src/controllers/chat-controller.php?action=get_available_managers', function(data) {
+            $.get(getApiPath('src/controllers/chat-controller.php?action=get_available_managers'), function(data) {
                 if (data.success) {
                     // Lưu danh sách managers
                     allManagers = data.managers || [];
@@ -2454,7 +2435,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             }
             
             // Tìm admin (role 1)
-            $.get('src/controllers/chat-controller.php?action=get_admin_user', function(data) {
+            $.get(getApiPath('src/controllers/chat-controller.php?action=get_admin_user'), function(data) {
                 if (data.success && data.admin_id) {
                     // Tạo conversation với admin
                     createConversationWithManager(data.admin_id);
@@ -2489,7 +2470,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         function createConversationWithAdmin() {
             // Tạo conversation với admin (role 1)
-            $.post('src/controllers/chat-controller.php?action=create_conversation', {
+            $.post(getApiPath('src/controllers/chat-controller.php?action=create_conversation'), {
                 other_user_id: 'admin' // Server sẽ tự động tìm admin
             }, function(data) {
                 if (data.success) {
@@ -2571,7 +2552,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // Tạo conversation với manager được chọn
         function createConversationWithManager(managerId) {
-            $.post('src/controllers/chat-controller.php?action=create_conversation', {
+            $.post(getApiPath('src/controllers/chat-controller.php?action=create_conversation'), {
                 other_user_id: managerId
             }, function(data) {
                 if (data.success) {
@@ -2822,7 +2803,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             $('#attachButton').prop('disabled', true);
             
             $.ajax({
-                url: 'src/controllers/media-upload.php',
+                url: getApiPath('src/controllers/media-upload.php'),
                 type: 'POST',
                 data: formData,
                 processData: false,
@@ -3248,7 +3229,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 return;
             }
             
-            $.post('src/controllers/call-controller.php?action=initiate_call', {
+            $.post(getApiPath('src/controllers/call-controller.php?action=initiate_call'), {
                 conversation_id: currentConversationId,
                 call_type: callType
             }, function(response) {
@@ -3298,69 +3279,82 @@ if (!in_array($userRole, [1, 3, 5])) {
                 $('#callStatus').text('Cuộc gọi đến...');
                 // Clear existing buttons first
                 $('#callControls').empty();
-                // Add both accept and reject buttons
+                // Add both accept and reject buttons - Đồng nhất với admin/chat.php
                 $('#callControls').html(`
-                    <button class="call-btn accept" onclick="acceptCall()" style="background: linear-gradient(135deg, #28a745, #20c997); width: 60px; height: 60px; border-radius: 50%; border: none; color: white; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <button class="btn btn-success btn-lg me-2" onclick="acceptCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
                         <i class="fas fa-phone"></i>
                     </button>
-                    <button class="call-btn reject" onclick="rejectCall()" style="background: linear-gradient(135deg, #dc3545, #c82333); width: 60px; height: 60px; border-radius: 50%; border: none; color: white; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <button class="btn btn-danger btn-lg" onclick="rejectCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
                         <i class="fas fa-phone-slash"></i>
                     </button>
                 `);
                 console.log('✅ Incoming call - Added accept and reject buttons');
             } else {
                 $('#callStatus').text('Đang gọi...');
+                // Clear existing buttons first
+                $('#callControls').empty();
+                // Add end call button - Đồng nhất với admin/chat.php
                 $('#callControls').html(`
-                    <button class="call-btn end" id="endCallBtn" style="background: linear-gradient(135deg, #dc3545, #c82333); width: 60px; height: 60px; border-radius: 50%; border: none; color: white; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <button class="btn btn-danger btn-lg" id="endCallBtn" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; z-index: 10001;">
                         <i class="fas fa-phone-slash"></i>
                     </button>
                 `);
                 
-                // Attach event listener to end call button
+                // Also attach event listener as backup
                 $('#endCallBtn').off('click').on('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('📞 End call button clicked (outgoing)');
+                    console.log('📞 End call button clicked (outgoing) - via event listener');
                     endCall();
                 });
                 
                 console.log('📤 Outgoing call - Added end button only');
             }
             
-            // Ensure modal is visible
-            $('#callModal').addClass('show').css('display', 'flex');
-            console.log('✅ Call modal shown with type:', type);
+            // Show modal - Đảm bảo căn giữa màn hình
+            const modalElement = document.getElementById('callModal');
+            if (modalElement) {
+                // Force show với CSS để đảm bảo căn giữa
+                $(modalElement).addClass('show').css({
+                    'display': 'flex',
+                    'align-items': 'center',
+                    'justify-content': 'center',
+                    'position': 'fixed',
+                    'top': '0',
+                    'left': '0',
+                    'width': '100%',
+                    'height': '100%',
+                    'z-index': '10000'
+                });
+                console.log('✅ Call modal shown with type:', type);
+            } else {
+                console.error('❌ Call modal element not found!');
+            }
             
-            // Debug: Check if buttons are in DOM
+            // Debug: Check if buttons are in DOM - Đồng nhất với admin/chat.php
             setTimeout(() => {
-                const acceptBtn = $('#callControls .call-btn.accept');
-                const rejectBtn = $('#callControls .call-btn.reject');
-                const modalVisible = $('#callModal').hasClass('show');
-                const modalDisplay = $('#callModal').css('display');
-                
+                const acceptBtn = $('#callControls .btn-success');
+                const rejectBtn = $('#callControls .btn-danger');
+                const endBtn = $('#callControls .btn-danger');
                 console.log('🔍 Button check:', {
                     acceptBtn: acceptBtn.length,
                     rejectBtn: rejectBtn.length,
+                    endBtn: endBtn.length,
                     acceptBtnVisible: acceptBtn.is(':visible'),
                     rejectBtnVisible: rejectBtn.is(':visible'),
+                    endBtnVisible: endBtn.is(':visible'),
                     callControlsHTML: $('#callControls').html(),
-                    modalVisible: modalVisible,
-                    modalDisplay: modalDisplay
+                    modalVisible: $('#callModal').hasClass('show'),
+                    modalDisplay: $('#callModal').css('display')
                 });
-                
-                // Force show modal and buttons if not visible
-                if (!modalVisible || modalDisplay === 'none') {
-                    console.warn('⚠️ Modal not visible, forcing show');
-                    $('#callModal').addClass('show').css('display', 'flex');
-                }
                 
                 // Force show buttons if not visible
                 if (type === 'incoming') {
                     if (acceptBtn.length > 0 && !acceptBtn.is(':visible')) {
-                        acceptBtn.css('display', 'flex');
+                        acceptBtn.css('display', 'inline-flex');
                     }
                     if (rejectBtn.length > 0 && !rejectBtn.is(':visible')) {
-                        rejectBtn.css('display', 'flex');
+                        rejectBtn.css('display', 'inline-flex');
                     }
                 }
             }, 100);
@@ -3373,19 +3367,29 @@ if (!in_array($userRole, [1, 3, 5])) {
                 return;
             }
             
-            $.post('src/controllers/call-controller.php?action=accept_call', {
+            $.post(getApiPath('src/controllers/call-controller.php?action=accept_call'), {
                 call_id: currentCall.id
             }, function(response) {
                 if (response.success) {
                     if (currentCall.type === 'video') {
                         // For video call, hide modal and show video container
-                        $('#callModal').removeClass('show');
+                        $('#callModal').removeClass('show').css('display', 'none');
                         startVideoCall();
                     } else {
-                        // For voice call, keep modal visible and show active call UI
-                        // Don't remove 'show' class - just update the UI
-                        console.log('📞 Accepting voice call, keeping modal visible');
+                        // For voice call, don't hide modal yet - show active call UI
                         startVoiceCall();
+                        
+                        // QUAN TRỌNG: Đảm bảo remote audio được play sau khi accept (user interaction)
+                        setTimeout(() => {
+                            const remoteAudio = document.getElementById('remoteAudio');
+                            if (remoteAudio && remoteAudio.srcObject) {
+                                remoteAudio.play().then(() => {
+                                    console.log('✅ Remote audio played after accepting call');
+                                }).catch(err => {
+                                    console.warn('⚠️ Could not play audio immediately:', err);
+                                });
+                            }
+                        }, 500);
                     }
                     
                     // Emit accept event
@@ -3409,17 +3413,25 @@ if (!in_array($userRole, [1, 3, 5])) {
         function rejectCall() {
             if (!currentCall) {
                 console.error('No current call to reject');
-                $('#callModal').removeClass('show');
+                // Ẩn modal - Đồng nhất với admin/chat.php
+                const modalElement = document.getElementById('callModal');
+                if (modalElement) {
+                    $(modalElement).removeClass('show').css('display', 'none');
+                }
                 return;
             }
             
             const callId = currentCall.id;
             const callerId = currentCall.caller_id || currentCall.receiver_id;
             
-            $.post('src/controllers/call-controller.php?action=reject_call', {
+            $.post(getApiPath('src/controllers/call-controller.php?action=reject_call'), {
                 call_id: callId
             }, function(response) {
-                $('#callModal').removeClass('show');
+                // Ẩn modal - Đồng nhất với admin/chat.php
+                const modalElement = document.getElementById('callModal');
+                if (modalElement) {
+                    $(modalElement).removeClass('show').css('display', 'none');
+                }
                 currentCall = null;
                 
                 // Emit reject event
@@ -3432,7 +3444,11 @@ if (!in_array($userRole, [1, 3, 5])) {
                 }
             }, 'json').fail(function(xhr, status, error) {
                 console.error('Reject call error:', error);
-                $('#callModal').removeClass('show');
+                // Ẩn modal - Đồng nhất với admin/chat.php
+                const modalElement = document.getElementById('callModal');
+                if (modalElement) {
+                    $(modalElement).removeClass('show').css('display', 'none');
+                }
                 currentCall = null;
             });
         }
@@ -3445,11 +3461,23 @@ if (!in_array($userRole, [1, 3, 5])) {
             console.log('📞 Remote stream:', remoteStream);
             console.log('📞 Peer connection:', peerConnection);
             
-            // Hide all call UIs immediately
-            $('#callModal').removeClass('show');
-            $('#videoCallContainer').removeClass('show');
+            // QUAN TRỌNG: Ẩn modal ngay lập tức để người dùng thấy phản hồi
+            $('#callModal').removeClass('show').css('display', 'none');
+            $('#videoCallContainer').hide().css({
+                'display': 'none',
+                'visibility': 'hidden',
+                'opacity': '0'
+            });
             
-            // Stop local stream
+            // Dừng remote audio nếu đang phát
+            const remoteAudio = document.getElementById('remoteAudio');
+            if (remoteAudio) {
+                remoteAudio.pause();
+                remoteAudio.srcObject = null;
+                console.log('✅ Remote audio stopped');
+            }
+            
+            // Stop local stream ngay lập tức
             if (localStream) {
                 try {
                     localStream.getTracks().forEach(track => {
@@ -3463,7 +3491,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 }
             }
             
-            // Stop remote stream
+            // Stop remote stream ngay lập tức
             if (remoteStream) {
                 try {
                     remoteStream.getTracks().forEach(track => {
@@ -3477,7 +3505,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 }
             }
             
-            // Close peer connection
+            // Close peer connection ngay lập tức
             if (peerConnection) {
                 try {
                     peerConnection.close();
@@ -3488,44 +3516,27 @@ if (!in_array($userRole, [1, 3, 5])) {
                 }
             }
             
-            // If no currentCall, just cleanup and return
-            if (!currentCall) {
-                console.log('⚠️ No currentCall, cleanup done');
-                currentCall = null;
+            // Lấy callId trước khi clear currentCall
+            const callId = currentCall ? currentCall.id : null;
+            
+            // Clear currentCall ngay lập tức để tránh gọi lại
+            currentCall = null;
+            
+            // Nếu không có callId, chỉ cleanup và return
+            if (!callId) {
+                console.log('⚠️ No callId, cleanup done');
                 return;
             }
             
-            const callId = currentCall.id;
             console.log('📞 Ending call with ID:', callId);
             
-            // Call backend to end call
-            $.post('src/controllers/call-controller.php?action=end_call', {
+            // Call backend to end call (async, không chặn UI)
+            $.post(getApiPath('src/controllers/call-controller.php?action=end_call'), {
                 call_id: callId
             }, function(response) {
                 console.log('📞 End call response:', response);
                 
-                // Hide UIs again (in case they were shown)
-                $('#callModal').removeClass('show');
-                $('#videoCallContainer').removeClass('show');
-                
-                // Stop all streams again (in case they weren't stopped)
-                if (localStream) {
-                    localStream.getTracks().forEach(track => track.stop());
-                    localStream = null;
-                }
-                
-                if (remoteStream) {
-                    remoteStream.getTracks().forEach(track => track.stop());
-                    remoteStream = null;
-                }
-                
-                // Close peer connection again
-                if (peerConnection) {
-                    peerConnection.close();
-                    peerConnection = null;
-                }
-                
-                // Emit end event before clearing currentCall
+                // Emit end event via socket
                 if (isConnected && socket && typeof socket.emit === 'function') {
                     socket.emit('call_ended', {
                         call_id: callId,
@@ -3534,33 +3545,21 @@ if (!in_array($userRole, [1, 3, 5])) {
                     console.log('✅ Call ended event emitted');
                 }
                 
-                currentCall = null;
                 console.log('✅ Call ended successfully');
             }, 'json').fail(function(xhr, status, error) {
-                console.error('❌ End call error:', error);
+                console.error('❌ End call backend error:', error);
                 console.error('Response:', xhr.responseText);
                 
-                // Cleanup anyway even if backend call fails
-                $('#callModal').removeClass('show');
-                $('#videoCallContainer').removeClass('show');
-                
-                if (localStream) {
-                    localStream.getTracks().forEach(track => track.stop());
-                    localStream = null;
+                // Vẫn emit end event ngay cả khi backend fail
+                if (isConnected && socket && typeof socket.emit === 'function') {
+                    socket.emit('call_ended', {
+                        call_id: callId,
+                        caller_id: currentUserId
+                    });
+                    console.log('✅ Call ended event emitted (despite backend error)');
                 }
                 
-                if (remoteStream) {
-                    remoteStream.getTracks().forEach(track => track.stop());
-                    remoteStream = null;
-                }
-                
-                if (peerConnection) {
-                    peerConnection.close();
-                    peerConnection = null;
-                }
-                
-                currentCall = null;
-                console.log('✅ Cleanup done despite error');
+                console.log('✅ Cleanup done despite backend error');
             });
         }
         
@@ -3574,27 +3573,56 @@ if (!in_array($userRole, [1, 3, 5])) {
                 return;
             }
             
-            $('#videoCallContainer').addClass('show');
+            // QUAN TRỌNG: Ẩn call modal trước khi hiển thị video container
+            $('#callModal').removeClass('show').css('display', 'none');
+            
+            // Hiển thị video call container với CSS rõ ràng
+            $('#videoCallContainer').addClass('show').css({
+                'display': 'block',
+                'visibility': 'visible',
+                'opacity': '1',
+                'z-index': '10000'
+            });
+            
+            console.log('📹 Starting video call, requesting camera and microphone...');
             
             navigator.mediaDevices.getUserMedia({ video: true, audio: true })
                 .then(stream => {
                     localStream = stream;
+                    console.log('📹 Local stream obtained:', stream);
+                    console.log('📹 Local video tracks:', stream.getVideoTracks());
+                    console.log('📹 Local audio tracks:', stream.getAudioTracks());
+                    
                     const localVideo = document.getElementById('localVideo');
                     if (localVideo) {
                         localVideo.srcObject = stream;
+                        console.log('✅ Local video assigned to video element');
+                    } else {
+                        console.error('❌ Local video element not found!');
                     }
                     
                     // Initialize WebRTC peer connection
                     initializePeerConnection();
+                    
+                    console.log('✅ Video call started successfully');
                 })
                 .catch(error => {
-                    console.error('Error accessing media devices:', error);
-                    $('#videoCallContainer').removeClass('show');
+                    console.error('❌ Error accessing media devices:', error);
+                    console.error('Error details:', {
+                        name: error.name,
+                        message: error.message
+                    });
+                    
+                    // Ẩn video container nếu có lỗi
+                    $('#videoCallContainer').removeClass('show').css('display', 'none');
+                    
                     let errorMessage = 'Không thể truy cập camera/microphone';
                     if (error.name === 'NotAllowedError') {
                         errorMessage = 'Vui lòng cho phép truy cập camera và microphone';
                     } else if (error.name === 'NotFoundError') {
                         errorMessage = 'Không tìm thấy camera/microphone';
+                    } else if (error.name === 'NotReadableError') {
+                        errorMessage = 'Camera/microphone đang được sử dụng bởi ứng dụng khác';
                     }
                     alert(errorMessage);
                 });
@@ -3610,6 +3638,26 @@ if (!in_array($userRole, [1, 3, 5])) {
             navigator.mediaDevices.getUserMedia({ audio: true })
                 .then(stream => {
                     localStream = stream;
+                    console.log('📞 Local stream obtained:', stream);
+                    console.log('📞 Local audio tracks:', stream.getAudioTracks());
+                    
+                    // Kiểm tra local audio tracks
+                    const localAudioTracks = stream.getAudioTracks();
+                    if (localAudioTracks.length === 0) {
+                        console.warn('⚠️ Local stream không có audio track!');
+                    } else {
+                        console.log('✅ Local stream có', localAudioTracks.length, 'audio track(s)');
+                        localAudioTracks.forEach((track, index) => {
+                            console.log(`  Local audio track ${index}:`, {
+                                enabled: track.enabled,
+                                kind: track.kind,
+                                label: track.label,
+                                muted: track.muted,
+                                readyState: track.readyState
+                            });
+                        });
+                    }
+                    
                     initializePeerConnection();
                     
                     // Show voice call UI with end call button
@@ -3647,42 +3695,74 @@ if (!in_array($userRole, [1, 3, 5])) {
             
             // Clear existing buttons first
             $('#callControls').empty();
-            
-            // Show end call button only with inline styles to ensure visibility
+            // Show end call button only - Đồng nhất với admin/chat.php
             $('#callControls').html(`
-                <button class="call-btn end" id="endCallBtn" style="background: linear-gradient(135deg, #dc3545, #c82333); width: 60px; height: 60px; border-radius: 50%; border: none; color: white; font-size: 1.5rem; cursor: pointer; display: flex !important; align-items: center; justify-content: center; margin: 0 auto;">
+                <button class="btn btn-danger btn-lg" id="endCallBtn" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; z-index: 10001;">
                     <i class="fas fa-phone-slash"></i>
                 </button>
             `);
             
-            // Attach event listener to end call button
+            // Also attach event listener as backup
             $('#endCallBtn').off('click').on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('📞 End call button clicked');
+                console.log('📞 End call button clicked (voice call) - via event listener');
                 endCall();
             });
             
-            // Ensure modal is visible
-            $('#callModal').addClass('show');
+            // QUAN TRỌNG: Đảm bảo modal hiển thị và căn giữa màn hình
+            const modalElement = document.getElementById('callModal');
+            if (modalElement) {
+                // Force show với CSS để đảm bảo căn giữa
+                $(modalElement).addClass('show').css({
+                    'display': 'flex',
+                    'align-items': 'center',
+                    'justify-content': 'center',
+                    'position': 'fixed',
+                    'top': '0',
+                    'left': '0',
+                    'width': '100%',
+                    'height': '100%',
+                    'z-index': '10000',
+                    'visibility': 'visible',
+                    'opacity': '1'
+                });
+            }
+            
+            // Ẩn video container nếu đang hiển thị
+            $('#videoCallContainer').hide();
+            
             console.log('✅ Voice call UI shown with end call button');
             
             // Debug: Check if button is in DOM after a short delay
             setTimeout(() => {
                 const endBtn = $('#callControls .call-btn.end');
                 const modalVisible = $('#callModal').hasClass('show');
+                const modalDisplay = $('#callModal').css('display');
                 console.log('🔍 End call button check:', {
                     endBtnExists: endBtn.length,
                     endBtnVisible: endBtn.is(':visible'),
                     modalVisible: modalVisible,
-                    callControlsHTML: $('#callControls').html(),
-                    modalDisplay: $('#callModal').css('display')
+                    modalDisplay: modalDisplay,
+                    callControlsHTML: $('#callControls').html()
                 });
                 
-                // Force show if not visible
-                if (!modalVisible || $('#callModal').css('display') === 'none') {
+                // Force show if not visible - Đảm bảo căn giữa
+                if (!modalVisible || modalDisplay === 'none') {
                     console.warn('⚠️ Modal not visible, forcing show');
-                    $('#callModal').addClass('show').css('display', 'flex');
+                    $('#callModal').addClass('show').css({
+                        'display': 'flex',
+                        'align-items': 'center',
+                        'justify-content': 'center',
+                        'position': 'fixed',
+                        'top': '0',
+                        'left': '0',
+                        'width': '100%',
+                        'height': '100%',
+                        'z-index': '10000',
+                        'visibility': 'visible',
+                        'opacity': '1'
+                    });
                 }
                 
                 // Force button visibility if not visible
@@ -3699,40 +3779,420 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // Initialize WebRTC peer connection
         function initializePeerConnection() {
+            // Close existing peer connection if any
+            if (peerConnection) {
+                try {
+                    peerConnection.close();
+                } catch (e) {
+                    console.warn('Error closing existing peer connection:', e);
+                }
+            }
+            
+            // QUAN TRỌNG: Cấu hình WebRTC với STUN và TURN servers
+            // STUN: Để tìm public IP/port
+            // TURN: Để relay traffic khi P2P không thể kết nối (NAT/firewall)
             const configuration = {
                 iceServers: [
+                    // STUN servers (miễn phí từ Google)
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ]
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
+                    // TURN servers (miễn phí - cần thay bằng TURN server riêng nếu có)
+                    // Option 1: Dùng free TURN server (có thể không ổn định)
+                    { 
+                        urls: 'turn:openrelay.metered.ca:80',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    { 
+                        urls: 'turn:openrelay.metered.ca:443',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    { 
+                        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    // Option 2: Dùng TURN server khác (nếu có)
+                    // { 
+                    //     urls: 'turn:your-turn-server.com:3478',
+                    //     username: 'your-username',
+                    //     credential: 'your-password'
+                    // }
+                ],
+                iceCandidatePoolSize: 10 // Tăng pool size để có nhiều candidates hơn
             };
             
             peerConnection = new RTCPeerConnection(configuration);
+            console.log('✅ Peer connection created');
             
             // Add local stream to peer connection
             if (localStream) {
                 localStream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, localStream);
+                    console.log('✅ Added local track:', track.kind, track.label);
                 });
+            } else {
+                console.warn('⚠️ No local stream available when initializing peer connection');
             }
             
             // Handle remote stream
+            // Best practice từ WebRTC: ontrack có thể được gọi nhiều lần, mỗi lần cho 1 track
             peerConnection.ontrack = event => {
-                remoteStream = event.streams[0];
-                document.getElementById('remoteVideo').srcObject = remoteStream;
+                console.log('📞 ontrack event fired:', event);
+                console.log('📞 Event streams:', event.streams);
+                console.log('📞 Event track:', event.track);
+                console.log('📞 Event track kind:', event.track ? event.track.kind : 'N/A');
+                console.log('📞 Event track id:', event.track ? event.track.id : 'N/A');
+                console.log('📞 Event track readyState:', event.track ? event.track.readyState : 'N/A');
+                
+                // QUAN TRỌNG: Lấy stream từ event
+                // Best practice: Sử dụng event.streams[0] nếu có, nếu không thì tạo stream mới từ track
+                if (event.streams && event.streams.length > 0) {
+                    remoteStream = event.streams[0];
+                    console.log('📞 Using stream from event.streams[0]');
+                } else if (event.track) {
+                    // Nếu không có stream, tạo stream mới từ track
+                    // Nếu đã có remoteStream, thêm track vào stream đó
+                    if (remoteStream) {
+                        // Kiểm tra xem track đã có trong stream chưa
+                        const existingTrack = remoteStream.getTracks().find(t => t.id === event.track.id);
+                        if (!existingTrack) {
+                            remoteStream.addTrack(event.track);
+                            console.log('📞 Added track to existing remote stream');
+                        } else {
+                            console.log('📞 Track already in remote stream, skipping');
+                        }
+                    } else {
+                        remoteStream = new MediaStream([event.track]);
+                        console.log('📞 Created new MediaStream from track');
+                    }
+                } else {
+                    console.error('❌ No stream or track in ontrack event!');
+                    return;
+                }
+                
+                console.log('📞 Remote stream received:', remoteStream);
+                console.log('📞 Remote stream ID:', remoteStream.id);
+                console.log('📞 Remote stream tracks:', remoteStream.getTracks());
+                console.log('📞 Remote stream active:', remoteStream.active);
+                
+                // QUAN TRỌNG: Đảm bảo stream được cập nhật khi có track mới
+                event.track.onended = () => {
+                    console.log('📞 Remote track ended:', event.track.kind, event.track.id);
+                };
+                
+                event.track.onmute = () => {
+                    console.log('📞 Remote track muted:', event.track.kind, event.track.id);
+                };
+                
+                event.track.onunmute = () => {
+                    console.log('📞 Remote track unmuted:', event.track.kind, event.track.id);
+                };
+                
+                // Kiểm tra video tracks trong remote stream
+                const videoTracks = remoteStream.getVideoTracks();
+                console.log('📞 Remote video tracks:', videoTracks);
+                if (videoTracks.length === 0) {
+                    console.warn('⚠️ Remote stream không có video track!');
+                } else {
+                    console.log('✅ Remote stream có', videoTracks.length, 'video track(s)');
+                    videoTracks.forEach((track, index) => {
+                        console.log(`  Video track ${index}:`, {
+                            enabled: track.enabled,
+                            kind: track.kind,
+                            label: track.label,
+                            muted: track.muted,
+                            readyState: track.readyState
+                        });
+                    });
+                }
+                
+                // Kiểm tra audio tracks trong remote stream
+                const audioTracks = remoteStream.getAudioTracks();
+                console.log('📞 Remote audio tracks:', audioTracks);
+                if (audioTracks.length === 0) {
+                    console.warn('⚠️ Remote stream không có audio track!');
+                } else {
+                    console.log('✅ Remote stream có', audioTracks.length, 'audio track(s)');
+                    audioTracks.forEach((track, index) => {
+                        console.log(`  Audio track ${index}:`, {
+                            enabled: track.enabled,
+                            kind: track.kind,
+                            label: track.label,
+                            muted: track.muted,
+                            readyState: track.readyState
+                        });
+                    });
+                }
+                
+                // Cho video call: gán vào remoteVideo
+                const remoteVideo = document.getElementById('remoteVideo');
+                if (remoteVideo) {
+                    remoteVideo.srcObject = remoteStream;
+                    // Đảm bảo video element được hiển thị và phát
+                    remoteVideo.play().then(() => {
+                        console.log('✅ Remote video playing successfully');
+                        console.log('📹 Remote video element state:', {
+                            paused: remoteVideo.paused,
+                            currentTime: remoteVideo.currentTime,
+                            readyState: remoteVideo.readyState,
+                            videoWidth: remoteVideo.videoWidth,
+                            videoHeight: remoteVideo.videoHeight
+                        });
+                    }).catch(err => {
+                        console.error('❌ Error playing remote video:', err);
+                        console.error('Error details:', {
+                            name: err.name,
+                            message: err.message
+                        });
+                    });
+                    console.log('✅ Remote video assigned to video element');
+                } else {
+                    console.error('❌ Remote video element not found!');
+                }
+                
+                // QUAN TRỌNG: Cho CẢ voice call VÀ video call - đều cần audio
+                // Gán remote stream vào remoteAudio để phát âm thanh
+                const remoteAudio = document.getElementById('remoteAudio');
+                if (remoteAudio) {
+                    // Setup audio element
+                    remoteAudio.srcObject = remoteStream;
+                    remoteAudio.volume = 1.0; // Đảm bảo volume = 100%
+                    remoteAudio.muted = false; // Đảm bảo không bị mute
+                    
+                    console.log('📞 Remote audio setup:', {
+                        srcObject: remoteAudio.srcObject ? 'set' : 'null',
+                        volume: remoteAudio.volume,
+                        muted: remoteAudio.muted,
+                        paused: remoteAudio.paused,
+                        readyState: remoteAudio.readyState
+                    });
+                    
+                    // QUAN TRỌNG: Luôn thử play audio ngay khi có stream
+                    const playAudio = () => {
+                        const playPromise = remoteAudio.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(() => {
+                                console.log('✅ Remote audio playing successfully');
+                                console.log('📞 Audio element state:', {
+                                    volume: remoteAudio.volume,
+                                    muted: remoteAudio.muted,
+                                    paused: remoteAudio.paused,
+                                    currentTime: remoteAudio.currentTime,
+                                    readyState: remoteAudio.readyState,
+                                    srcObject: remoteAudio.srcObject ? 'set' : 'null'
+                                });
+                            }).catch(err => {
+                                console.error('❌ Error playing remote audio:', err);
+                                console.error('❌ Error details:', {
+                                    name: err.name,
+                                    message: err.message,
+                                    code: err.code
+                                });
+                                
+                                // Nếu bị chặn bởi autoplay policy, thử play khi user click
+                                if (err.name === 'NotAllowedError' || err.name === 'NotSupportedError' || err.name === 'AbortError') {
+                                    console.warn('⚠️ Browser autoplay policy blocked audio. Audio sẽ phát khi user tương tác.');
+                                    
+                                    // Thêm event listener để play khi user click vào modal hoặc bất kỳ đâu
+                                    const playOnInteraction = (event) => {
+                                        console.log('📞 User interaction detected, attempting to play audio...');
+                                        remoteAudio.play().then(() => {
+                                            console.log('✅ Audio played after user interaction');
+                                            document.removeEventListener('click', playOnInteraction);
+                                            document.removeEventListener('touchstart', playOnInteraction);
+                                            document.removeEventListener('keydown', playOnInteraction);
+                                        }).catch(e => {
+                                            console.error('❌ Still error after interaction:', e);
+                                        });
+                                    };
+                                    
+                                    // Thêm nhiều event listeners để đảm bảo bắt được user interaction
+                                    document.addEventListener('click', playOnInteraction, { once: true });
+                                    document.addEventListener('touchstart', playOnInteraction, { once: true });
+                                    document.addEventListener('keydown', playOnInteraction, { once: true });
+                                    
+                                    // Đặc biệt: thêm listener vào call modal
+                                    const callModal = document.getElementById('callModal');
+                                    if (callModal) {
+                                        callModal.addEventListener('click', playOnInteraction, { once: true });
+                                    }
+                                }
+                            });
+                        }
+                    };
+                    
+                    // Thử play ngay lập tức
+                    playAudio();
+                    
+                    // Thử lại sau 100ms để đảm bảo stream đã sẵn sàng
+                    setTimeout(() => {
+                        if (remoteAudio.paused) {
+                            console.log('📞 Audio still paused, retrying play...');
+                            playAudio();
+                        }
+                    }, 100);
+                    
+                    // Thử lại sau 500ms nếu vẫn chưa play được
+                    setTimeout(() => {
+                        if (remoteAudio.paused && remoteAudio.srcObject) {
+                            console.log('📞 Audio still paused after 500ms, retrying play...');
+                            playAudio();
+                        }
+                    }, 500);
+                    
+                    console.log('✅ Remote audio assigned to audio element');
+                } else {
+                    console.error('❌ Remote audio element not found!');
+                }
             };
             
             // Handle ICE candidates
             peerConnection.onicecandidate = event => {
                 if (event.candidate) {
+                    console.log('📞 ICE candidate generated:', event.candidate);
+                    console.log('📞 Candidate type:', event.candidate.type);
+                    console.log('📞 Candidate protocol:', event.candidate.protocol);
+                    console.log('📞 Candidate priority:', event.candidate.priority);
+                    console.log('📞 Candidate foundation:', event.candidate.foundation);
+                    
                     // Send ICE candidate to remote peer via socket
-                    if (isConnected && socket) {
+                    if (isConnected && socket && currentCall) {
                         socket.emit('ice_candidate', {
                             call_id: currentCall.id,
                             candidate: event.candidate
                         });
+                        console.log('✅ ICE candidate sent via socket');
+                    } else {
+                        console.warn('⚠️ Cannot send ICE candidate:', {
+                            isConnected,
+                            hasSocket: !!socket,
+                            hasCurrentCall: !!currentCall
+                        });
+                    }
+                } else {
+                    console.log('📞 ICE gathering complete');
+                    const sdp = peerConnection.localDescription ? peerConnection.localDescription.sdp : '';
+                    const candidateCount = (sdp.match(/a=candidate:/g) || []).length;
+                    console.log('📞 Total ICE candidates:', candidateCount);
+                }
+            };
+            
+            // Handle connection state changes
+            peerConnection.onconnectionstatechange = () => {
+                console.log('📞 Peer connection state:', peerConnection.connectionState);
+                console.log('📞 ICE connection state:', peerConnection.iceConnectionState);
+                console.log('📞 ICE gathering state:', peerConnection.iceGatheringState);
+                console.log('📞 Signaling state:', peerConnection.signalingState);
+                
+                if (peerConnection.connectionState === 'connected') {
+                    console.log('✅ Peer connection established successfully!');
+                } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
+                    console.warn('⚠️ Peer connection failed or disconnected');
+                    console.warn('⚠️ ICE connection state:', peerConnection.iceConnectionState);
+                    
+                    // Thử restart ICE nếu failed
+                    if (peerConnection.connectionState === 'failed' && peerConnection.iceConnectionState === 'failed') {
+                        console.log('🔄 Attempting to restart ICE...');
+                        peerConnection.restartIce();
                     }
                 }
             };
+            
+            // Handle ICE connection state changes
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('📞 ICE connection state changed:', peerConnection.iceConnectionState);
+                if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+                    console.log('✅ ICE connection established!');
+                } else if (peerConnection.iceConnectionState === 'failed') {
+                    console.error('❌ ICE connection failed - may need TURN server');
+                } else if (peerConnection.iceConnectionState === 'disconnected') {
+                    console.warn('⚠️ ICE connection disconnected');
+                }
+            };
+            
+            // Handle ICE gathering state changes
+            peerConnection.onicegatheringstatechange = () => {
+                console.log('📞 ICE gathering state:', peerConnection.iceGatheringState);
+                if (peerConnection.iceGatheringState === 'complete') {
+                    console.log('✅ ICE gathering complete');
+                }
+            };
+            
+            // QUAN TRỌNG: Tạo offer nếu là caller, hoặc chờ answer nếu là receiver
+            // Best practice từ WebRTC: Đợi ICE gathering hoàn tất trước khi tạo offer
+            if (currentCall && currentCall.caller_id == currentUserId) {
+                // Caller: Đợi ICE gathering hoàn tất rồi mới tạo offer
+                console.log('📞 Caller: Waiting for ICE gathering before creating offer...');
+                
+                const createOfferWhenReady = () => {
+                    // Kiểm tra nếu đã có local description thì không tạo lại
+                    if (peerConnection.localDescription) {
+                        console.log('📞 Local description already set, skipping offer creation');
+                        return;
+                    }
+                    
+                    console.log('📞 Caller: Creating offer...');
+                    peerConnection.createOffer({
+                        offerToReceiveAudio: true,
+                        offerToReceiveVideo: currentCall.type === 'video'
+                    })
+                        .then(offer => {
+                            console.log('✅ Offer created:', offer);
+                            console.log('📞 Offer type:', offer.type);
+                            console.log('📞 Offer SDP:', offer.sdp.substring(0, 200) + '...');
+                            return peerConnection.setLocalDescription(offer);
+                        })
+                        .then(() => {
+                            console.log('✅ Local description set');
+                            console.log('📞 Local description:', peerConnection.localDescription);
+                            
+                            // Gửi offer qua socket
+                            if (isConnected && socket && currentCall) {
+                                socket.emit('webrtc_offer', {
+                                    call_id: currentCall.id,
+                                    offer: peerConnection.localDescription
+                                });
+                                console.log('✅ Offer sent via socket');
+                            } else {
+                                console.error('❌ Cannot send offer: socket not connected or currentCall missing');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('❌ Error creating offer:', error);
+                            console.error('Error stack:', error.stack);
+                        });
+                };
+                
+                // Nếu ICE gathering đã hoàn tất, tạo offer ngay
+                if (peerConnection.iceGatheringState === 'complete') {
+                    createOfferWhenReady();
+                } else {
+                    // Đợi ICE gathering hoàn tất
+                    peerConnection.addEventListener('icegatheringstatechange', function onIceGatheringStateChange() {
+                        if (peerConnection.iceGatheringState === 'complete') {
+                            console.log('📞 ICE gathering complete, creating offer...');
+                            peerConnection.removeEventListener('icegatheringstatechange', onIceGatheringStateChange);
+                            createOfferWhenReady();
+                        }
+                    });
+                    
+                    // Timeout sau 3 giây nếu ICE gathering chưa hoàn tất
+                    setTimeout(() => {
+                        if (!peerConnection.localDescription) {
+                            console.warn('⚠️ ICE gathering timeout, creating offer anyway...');
+                            createOfferWhenReady();
+                        }
+                    }, 3000);
+                }
+            } else if (currentCall && currentCall.receiver_id == currentUserId) {
+                // Receiver: Chờ offer từ caller (sẽ được xử lý trong socket event)
+                console.log('📞 Receiver: Waiting for offer...');
+            }
         }
         
         // Toggle mute
@@ -3815,7 +4275,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                         // Show modal with accept/reject buttons
                         showCallModal('incoming', callerName, data.call_type);
                         
-                        // Force show modal if it doesn't show
+                        // Force show modal if it doesn't show - Đảm bảo căn giữa
                         setTimeout(() => {
                             const modalElement = document.getElementById('callModal');
                             if (modalElement) {
@@ -3830,7 +4290,17 @@ if (!in_array($userRole, [1, 3, 5])) {
                                 
                                 if (!modalVisible || modalDisplay === 'none') {
                                     console.warn('⚠️ Modal not visible, forcing show');
-                                    $('#callModal').addClass('show').css('display', 'flex');
+                                    $('#callModal').addClass('show').css({
+                                        'display': 'flex',
+                                        'align-items': 'center',
+                                        'justify-content': 'center',
+                                        'position': 'fixed',
+                                        'top': '0',
+                                        'left': '0',
+                                        'width': '100%',
+                                        'height': '100%',
+                                        'z-index': '10000'
+                                    });
                                 }
                             }
                         }, 100);
@@ -3842,15 +4312,192 @@ if (!in_array($userRole, [1, 3, 5])) {
                 
                 // Call accepted
                 socket.on('call_accepted', data => {
-                    console.log('Received call_accepted event:', data);
+                    console.log('📞 Received call_accepted event:', data);
                     if (data.caller_id === currentUserId && currentCall) {
-                        $('#callModal').removeClass('show');
+                        $('#callModal').removeClass('show').css('display', 'none');
                         
                         if (currentCall.type === 'video') {
                             startVideoCall();
                         } else {
                             startVoiceCall();
                         }
+                        
+                        // QUAN TRỌNG: Đảm bảo remote audio được play sau khi caller nhận được accept
+                        setTimeout(() => {
+                            const remoteAudio = document.getElementById('remoteAudio');
+                            if (remoteAudio && remoteAudio.srcObject) {
+                                remoteAudio.play().then(() => {
+                                    console.log('✅ Remote audio played after call accepted (caller side)');
+                                }).catch(err => {
+                                    console.warn('⚠️ Could not play audio on caller side:', err);
+                                });
+                            }
+                        }, 500);
+                    } else if (data.receiver_id === currentUserId && currentCall) {
+                        // Receiver đã accept, tạo answer
+                        console.log('📞 Receiver accepted, creating answer...');
+                        if (peerConnection && peerConnection.signalingState !== 'stable') {
+                            // Đã có offer, tạo answer
+                            peerConnection.createAnswer()
+                                .then(answer => {
+                                    console.log('✅ Answer created:', answer);
+                                    return peerConnection.setLocalDescription(answer);
+                                })
+                                .then(() => {
+                                    console.log('✅ Local description (answer) set');
+                                    // Gửi answer qua socket
+                                    if (isConnected && socket && currentCall) {
+                                        socket.emit('webrtc_answer', {
+                                            call_id: currentCall.id,
+                                            answer: peerConnection.localDescription
+                                        });
+                                        console.log('✅ Answer sent via socket');
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('❌ Error creating answer:', error);
+                                });
+                        }
+                    }
+                });
+                
+                // WebRTC Offer received (receiver nhận offer từ caller)
+                socket.on('webrtc_offer', data => {
+                    console.log('📞 Received WebRTC offer:', data);
+                    if (currentCall && data.call_id == currentCall.id && currentCall.receiver_id == currentUserId) {
+                        if (peerConnection) {
+                            // Best practice: Kiểm tra signaling state trước khi set remote description
+                            if (peerConnection.signalingState !== 'stable' && peerConnection.signalingState !== 'have-local-offer') {
+                                console.warn('⚠️ Signaling state is not stable:', peerConnection.signalingState);
+                            }
+                            
+                            peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer))
+                                .then(() => {
+                                    console.log('✅ Remote description (offer) set');
+                                    console.log('📞 Remote description:', peerConnection.remoteDescription);
+                                    console.log('📞 Signaling state after setRemoteDescription:', peerConnection.signalingState);
+                                    
+                                    // Tạo answer với options
+                                    return peerConnection.createAnswer({
+                                        voiceActivityDetection: true
+                                    });
+                                })
+                                .then(answer => {
+                                    console.log('✅ Answer created:', answer);
+                                    console.log('📞 Answer type:', answer.type);
+                                    console.log('📞 Answer SDP:', answer.sdp.substring(0, 200) + '...');
+                                    return peerConnection.setLocalDescription(answer);
+                                })
+                                .then(() => {
+                                    console.log('✅ Local description (answer) set');
+                                    console.log('📞 Local description:', peerConnection.localDescription);
+                                    console.log('📞 Signaling state after setLocalDescription:', peerConnection.signalingState);
+                                    
+                                    // Gửi answer qua socket
+                                    if (isConnected && socket && currentCall) {
+                                        socket.emit('webrtc_answer', {
+                                            call_id: currentCall.id,
+                                            answer: peerConnection.localDescription
+                                        });
+                                        console.log('✅ Answer sent via socket');
+                                    } else {
+                                        console.error('❌ Cannot send answer: socket not connected or currentCall missing');
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('❌ Error handling offer:', error);
+                                    console.error('Error stack:', error.stack);
+                                });
+                        } else {
+                            console.error('❌ Peer connection not initialized when receiving offer');
+                        }
+                    } else {
+                        console.warn('⚠️ Offer received but conditions not met:', {
+                            hasCurrentCall: !!currentCall,
+                            callIdMatch: currentCall && data.call_id == currentCall.id,
+                            isReceiver: currentCall && currentCall.receiver_id == currentUserId
+                        });
+                    }
+                });
+                
+                // WebRTC Answer received (caller nhận answer từ receiver)
+                socket.on('webrtc_answer', data => {
+                    console.log('📞 Received WebRTC answer:', data);
+                    if (currentCall && data.call_id == currentCall.id && currentCall.caller_id == currentUserId) {
+                        if (peerConnection) {
+                            // Best practice: Kiểm tra signaling state
+                            if (peerConnection.signalingState !== 'have-local-offer') {
+                                console.warn('⚠️ Signaling state is not have-local-offer:', peerConnection.signalingState);
+                            }
+                            
+                            peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer))
+                                .then(() => {
+                                    console.log('✅ Remote description (answer) set');
+                                    console.log('📞 Remote description:', peerConnection.remoteDescription);
+                                    console.log('📞 Signaling state after setRemoteDescription:', peerConnection.signalingState);
+                                })
+                                .catch(error => {
+                                    console.error('❌ Error setting remote description:', error);
+                                    console.error('Error stack:', error.stack);
+                                });
+                        } else {
+                            console.error('❌ Peer connection not initialized when receiving answer');
+                        }
+                    } else {
+                        console.warn('⚠️ Answer received but conditions not met:', {
+                            hasCurrentCall: !!currentCall,
+                            callIdMatch: currentCall && data.call_id == currentCall.id,
+                            isCaller: currentCall && currentCall.caller_id == currentUserId
+                        });
+                    }
+                });
+                
+                // ICE Candidate received
+                socket.on('ice_candidate', data => {
+                    console.log('📞 Received ICE candidate:', data);
+                    if (currentCall && data.call_id == currentCall.id && peerConnection) {
+                        // Best practice: Kiểm tra remote description đã được set chưa
+                        if (!peerConnection.remoteDescription) {
+                            console.warn('⚠️ Remote description not set yet, storing candidate for later');
+                            // Lưu candidate để add sau
+                            if (!peerConnection._pendingCandidates) {
+                                peerConnection._pendingCandidates = [];
+                            }
+                            peerConnection._pendingCandidates.push(data.candidate);
+                            return;
+                        }
+                        
+                        // Nếu có pending candidates, add chúng trước
+                        if (peerConnection._pendingCandidates && peerConnection._pendingCandidates.length > 0) {
+                            console.log('📞 Adding', peerConnection._pendingCandidates.length, 'pending candidates first');
+                            const pending = peerConnection._pendingCandidates;
+                            peerConnection._pendingCandidates = [];
+                            
+                            pending.forEach(candidate => {
+                                peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+                                    .then(() => console.log('✅ Pending ICE candidate added'))
+                                    .catch(err => console.error('❌ Error adding pending candidate:', err));
+                            });
+                        }
+                        
+                        peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate))
+                            .then(() => {
+                                console.log('✅ ICE candidate added');
+                            })
+                            .catch(error => {
+                                console.error('❌ Error adding ICE candidate:', error);
+                                console.error('Error details:', {
+                                    name: error.name,
+                                    message: error.message,
+                                    candidate: data.candidate
+                                });
+                            });
+                    } else {
+                        console.warn('⚠️ ICE candidate received but conditions not met:', {
+                            hasCurrentCall: !!currentCall,
+                            callIdMatch: currentCall && data.call_id == currentCall.id,
+                            hasPeerConnection: !!peerConnection
+                        });
                     }
                 });
                 
@@ -3866,21 +4513,73 @@ if (!in_array($userRole, [1, 3, 5])) {
                 
                 // Call ended
                 socket.on('call_ended', data => {
-                    console.log('Received call_ended event:', data);
-                    $('#callModal').removeClass('show');
-                    $('#videoCallContainer').removeClass('show');
+                    console.log('📞 Received call_ended event:', data);
                     
+                    // QUAN TRỌNG: Cleanup đầy đủ khi bên kia tắt cuộc gọi
+                    // Ẩn modal và video container
+                    $('#callModal').removeClass('show').css('display', 'none');
+                    $('#videoCallContainer').removeClass('show').css({
+                        'display': 'none',
+                        'visibility': 'hidden',
+                        'opacity': '0'
+                    });
+                    
+                    // Dừng remote audio nếu đang phát
+                    const remoteAudio = document.getElementById('remoteAudio');
+                    if (remoteAudio) {
+                        remoteAudio.pause();
+                        remoteAudio.srcObject = null;
+                        console.log('✅ Remote audio stopped');
+                    }
+                    
+                    // Dừng remote video nếu đang phát
+                    const remoteVideo = document.getElementById('remoteVideo');
+                    if (remoteVideo) {
+                        remoteVideo.pause();
+                        remoteVideo.srcObject = null;
+                        console.log('✅ Remote video stopped');
+                    }
+                    
+                    // Stop local stream
                     if (localStream) {
-                        localStream.getTracks().forEach(track => track.stop());
+                        localStream.getTracks().forEach(track => {
+                            track.stop();
+                            console.log('📞 Stopped local track:', track.kind);
+                        });
                         localStream = null;
+                        console.log('✅ Local stream stopped');
+                    }
+                    
+                    // Stop remote stream
+                    if (remoteStream) {
+                        remoteStream.getTracks().forEach(track => {
+                            track.stop();
+                            console.log('📞 Stopped remote track:', track.kind);
+                        });
+                        remoteStream = null;
+                        console.log('✅ Remote stream stopped');
+                    }
+                    
+                    // Close peer connection
+                    if (peerConnection) {
+                        try {
+                            peerConnection.close();
+                            peerConnection = null;
+                            console.log('✅ Peer connection closed');
+                        } catch (e) {
+                            console.error('Error closing peer connection:', e);
+                        }
                     }
                     
                     // ✅ Hiển thị thông báo
                     if (data.message) {
                         showNotification(data.message, 'info');
+                    } else {
+                        showNotification('Cuộc gọi đã kết thúc', 'info');
                     }
                     
                     currentCall = null;
+                    console.log('✅ Call cleanup completed');
                 });
                 
                 // ✅ Call busy - Receiver đang trong cuộc gọi khác

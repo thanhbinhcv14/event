@@ -1,11 +1,11 @@
 <?php
 /**
  * SePay Webhook Handler
- * Handles webhook notifications from SePay when money is received
- * Based on SePay Laravel Package documentation: https://github.com/sepayvn/laravel-sepay
+ * Xử lý thông báo webhook từ SePay khi nhận được tiền
+ * Dựa trên tài liệu SePay Laravel Package: https://github.com/sepayvn/laravel-sepay
  */
 
-// Debug logging - Log raw JSON input at the very beginning
+// Ghi log debug - Ghi log JSON input ngay từ đầu
 $rawInput = file_get_contents('php://input');
 $data = json_decode($rawInput, true);
 $logEntry = "\n" . str_repeat("=", 80) . "\n";
@@ -21,24 +21,42 @@ $logEntry .= str_repeat("=", 80) . "\n";
 file_put_contents(__DIR__ . '/hook_log.txt', $logEntry, FILE_APPEND);
 error_log("SePay Webhook - Raw input logged to hook_log.txt");
 
+// Đặt content type là JSON trước (trước khi có bất kỳ output nào)
+header('Content-Type: application/json');
+
+// Cho phép CORS cho SePay webhook (nếu cần)
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+// Xử lý request OPTIONS (preflight)
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/sepay.php';
 
-// Set content type to JSON
-header('Content-Type: application/json');
-
-// Log incoming webhook
+// Ghi log webhook đến
 error_log("SePay Webhook received at: " . date('Y-m-d H:i:s'));
 
-// Verify webhook authentication token
+// Xác thực token webhook
 function verifyWebhookToken() {
     $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
     
-    // Check for Bearer token
-    if (preg_match('/Bearer\s+(.+)/i', $authHeader, $matches)) {
+    $token = '';
+    
+    // SePay gửi với format: Authorization: Apikey {API_KEY}
+    if (preg_match('/Apikey\s+(.+)/i', $authHeader, $matches)) {
         $token = trim($matches[1]);
-    } else {
-        // Fallback: check for custom header
+    } 
+    // Dự phòng: Kiểm tra Bearer token
+    elseif (preg_match('/Bearer\s+(.+)/i', $authHeader, $matches)) {
+        $token = trim($matches[1]);
+    } 
+    // Dự phòng: Kiểm tra custom header
+    else {
         $token = $_SERVER['HTTP_X_SEPAY_TOKEN'] ?? '';
     }
     
@@ -46,11 +64,16 @@ function verifyWebhookToken() {
     
     if (empty($expectedToken)) {
         error_log("SePay Webhook Warning: SEPAY_WEBHOOK_TOKEN not configured");
-        // In production, should reject if token is not set
-        // return false;
+        // Trong production, nên reject nếu token không được cấu hình
+        return false;
     }
     
-    if (!empty($expectedToken) && $token !== $expectedToken) {
+    if (empty($token)) {
+        error_log("SePay Webhook: No authentication token provided");
+        return false;
+    }
+    
+    if ($token !== $expectedToken) {
         error_log("SePay Webhook: Invalid token. Expected: " . substr($expectedToken, 0, 10) . "... Got: " . substr($token, 0, 10) . "...");
         return false;
     }
@@ -59,23 +82,45 @@ function verifyWebhookToken() {
 }
 
 try {
-    // Verify webhook authentication
-    if (!verifyWebhookToken()) {
+    // Xác thực webhook
+    // Cho phép chế độ test qua GET parameter (chỉ để debug - xóa trong production)
+    $isTestMode = isset($_GET['test']) && $_GET['test'] === '1';
+    
+    if (!$isTestMode && !verifyWebhookToken()) {
         http_response_code(401);
         echo json_encode([
             'success' => false,
             'error' => 'Unauthorized: Invalid webhook token',
+            'message' => 'This endpoint requires Authorization header with API key. SePay will send POST requests with proper authentication.',
+            'hint' => 'For testing, add ?test=1 to URL (development only)',
             'timestamp' => date('Y-m-d H:i:s')
-        ]);
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
     }
     
-    // Get webhook data (already decoded at the top for logging)
-    $input = $rawInput; // Use already read input
-    // $data already decoded above for logging
+    // Chế độ test - trả về thông tin mà không xử lý
+    if ($isTestMode) {
+        echo json_encode([
+            'success' => true,
+            'message' => 'Webhook endpoint is accessible (TEST MODE)',
+            'warning' => 'This is test mode. Real webhooks from SePay will be POST requests with Authorization header.',
+            'config' => [
+                'webhook_token_configured' => defined('SEPAY_WEBHOOK_TOKEN') && !empty(SEPAY_WEBHOOK_TOKEN),
+                'webhook_token_length' => defined('SEPAY_WEBHOOK_TOKEN') ? strlen(SEPAY_WEBHOOK_TOKEN) : 0,
+                'request_method' => $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN',
+                'has_authorization' => isset($_SERVER['HTTP_AUTHORIZATION']),
+            ],
+            'timestamp' => date('Y-m-d H:i:s')
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    
+    // Lấy dữ liệu webhook (đã decode ở trên để log)
+    $input = $rawInput; // Sử dụng input đã đọc
+    // $data đã được decode ở trên để log
     
     if (!$data) {
-        // Log error to file
+        // Ghi log lỗi vào file
         $errorLog = "\n" . str_repeat("-", 80) . "\n";
         $errorLog .= "ERROR: Invalid webhook data - JSON decode failed\n";
         $errorLog .= "Raw input: " . $rawInput . "\n";
@@ -86,10 +131,10 @@ try {
         throw new Exception('Invalid webhook data: JSON decode failed - ' . json_last_error_msg());
     }
     
-    // Log webhook to database
+    // Ghi log webhook vào database
     $pdo = getDBConnection();
     
-    // Save webhook log
+    // Lưu log webhook
     $stmt = $pdo->prepare("
         INSERT INTO webhook_logs (webhook_source, raw_data, processed, created_at) 
         VALUES ('sepay', ?, 0, NOW())
@@ -97,15 +142,15 @@ try {
     $stmt->execute([$input]);
     $webhookLogId = $pdo->lastInsertId();
     
-    // Log webhook data (sanitized for security)
+    // Ghi log dữ liệu webhook (đã làm sạch để bảo mật)
     $sanitizedData = $data;
     if (isset($sanitizedData['signature'])) {
         $sanitizedData['signature'] = '***HIDDEN***';
     }
     error_log("SePay Webhook data: " . json_encode($sanitizedData));
     
-    // Extract webhook data according to SePay format
-    // Format from SePay Laravel Package documentation:
+    // Trích xuất dữ liệu webhook theo format SePay
+    // Format từ tài liệu SePay Laravel Package:
     // gateway, transactionDate, accountNumber, content, transferType, transferAmount, referenceCode, id
     $gateway = $data['gateway'] ?? '';
     $transactionDate = $data['transactionDate'] ?? '';
@@ -113,16 +158,58 @@ try {
     $subAccount = $data['subAccount'] ?? null;
     $code = $data['code'] ?? null;
     $content = $data['content'] ?? '';
-    $transferType = $data['transferType'] ?? ''; // 'in' or 'out'
+    $transferType = $data['transferType'] ?? ''; // 'in' (tiền vào) hoặc 'out' (tiền ra)
     $description = $data['description'] ?? '';
     $transferAmount = floatval($data['transferAmount'] ?? 0);
     $referenceCode = $data['referenceCode'] ?? '';
     $accumulated = floatval($data['accumulated'] ?? 0);
     $sepayTransactionId = $data['id'] ?? '';
     
-    // Only process incoming transfers
+    // Tính toán amount_in và amount_out
+    $amount_in = 0;
+    $amount_out = 0;
+    if ($transferType == "in") {
+        $amount_in = $transferAmount;
+    } else if ($transferType == "out") {
+        $amount_out = $transferAmount;
+    }
+    
+    // Lưu tất cả giao dịch vào bảng tb_transactions (theo mẫu từ tài liệu SePay)
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO tb_transactions (
+                gateway, transaction_date, account_number, sub_account,
+                amount_in, amount_out, accumulated, code, transaction_content,
+                reference_number, body, transfer_type, transfer_amount, sepay_transaction_id,
+                processed, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
+        ");
+        $stmt->execute([
+            $gateway,
+            $transactionDate ?: date('Y-m-d H:i:s'),
+            $accountNumber,
+            $subAccount,
+            $amount_in,
+            $amount_out,
+            $accumulated,
+            $code,
+            $content,
+            $referenceCode,
+            $description,
+            $transferType,
+            $transferAmount,
+            $sepayTransactionId
+        ]);
+        $transactionId = $pdo->lastInsertId();
+        error_log("SePay transaction saved to tb_transactions with ID: " . $transactionId);
+    } catch (Exception $e) {
+        // Nếu bảng tb_transactions chưa tồn tại, chỉ log lỗi nhưng không dừng xử lý
+        error_log("Warning: Could not save to tb_transactions: " . $e->getMessage());
+    }
+    
+    // Chỉ xử lý giao dịch tiền vào
     if ($transferType !== 'in') {
-        // Update webhook log
+        // Cập nhật log webhook
         $stmt = $pdo->prepare("UPDATE webhook_logs SET processed = 1, response = ? WHERE id = ?");
         $stmt->execute([json_encode(['message' => 'Skipped: Not an incoming transfer']), $webhookLogId]);
         
@@ -135,42 +222,43 @@ try {
         exit;
     }
     
-    // Validate required fields
+    // Kiểm tra các trường bắt buộc
     if (empty($accountNumber) || $transferAmount <= 0 || empty($content)) {
         throw new Exception('Missing required webhook data: accountNumber, transferAmount, or content');
     }
     
-    // Get match pattern from config (default: SK)
+    // Lấy pattern match từ config (mặc định: SK)
     $matchPattern = defined('SEPAY_MATCH_PATTERN') ? SEPAY_MATCH_PATTERN : 'SK';
     
-    // Parse transaction content to get payment ID
-    // Format can be: SK{eventId}_{paymentId} or custom pattern like SE{paymentId}
-    // Content may contain text before pattern like "Thanh toan QR SK20_SEPAY_..."
+    // Parse nội dung giao dịch để lấy payment ID
+    // Format có thể là: SK{eventId}_{paymentId} hoặc pattern tùy chỉnh như SE{paymentId}
+    // Content có thể chứa text trước pattern như "Thanh toan QR SK20_SEPAY_..."
     $paymentId = null;
     $eventId = null;
     
-    // Try pattern: SK{eventId}_{paymentId} (may have text before)
-    // Matches: "Thanh toan QR SK20_SEPAY_1762094590_1284" or "SK20_SEPAY_1762094590_1284"
+    // Thử pattern: SK{eventId}_{paymentId} (có thể có text trước)
+    // Khớp: "Thanh toan QR SK20_SEPAY_1762094590_1284" hoặc "SK20_SEPAY_1762094590_1284"
     if (preg_match('/' . preg_quote($matchPattern, '/') . '(\d+)_(.+?)(?:\s|$)/', $content, $matches)) {
         $eventId = intval($matches[1]);
-        $paymentId = trim($matches[2]); // Remove trailing spaces
+        $paymentId = trim($matches[2]); // Loại bỏ khoảng trắng thừa
     } 
-    // Try pattern: SK{eventId}_{paymentId} at end of string
+    // Thử pattern: SK{eventId}_{paymentId} ở cuối chuỗi
     elseif (preg_match('/' . preg_quote($matchPattern, '/') . '(\d+)_(.+)$/', $content, $matches)) {
         $eventId = intval($matches[1]);
         $paymentId = trim($matches[2]);
     }
-    // Try pattern: SK{paymentId} (without eventId, may have text before)
-    elseif (preg_match('/' . preg_quote($matchPattern, '/') . '([A-Z0-9_]+?)(?:\s|$)/', $content, $matches)) {
-        $paymentId = trim($matches[1]);
-    }
-    // Try to find payment ID directly from content (SEPAY_ format)
+    // Thử tìm payment ID trực tiếp từ content (format SEPAY_) - ưu tiên cao
+    // Khớp: "SK20_SEPAY_1762094590_1284" -> "SEPAY_1762094590_1284"
     elseif (preg_match('/SEPAY_(\d+_\d+)/', $content, $matches)) {
         $paymentId = 'SEPAY_' . $matches[1];
     }
-    // Try to find any alphanumeric code that might be payment ID
+    // Thử pattern: SK{paymentId} (không có eventId, có thể có text trước)
+    elseif (preg_match('/' . preg_quote($matchPattern, '/') . '([A-Z0-9_]+?)(?:\s|$)/', $content, $matches)) {
+        $paymentId = trim($matches[1]);
+    }
+    // Thử tìm bất kỳ mã alphanumeric nào có thể là payment ID
     else {
-        // Last resort: try to extract any code from content
+        // Cuối cùng: thử trích xuất bất kỳ mã nào từ content
         $parts = preg_split('/[\s_\-]+/', $content);
         foreach ($parts as $part) {
             if (preg_match('/SEPAY_/', $part) || (strlen($part) > 10 && preg_match('/^[A-Z0-9_]+$/', $part))) {
@@ -180,10 +268,21 @@ try {
         }
     }
     
+    // Nếu paymentId có dạng "SEPAY_xxx" từ pattern SK{eventId}_SEPAY_xxx, giữ nguyên
+    // Nếu paymentId là toàn bộ chuỗi sau SK{eventId}_, cần kiểm tra xem có chứa SEPAY_ không
+    if ($paymentId && preg_match('/^SEPAY_/', $paymentId)) {
+        // Đã đúng format, giữ nguyên
+    } elseif ($paymentId && strpos($paymentId, 'SEPAY_') !== false) {
+        // Nếu paymentId chứa SEPAY_ nhưng không bắt đầu bằng SEPAY_, extract phần SEPAY_
+        if (preg_match('/SEPAY_(\d+_\d+)/', $paymentId, $matches)) {
+            $paymentId = 'SEPAY_' . $matches[1];
+        }
+    }
+    
     if (empty($paymentId)) {
-        // Log parsing failure for debugging
+        // Ghi log lỗi parse để debug
         $parseErrorLog = "\n" . str_repeat("-", 80) . "\n";
-        $parseErrorLog .= "ERROR: Could not extract payment ID from content\n";
+        $parseErrorLog .= "ERROR: Không thể trích xuất payment ID từ content\n";
         $parseErrorLog .= "Content: " . $content . "\n";
         $parseErrorLog .= "Match Pattern: " . $matchPattern . "\n";
         $parseErrorLog .= "All parts: " . print_r(preg_split('/[\s_\-]+/', $content), true) . "\n";
@@ -193,7 +292,7 @@ try {
         throw new Exception('Could not extract payment ID from content. Content: ' . $content);
     }
     
-    // Log successful parsing
+    // Ghi log parse thành công
     $parseLog = "\n" . str_repeat("-", 40) . "\n";
     $parseLog .= "Payment ID Parsed Successfully\n";
     $parseLog .= "Content: " . $content . "\n";
@@ -202,30 +301,95 @@ try {
     $parseLog .= str_repeat("-", 40) . "\n";
     file_put_contents(__DIR__ . '/hook_log.txt', $parseLog, FILE_APPEND);
     
-    // Find payment record - try exact match first, then partial match
+    // Tìm payment record - thử nhiều pattern
+    // Pattern 1: Khớp chính xác với paymentId đã parse
+    // Pattern 2: Khớp với toàn bộ content (nếu content chứa MaGiaoDich)
+    // Pattern 3: Khớp với phần sau SK{eventId}_ (SEPAY_xxx)
+    // Pattern 4: Khớp một phần
+    
+    $payment = null;
+    
+    // Thử 1: Khớp chính xác với paymentId
     $stmt = $pdo->prepare("
         SELECT t.*, dl.TongTien, dl.TenSuKien, kh.HoTen
         FROM thanhtoan t
         INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
         INNER JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-        WHERE t.MaGiaoDich = ? OR t.MaGiaoDich LIKE ?
-        ORDER BY 
-            CASE WHEN t.MaGiaoDich = ? THEN 1 ELSE 2 END,
-            t.ID_ThanhToan DESC
+        WHERE t.MaGiaoDich = ?
         LIMIT 1
     ");
-    $stmt->execute([$paymentId, "%{$paymentId}%", $paymentId]);
+    $stmt->execute([$paymentId]);
     $payment = $stmt->fetch(PDO::FETCH_ASSOC);
     
+    // Thử 2: Khớp với toàn bộ content (nếu chứa MaGiaoDich)
+    if (!$payment && !empty($content)) {
+        $stmt = $pdo->prepare("
+            SELECT t.*, dl.TongTien, dl.TenSuKien, kh.HoTen
+            FROM thanhtoan t
+            INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+            INNER JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+            WHERE t.MaGiaoDich = ? OR ? LIKE CONCAT('%', t.MaGiaoDich, '%')
+            ORDER BY 
+                CASE WHEN t.MaGiaoDich = ? THEN 1 ELSE 2 END,
+                t.ID_ThanhToan DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$content, $content, $content]);
+        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    // Thử 3: Trích xuất SEPAY_xxx từ content và khớp
+    if (!$payment && preg_match('/SEPAY_(\d+_\d+)/', $content, $sepayMatches)) {
+        $sepayId = 'SEPAY_' . $sepayMatches[1];
+        $stmt = $pdo->prepare("
+            SELECT t.*, dl.TongTien, dl.TenSuKien, kh.HoTen
+            FROM thanhtoan t
+            INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+            INNER JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+            WHERE t.MaGiaoDich = ? OR t.MaGiaoDich LIKE ?
+            ORDER BY 
+                CASE WHEN t.MaGiaoDich = ? THEN 1 ELSE 2 END,
+                t.ID_ThanhToan DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$sepayId, "%{$sepayId}%", $sepayId]);
+        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    // Thử 4: Khớp một phần với paymentId
     if (!$payment) {
-        // Update webhook log with error
+        $stmt = $pdo->prepare("
+            SELECT t.*, dl.TongTien, dl.TenSuKien, kh.HoTen
+            FROM thanhtoan t
+            INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+            INNER JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+            WHERE t.MaGiaoDich LIKE ?
+            ORDER BY t.ID_ThanhToan DESC
+            LIMIT 1
+        ");
+        $stmt->execute(["%{$paymentId}%"]);
+        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    // Cập nhật payment_id vào bảng tb_transactions nếu tìm thấy payment
+    if ($payment && isset($transactionId)) {
+        try {
+            $stmt = $pdo->prepare("UPDATE tb_transactions SET payment_id = ? WHERE id = ?");
+            $stmt->execute([$payment['ID_ThanhToan'], $transactionId]);
+        } catch (Exception $e) {
+            error_log("Warning: Could not update payment_id in tb_transactions: " . $e->getMessage());
+        }
+    }
+    
+    if (!$payment) {
+        // Cập nhật log webhook với lỗi
         $stmt = $pdo->prepare("UPDATE webhook_logs SET processed = 1, response = ? WHERE id = ?");
         $stmt->execute([json_encode(['error' => 'Payment not found', 'payment_id' => $paymentId]), $webhookLogId]);
         
         throw new Exception('Payment not found for ID: ' . $paymentId . ' (content: ' . $content . ')');
     }
     
-    // Check if payment already processed
+    // Kiểm tra payment đã được xử lý chưa
     if ($payment['TrangThai'] === 'Thành công' && !empty($payment['SePayTransactionId'])) {
         // Payment already processed, update webhook log
         $stmt = $pdo->prepare("UPDATE webhook_logs SET processed = 1, response = ? WHERE id = ?");
@@ -241,18 +405,18 @@ try {
         exit;
     }
     
-    // Verify amount matches (with tolerance for floating point)
+    // Xác minh số tiền khớp (cho phép sai lệch nhỏ do floating point)
     $expectedAmount = floatval($payment['SoTien']);
     $receivedAmount = floatval($transferAmount);
     if (abs($expectedAmount - $receivedAmount) > 0.01) {
         throw new Exception('Amount mismatch: expected ' . $expectedAmount . ', received ' . $receivedAmount);
     }
     
-    // Start transaction
+    // Bắt đầu transaction
     $pdo->beginTransaction();
     
     try {
-        // Update payment status to success and store SePay transaction ID
+        // Cập nhật trạng thái payment thành công và lưu SePay transaction ID
         $stmt = $pdo->prepare("
             UPDATE thanhtoan 
             SET TrangThai = 'Thành công', 
@@ -263,7 +427,7 @@ try {
         $paymentDate = !empty($transactionDate) ? $transactionDate : date('Y-m-d H:i:s');
         $stmt->execute([$paymentDate, $sepayTransactionId, $payment['ID_ThanhToan']]);
         
-        // Update event payment status
+        // Cập nhật trạng thái thanh toán của sự kiện
         $eventStatus = $payment['LoaiThanhToan'] === 'Đặt cọc' ? 'Đã đặt cọc' : 'Đã thanh toán đủ';
         $stmt = $pdo->prepare("
             UPDATE datlichsukien 
@@ -282,7 +446,7 @@ try {
             $payment['ID_DatLich']
         ]);
         
-        // Insert payment history
+        // Thêm lịch sử thanh toán
         $stmt = $pdo->prepare("
             INSERT INTO payment_history (
                 payment_id, action, old_status, new_status, description
@@ -304,7 +468,17 @@ try {
             $description
         ]);
         
-        // Update webhook log with success
+        // Cập nhật processed = 1 trong tb_transactions
+        if (isset($transactionId)) {
+            try {
+                $stmt = $pdo->prepare("UPDATE tb_transactions SET processed = 1, payment_id = ? WHERE id = ?");
+                $stmt->execute([$payment['ID_ThanhToan'], $transactionId]);
+            } catch (Exception $e) {
+                error_log("Warning: Could not update processed status in tb_transactions: " . $e->getMessage());
+            }
+        }
+        
+        // Cập nhật log webhook với kết quả thành công
         $responseData = [
             'success' => true,
             'message' => 'Webhook processed successfully',
@@ -319,7 +493,7 @@ try {
         
         $pdo->commit();
         
-        // Log successful processing
+        // Ghi log xử lý thành công
         error_log("SePay Webhook processed successfully: Payment {$paymentId} (DB ID: {$payment['ID_ThanhToan']}), Amount {$receivedAmount}, Event {$eventStatus}");
         
         echo json_encode([
@@ -342,7 +516,7 @@ try {
     } catch (Exception $e) {
         $pdo->rollBack();
         
-        // Update webhook log with error
+        // Cập nhật log webhook với lỗi
         $stmt = $pdo->prepare("UPDATE webhook_logs SET processed = 1, response = ? WHERE id = ?");
         $stmt->execute([json_encode(['error' => $e->getMessage()]), $webhookLogId]);
         
@@ -353,7 +527,7 @@ try {
     error_log("SePay Webhook error: " . $e->getMessage());
     error_log("SePay Webhook stack trace: " . $e->getTraceAsString());
     
-    // Set appropriate HTTP status code
+    // Đặt HTTP status code phù hợp
     $httpCode = 400;
     if (strpos($e->getMessage(), 'not found') !== false) {
         $httpCode = 404;

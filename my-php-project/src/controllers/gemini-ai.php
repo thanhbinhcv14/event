@@ -80,10 +80,27 @@ function handleChat($pdo) {
         $systemInfo = getSystemInfoForAI($pdo);
         error_log('System info retrieved: ' . count($systemInfo['event_types']) . ' event types, ' . count($systemInfo['locations']) . ' locations');
         
+        // Debug: Log thông tin phòng
+        $totalRooms = 0;
+        foreach ($systemInfo['rooms'] ?? [] as $rooms) {
+            $totalRooms += count($rooms);
+        }
+        error_log('System info - Total rooms: ' . $totalRooms . ' across ' . count($systemInfo['rooms'] ?? []) . ' locations');
+        
         // Tạo prompt với context từ database
         error_log('Building prompt...');
         $prompt = buildPrompt($message, $conversationHistory, $systemInfo);
         error_log('Prompt length: ' . strlen($prompt) . ' characters');
+        
+        // Debug: Kiểm tra xem prompt có chứa thông tin phòng không
+        if (strpos($prompt, 'Các phòng có sẵn') !== false) {
+            error_log('Gemini AI - SUCCESS: Prompt contains room information');
+            // Đếm số lần xuất hiện "phòng" trong prompt
+            $roomCount = substr_count($prompt, '•');
+            error_log('Gemini AI - Found ' . $roomCount . ' room entries in prompt');
+        } else {
+            error_log('Gemini AI - WARNING: Prompt does NOT contain room information');
+        }
         
         // Gọi Gemini AI API
         error_log('Calling Gemini API...');
@@ -128,15 +145,48 @@ function getSystemInfoForAI($pdo) {
         ");
         $info['event_types'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Lấy địa điểm
+        // Lấy địa điểm với các trường địa chỉ mới
         $stmt = $pdo->query("
-            SELECT ID_DD, TenDiaDiem, LoaiDiaDiem, DiaChi, SucChua, 
+            SELECT ID_DD, TenDiaDiem, LoaiDiaDiem, DiaChi, SoNha, DuongPho, 
+                   PhuongXa, QuanHuyen, TinhThanh, SucChua, 
                    GiaThueGio, GiaThueNgay, LoaiThue, MoTa
             FROM diadiem 
             WHERE TrangThaiHoatDong = 'Hoạt động'
             ORDER BY TenDiaDiem ASC
         ");
         $info['locations'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Lấy thông tin phòng cho các địa điểm trong nhà
+        $stmt = $pdo->query("
+            SELECT ID_Phong, ID_DD, TenPhong, SucChua, GiaThueGio, GiaThueNgay, 
+                   LoaiThue, MoTa, TrangThai
+            FROM phong 
+            WHERE TrangThai = 'Sẵn sàng'
+            ORDER BY ID_DD ASC, TenPhong ASC
+        ");
+        $allRooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Debug: Log số lượng phòng lấy được
+        error_log("Gemini AI - Total rooms loaded: " . count($allRooms));
+        if (!empty($allRooms)) {
+            error_log("Gemini AI - Sample room data: " . json_encode($allRooms[0]));
+        }
+        
+        // Nhóm phòng theo ID_DD
+        $info['rooms'] = [];
+        foreach ($allRooms as $room) {
+            $locationId = $room['ID_DD'];
+            if (!isset($info['rooms'][$locationId])) {
+                $info['rooms'][$locationId] = [];
+            }
+            $info['rooms'][$locationId][] = $room;
+        }
+        
+        // Debug: Log số lượng địa điểm có phòng
+        error_log("Gemini AI - Locations with rooms: " . count($info['rooms']));
+        foreach ($info['rooms'] as $locId => $rooms) {
+            error_log("Gemini AI - Location ID {$locId} has " . count($rooms) . " rooms");
+        }
         
         // Lấy thiết bị
         $stmt = $pdo->query("
@@ -205,14 +255,89 @@ function buildPrompt($message, $conversationHistory, $systemInfo) {
     $systemContext .= "CÁC ĐỊA ĐIỂM CÓ SẴN:\n";
     foreach (array_slice($systemInfo['locations'] ?? [], 0, 10) as $location) {
         $systemContext .= "- {$location['TenDiaDiem']} ({$location['LoaiDiaDiem']})\n";
-        $systemContext .= "  Địa chỉ: {$location['DiaChi']}\n";
+        
+        // Hiển thị địa chỉ đầy đủ (từ DiaChi hoặc tự tạo từ các thành phần)
+        $address = $location['DiaChi'] ?? '';
+        if (empty($address)) {
+            // Tự tạo địa chỉ từ các thành phần nếu DiaChi trống
+            $addressParts = [];
+            if (!empty($location['SoNha'])) $addressParts[] = $location['SoNha'];
+            if (!empty($location['DuongPho'])) $addressParts[] = $location['DuongPho'];
+            if (!empty($location['PhuongXa'])) $addressParts[] = $location['PhuongXa'];
+            if (!empty($location['QuanHuyen'])) $addressParts[] = $location['QuanHuyen'];
+            if (!empty($location['TinhThanh'])) $addressParts[] = $location['TinhThanh'];
+            $address = implode(', ', $addressParts);
+        }
+        
+        $systemContext .= "  Địa chỉ: {$address}\n";
+        
+        // Hiển thị thông tin chi tiết địa chỉ nếu có
+        if (!empty($location['QuanHuyen']) || !empty($location['TinhThanh'])) {
+            $detailParts = [];
+            if (!empty($location['QuanHuyen'])) $detailParts[] = $location['QuanHuyen'];
+            if (!empty($location['TinhThanh'])) $detailParts[] = $location['TinhThanh'];
+            if (!empty($detailParts)) {
+                $systemContext .= "  Khu vực: " . implode(', ', $detailParts) . "\n";
+            }
+        }
+        
         $systemContext .= "  Sức chứa: {$location['SucChua']} người\n";
-        if ($location['GiaThueGio']) {
-            $systemContext .= "  Giá thuê theo giờ: " . number_format($location['GiaThueGio'], 0, ',', '.') . " VNĐ/giờ\n";
+        
+        // Chỉ hiển thị giá thuê cho địa điểm ngoài trời (địa điểm trong nhà có giá thuê = null)
+        if ($location['LoaiDiaDiem'] === 'Ngoài trời') {
+            if (!empty($location['GiaThueGio'])) {
+                $systemContext .= "  Giá thuê theo giờ: " . number_format($location['GiaThueGio'], 0, ',', '.') . " VNĐ/giờ\n";
+            }
+            if (!empty($location['GiaThueNgay'])) {
+                $systemContext .= "  Giá thuê theo ngày: " . number_format($location['GiaThueNgay'], 0, ',', '.') . " VNĐ/ngày\n";
+            }
+            if (!empty($location['LoaiThue'])) {
+                $systemContext .= "  Loại thuê: {$location['LoaiThue']}\n";
+            }
+        } else {
+            // Địa điểm trong nhà - hiển thị danh sách phòng
+            $locationId = $location['ID_DD'];
+            $rooms = $systemInfo['rooms'][$locationId] ?? [];
+            
+            // Debug: Log thông tin phòng cho địa điểm này
+            error_log("Gemini AI - Location ID {$locationId} ({$location['TenDiaDiem']}) - Rooms found: " . count($rooms));
+            
+            if (!empty($rooms)) {
+                $systemContext .= "  Các phòng có sẵn:\n";
+                foreach ($rooms as $room) {
+                    $systemContext .= "    • {$room['TenPhong']}\n";
+                    $systemContext .= "      - Sức chứa: {$room['SucChua']} người\n";
+                    
+                    // Hiển thị giá thuê theo loại thuê
+                    if ($room['LoaiThue'] === 'Theo giờ' || $room['LoaiThue'] === 'Cả hai') {
+                        if (!empty($room['GiaThueGio'])) {
+                            $systemContext .= "      - Giá thuê theo giờ: " . number_format($room['GiaThueGio'], 0, ',', '.') . " VNĐ/giờ\n";
+                        }
+                    }
+                    if ($room['LoaiThue'] === 'Theo ngày' || $room['LoaiThue'] === 'Cả hai') {
+                        if (!empty($room['GiaThueNgay'])) {
+                            $systemContext .= "      - Giá thuê theo ngày: " . number_format($room['GiaThueNgay'], 0, ',', '.') . " VNĐ/ngày\n";
+                        }
+                    }
+                    
+                    if (!empty($room['MoTa'])) {
+                        $systemContext .= "      - Mô tả: {$room['MoTa']}\n";
+                    }
+                    $systemContext .= "\n";
+                }
+                
+                // Debug: Log để kiểm tra prompt có chứa thông tin phòng
+                error_log("Gemini AI - Added " . count($rooms) . " rooms to prompt for location {$locationId}");
+            } else {
+                $systemContext .= "  Lưu ý: Địa điểm trong nhà có các phòng riêng, giá thuê được tính theo từng phòng (chưa có thông tin phòng chi tiết)\n";
+                error_log("Gemini AI - WARNING: Location ID {$locationId} ({$location['TenDiaDiem']}) is indoor but has no rooms!");
+            }
         }
-        if ($location['GiaThueNgay']) {
-            $systemContext .= "  Giá thuê theo ngày: " . number_format($location['GiaThueNgay'], 0, ',', '.') . " VNĐ/ngày\n";
+        
+        if (!empty($location['MoTa'])) {
+            $systemContext .= "  Mô tả: {$location['MoTa']}\n";
         }
+        
         $systemContext .= "\n";
     }
     

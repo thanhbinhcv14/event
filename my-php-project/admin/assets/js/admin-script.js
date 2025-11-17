@@ -395,7 +395,7 @@ function hideMessages() {
 }
 
 // AJAX helper function
-function makeAjaxRequest(url, data = {}, method = 'GET', options = {}) {
+function makeAjaxRequest(url, data = {}, method = 'GET', useFormData = false) {
     const defaultOptions = {
         method: method,
         headers: {
@@ -410,19 +410,56 @@ function makeAjaxRequest(url, data = {}, method = 'GET', options = {}) {
             defaultOptions.body = data;
         }
     } else if (method === 'POST' || method === 'PUT') {
-        defaultOptions.headers['Content-Type'] = 'application/json';
-        defaultOptions.body = JSON.stringify(data);
+        // Nếu useFormData = true, gửi dưới dạng form data thay vì JSON
+        if (useFormData) {
+            const formData = new URLSearchParams();
+            for (const key in data) {
+                if (data.hasOwnProperty(key) && data[key] !== undefined && data[key] !== null) {
+                    formData.append(key, data[key]);
+                }
+            }
+            defaultOptions.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            defaultOptions.body = formData.toString();
+        } else {
+            // Mặc định gửi JSON
+            defaultOptions.headers['Content-Type'] = 'application/json';
+            defaultOptions.body = JSON.stringify(data);
+        }
     } else if (Object.keys(data).length > 0) {
-        const params = new URLSearchParams(data);
+        // GET request: thêm vào query string
+        const params = new URLSearchParams();
+        for (const key in data) {
+            if (data.hasOwnProperty(key) && data[key] !== undefined && data[key] !== null) {
+                params.append(key, data[key]);
+            }
+        }
         url += (url.includes('?') ? '&' : '?') + params.toString();
     }
     
-    const finalOptions = { ...defaultOptions, ...options };
+    // Debug logging
+    console.log('makeAjaxRequest:', {
+        url: url,
+        method: method,
+        data: data,
+        useFormData: useFormData,
+        body: defaultOptions.body
+    });
     
-    return fetch(url, finalOptions)
+    return fetch(url, defaultOptions)
         .then(response => {
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                // Thử parse response để lấy thông báo lỗi chi tiết
+                return response.text().then(text => {
+                    try {
+                        const json = JSON.parse(text);
+                        throw new Error(json.error || `HTTP error! status: ${response.status}`);
+                    } catch (e) {
+                        if (e instanceof Error && e.message.includes('HTTP error')) {
+                            throw e;
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}, response: ${text}`);
+                    }
+                });
             }
             return response.json();
         })

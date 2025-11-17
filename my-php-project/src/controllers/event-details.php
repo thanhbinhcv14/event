@@ -28,9 +28,10 @@ try {
     if ($action === 'get_event_details') {
         // Get event details
         $stmt = $pdo->prepare("
-            SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue, d.HinhAnh as DiaDiemHinhAnh,
+            SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue, d.LoaiDiaDiem, d.HinhAnh as DiaDiemHinhAnh,
                    ls.TenLoai, ls.GiaCoBan, ls.MoTa as LoaiMoTa,
                    k.HoTen, k.SoDienThoai,
+                   p.ID_Phong, p.TenPhong as TenPhong, p.GiaThueGio as PhongGiaThueGio, p.GiaThueNgay as PhongGiaThueNgay, p.LoaiThue as PhongLoaiThue,
                    COALESCE(equipment_total.TongGiaThietBi, 0) as TongGiaThietBi,
                    s.TrangThaiThucTe as TrangThaiSuKien
             FROM datlichsukien dl
@@ -38,6 +39,7 @@ try {
             LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
             LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
             LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+            LEFT JOIN phong p ON dl.ID_Phong = p.ID_Phong
             LEFT JOIN (
                 SELECT ID_DatLich, SUM(DonGia * SoLuong) as TongGiaThietBi
                 FROM chitietdatsukien

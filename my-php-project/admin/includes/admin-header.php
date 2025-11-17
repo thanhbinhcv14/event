@@ -32,6 +32,7 @@ $pageTitles = [
     'staff-schedule' => 'Lịch làm việc',
     'staff-reports' => 'Báo cáo tiến độ',
     'locations' => 'Quản lý địa điểm',
+    'rooms' => 'Quản lý phòng',
     'device' => 'Quản lý thiết bị',
     'payment-management' => 'Quản lý thanh toán',
     'customeredit_content' => 'Quản lý khách hàng',
@@ -118,6 +119,92 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
         .page-loading {
             pointer-events: none !important;
         }
+        
+        /* Giảm kích thước chữ cho tất cả các bảng trong admin - Áp dụng cho tất cả trang */
+        .table-container table,
+        .table-responsive table,
+        table.dataTable,
+        .content-area table,
+        table.table {
+            font-size: 0.875rem !important;
+        }
+        
+        .table-container table thead th,
+        .table-responsive table thead th,
+        table.dataTable thead th,
+        .content-area table thead th,
+        table.table thead th {
+            font-size: 0.85rem !important;
+            font-weight: 600 !important;
+            padding: 0.5rem 0.75rem !important;
+        }
+        
+        .table-container table tbody td,
+        .table-responsive table tbody td,
+        table.dataTable tbody td,
+        .content-area table tbody td,
+        table.table tbody td {
+            font-size: 0.85rem !important;
+            padding: 0.5rem 0.75rem !important;
+        }
+        
+        .table-container table .btn-sm,
+        .table-responsive table .btn-sm,
+        table.dataTable .btn-sm,
+        .content-area table .btn-sm,
+        table.table .btn-sm {
+            font-size: 0.75rem !important;
+            padding: 0.25rem 0.5rem !important;
+        }
+        
+        .table-container table .badge,
+        .table-responsive table .badge,
+        table.dataTable .badge,
+        .content-area table .badge,
+        table.table .badge {
+            font-size: 0.75rem !important;
+            padding: 0.25rem 0.5rem !important;
+        }
+        
+        .table-container table .status-badge,
+        .table-responsive table .status-badge,
+        table.dataTable .status-badge,
+        .content-area table .status-badge,
+        table.table .status-badge {
+            font-size: 0.75rem !important;
+            padding: 0.25rem 0.5rem !important;
+        }
+        
+        /* Áp dụng cho các bảng không dùng DataTables */
+        .table {
+            font-size: 0.875rem !important;
+        }
+        
+        .table thead th {
+            font-size: 0.85rem !important;
+            font-weight: 600 !important;
+            padding: 0.5rem 0.75rem !important;
+        }
+        
+        .table tbody td {
+            font-size: 0.85rem !important;
+            padding: 0.5rem 0.75rem !important;
+        }
+        
+        .table .btn-sm {
+            font-size: 0.75rem !important;
+            padding: 0.25rem 0.5rem !important;
+        }
+        
+        .table .badge {
+            font-size: 0.75rem !important;
+            padding: 0.25rem 0.5rem !important;
+        }
+        
+        .table .status-badge {
+            font-size: 0.75rem !important;
+            padding: 0.25rem 0.5rem !important;
+        }
     </style>
 </head>
 <body>
@@ -166,6 +253,11 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
                 <span>Quản lý địa điểm</span>
             </a>
             
+            <a href="rooms.php" class="menu-item <?= $currentPage === 'rooms' ? 'active' : '' ?>">
+                <i class="fas fa-door-open"></i>
+                <span>Quản lý phòng</span>
+            </a>
+            
             <a href="accstaff.php" class="menu-item <?= $currentPage === 'accstaff' ? 'active' : '' ?>">
                 <i class="fas fa-user-tie"></i>
                 <span>Quản lý nhân viên</span>
@@ -212,6 +304,11 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             <a href="locations.php" class="menu-item <?= $currentPage === 'locations' ? 'active' : '' ?>">
                 <i class="fas fa-map-marker-alt"></i>
                 <span>Quản lý địa điểm</span>
+            </a>
+            
+            <a href="rooms.php" class="menu-item <?= $currentPage === 'rooms' ? 'active' : '' ?>">
+                <i class="fas fa-door-open"></i>
+                <span>Quản lý phòng</span>
             </a>
             
             <a href="accstaff.php" class="menu-item <?= $currentPage === 'accstaff' ? 'active' : '' ?>">

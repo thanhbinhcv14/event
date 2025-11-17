@@ -1673,17 +1673,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                 </a>
             </div>
             <?php endif; ?>
-            
-            <?php if ($userRole == 3): ?>
-            <!-- Event Manager Additional Functions -->
-            <div class="menu-group">
-                <div class="menu-group-title">Đăng ký sự kiện</div>
-                <a href="admin/event-manager.php" class="menu-item">
-                    <i class="fas fa-calendar-plus"></i> Đăng ký thay mặt
-                </a>
-            </div>
-            <?php endif; ?>
-            
             <?php if (in_array($userRole, [1, 2, 3, 4, 5])): ?>
             <!-- Chat System -->
             <div class="menu-group">

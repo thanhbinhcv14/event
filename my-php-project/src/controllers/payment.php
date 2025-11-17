@@ -79,6 +79,10 @@ try {
             confirmBankingPayment();
             break;
             
+        case 'verify_payment':
+            verifyPayment();
+            break;
+            
         case 'cancel_payment':
             cancelPayment();
             break;
@@ -276,6 +280,58 @@ function generateQRData($paymentMethod, $amount, $eventId, $transactionCode) {
     ];
 }
 
+/**
+ * Tạo hàm gọi SePay API để tạo QR code
+ */
+function createSePayQRCode($amount, $content, $accountNumber = null) {
+    try {
+        $baseUrl = SEPAY_BASE_URL;
+        $apiToken = SEPAY_API_TOKEN;
+        
+        // Gọi SePay API để tạo QR code
+        // API endpoint: /v1/qr/create hoặc /createqr
+        $url = $baseUrl . '/createqr';
+        
+        $data = [
+            'amount' => $amount,
+            'content' => $content,
+            'accountNumber' => $accountNumber
+        ];
+        
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'Authorization: Apikey ' . $apiToken
+        ]);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+        
+        if ($curlError) {
+            error_log("SePay QR API Error: " . $curlError);
+            return null;
+        }
+        
+        if ($httpCode === 200) {
+            $result = json_decode($response, true);
+            return $result;
+        } else {
+            error_log("SePay QR API HTTP Error: " . $httpCode . " - " . $response);
+            return null;
+        }
+    } catch (Exception $e) {
+        error_log("SePay QR API Exception: " . $e->getMessage());
+        return null;
+    }
+}
+
 function createSePayPayment() {
     global $pdo;
     
@@ -377,35 +433,56 @@ function createSePayPayment() {
             'TPB' => '970423', // TPBank
         ];
         $bankCode = $bankCodeMap[$bankConfigArray['bank_code'] ?? 'VCB'] ?? '970436';
-        $accountNumber = $bankConfigArray['account_number'] ?? '1234567890';
-        $accountName = $bankConfigArray['account_name'] ?? 'CONG TY TNHH DEMO';
-        $bankName = $bankConfigArray['bank_name'] ?? 'Vietcombank';
+        $accountNumber = $bankConfigArray['account_number'] ?? '100872918542';
+        $accountName = $bankConfigArray['account_name'] ?? 'BUI THANH BINH';
+        $bankName = $bankConfigArray['bank_name'] ?? 'VietinBank';
         
         // Generate proper transfer content with transaction ID
         $transferContent = 'SK' . $eventId . '_' . $paymentId;
-        $qrCodeUrl = 'https://img.vietqr.io/image/' . $bankCode . '-' . $accountNumber . '-compact2.png?amount=' . $amount . '&addInfo=' . urlencode($transferContent);
+        
+        // Gọi SePay API để tạo QR code
+        $sepayQRResult = createSePayQRCode($amount, $transferContent, $accountNumber);
+        
+        // Nếu SePay API thành công, sử dụng QR từ SePay
+        if ($sepayQRResult && isset($sepayQRResult['qr_code'])) {
+            $qrCodeUrl = $sepayQRResult['qr_code'];
+            $sepayQRId = $sepayQRResult['id'] ?? null;
+            
+            // Lưu SePay QR ID vào database nếu có (lưu vào GhiChu nếu cột SePayQRId không tồn tại)
+            if ($sepayQRId) {
+                try {
+                    $stmt = $pdo->prepare("UPDATE thanhtoan SET SePayQRId = ? WHERE ID_ThanhToan = ?");
+                    $stmt->execute([$sepayQRId, $insertedId]);
+                } catch (Exception $e) {
+                    // Nếu cột SePayQRId không tồn tại, lưu vào GhiChu
+                    error_log("SePayQRId column not found, saving to GhiChu: " . $e->getMessage());
+                    $stmt = $pdo->prepare("UPDATE thanhtoan SET GhiChu = CONCAT(GhiChu, ' | SePayQRId: ', ?) WHERE ID_ThanhToan = ?");
+                    $stmt->execute([$sepayQRId, $insertedId]);
+                }
+            }
+        } else {
+            // Fallback: Tạo QR code local bằng VietQR
+            $qrCodeUrl = 'https://img.vietqr.io/image/' . $bankCode . '-' . $accountNumber . '-compact2.png?amount=' . $amount . '&addInfo=' . urlencode($transferContent);
+        }
         
         // Create fallback QR string with bank info
         $fallbackQrData = "Bank: {$bankName}\nAccount: {$accountNumber}\nAmount: {$amount}\nContent: {$transferContent}";
         $fallbackQrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($fallbackQrData);
-        
-        // Also create a simple QR string for fallback
-        $qrString = $qrCodeUrl;
         
         echo json_encode([
             'success' => true,
             'payment_id' => $insertedId,
             'payment_code' => $paymentId,
             'transaction_id' => $paymentId,
-            'transaction_code' => $paymentId, // Add this for consistency
+            'transaction_code' => $paymentId,
             'amount' => $amount,
             'event_name' => $event['TenSuKien'],
             'customer_name' => $event['HoTen'],
             'payment_method' => 'bank_transfer',
             'message' => 'QR Code đã được tạo. Vui lòng quét mã để thanh toán.',
             'qr_code' => $qrCodeUrl,
-            'qr_string' => $qrString, // Add fallback QR string
-            'fallback_qr' => $fallbackQrUrl, // Alternative QR service
+            'qr_string' => $qrCodeUrl,
+            'fallback_qr' => $fallbackQrUrl,
             'bank_info' => [
                 'bank_name' => $bankName,
                 'bank_code' => $bankCode,
@@ -416,8 +493,83 @@ function createSePayPayment() {
                 'transaction_id' => $paymentId,
                 'event_id' => $eventId
             ],
+            'sepay_qr_id' => $sepayQRResult['id'] ?? null,
             'auto_updated' => false,
             'waiting_payment' => true
+        ]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * Kiểm tra trạng thái thanh toán khi người dùng nhấn "Xác nhận thanh toán"
+ */
+function verifyPayment() {
+    global $pdo;
+    
+    $paymentId = $_POST['payment_id'] ?? null;
+    $transactionCode = $_POST['transaction_code'] ?? null;
+    
+    if (!$paymentId && !$transactionCode) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu thông tin thanh toán']);
+        return;
+    }
+    
+    try {
+        // Tìm payment record
+        if ($paymentId) {
+            $stmt = $pdo->prepare("
+                SELECT t.*, dl.TenSuKien, dl.ID_DatLich, kh.HoTen
+                FROM thanhtoan t
+                INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+                INNER JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+                WHERE t.ID_ThanhToan = ?
+            ");
+            $stmt->execute([$paymentId]);
+        } else {
+            $stmt = $pdo->prepare("
+                SELECT t.*, dl.TenSuKien, dl.ID_DatLich, kh.HoTen
+                FROM thanhtoan t
+                INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+                INNER JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+                WHERE t.MaGiaoDich = ? OR t.MaGiaoDich LIKE ?
+            ");
+            $stmt->execute([$transactionCode, "%{$transactionCode}%"]);
+        }
+        
+        $payment = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$payment) {
+            echo json_encode(['success' => false, 'error' => 'Không tìm thấy thanh toán']);
+            return;
+        }
+        
+        // Kiểm tra trạng thái thanh toán
+        $status = $payment['TrangThai'];
+        $isSuccess = ($status === 'Thành công');
+        $isPending = ($status === 'Đang xử lý');
+        
+        // Kiểm tra xem có SePayTransactionId không (đã nhận webhook)
+        $hasWebhook = !empty($payment['SePayTransactionId']);
+        
+        echo json_encode([
+            'success' => true,
+            'payment_id' => $payment['ID_ThanhToan'],
+            'transaction_code' => $payment['MaGiaoDich'],
+            'status' => $status,
+            'is_success' => $isSuccess,
+            'is_pending' => $isPending,
+            'has_webhook' => $hasWebhook,
+            'amount' => $payment['SoTien'],
+            'event_name' => $payment['TenSuKien'],
+            'customer_name' => $payment['HoTen'],
+            'message' => $isSuccess 
+                ? 'Thanh toán đã được xác nhận thành công!' 
+                : ($isPending 
+                    ? 'Thanh toán đang được xử lý. Vui lòng đợi trong giây lát...' 
+                    : 'Thanh toán chưa được xác nhận.')
         ]);
         
     } catch (Exception $e) {

@@ -1083,6 +1083,36 @@ $user = $_SESSION['user'];
         function getLocationPriceText(event) {
             if (!event) return 'Chưa có giá';
             
+            // Nếu là địa điểm trong nhà và có phòng, hiển thị giá phòng
+            const isIndoor = event.LoaiDiaDiem === 'Trong nhà' || event.LoaiDiaDiem === 'Trong nha';
+            const hasRoom = event.TenPhong && event.ID_Phong;
+            
+            if (isIndoor && hasRoom) {
+                // Hiển thị giá phòng
+                if (event.LoaiThueApDung === 'Theo giờ' && event.PhongGiaThueGio) {
+                    return `Phòng: ${new Intl.NumberFormat('vi-VN').format(event.PhongGiaThueGio)}/giờ`;
+                }
+                if (event.LoaiThueApDung === 'Theo ngày' && event.PhongGiaThueNgay) {
+                    return `Phòng: ${new Intl.NumberFormat('vi-VN').format(event.PhongGiaThueNgay)}/ngày`;
+                }
+                if (event.PhongLoaiThue === 'Theo giờ' && event.PhongGiaThueGio) {
+                    return `Phòng: ${new Intl.NumberFormat('vi-VN').format(event.PhongGiaThueGio)}/giờ`;
+                }
+                if (event.PhongLoaiThue === 'Theo ngày' && event.PhongGiaThueNgay) {
+                    return `Phòng: ${new Intl.NumberFormat('vi-VN').format(event.PhongGiaThueNgay)}/ngày`;
+                }
+                if (event.PhongLoaiThue === 'Cả hai' && event.PhongGiaThueGio && event.PhongGiaThueNgay) {
+                    return `Phòng: ${new Intl.NumberFormat('vi-VN').format(event.PhongGiaThueGio)}/giờ hoặc ${new Intl.NumberFormat('vi-VN').format(event.PhongGiaThueNgay)}/ngày`;
+                }
+                if (event.PhongGiaThueGio && event.PhongGiaThueGio > 0) {
+                    return `Phòng: ${new Intl.NumberFormat('vi-VN').format(event.PhongGiaThueGio)}/giờ`;
+                }
+                if (event.PhongGiaThueNgay && event.PhongGiaThueNgay > 0) {
+                    return `Phòng: ${new Intl.NumberFormat('vi-VN').format(event.PhongGiaThueNgay)}/ngày`;
+                }
+            }
+            
+            // Địa điểm ngoài trời hoặc không có phòng - hiển thị giá địa điểm
             // If we have the applied rental type, show the specific price
             if (event.LoaiThueApDung) {
                 if (event.LoaiThueApDung === 'Theo giờ' && event.GiaThueGio) {
@@ -1220,8 +1250,48 @@ $user = $_SESSION['user'];
                 NgayKetThuc: event.NgayKetThuc
             });
             
-            // Calculate location rental price based on applied rental type
-            if (event.LoaiThueApDung) {
+            // Nếu là địa điểm trong nhà và có phòng, tính giá theo phòng
+            const isIndoor = event.LoaiDiaDiem === 'Trong nhà' || event.LoaiDiaDiem === 'Trong nha';
+            const hasRoom = event.TenPhong && event.ID_Phong;
+            
+            if (isIndoor && hasRoom) {
+                // Tính giá theo phòng
+                const startDate = new Date(event.NgayBatDau);
+                const endDate = new Date(event.NgayKetThuc);
+                const durationMs = endDate - startDate;
+                const durationHours = Math.ceil(durationMs / (1000 * 60 * 60));
+                const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+                
+                if (event.LoaiThueApDung === 'Theo giờ' && event.PhongGiaThueGio) {
+                    locationPrice = durationHours * parseFloat(event.PhongGiaThueGio);
+                } else if (event.LoaiThueApDung === 'Theo ngày' && event.PhongGiaThueNgay) {
+                    locationPrice = durationDays * parseFloat(event.PhongGiaThueNgay);
+                } else if (event.PhongLoaiThue === 'Theo giờ' && event.PhongGiaThueGio) {
+                    locationPrice = durationHours * parseFloat(event.PhongGiaThueGio);
+                } else if (event.PhongLoaiThue === 'Theo ngày' && event.PhongGiaThueNgay) {
+                    locationPrice = durationDays * parseFloat(event.PhongGiaThueNgay);
+                } else if (event.PhongLoaiThue === 'Cả hai') {
+                    const hourlyPrice = durationHours * parseFloat(event.PhongGiaThueGio || 0);
+                    const dailyPrice = durationDays * parseFloat(event.PhongGiaThueNgay || 0);
+                    if (hourlyPrice > 0 && dailyPrice > 0) {
+                        locationPrice = Math.min(hourlyPrice, dailyPrice);
+                    } else if (hourlyPrice > 0) {
+                        locationPrice = hourlyPrice;
+                    } else if (dailyPrice > 0) {
+                        locationPrice = dailyPrice;
+                    }
+                }
+                
+                console.log('Room price calculation:', {
+                    isIndoor: isIndoor,
+                    hasRoom: hasRoom,
+                    TenPhong: event.TenPhong,
+                    PhongGiaThueGio: event.PhongGiaThueGio,
+                    PhongGiaThueNgay: event.PhongGiaThueNgay,
+                    locationPrice: locationPrice
+                });
+            } else if (event.LoaiThueApDung) {
+                // Địa điểm ngoài trời hoặc không có phòng - tính theo địa điểm
                 // Use the applied rental type
                 const startDate = new Date(event.NgayBatDau);
                 const endDate = new Date(event.NgayKetThuc);
@@ -1457,6 +1527,12 @@ $user = $_SESSION['user'];
                             <div class="detail-item">
                                 <i class="fas fa-tag"></i>
                                 <span>${event.TenLoai}</span>
+                            </div>
+                            ` : ''}
+                            ${event.TenPhong && (event.LoaiDiaDiem === 'Trong nhà' || event.LoaiDiaDiem === 'Trong nha') ? `
+                            <div class="detail-item">
+                                <i class="fas fa-door-open"></i>
+                                <span>Phòng: ${event.TenPhong}</span>
                             </div>
                             ` : ''}
                             ${priceBreakdown.eventTypePrice > 0 ? `
@@ -1955,8 +2031,11 @@ $user = $_SESSION['user'];
             
             $('#paymentModalFooter').html(`
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${paymentData.transaction_id}')">
+                <button type="button" class="btn btn-info" onclick="checkPaymentStatus('${paymentData.transaction_id}')">
                     <i class="fas fa-sync"></i> Kiểm tra trạng thái
+                </button>
+                <button type="button" class="btn btn-success" onclick="verifyPaymentStatus(${paymentData.payment_id}, '${paymentData.transaction_id}')">
+                    <i class="fas fa-check-circle"></i> Xác nhận thanh toán
                 </button>
             `);
             
@@ -2034,9 +2113,14 @@ $user = $_SESSION['user'];
             
             $('#paymentModalFooter').html(`
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-primary" onclick="checkPaymentStatus('${paymentData.transaction_code || paymentData.transaction_id}')">
+                <button type="button" class="btn btn-info" onclick="checkPaymentStatus('${paymentData.transaction_code || paymentData.transaction_id}')">
                     <i class="fas fa-sync"></i> Kiểm tra trạng thái
                 </button>
+                ${paymentData.payment_id ? `
+                <button type="button" class="btn btn-success" onclick="verifyPaymentStatus(${paymentData.payment_id}, '${paymentData.transaction_code || paymentData.transaction_id}')">
+                    <i class="fas fa-check-circle"></i> Xác nhận thanh toán
+                </button>
+                ` : ''}
             `);
             
             // Store payment data for fallback usage and generate QR with robust fallback
@@ -2191,8 +2275,9 @@ $user = $_SESSION['user'];
             }
         }
         
-        // Check payment status
+        // Check payment status (kiểm tra nhanh)
         function checkPaymentStatus(transactionCode) {
+            const originalFooter = $('#paymentModalFooter').html();
             $('#paymentModalFooter').html(`
                 <div class="text-center">
                     <div class="spinner-border text-primary" role="status">
@@ -2216,27 +2301,85 @@ $user = $_SESSION['user'];
                         if (payment) {
                             if (payment.TrangThai === 'Thành công') {
                                 if (window.__sepayPollTimer) clearInterval(window.__sepayPollTimer);
-                                window.location.href = `../payment/success.php?order_id=${encodeURIComponent(payment.MaGiaoDich)}&amount=${encodeURIComponent(payment.SoTien)}`;
+                                alert('Thanh toán đã được xác nhận thành công!');
+                                loadMyEvents();
+                                $('#paymentModal').modal('hide');
                                 return;
                             } else if (payment.TrangThai === 'Thất bại') {
                                 if (window.__sepayPollTimer) clearInterval(window.__sepayPollTimer);
-                                window.location.href = `../payment/failure.php?order_id=${encodeURIComponent(payment.MaGiaoDich)}&message=${encodeURIComponent('Thanh toán thất bại')}`;
+                                alert('Thanh toán thất bại. Vui lòng liên hệ hỗ trợ.');
                                 return;
                             }
-                            // Still pending – restore footer
-                            resetPaymentModal();
+                            // Still pending
+                            alert('Thanh toán đang được xử lý. Vui lòng đợi trong giây lát...');
+                            $('#paymentModalFooter').html(originalFooter);
                         } else {
                             alert('Chưa tìm thấy thông tin thanh toán. Vui lòng thử lại sau.');
-                            resetPaymentModal();
+                            $('#paymentModalFooter').html(originalFooter);
                         }
                     } else {
                         alert('Lỗi khi kiểm tra trạng thái thanh toán.');
-                        resetPaymentModal();
+                        $('#paymentModalFooter').html(originalFooter);
                     }
                 },
                 error: function() {
                     alert('Lỗi kết nối khi kiểm tra trạng thái.');
-                    resetPaymentModal();
+                    $('#paymentModalFooter').html(originalFooter);
+                }
+            });
+        }
+        
+        // Verify payment status (xác nhận thanh toán - gọi API verify_payment)
+        function verifyPaymentStatus(paymentId, transactionCode) {
+            if (!confirm('Bạn đã hoàn tất chuyển khoản? Hệ thống sẽ kiểm tra và xác nhận thanh toán.')) {
+                return;
+            }
+            
+            const originalFooter = $('#paymentModalFooter').html();
+            $('#paymentModalFooter').html(`
+                <div class="text-center">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Đang xác nhận...</span>
+                    </div>
+                    <p class="mt-2">Đang xác nhận thanh toán...</p>
+                </div>
+            `);
+            
+            $.ajax({
+                url: '../src/controllers/payment.php',
+                method: 'POST',
+                data: {
+                    action: 'verify_payment',
+                    payment_id: paymentId,
+                    transaction_code: transactionCode
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        if (response.is_success) {
+                            // Thanh toán thành công
+                            if (window.__sepayPollTimer) clearInterval(window.__sepayPollTimer);
+                            alert('✅ ' + response.message);
+                            $('#paymentModal').modal('hide');
+                            loadMyEvents(); // Reload danh sách sự kiện
+                        } else if (response.is_pending) {
+                            // Đang xử lý
+                            alert('⏳ ' + response.message + '\n\nHệ thống sẽ tự động cập nhật khi nhận được webhook từ SePay.');
+                            $('#paymentModalFooter').html(originalFooter);
+                        } else {
+                            // Chưa xác nhận
+                            alert('⚠️ ' + response.message + '\n\nVui lòng đảm bảo bạn đã chuyển khoản với đúng nội dung: ' + (response.transaction_code || ''));
+                            $('#paymentModalFooter').html(originalFooter);
+                        }
+                    } else {
+                        alert('❌ Lỗi: ' + (response.error || 'Không thể xác nhận thanh toán'));
+                        $('#paymentModalFooter').html(originalFooter);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Verify payment error:', error);
+                    alert('❌ Lỗi kết nối khi xác nhận thanh toán. Vui lòng thử lại sau.');
+                    $('#paymentModalFooter').html(originalFooter);
                 }
             });
         }
@@ -2442,6 +2585,12 @@ $user = $_SESSION['user'];
                                         <td><strong>Giá thuê:</strong></td>
                                         <td>${locationPriceText || 'Chưa có giá'}</td>
                                     </tr>
+                                    ${event.TenPhong && (event.LoaiDiaDiem === 'Trong nhà' || event.LoaiDiaDiem === 'Trong nha') ? `
+                                    <tr>
+                                        <td><strong>Phòng đã chọn:</strong></td>
+                                        <td><span class="badge bg-primary">${event.TenPhong}</span></td>
+                                    </tr>
+                                    ` : ''}
                                 </table>
                             </div>
                         </div>

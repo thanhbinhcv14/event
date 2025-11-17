@@ -1,25 +1,25 @@
 <?php
-// Include admin header
+// Bao gồm header admin
 include 'includes/admin-header.php';
 
-// Check if user has admin/staff privileges
+// Kiểm tra quyền admin/nhân viên
 $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? 0;
 if (!in_array($userRole, [1, 2, 3, 4])) {
     echo '<script>window.location.href = "index.php";</script>';
     exit;
 }
 
-// Get current user info - Handle multiple session structures
+// Lấy thông tin user hiện tại - Xử lý nhiều cấu trúc session
 $currentUserId = $_SESSION['user']['ID_User'] ?? $_SESSION['user']['id'] ?? $_SESSION['user_id'] ?? 0;
 $currentUserRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? 0;
 
-// Get user name from appropriate table based on role
-$currentUserName = 'Admin'; // Default fallback
+// Lấy tên user từ bảng phù hợp dựa trên role
+$currentUserName = 'Admin'; // Giá trị mặc định
 if ($currentUserId > 0) {
     try {
         $pdo = getDBConnection();
         
-        // Check if user is staff (role 1,2,3,4) - get from nhanvieninfo
+        // Kiểm tra nếu user là nhân viên (role 1,2,3,4) - lấy từ nhanvieninfo
         if (in_array($currentUserRole, [1, 2, 3, 4])) {
             $stmt = $pdo->prepare("SELECT HoTen FROM nhanvieninfo WHERE ID_User = ?");
             $stmt->execute([$currentUserId]);
@@ -28,7 +28,7 @@ if ($currentUserId > 0) {
                 $currentUserName = $staffData['HoTen'];
             }
         } else {
-            // Check if user is customer (role 5) - get from khachhanginfo
+            // Kiểm tra nếu user là khách hàng (role 5) - lấy từ khachhanginfo
             $stmt = $pdo->prepare("SELECT HoTen FROM khachhanginfo WHERE ID_User = ?");
             $stmt->execute([$currentUserId]);
             $customerData = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -38,12 +38,12 @@ if ($currentUserId > 0) {
         }
     } catch (Exception $e) {
         error_log("Error getting user name: " . $e->getMessage());
-        $currentUserName = 'Admin'; // Fallback
+        $currentUserName = 'Admin'; // Giá trị dự phòng
     }
 }
 
-// Get role name from database
-$currentRoleName = 'Admin'; // Default fallback
+// Lấy tên role từ database
+$currentRoleName = 'Admin'; // Giá trị mặc định
 if ($currentUserRole > 0) {
     try {
         $pdo = getDBConnection();
@@ -58,7 +58,7 @@ if ($currentUserRole > 0) {
     }
 }
 
-// Debug logging for current user
+// Ghi log debug cho user hiện tại
 error_log("Admin chat - Current user ID: " . $currentUserId);
 error_log("Admin chat - Current user name: " . $currentUserName);
 error_log("Admin chat - Current user role: " . $currentUserRole);
@@ -119,26 +119,8 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
                     </div>
                     <div class="user-details">
                         <h6 id="chatUserName">Chọn cuộc trò chuyện</h6>
-                        <small id="chatUserStatus" class="text-muted">Chưa chọn</small>
-                        <div class="admin-info" id="adminInfo" style="display: none;">
-                            <small class="text-muted">
-                                <i class="fas fa-user-shield"></i> 
-                                <span id="adminName"><?php echo htmlspecialchars($currentUserName); ?></span> | 
-                                <span id="adminRole"><?php echo htmlspecialchars($currentRoleName); ?></span>
-                            </small>
-                        </div>
+                        <small id="chatUserStatus" class="text-muted" style="display: none;"></small>
                     </div>
-                </div>
-                <div class="chat-actions">
-                    <button class="btn btn-sm btn-outline-primary" id="refreshChat">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-info" id="transferChat" disabled>
-                        <i class="fas fa-exchange-alt"></i> Chuyển
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" id="endChat" disabled>
-                        <i class="fas fa-times"></i> Kết thúc
-                    </button>
                 </div>
             </div>
             
@@ -178,14 +160,14 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
                 </div>
                 <input type="file" id="fileInput" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;">
                 <div class="chat-quick-replies">
-                    <button class="btn btn-sm btn-outline-secondary quick-reply" data-message="Xin chào! Tôi có thể giúp gì cho bạn?">
-                        <i class="fas fa-hand-wave"></i> Chào hỏi
+                    <button class="btn btn-sm btn-outline-secondary quick-reply" data-message="Xin chào! Tôi có thể giúp gì cho bạn?" title="Chào hỏi">
+                        <i class="fas fa-hand"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary quick-reply" data-message="Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất.">
-                        <i class="fas fa-thumbs-up"></i> Cảm ơn
+                    <button class="btn btn-sm btn-outline-secondary quick-reply" data-message="Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất." title="Cảm ơn">
+                        <i class="fas fa-thumbs-up"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary quick-reply" data-message="Bạn có thể cho tôi biết thêm chi tiết về vấn đề này không?">
-                        <i class="fas fa-question-circle"></i> Hỏi thêm
+                    <button class="btn btn-sm btn-outline-secondary quick-reply" data-message="Bạn có thể cho tôi biết thêm chi tiết về vấn đề này không?" title="Hỏi thêm">
+                        <i class="fas fa-question-circle"></i>
                     </button>
                 </div>
             </div>
@@ -220,35 +202,6 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
                         <p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi. Chúc bạn một ngày tốt lành!</p>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Transfer Chat Modal -->
-<div class="modal fade" id="transferChatModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Chuyển cuộc trò chuyện</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Chuyển đến:</label>
-                    <select class="form-select" id="transferTo">
-                        <option value="">Chọn nhân viên hỗ trợ</option>
-                        <!-- Options will be loaded dynamically -->
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Ghi chú (tùy chọn):</label>
-                    <textarea class="form-control" id="transferNote" rows="3" placeholder="Lý do chuyển cuộc trò chuyện..."></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="button" class="btn btn-primary" id="confirmTransfer">Chuyển</button>
             </div>
         </div>
     </div>
@@ -294,6 +247,9 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
         </button>
     </div>
 </div>
+
+<!-- Audio element cho voice call (ẩn) -->
+<audio id="remoteAudio" autoplay playsinline style="display: none;" volume="1.0"></audio>
 
 <style>
 .chat-admin-container {
@@ -487,11 +443,6 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
     font-size: 0.8rem;
 }
 
-.chat-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
 .chat-messages {
     flex: 1;
     padding: 1rem;
@@ -680,22 +631,22 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
     border-top: 1px solid #e9ecef;
 }
 
-/* CSS riêng cho các nút chat nhanh - lớn và nổi bật */
+/* CSS riêng cho các nút chat nhanh - chỉ icon, không có chữ */
 .quick-reply {
     font-size: 1rem;
-    padding: 0.75rem 1.5rem;
-    border-radius: 25px;
+    padding: 0;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
     transition: all 0.3s ease;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
     color: white;
     border: 2px solid rgba(255, 255, 255, 0.3);
     font-weight: 600;
     box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-    min-height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
     cursor: pointer;
     position: relative;
     overflow: hidden;
@@ -742,7 +693,8 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
 }
 
 .quick-reply i {
-    font-size: 1.1rem;
+    font-size: 1.2rem;
+    margin: 0;
 }
 
 .online-count {
@@ -974,19 +926,21 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- Socket.IO - Use CDN for production, local server for development -->
+<!-- WebRTC Adapter.js - Tương thích cross-browser -->
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<!-- Socket.IO - Dùng CDN cho production, local server cho development -->
 <script>
-    // Load Socket.IO client
+    // Tải Socket.IO client
     (function() {
         const hostname = window.location.hostname;
         const isProduction = hostname.includes('sukien.info.vn') || hostname.includes('sukien');
         
-        // For production, use CDN directly (more reliable on cPanel)
-        // For localhost, try local server first, then CDN fallback
+        // Production: Dùng CDN trực tiếp (ổn định hơn trên cPanel)
+        // Localhost: Thử local server trước, sau đó fallback CDN
         let socketScript = document.createElement('script');
         
         if (isProduction) {
-            // Production: Use CDN directly
+            // Production: Dùng CDN trực tiếp
             socketScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
             socketScript.onload = function() {
                 console.log('Socket.IO loaded from CDN (production)');
@@ -995,7 +949,7 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
                 console.error('Failed to load Socket.IO from CDN');
             };
         } else {
-            // Development: Try local server first
+            // Development: Thử local server trước
             socketScript.src = 'http://localhost:3000/socket.io/socket.io.js';
             socketScript.onerror = function() {
                 console.warn('Local Socket.IO server not available, using CDN fallback');
@@ -1025,7 +979,7 @@ let isConnected = false;
 let currentUserId = <?php echo $currentUserId; ?>;
 let currentUserName = '<?php echo htmlspecialchars($currentUserName); ?>';
 
-// Media and Call variables
+// Biến cho Media và Call
 let currentCall = null;
 let localStream = null;
 let remoteStream = null;
@@ -1033,29 +987,28 @@ let peerConnection = null;
 let isMuted = false;
 let isCameraOff = false;
 
-// Interval IDs for polling/auto-refresh (to prevent multiple intervals)
+// ID của các interval cho polling/auto-refresh (để tránh nhiều interval)
 let pollingInterval1 = null;
 let pollingInterval2 = null;
 let autoRefreshInterval = null;
 let activityInterval = null;
 
-// Initialize chat
+// Khởi tạo chat
 $(document).ready(function() {
     initializeSocket();
-    setUserOnline(); // Set admin online
+    setUserOnline(); // Đặt admin online
     loadConversations();
     loadOnlineUsers();
     setupEventHandlers();
-    showAdminInfo();
     startAutoRefresh();
     
-    // Set user offline when page is closed
+    // Đặt user offline khi đóng trang
     $(window).on('beforeunload', function() {
         setUserOffline();
     });
 });
 
-// Set user online
+// Đặt user online
 function setUserOnline() {
     $.ajax({
         url: '../src/controllers/chat-controller.php?action=set_user_online',
@@ -1074,7 +1027,7 @@ function setUserOnline() {
     });
 }
 
-// Set user offline
+// Đặt user offline
 function setUserOffline() {
     $.ajax({
         url: '../src/controllers/chat-controller.php?action=set_user_offline',
@@ -1093,7 +1046,7 @@ function setUserOffline() {
     });
 }
 
-// Update user activity
+// Cập nhật hoạt động của user
 function updateUserActivity() {
     $.ajax({
         url: '../src/controllers/chat-controller.php?action=update_activity',
@@ -1112,18 +1065,13 @@ function updateUserActivity() {
     });
 }
 
-// Show admin information
-function showAdminInfo() {
-    $('#adminName').text(currentUserName);
-    $('#adminRole').text('Admin');
-    $('#adminInfo').show();
-}
+// Removed showAdminInfo - không cần thiết
 
-// Initialize Socket.IO connection with better fallback
+// Khởi tạo kết nối Socket.IO với fallback tốt hơn
 function initializeSocket() {
     console.log('Initializing Socket.IO...');
     
-    // Check if Socket.IO is available
+    // Kiểm tra Socket.IO có sẵn không
     if (typeof io === 'undefined') {
         console.warn('Socket.IO not loaded, using AJAX fallback');
         isConnected = false;
@@ -1134,7 +1082,7 @@ function initializeSocket() {
     
     console.log('Socket.IO available, creating connection...');
     
-    // Detect environment and set Socket.IO server URL
+    // Phát hiện môi trường và thiết lập URL server Socket.IO
     // ✅ FIX: Dùng base URL với mount point, path là relative
     const getSocketServerURL = function() {
         const protocol = window.location.protocol;
@@ -1152,7 +1100,7 @@ function initializeSocket() {
     const socketServerURL = getSocketServerURL();
     console.log('📡 Connecting to Socket.IO server:', socketServerURL);
     
-    // Get SOCKET_PATH for path option
+    // Lấy SOCKET_PATH cho path option
     // ✅ FIX: Path option phải là relative path từ base URL
     // Nếu base URL = 'https://sukien.info.vn/nodeapp', path = '/socket.io'
     // → Socket.IO client tạo request: 'https://sukien.info.vn/nodeapp/socket.io/...'
@@ -1166,16 +1114,16 @@ function initializeSocket() {
     console.log('📡 Socket.IO path:', socketPath);
     console.log('📡 Full Socket.IO URL:', socketServerURL + socketPath);
     
-    // Check if Socket.IO library is loaded
+    // Kiểm tra Socket.IO library đã được tải chưa
     if (typeof io === 'undefined') {
         console.error('❌ Socket.IO library not loaded!');
         updateConnectionStatus('disconnected', 'Socket.IO library chưa được tải');
         return;
     }
     
-    // Create Socket.IO connection with improved error handling
+    // Tạo kết nối Socket.IO với xử lý lỗi cải thiện
     try {
-        // Validate variables before creating connection
+        // Xác thực biến trước khi tạo kết nối
         if (!socketServerURL) {
             throw new Error('socketServerURL is not defined');
         }
@@ -1185,15 +1133,15 @@ function initializeSocket() {
         
         chatSocket = io(socketServerURL, {
             path: socketPath,
-            transports: ['polling', 'websocket'], // Try polling first, then websocket
+            transports: ['polling', 'websocket'], // Thử polling trước, sau đó websocket
             timeout: 20000,
             reconnection: true,
-            reconnectionAttempts: Infinity, // Keep trying to reconnect
+            reconnectionAttempts: Infinity, // Tiếp tục thử kết nối lại
             reconnectionDelay: 1000,
             reconnectionDelayMax: 10000,
             forceNew: false,
             autoConnect: true,
-            // Add query parameters for debugging
+            // Thêm query parameters để debug
             query: {
                 clientType: 'admin',
                 timestamp: Date.now()
@@ -1218,26 +1166,26 @@ function initializeSocket() {
         isConnected = true;
         updateConnectionStatus('connected', 'Đã kết nối');
         
-        // Stop polling mode when connected
+        // Dừng chế độ polling khi đã kết nối
         stopPollingMode();
         
-        // Join admin room
+        // Tham gia admin room
         chatSocket.emit('authenticate', {
             userId: currentUserId,
             userRole: <?php echo $userRole; ?>,
             userName: currentUserName
         });
         
-        // Ensure user is in their own room for receiving calls
+        // Đảm bảo user ở trong room riêng để nhận cuộc gọi
         chatSocket.emit('join_user_room', { userId: currentUserId });
         console.log('Admin joined user room:', currentUserId);
         
-        // Rejoin current conversation if any
+        // Tham gia lại conversation hiện tại nếu có
         if (currentConversationId) {
             chatSocket.emit('join_conversation', { conversation_id: currentConversationId });
         }
         
-        // Load online users when connected
+        // Tải danh sách user online khi đã kết nối
         loadOnlineUsers();
     });
     
@@ -1252,7 +1200,7 @@ function initializeSocket() {
         console.error('Connection Path:', socketPath);
         console.error('Full connection URL:', socketServerURL + socketPath);
         
-        // Check if server is reachable
+        // Kiểm tra server có thể truy cập không
         const healthCheckUrl = socketServerURL + (socketPath.includes('/nodeapp') ? '/nodeapp/health' : '/health');
         console.log('🔍 Checking server health at:', healthCheckUrl);
         
@@ -1278,7 +1226,7 @@ function initializeSocket() {
         
         isConnected = false;
         updateConnectionStatus('disconnected', 'Lỗi kết nối: ' + (error.message || error.description || 'Unknown error'));
-        // Start polling mode as fallback
+        // Bắt đầu chế độ polling làm fallback
         if (!isConnected) {
             startPollingMode();
         }
@@ -1295,18 +1243,18 @@ function initializeSocket() {
         isConnected = true;
         updateConnectionStatus('connected', 'Đã kết nối lại');
         
-        // Re-authenticate
+        // Xác thực lại
         chatSocket.emit('authenticate', {
             userId: currentUserId,
             userRole: <?php echo $userRole; ?>,
             userName: currentUserName
         });
         
-        // Ensure user is in their own room for receiving calls
+        // Đảm bảo user ở trong room riêng để nhận cuộc gọi
         chatSocket.emit('join_user_room', { userId: currentUserId });
         console.log('Admin reconnected, joined user room:', currentUserId);
         
-        // Rejoin current conversation if any
+        // Tham gia lại conversation hiện tại nếu có
         if (currentConversationId) {
             chatSocket.emit('join_conversation', { conversation_id: currentConversationId });
         }
@@ -1327,15 +1275,15 @@ function initializeSocket() {
         console.log('Admin received new message:', data);
         if (data.conversation_id === currentConversationId) {
             addMessageToChat(data, false);
-            // Scroll to bottom immediately
+            // Cuộn xuống dưới ngay lập tức
             setTimeout(scrollToBottom, 100);
         }
         updateConversationPreview(data.conversation_id, data.message);
         
-        // Update conversation list for real-time sync
+        // Cập nhật danh sách conversation để đồng bộ real-time
         loadConversations();
         
-        // Update online count when new message received
+        // Cập nhật số lượng online khi nhận tin nhắn mới
         loadOnlineUsers();
     });
     
@@ -1363,12 +1311,12 @@ function initializeSocket() {
     chatSocket.on('conversation_updated', function(data) {
         console.log('Conversation updated:', data);
         if (data.conversation_id === currentConversationId) {
-            // Refresh conversation list
+            // Làm mới danh sách conversation
             loadConversations();
         }
     });
     
-    // Handle broadcast messages
+    // Xử lý tin nhắn broadcast
     chatSocket.on('broadcast_message', function(data) {
         console.log('Admin received broadcast message:', data);
         if (data.conversation_id === currentConversationId && data.userId !== currentUserId) {
@@ -1378,7 +1326,7 @@ function initializeSocket() {
         updateConversationPreview(data.conversation_id, data.message.message || data.message.text);
     });
     
-    // Handle user online status updates
+    // Xử lý cập nhật trạng thái online của user
     chatSocket.on('user_online', function(data) {
         console.log('User came online:', data);
         loadOnlineUsers();
@@ -1389,12 +1337,12 @@ function initializeSocket() {
         loadOnlineUsers();
     });
     
-    // Handle online users count update
+    // Xử lý cập nhật số lượng user online
     chatSocket.on('online_count_update', function(data) {
         console.log('Online count updated:', data);
         $('#onlineCount').text(data.count);
         
-        // Update badge color based on count
+        // Cập nhật màu badge dựa trên số lượng
         const badge = $('#onlineCount');
         if (data.count > 0) {
             badge.removeClass('bg-secondary').addClass('bg-success');
@@ -1403,14 +1351,14 @@ function initializeSocket() {
         }
     });
     
-    // Setup call socket events
+    // Thiết lập các event socket cho cuộc gọi
     chatSocket.on('call_initiated', function(data) {
         console.log('📞 Received call_initiated event:', data);
         console.log('📞 Checking receiver_id:', data.receiver_id, 'vs currentUserId:', currentUserId);
         console.log('📞 Type comparison:', typeof data.receiver_id, typeof currentUserId);
         console.log('📞 Conversation ID:', data.conversation_id);
         
-        // Use == instead of === to handle string/number mismatch
+        // Dùng == thay vì === để xử lý string/number mismatch
         if (data.receiver_id == currentUserId || String(data.receiver_id) === String(currentUserId)) {
             console.log('✅ Call is for this user, showing modal');
             currentCall = {
@@ -1428,10 +1376,10 @@ function initializeSocket() {
             console.log('📞 Showing call modal for:', callerName);
             console.log('📞 Call type:', data.call_type);
             
-            // Show modal with accept/reject buttons
+            // Hiển thị modal với nút chấp nhận/từ chối
             showCallModal('incoming', callerName, data.call_type);
             
-            // Force show modal if Bootstrap modal doesn't show
+            // Ép hiển thị modal nếu Bootstrap modal không hiển thị
             setTimeout(() => {
                 const modalElement = document.getElementById('callModal');
                 if (modalElement) {
@@ -1472,24 +1420,76 @@ function initializeSocket() {
     });
     
     chatSocket.on('call_ended', function(data) {
-        console.log('Received call_ended event:', data);
-        $('#callModal').modal('hide');
-        $('#videoCallContainer').hide();
+        console.log('📞 Received call_ended event:', data);
         
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
+        // QUAN TRỌNG: Cleanup đầy đủ khi bên kia tắt cuộc gọi
+        // Ẩn modal và video container
+        $('#callModal').modal('hide');
+        $('#videoCallContainer').hide().css({
+            'display': 'none',
+            'visibility': 'hidden',
+            'opacity': '0'
+        });
+        
+        // Dừng remote audio nếu đang phát
+        const remoteAudio = document.getElementById('remoteAudio');
+        if (remoteAudio) {
+            remoteAudio.pause();
+            remoteAudio.srcObject = null;
+            console.log('✅ Remote audio stopped');
         }
         
-        // ✅ Hiển thị thông báo
+        // Dừng remote video nếu đang phát
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (remoteVideo) {
+            remoteVideo.pause();
+            remoteVideo.srcObject = null;
+            console.log('✅ Remote video stopped');
+        }
+        
+        // Stop local stream
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                track.stop();
+                console.log('📞 Stopped local track:', track.kind);
+            });
+            localStream = null;
+            console.log('✅ Local stream stopped');
+        }
+        
+        // Stop remote stream
+        if (remoteStream) {
+            remoteStream.getTracks().forEach(track => {
+                track.stop();
+                console.log('📞 Stopped remote track:', track.kind);
+            });
+            remoteStream = null;
+            console.log('✅ Remote stream stopped');
+        }
+        
+        // Close peer connection
+        if (peerConnection) {
+            try {
+                peerConnection.close();
+                peerConnection = null;
+                console.log('✅ Peer connection closed');
+            } catch (e) {
+                console.error('Error closing peer connection:', e);
+            }
+        }
+        
+        // Hiển thị thông báo
         if (data.message) {
             showNotification(data.message, 'info');
+        } else {
+            showNotification('Cuộc gọi đã kết thúc', 'info');
         }
         
         currentCall = null;
+        console.log('✅ Call cleanup completed');
     });
     
-    // ✅ Call busy - Receiver đang trong cuộc gọi khác
+    // Call busy - Người nhận đang trong cuộc gọi khác
     chatSocket.on('call_busy', function(data) {
         console.log('Received call_busy event:', data);
         $('#callModal').modal('hide');
@@ -1498,7 +1498,7 @@ function initializeSocket() {
         showNotification(data.message || `${data.receiver_name} đang bận trong cuộc gọi khác`, 'warning');
     });
     
-    // ✅ Call timeout - Cuộc gọi không được trả lời
+    // Call timeout - Cuộc gọi không được trả lời
     chatSocket.on('call_timeout', function(data) {
         console.log('Received call_timeout event:', data);
         $('#callModal').modal('hide');
@@ -1507,7 +1507,7 @@ function initializeSocket() {
         showNotification(data.message || 'Cuộc gọi không được trả lời sau 30 giây', 'warning');
     });
     
-    // ✅ Call notification - Các thông báo khác về cuộc gọi
+    // Call notification - Các thông báo khác về cuộc gọi
     chatSocket.on('call_notification', function(data) {
         console.log('Received call_notification event:', data);
         
@@ -1546,9 +1546,151 @@ function initializeSocket() {
         
         showNotification(data.message || 'Thông báo cuộc gọi', notificationType, icon);
     });
+    
+    // ==================== WebRTC Signaling Events ====================
+    
+    // WebRTC Offer received (receiver nhận offer từ caller)
+    chatSocket.on('webrtc_offer', function(data) {
+        console.log('📞 Admin received WebRTC offer:', data);
+        if (currentCall && data.call_id == currentCall.id && currentCall.receiver_id == currentUserId) {
+            if (peerConnection) {
+                // Best practice: Kiểm tra signaling state trước khi set remote description
+                if (peerConnection.signalingState !== 'stable' && peerConnection.signalingState !== 'have-local-offer') {
+                    console.warn('⚠️ Signaling state is not stable:', peerConnection.signalingState);
+                }
+                
+                peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer))
+                    .then(() => {
+                        console.log('✅ Remote description (offer) set');
+                        console.log('📞 Remote description:', peerConnection.remoteDescription);
+                        console.log('📞 Signaling state after setRemoteDescription:', peerConnection.signalingState);
+                        
+                        // Tạo answer với options
+                        return peerConnection.createAnswer({
+                            voiceActivityDetection: true
+                        });
+                    })
+                    .then(answer => {
+                        console.log('✅ Answer created:', answer);
+                        console.log('📞 Answer type:', answer.type);
+                        console.log('📞 Answer SDP:', answer.sdp.substring(0, 200) + '...');
+                        return peerConnection.setLocalDescription(answer);
+                    })
+                    .then(() => {
+                        console.log('✅ Local description (answer) set');
+                        console.log('📞 Local description:', peerConnection.localDescription);
+                        console.log('📞 Signaling state after setLocalDescription:', peerConnection.signalingState);
+                        
+                        // Gửi answer qua socket
+                        if (isConnected && chatSocket && currentCall) {
+                            chatSocket.emit('webrtc_answer', {
+                                call_id: currentCall.id,
+                                answer: peerConnection.localDescription
+                            });
+                            console.log('✅ Answer sent via socket');
+                        } else {
+                            console.error('❌ Cannot send answer: socket not connected or currentCall missing');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ Error handling offer:', error);
+                        console.error('Error stack:', error.stack);
+                    });
+            } else {
+                console.error('❌ Peer connection not initialized when receiving offer');
+            }
+        } else {
+            console.warn('⚠️ Offer received but conditions not met:', {
+                hasCurrentCall: !!currentCall,
+                callIdMatch: currentCall && data.call_id == currentCall.id,
+                isReceiver: currentCall && currentCall.receiver_id == currentUserId
+            });
+        }
+    });
+    
+    // WebRTC Answer received (caller nhận answer từ receiver)
+    chatSocket.on('webrtc_answer', function(data) {
+        console.log('📞 Admin received WebRTC answer:', data);
+        if (currentCall && data.call_id == currentCall.id && currentCall.caller_id == currentUserId) {
+            if (peerConnection) {
+                // Best practice: Kiểm tra signaling state
+                if (peerConnection.signalingState !== 'have-local-offer') {
+                    console.warn('⚠️ Signaling state is not have-local-offer:', peerConnection.signalingState);
+                }
+                
+                peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer))
+                    .then(() => {
+                        console.log('✅ Remote description (answer) set');
+                        console.log('📞 Remote description:', peerConnection.remoteDescription);
+                        console.log('📞 Signaling state after setRemoteDescription:', peerConnection.signalingState);
+                    })
+                    .catch(error => {
+                        console.error('❌ Error setting remote description:', error);
+                        console.error('Error stack:', error.stack);
+                    });
+            } else {
+                console.error('❌ Peer connection not initialized when receiving answer');
+            }
+        } else {
+            console.warn('⚠️ Answer received but conditions not met:', {
+                hasCurrentCall: !!currentCall,
+                callIdMatch: currentCall && data.call_id == currentCall.id,
+                isCaller: currentCall && currentCall.caller_id == currentUserId
+            });
+        }
+    });
+    
+    // ICE Candidate received
+    chatSocket.on('ice_candidate', function(data) {
+        console.log('📞 Admin received ICE candidate:', data);
+        if (currentCall && data.call_id == currentCall.id && peerConnection) {
+            // Best practice: Kiểm tra remote description đã được set chưa
+            if (!peerConnection.remoteDescription) {
+                console.warn('⚠️ Remote description not set yet, storing candidate for later');
+                // Lưu candidate để add sau
+                if (!peerConnection._pendingCandidates) {
+                    peerConnection._pendingCandidates = [];
+                }
+                peerConnection._pendingCandidates.push(data.candidate);
+                return;
+            }
+            
+            // Nếu có pending candidates, add chúng trước
+            if (peerConnection._pendingCandidates && peerConnection._pendingCandidates.length > 0) {
+                console.log('📞 Adding', peerConnection._pendingCandidates.length, 'pending candidates first');
+                const pending = peerConnection._pendingCandidates;
+                peerConnection._pendingCandidates = [];
+                
+                pending.forEach(candidate => {
+                    peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+                        .then(() => console.log('✅ Pending ICE candidate added'))
+                        .catch(err => console.error('❌ Error adding pending candidate:', err));
+                });
+            }
+            
+            peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate))
+                .then(() => {
+                    console.log('✅ ICE candidate added');
+                })
+                .catch(error => {
+                    console.error('❌ Error adding ICE candidate:', error);
+                    console.error('Error details:', {
+                        name: error.name,
+                        message: error.message,
+                        candidate: data.candidate
+                    });
+                });
+        } else {
+            console.warn('⚠️ ICE candidate received but conditions not met:', {
+                hasCurrentCall: !!currentCall,
+                callIdMatch: currentCall && data.call_id == currentCall.id,
+                hasPeerConnection: !!peerConnection
+            });
+        }
+    });
 }
 
-// Load conversations
+// Tải danh sách cuộc trò chuyện
 function loadConversations() {
     $.ajax({
         url: '../src/controllers/chat-controller.php?action=get_conversations',
@@ -1581,7 +1723,7 @@ function loadConversations() {
     });
 }
 
-// Load online users count
+// Tải số lượng user online
 function loadOnlineUsers() {
     console.log('Loading online users...');
     $.ajax({
@@ -1594,7 +1736,7 @@ function loadOnlineUsers() {
                 const count = data.count || 0;
                 $('#onlineCount').text(count);
                 
-                // Update badge color based on count
+                // Cập nhật màu badge dựa trên số lượng
                 const badge = $('#onlineCount');
                 if (count > 0) {
                     badge.removeClass('bg-secondary').addClass('bg-success');
@@ -1604,7 +1746,7 @@ function loadOnlineUsers() {
                 
                 console.log('Online count updated:', count);
                 
-                // Debug information
+                // Thông tin debug
                 if (data.debug && data.debug.online_users) {
                     console.log('Debug online users:', data.debug.online_users);
                     console.log('Debug query time:', data.debug.query_time);
@@ -1622,7 +1764,7 @@ function loadOnlineUsers() {
     });
 }
 
-// Display conversations
+// Hiển thị danh sách cuộc trò chuyện
 function displayConversations() {
     if (conversations.length === 0) {
         $('#conversationsList').html(`
@@ -1643,7 +1785,7 @@ function displayConversations() {
         
         const unreadCount = conv.unread_count || 0;
         
-        // Debug: Log conversation data
+        // Debug: Ghi log dữ liệu conversation
         console.log('Conversation:', conv.id, 'User:', conv.other_user_name, 'Online:', conv.is_online);
         
         html += `
@@ -1665,31 +1807,53 @@ function displayConversations() {
     $('#conversationsList').html(html);
 }
 
-// Select conversation
+// Chọn cuộc trò chuyện
 function selectConversation(conversationId) {
     console.log('Admin selecting conversation:', conversationId);
     currentConversationId = conversationId;
     
-    // Update user activity
+    // Tìm conversation để lấy thông tin người dùng
+    const conversation = conversations.find(c => c.id == conversationId);
+    if (conversation) {
+        // Cập nhật chat header với tên người dùng
+        $('#chatUserName').text(conversation.other_user_name || 'Người dùng');
+        
+        // Cập nhật trạng thái online/offline
+        const isOnline = conversation.is_online === true || conversation.is_online === 1 || conversation.is_online === '1';
+        const statusText = isOnline ? 'Đang online' : 'Đang offline';
+        $('#chatUserStatus').text(statusText);
+        $('#chatUserStatus').removeClass('text-muted text-success text-danger');
+        if (isOnline) {
+            $('#chatUserStatus').addClass('text-success').show();
+        } else {
+            $('#chatUserStatus').addClass('text-danger').show();
+        }
+    } else {
+        // Nếu không tìm thấy conversation, giữ nguyên text mặc định
+        $('#chatUserName').text('Chọn cuộc trò chuyện');
+        $('#chatUserStatus').hide();
+    }
+    
+    // Cập nhật hoạt động của user
     updateUserActivity();
     
-    // Update UI
+    // Cập nhật UI
     $('.conversation-item').removeClass('active');
     $(`.conversation-item[data-conversation-id="${conversationId}"]`).addClass('active');
     
-    // Show chat header and input
+    // Hiển thị header và input chat
     $('#chatHeader').show();
     $('#chatInput').show();
     $('.chat-input').show();
     
-    // Enable input and ensure buttons are visible
+    // Bật input và đảm bảo các nút hiển thị
     $('#messageInput').prop('disabled', false);
     $('#sendButton').prop('disabled', false).css('display', 'flex');
     $('#voiceCallButton').prop('disabled', false).css('display', 'flex');
     $('#videoCallButton').prop('disabled', false).css('display', 'flex');
     $('#attachButton').prop('disabled', false).css('display', 'flex');
     
-    // Debug: Log to ensure buttons exist
+    // Debug: Ghi log để đảm bảo các nút tồn tại
     console.log('Buttons check:', {
         attachButton: $('#attachButton').length,
         voiceCallButton: $('#voiceCallButton').length,
@@ -1697,23 +1861,23 @@ function selectConversation(conversationId) {
         sendButton: $('#sendButton').length
     });
     
-    // Join conversation room for real-time updates
+    // Tham gia conversation room để cập nhật real-time
     if (isConnected && chatSocket) {
         chatSocket.emit('join_conversation', { conversation_id: conversationId });
-        // Also ensure user is in their own room for receiving calls
+        // Đảm bảo user ở trong room riêng để nhận cuộc gọi
         chatSocket.emit('join_user_room', { userId: currentUserId });
         console.log('Admin joined conversation room:', conversationId, 'and user room:', currentUserId);
     }
     
-    // Load messages with real-time updates
+    // Tải tin nhắn với cập nhật real-time
     loadMessagesWithRealTime(conversationId);
 }
 
-// Load messages for conversation
+// Tải tin nhắn cho conversation
 function loadMessages(conversationId) {
     console.log('loadMessages called with conversationId:', conversationId);
     
-    // Show loading state only if no messages are currently displayed
+    // Chỉ hiển thị trạng thái loading nếu chưa có tin nhắn nào được hiển thị
     if ($('#chatMessages .message').length === 0) {
         $('#chatMessages').html(`
             <div class="text-center">
@@ -1735,7 +1899,7 @@ function loadMessages(conversationId) {
             if (data.success) {
                 displayMessages(data.messages);
                 
-                // Emit message read event for real-time updates
+                // Emit event message read để cập nhật real-time
                 if (isConnected && chatSocket) {
                     chatSocket.emit('messages_loaded', { 
                         conversation_id: conversationId,
@@ -1779,7 +1943,7 @@ function loadMessages(conversationId) {
     });
 }
 
-// Display messages
+// Hiển thị tin nhắn
 function displayMessages(messages) {
     // Kiểm tra dữ liệu messages hợp lệ
     if (!Array.isArray(messages)) {
@@ -1828,10 +1992,10 @@ function displayMessages(messages) {
         return;
     }
     
-    // Add animation for new messages
+    // Thêm animation cho tin nhắn mới
     $('#chatMessages').html(html);
     
-    // Animate new messages
+    // Tạo animation cho tin nhắn mới
     $('.message').each(function(index) {
         $(this).css({
             opacity: 0,
@@ -1844,7 +2008,7 @@ function displayMessages(messages) {
     scrollToBottom();
 }
 
-// Create message HTML
+// Tạo HTML cho tin nhắn
 function createMessageHTML(message) {
     // Kiểm tra dữ liệu message hợp lệ
     if (!message || typeof message !== 'object') {
@@ -1852,7 +2016,7 @@ function createMessageHTML(message) {
         return '';
     }
     
-    // Debug logging
+    // Ghi log debug
     console.log('Creating message HTML for:', message);
     
     // Xử lý thời gian với fallback
@@ -1867,14 +2031,14 @@ function createMessageHTML(message) {
                 });
             } else {
                 console.warn('Invalid date:', message.created_at);
-                // Fallback to current time if date is invalid
+                // Fallback về thời gian hiện tại nếu date không hợp lệ
                 time = new Date().toLocaleTimeString('vi-VN', {
                     hour: '2-digit',
                     minute: '2-digit'
                 });
             }
         } else {
-            // Use current time if no created_at
+            // Dùng thời gian hiện tại nếu không có created_at
             time = new Date().toLocaleTimeString('vi-VN', {
                 hour: '2-digit',
                 minute: '2-digit'
@@ -1882,22 +2046,22 @@ function createMessageHTML(message) {
         }
     } catch (e) {
         console.warn('Date parsing error:', e, 'for date:', message.created_at);
-        // Fallback to current time
+        // Fallback về thời gian hiện tại
         time = new Date().toLocaleTimeString('vi-VN', {
             hour: '2-digit',
             minute: '2-digit'
         });
     }
     
-    // In admin chat, messages from admin (currentUserId) are on the right
-    // Messages from customers (other users) are on the left
+    // Trong admin chat, tin nhắn từ admin (currentUserId) ở bên phải
+    // Tin nhắn từ khách hàng (user khác) ở bên trái
     const isSent = message.sender_id == currentUserId;
     const messageText = message.message || message.text || 'Tin nhắn trống';
     const messageId = message.id || message.message_id || `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const isRead = message.IsRead == 1;
     const messageType = message.message_type || 'text';
     
-    // Debug logging
+    // Ghi log debug
     console.log('Message details:', {
         messageId: messageId,
         time: time,
@@ -1912,7 +2076,7 @@ function createMessageHTML(message) {
     // Xử lý tin nhắn đặc biệt (hình ảnh, file, etc.)
     let messageContent = '';
     
-    // Get base path from current location - Auto detect for both localhost and production
+    // Lấy base path từ vị trí hiện tại - Tự động phát hiện cho cả localhost và production
     const getBasePath = function() {
         const path = window.location.pathname;
         const hostname = window.location.hostname;
@@ -2105,7 +2269,7 @@ function createMessageHTML(message) {
     `;
 }
 
-// Preview image function
+// Hàm xem trước hình ảnh
 function previewImage(imagePath) {
     console.log('Preview image called with path:', imagePath);
     
@@ -2241,7 +2405,7 @@ function previewImage(imagePath) {
     }, 100);
 }
 
-// Format file size
+// Định dạng kích thước file
 function formatFileSize(bytes) {
     if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -2250,7 +2414,7 @@ function formatFileSize(bytes) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-// Add message to chat
+// Thêm tin nhắn vào chat
 function addMessageToChat(message, isSent) {
     console.log('Admin adding message to chat:', message, 'isSent:', isSent);
     const messageHTML = createMessageHTML(message);
@@ -2294,7 +2458,7 @@ function addMessageToChat(message, isSent) {
     }
 }
 
-// Setup event handlers
+// Thiết lập các event handlers
 function setupEventHandlers() {
     // Send message
     $('#sendButton').click(function() {
@@ -2433,47 +2597,54 @@ function setupEventHandlers() {
         }
     });
     
-    // Refresh chat
-    $('#refreshChat').click(function() {
-        if (currentConversationId) {
-            loadMessages(currentConversationId);
-        }
-    });
-    
-    // End chat
-    $('#endChat').click(function() {
-        if (confirm('Bạn có chắc muốn kết thúc cuộc trò chuyện này?')) {
-            currentConversationId = null;
-            $('#chatHeader').hide();
-            $('#chatInput').hide();
-            $('#chatMessages').html(`
-                <div class="chat-welcome">
-                    <i class="fas fa-comments fa-3x text-muted mb-3"></i>
-                    <h5>Chào mừng đến với Chat Hỗ trợ!</h5>
-                    <p>Chọn một cuộc trò chuyện để bắt đầu hỗ trợ khách hàng.</p>
-                </div>
-            `);
-        }
-    });
-    
-    // Transfer chat
-    $('#transferChat').click(function() {
-        const modal = new bootstrap.Modal(document.getElementById('transferChatModal'));
-        modal.show();
-    });
-    
-    // Customer search
+    // Customer search - Tìm kiếm cuộc trò chuyện
     $('#customerSearch').on('input', function() {
-        const query = $(this).val();
-        if (query.length >= 2) {
-            searchConversations(query);
+        const searchTerm = $(this).val().toLowerCase().trim();
+        if (searchTerm === '') {
+            // Hiển thị lại tất cả conversations
+            displayConversations();
+            return;
+        }
+        
+        // Lọc conversations theo tên khách hàng hoặc preview message
+        const filtered = conversations.filter(conv => {
+            const name = (conv.other_user_name || '').toLowerCase();
+            const preview = (conv.last_message || '').toLowerCase();
+            return name.includes(searchTerm) || preview.includes(searchTerm);
+        });
+        
+        // Hiển thị kết quả đã lọc
+        if (filtered.length === 0) {
+            $('#conversationsList').html('<p class="text-center text-muted mt-3">Không tìm thấy cuộc trò chuyện nào</p>');
         } else {
-            loadConversations();
+            let html = '';
+            filtered.forEach(conv => {
+                const time = new Date(conv.updated_at).toLocaleTimeString('vi-VN', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const unreadCount = conv.unread_count || 0;
+                const isOnline = conv.is_online === true || conv.is_online === 1 || conv.is_online === '1';
+                html += `
+                <div class="conversation-item" onclick="selectConversation(${conv.id})" data-conversation-id="${conv.id}">
+                    <div class="conversation-user">
+                        <span>
+                            <span class="status-indicator ${isOnline ? 'status-online' : 'status-offline'}" 
+                                  title="${isOnline ? 'Đang online' : 'Đang offline'}"></span>
+                            ${conv.other_user_name}
+                        </span>
+                        ${unreadCount > 0 ? `<span class="conversation-badge">${unreadCount}</span>` : ''}
+                    </div>
+                    <div class="conversation-preview">${conv.last_message || 'Chưa có tin nhắn'}</div>
+                    <div class="conversation-time">${time}</div>
+                </div>`;
+            });
+            $('#conversationsList').html(html);
         }
     });
 }
 
-// Send message
+// Gửi tin nhắn
 function sendMessage() {
     const message = $('#messageInput').val().trim();
     if (!message || !currentConversationId) return;
@@ -2562,7 +2733,7 @@ function sendMessage() {
     });
 }
 
-// Update connection status
+// Cập nhật trạng thái kết nối
 function updateConnectionStatus(status, message) {
     const statusEl = $('#connectionStatus');
     statusEl.removeClass('connected disconnected').addClass(status);
@@ -2591,7 +2762,7 @@ function updateConnectionStatus(status, message) {
     }
 }
 
-// Show typing indicator
+// Hiển thị chỉ báo đang gõ
 function showTypingIndicator(userName) {
     $('#typingIndicator').html(`
         <i class="fas fa-circle fa-xs"></i>
@@ -2601,19 +2772,19 @@ function showTypingIndicator(userName) {
     `).show();
 }
 
-// Hide typing indicator
+// Ẩn chỉ báo đang gõ
 function hideTypingIndicator() {
     $('#typingIndicator').hide();
 }
 
-// Update message read status
+// Cập nhật trạng thái đã đọc tin nhắn
 function updateMessageReadStatus(messageId) {
     $(`.message[data-message-id="${messageId}"] .message-time`).html(function() {
         return $(this).html().replace('<i class="fas fa-check text-muted"></i>', '<i class="fas fa-check-double text-primary"></i>');
     });
 }
 
-// Auto-refresh conversations every 30 seconds if not connected
+// Tự động làm mới conversations mỗi 30 giây nếu chưa kết nối
 function startAutoRefresh() {
     // Clear existing intervals first to prevent duplicates
     if (autoRefreshInterval) {
@@ -2910,63 +3081,11 @@ function searchConversations(query) {
     });
 }
 
-// Load transfer options
-function loadTransferOptions() {
-    const options = [
-        { value: 'support1', text: 'Nhân viên hỗ trợ 1' },
-        { value: 'support2', text: 'Nhân viên hỗ trợ 2' },
-        { value: 'manager', text: 'Quản lý' }
-    ];
-    
-    const select = $('#transferTo');
-    select.empty().append('<option value="">Chọn nhân viên hỗ trợ</option>');
-    options.forEach(option => {
-        select.append(`<option value="${option.value}">${option.text}</option>`);
-    });
-}
-
-// Confirm transfer
-$('#confirmTransfer').click(function() {
-    const transferTo = $('#transferTo').val();
-    const transferNote = $('#transferNote').val();
-    
-    if (transferTo && currentConversationId) {
-        $.ajax({
-            url: '../src/controllers/chat-controller.php?action=transfer_chat',
-            type: 'POST',
-            data: {
-                conversation_id: currentConversationId,
-                transfer_to: transferTo,
-                note: transferNote
-            },
-            dataType: 'json',
-            success: function(data) {
-                if (data.success) {
-                    alert('Đã chuyển cuộc trò chuyện thành công');
-                    bootstrap.Modal.getInstance(document.getElementById('transferChatModal')).hide();
-                } else {
-                    alert('Lỗi chuyển cuộc trò chuyện: ' + data.error);
-                }
-            },
-            error: function() {
-                alert('Lỗi chuyển cuộc trò chuyện');
-            }
-        });
-    } else {
-        alert('Vui lòng chọn người nhận chuyển cuộc trò chuyện');
-    }
-});
-
 // Quick reply template selection
 $(document).on('click', '.template-item', function() {
     const templateText = $(this).find('p').text();
     $('#messageInput').val(templateText);
     bootstrap.Modal.getInstance(document.getElementById('quickReplyModal')).hide();
-});
-
-// Initialize transfer options on page load
-$(document).ready(function() {
-    loadTransferOptions();
 });
 
 // Auto refresh conversations every 30 seconds (only when connected)
@@ -3044,17 +3163,20 @@ function showCallModal(type, name, callType) {
         console.log('✅ Admin incoming call - Added accept and reject buttons');
     } else {
         $('#callStatus').text('Đang gọi...');
+        // Clear existing buttons first
+        $('#callControls').empty();
+        // Add end call button with direct onclick to ensure it works
         $('#callControls').html(`
-            <button class="btn btn-danger btn-lg" id="endCallBtn" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
+            <button class="btn btn-danger btn-lg" id="endCallBtn" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; z-index: 10001;">
                 <i class="fas fa-phone-slash"></i>
             </button>
         `);
         
-        // Attach event listener to end call button
+        // Also attach event listener as backup
         $('#endCallBtn').off('click').on('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('📞 End call button clicked (outgoing)');
+            console.log('📞 End call button clicked (outgoing) - via event listener');
             endCall();
         });
         
@@ -3134,6 +3256,18 @@ function acceptCall() {
             } else {
                 // For voice call, don't hide modal yet - show active call UI
                 startVoiceCall();
+                
+                // QUAN TRỌNG: Đảm bảo remote audio được play sau khi accept (user interaction)
+                setTimeout(() => {
+                    const remoteAudio = document.getElementById('remoteAudio');
+                    if (remoteAudio && remoteAudio.srcObject) {
+                        remoteAudio.play().then(() => {
+                            console.log('✅ Remote audio played after accepting call');
+                        }).catch(err => {
+                            console.warn('⚠️ Could not play audio immediately:', err);
+                        });
+                    }
+                }, 500);
             }
             
             // Emit accept event
@@ -3192,11 +3326,19 @@ function endCall() {
     console.log('📞 Remote stream:', remoteStream);
     console.log('📞 Peer connection:', peerConnection);
     
-    // Hide all call UIs immediately
+    // QUAN TRỌNG: Ẩn modal ngay lập tức để người dùng thấy phản hồi
     $('#callModal').modal('hide');
     $('#videoCallContainer').hide();
     
-    // Stop local stream
+    // Dừng remote audio nếu đang phát
+    const remoteAudio = document.getElementById('remoteAudio');
+    if (remoteAudio) {
+        remoteAudio.pause();
+        remoteAudio.srcObject = null;
+        console.log('✅ Remote audio stopped');
+    }
+    
+    // Stop local stream ngay lập tức
     if (localStream) {
         try {
             localStream.getTracks().forEach(track => {
@@ -3210,7 +3352,7 @@ function endCall() {
         }
     }
     
-    // Stop remote stream
+    // Stop remote stream ngay lập tức
     if (remoteStream) {
         try {
             remoteStream.getTracks().forEach(track => {
@@ -3224,7 +3366,7 @@ function endCall() {
         }
     }
     
-    // Close peer connection
+    // Close peer connection ngay lập tức
     if (peerConnection) {
         try {
             peerConnection.close();
@@ -3235,44 +3377,27 @@ function endCall() {
         }
     }
     
-    // If no currentCall, just cleanup and return
-    if (!currentCall) {
-        console.log('⚠️ No currentCall, cleanup done');
-        currentCall = null;
+    // Lấy callId trước khi clear currentCall
+    const callId = currentCall ? currentCall.id : null;
+    
+    // Clear currentCall ngay lập tức để tránh gọi lại
+    currentCall = null;
+    
+    // Nếu không có callId, chỉ cleanup và return
+    if (!callId) {
+        console.log('⚠️ No callId, cleanup done');
         return;
     }
     
-    const callId = currentCall.id;
     console.log('📞 Ending call with ID:', callId);
     
-    // Call backend to end call
+    // Call backend to end call (async, không chặn UI)
     $.post('../src/controllers/call-controller.php?action=end_call', {
         call_id: callId
     }, function(response) {
         console.log('📞 End call response:', response);
         
-        // Hide UIs again (in case they were shown)
-        $('#callModal').modal('hide');
-        $('#videoCallContainer').hide();
-        
-        // Stop all streams again (in case they weren't stopped)
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
-        }
-        
-        if (remoteStream) {
-            remoteStream.getTracks().forEach(track => track.stop());
-            remoteStream = null;
-        }
-        
-        // Close peer connection again
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-        
-        // Emit end event before clearing currentCall
+        // Emit end event via socket
         if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
             chatSocket.emit('call_ended', {
                 call_id: callId,
@@ -3281,33 +3406,21 @@ function endCall() {
             console.log('✅ Call ended event emitted');
         }
         
-        currentCall = null;
         console.log('✅ Call ended successfully');
     }, 'json').fail(function(xhr, status, error) {
-        console.error('❌ End call error:', error);
+        console.error('❌ End call backend error:', error);
         console.error('Response:', xhr.responseText);
         
-        // Cleanup anyway even if backend call fails
-        $('#callModal').modal('hide');
-        $('#videoCallContainer').hide();
-        
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
+        // Vẫn emit end event ngay cả khi backend fail
+        if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
+            chatSocket.emit('call_ended', {
+                call_id: callId,
+                caller_id: currentUserId
+            });
+            console.log('✅ Call ended event emitted (despite backend error)');
         }
         
-        if (remoteStream) {
-            remoteStream.getTracks().forEach(track => track.stop());
-            remoteStream = null;
-        }
-        
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-        
-        currentCall = null;
-        console.log('✅ Cleanup done despite error');
+        console.log('✅ Cleanup done despite backend error');
     });
 }
 
@@ -3359,6 +3472,26 @@ function startVoiceCall() {
     navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
             localStream = stream;
+            console.log('📞 Local stream obtained:', stream);
+            console.log('📞 Local audio tracks:', stream.getAudioTracks());
+            
+            // Kiểm tra local audio tracks
+            const localAudioTracks = stream.getAudioTracks();
+            if (localAudioTracks.length === 0) {
+                console.warn('⚠️ Local stream không có audio track!');
+            } else {
+                console.log('✅ Local stream có', localAudioTracks.length, 'audio track(s)');
+                localAudioTracks.forEach((track, index) => {
+                    console.log(`  Local audio track ${index}:`, {
+                        enabled: track.enabled,
+                        kind: track.kind,
+                        label: track.label,
+                        muted: track.muted,
+                        readyState: track.readyState
+                    });
+                });
+            }
+            
             initializePeerConnection();
             
             // Show voice call UI with end call button
@@ -3387,33 +3520,85 @@ function showVoiceCallUI() {
     $('#callType').text('Cuộc gọi thoại');
     $('#callStatus').text('Đang gọi...');
     
-    // Show end call button only
+    // Clear existing buttons first
+    $('#callControls').empty();
+    // Show end call button only with direct onclick
     $('#callControls').html(`
-        <button class="btn btn-danger btn-lg" id="endCallBtn" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
+        <button class="btn btn-danger btn-lg" id="endCallBtn" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; z-index: 10001;">
             <i class="fas fa-phone-slash"></i>
         </button>
     `);
     
-    // Attach event listener to end call button
+    // Also attach event listener as backup
     $('#endCallBtn').off('click').on('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('📞 End call button clicked (voice call)');
+        console.log('📞 End call button clicked (voice call) - via event listener');
         endCall();
     });
     
-    // Show modal
-    $('#callModal').modal('show');
+    // QUAN TRỌNG: Đảm bảo modal hiển thị và không bị ẩn
+    const modalElement = document.getElementById('callModal');
+    if (modalElement) {
+        let modal = bootstrap.Modal.getInstance(modalElement);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalElement);
+        }
+        modal.show();
+        
+        // Force show với CSS để đảm bảo hiển thị
+        $(modalElement).addClass('show').css({
+            'display': 'block',
+            'visibility': 'visible',
+            'opacity': '1',
+            'z-index': '10000'
+        });
+    }
+    
+    // Ẩn video container nếu đang hiển thị
+    $('#videoCallContainer').hide();
+    
     console.log('✅ Admin voice call UI shown with end call button');
 }
 
 // Initialize WebRTC peer connection
 function initializePeerConnection() {
+    // QUAN TRỌNG: Cấu hình WebRTC với STUN và TURN servers
+    // STUN: Để tìm public IP/port
+    // TURN: Để relay traffic khi P2P không thể kết nối (NAT/firewall)
     const configuration = {
         iceServers: [
+            // STUN servers (miễn phí từ Google)
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-        ]
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            // TURN servers (miễn phí - cần thay bằng TURN server riêng nếu có)
+            // Option 1: Dùng free TURN server (có thể không ổn định)
+            { 
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            { 
+                urls: 'turn:openrelay.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            { 
+                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            // Option 2: Dùng TURN server khác (nếu có)
+            // { 
+            //     urls: 'turn:your-turn-server.com:3478',
+            //     username: 'your-username',
+            //     credential: 'your-password'
+            // }
+        ],
+        iceCandidatePoolSize: 10 // Tăng pool size để có nhiều candidates hơn
     };
     
     peerConnection = new RTCPeerConnection(configuration);
@@ -3426,23 +3611,357 @@ function initializePeerConnection() {
     }
     
     // Handle remote stream
+    // Best practice từ WebRTC: ontrack có thể được gọi nhiều lần, mỗi lần cho 1 track
     peerConnection.ontrack = event => {
-        remoteStream = event.streams[0];
+        console.log('📞 ontrack event fired:', event);
+        console.log('📞 Event streams:', event.streams);
+        console.log('📞 Event track:', event.track);
+        console.log('📞 Event track kind:', event.track ? event.track.kind : 'N/A');
+        console.log('📞 Event track id:', event.track ? event.track.id : 'N/A');
+        console.log('📞 Event track readyState:', event.track ? event.track.readyState : 'N/A');
+        
+        // QUAN TRỌNG: Lấy stream từ event
+        // Best practice: Sử dụng event.streams[0] nếu có, nếu không thì tạo stream mới từ track
+        if (event.streams && event.streams.length > 0) {
+            remoteStream = event.streams[0];
+            console.log('📞 Using stream from event.streams[0]');
+        } else if (event.track) {
+            // Nếu không có stream, tạo stream mới từ track
+            // Nếu đã có remoteStream, thêm track vào stream đó
+            if (remoteStream) {
+                // Kiểm tra xem track đã có trong stream chưa
+                const existingTrack = remoteStream.getTracks().find(t => t.id === event.track.id);
+                if (!existingTrack) {
+                    remoteStream.addTrack(event.track);
+                    console.log('📞 Added track to existing remote stream');
+                } else {
+                    console.log('📞 Track already in remote stream, skipping');
+                }
+            } else {
+                remoteStream = new MediaStream([event.track]);
+                console.log('📞 Created new MediaStream from track');
+            }
+        } else {
+            console.error('❌ No stream or track in ontrack event!');
+            return;
+        }
+        
+        console.log('📞 Remote stream received:', remoteStream);
+        console.log('📞 Remote stream ID:', remoteStream.id);
+        console.log('📞 Remote stream tracks:', remoteStream.getTracks());
+        console.log('📞 Remote stream active:', remoteStream.active);
+        
+        // QUAN TRỌNG: Đảm bảo stream được cập nhật khi có track mới
+        event.track.onended = () => {
+            console.log('📞 Remote track ended:', event.track.kind, event.track.id);
+        };
+        
+        event.track.onmute = () => {
+            console.log('📞 Remote track muted:', event.track.kind, event.track.id);
+        };
+        
+        event.track.onunmute = () => {
+            console.log('📞 Remote track unmuted:', event.track.kind, event.track.id);
+        };
+        
+        // Kiểm tra video tracks trong remote stream
+        const videoTracks = remoteStream.getVideoTracks();
+        console.log('📞 Remote video tracks:', videoTracks);
+        if (videoTracks.length === 0) {
+            console.warn('⚠️ Remote stream không có video track!');
+        } else {
+            console.log('✅ Remote stream có', videoTracks.length, 'video track(s)');
+            videoTracks.forEach((track, index) => {
+                console.log(`  Video track ${index}:`, {
+                    enabled: track.enabled,
+                    kind: track.kind,
+                    label: track.label,
+                    muted: track.muted,
+                    readyState: track.readyState
+                });
+            });
+        }
+        
+        // Kiểm tra audio tracks trong remote stream
+        const audioTracks = remoteStream.getAudioTracks();
+        console.log('📞 Remote audio tracks:', audioTracks);
+        if (audioTracks.length === 0) {
+            console.warn('⚠️ Remote stream không có audio track!');
+        } else {
+            console.log('✅ Remote stream có', audioTracks.length, 'audio track(s)');
+            audioTracks.forEach((track, index) => {
+                console.log(`  Audio track ${index}:`, {
+                    enabled: track.enabled,
+                    kind: track.kind,
+                    label: track.label,
+                    muted: track.muted,
+                    readyState: track.readyState
+                });
+            });
+        }
+        
+        // Cho video call: gán vào remoteVideo
         const remoteVideo = document.getElementById('remoteVideo');
         if (remoteVideo) {
+            // QUAN TRỌNG: Nếu có video track, đảm bảo video container được hiển thị
+            if (videoTracks.length > 0) {
+                const videoContainer = document.getElementById('videoCallContainer');
+                if (videoContainer) {
+                    videoContainer.style.display = 'block';
+                    videoContainer.style.visibility = 'visible';
+                    videoContainer.style.opacity = '1';
+                    videoContainer.style.zIndex = '10000';
+                    console.log('✅ Video container shown for video call');
+                }
+            }
+            
             remoteVideo.srcObject = remoteStream;
+            // QUAN TRỌNG: Đảm bảo video element được hiển thị và phát
+            remoteVideo.play().then(() => {
+                console.log('✅ Remote video playing successfully');
+                console.log('📹 Remote video element state:', {
+                    paused: remoteVideo.paused,
+                    currentTime: remoteVideo.currentTime,
+                    readyState: remoteVideo.readyState,
+                    videoWidth: remoteVideo.videoWidth,
+                    videoHeight: remoteVideo.videoHeight
+                });
+            }).catch(err => {
+                console.error('❌ Error playing remote video:', err);
+                console.error('Error details:', {
+                    name: err.name,
+                    message: err.message
+                });
+                
+                // Nếu bị chặn bởi autoplay policy, thử play khi user click
+                if (err.name === 'NotAllowedError' || err.name === 'NotSupportedError' || err.name === 'AbortError') {
+                    console.warn('⚠️ Browser autoplay policy blocked video. Video sẽ phát khi user tương tác.');
+                    
+                    // Thêm event listener để play khi user click vào video container hoặc bất kỳ đâu
+                    const playOnInteraction = (event) => {
+                        console.log('📞 User interaction detected, attempting to play video...');
+                        remoteVideo.play().then(() => {
+                            console.log('✅ Video played after user interaction');
+                            document.removeEventListener('click', playOnInteraction);
+                            document.removeEventListener('touchstart', playOnInteraction);
+                            document.removeEventListener('keydown', playOnInteraction);
+                        }).catch(e => {
+                            console.error('❌ Still error after interaction:', e);
+                        });
+                    };
+                    
+                    // Thêm nhiều event listeners để đảm bảo bắt được user interaction
+                    document.addEventListener('click', playOnInteraction, { once: true });
+                    document.addEventListener('touchstart', playOnInteraction, { once: true });
+                    document.addEventListener('keydown', playOnInteraction, { once: true });
+                    
+                    // Đặc biệt: thêm listener vào video container
+                    const videoContainer = document.getElementById('videoCallContainer');
+                    if (videoContainer) {
+                        videoContainer.addEventListener('click', playOnInteraction, { once: true });
+                    }
+                }
+            });
+            console.log('✅ Remote video assigned to video element');
+        } else {
+            console.error('❌ Remote video element not found!');
+        }
+        
+        // Cho voice call: gán vào remoteAudio để phát âm thanh
+        const remoteAudio = document.getElementById('remoteAudio');
+        if (remoteAudio) {
+            // Setup audio element
+            remoteAudio.srcObject = remoteStream;
+            remoteAudio.volume = 1.0; // Đảm bảo volume = 100%
+            remoteAudio.muted = false; // Đảm bảo không bị mute
+            
+            // Thử play audio
+            const playPromise = remoteAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log('✅ Remote audio playing successfully');
+                    console.log('📞 Audio element state:', {
+                        volume: remoteAudio.volume,
+                        muted: remoteAudio.muted,
+                        paused: remoteAudio.paused,
+                        currentTime: remoteAudio.currentTime,
+                        readyState: remoteAudio.readyState
+                    });
+                }).catch(err => {
+                    console.error('❌ Error playing remote audio:', err);
+                    console.error('❌ Error details:', {
+                        name: err.name,
+                        message: err.message
+                    });
+                    
+                    // Nếu bị chặn bởi autoplay policy, thử play khi user click
+                    if (err.name === 'NotAllowedError' || err.name === 'NotSupportedError') {
+                        console.warn('⚠️ Browser autoplay policy blocked audio. Audio sẽ phát khi user tương tác.');
+                        
+                        // Thêm event listener để play khi user click vào modal
+                        const playOnInteraction = () => {
+                            remoteAudio.play().then(() => {
+                                console.log('✅ Audio played after user interaction');
+                                document.removeEventListener('click', playOnInteraction);
+                                document.removeEventListener('touchstart', playOnInteraction);
+                            }).catch(e => {
+                                console.error('Still error after interaction:', e);
+                            });
+                        };
+                        
+                        document.addEventListener('click', playOnInteraction, { once: true });
+                        document.addEventListener('touchstart', playOnInteraction, { once: true });
+                    }
+                });
+            }
+            
+            console.log('✅ Remote audio assigned to audio element');
+        } else {
+            console.error('❌ Remote audio element not found!');
         }
     };
     
     // Handle ICE candidates
     peerConnection.onicecandidate = event => {
-        if (event.candidate && isConnected && chatSocket && typeof chatSocket.emit === 'function') {
-            chatSocket.emit('ice_candidate', {
-                call_id: currentCall.id,
-                candidate: event.candidate
-            });
+        if (event.candidate) {
+            console.log('📞 ICE candidate generated:', event.candidate);
+            console.log('📞 Candidate type:', event.candidate.type);
+            console.log('📞 Candidate protocol:', event.candidate.protocol);
+            console.log('📞 Candidate priority:', event.candidate.priority);
+            console.log('📞 Candidate foundation:', event.candidate.foundation);
+            
+            // Send ICE candidate to remote peer via socket
+            if (isConnected && chatSocket && typeof chatSocket.emit === 'function' && currentCall) {
+                chatSocket.emit('ice_candidate', {
+                    call_id: currentCall.id,
+                    candidate: event.candidate
+                });
+                console.log('✅ ICE candidate sent via socket');
+            } else {
+                console.warn('⚠️ Cannot send ICE candidate:', {
+                    isConnected,
+                    hasChatSocket: !!chatSocket,
+                    hasCurrentCall: !!currentCall
+                });
+            }
+        } else {
+            console.log('📞 ICE gathering complete');
+            console.log('📞 Total ICE candidates:', peerConnection.localDescription ? peerConnection.localDescription.sdp.match(/a=candidate:/g)?.length || 0 : 0);
         }
     };
+    
+    // Handle connection state changes
+    peerConnection.onconnectionstatechange = () => {
+        console.log('📞 Peer connection state:', peerConnection.connectionState);
+        console.log('📞 ICE connection state:', peerConnection.iceConnectionState);
+        console.log('📞 ICE gathering state:', peerConnection.iceGatheringState);
+        console.log('📞 Signaling state:', peerConnection.signalingState);
+        
+        if (peerConnection.connectionState === 'connected') {
+            console.log('✅ Peer connection established successfully!');
+        } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
+            console.warn('⚠️ Peer connection failed or disconnected');
+            console.warn('⚠️ ICE connection state:', peerConnection.iceConnectionState);
+            
+            // Thử restart ICE nếu failed
+            if (peerConnection.connectionState === 'failed' && peerConnection.iceConnectionState === 'failed') {
+                console.log('🔄 Attempting to restart ICE...');
+                peerConnection.restartIce();
+            }
+        }
+    };
+    
+    // Handle ICE connection state changes
+    peerConnection.oniceconnectionstatechange = () => {
+        console.log('📞 ICE connection state changed:', peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+            console.log('✅ ICE connection established!');
+        } else if (peerConnection.iceConnectionState === 'failed') {
+            console.error('❌ ICE connection failed - may need TURN server');
+        } else if (peerConnection.iceConnectionState === 'disconnected') {
+            console.warn('⚠️ ICE connection disconnected');
+        }
+    };
+    
+    // Handle ICE gathering state changes
+    peerConnection.onicegatheringstatechange = () => {
+        console.log('📞 ICE gathering state:', peerConnection.iceGatheringState);
+        if (peerConnection.iceGatheringState === 'complete') {
+            console.log('✅ ICE gathering complete');
+        }
+    };
+    
+    // QUAN TRỌNG: Tạo offer nếu là caller, hoặc chờ answer nếu là receiver
+    // Best practice từ WebRTC: Đợi ICE gathering hoàn tất trước khi tạo offer
+    // QUAN TRỌNG: addTrack phải được gọi TRƯỚC khi tạo offer
+    if (currentCall && currentCall.caller_id == currentUserId) {
+        // Caller: Đợi ICE gathering hoàn tất rồi mới tạo offer
+        console.log('📞 Admin Caller: Waiting for ICE gathering before creating offer...');
+        
+        const createOfferWhenReady = () => {
+            // Kiểm tra nếu đã có local description thì không tạo lại
+            if (peerConnection.localDescription) {
+                console.log('📞 Local description already set, skipping offer creation');
+                return;
+            }
+            
+            console.log('📞 Admin Caller: Creating offer...');
+            peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: currentCall.type === 'video'
+            })
+                .then(offer => {
+                    console.log('✅ Offer created:', offer);
+                    console.log('📞 Offer type:', offer.type);
+                    console.log('📞 Offer SDP:', offer.sdp.substring(0, 200) + '...');
+                    return peerConnection.setLocalDescription(offer);
+                })
+                .then(() => {
+                    console.log('✅ Local description set');
+                    console.log('📞 Local description:', peerConnection.localDescription);
+                    
+                    // Gửi offer qua socket
+                    if (isConnected && chatSocket && currentCall) {
+                        chatSocket.emit('webrtc_offer', {
+                            call_id: currentCall.id,
+                            offer: peerConnection.localDescription
+                        });
+                        console.log('✅ Offer sent via socket');
+                    } else {
+                        console.error('❌ Cannot send offer: socket not connected or currentCall missing');
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error creating offer:', error);
+                    console.error('Error stack:', error.stack);
+                });
+        };
+        
+        // Nếu ICE gathering đã hoàn tất, tạo offer ngay
+        if (peerConnection.iceGatheringState === 'complete') {
+            createOfferWhenReady();
+        } else {
+            // Đợi ICE gathering hoàn tất
+            peerConnection.addEventListener('icegatheringstatechange', function onIceGatheringStateChange() {
+                if (peerConnection.iceGatheringState === 'complete') {
+                    console.log('📞 ICE gathering complete, creating offer...');
+                    peerConnection.removeEventListener('icegatheringstatechange', onIceGatheringStateChange);
+                    createOfferWhenReady();
+                }
+            });
+            
+            // Timeout sau 3 giây nếu ICE gathering chưa hoàn tất
+            setTimeout(() => {
+                if (!peerConnection.localDescription) {
+                    console.warn('⚠️ ICE gathering timeout, creating offer anyway...');
+                    createOfferWhenReady();
+                }
+            }, 3000);
+        }
+    } else if (currentCall && currentCall.receiver_id == currentUserId) {
+        // Receiver: Chờ offer từ caller (sẽ được xử lý trong socket event)
+        console.log('📞 Admin Receiver: Waiting for offer...');
+    }
 }
 
 // Toggle mute

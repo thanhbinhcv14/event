@@ -703,14 +703,16 @@ body {
     font-weight: 600;
     color: var(--dark-color);
     background: #f8f9fa;
-    padding: 1rem 0.75rem;
+    padding: 0.5rem 0.75rem;
     border-bottom: 2px solid #dee2e6;
+    font-size: 0.85rem;
 }
 
 .table td {
-    padding: 1rem 0.75rem;
+    padding: 0.5rem 0.75rem;
     vertical-align: middle;
     border-bottom: 1px solid #dee2e6;
+    font-size: 0.85rem;
 }
 
 .table tbody tr:hover {

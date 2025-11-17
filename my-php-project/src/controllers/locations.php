@@ -5,15 +5,24 @@ require_once __DIR__ . '/../../config/database.php';
 
 header('Content-Type: application/json');
 
-// Check if user is logged in and has admin privileges
-$userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? null;
-if (!isset($_SESSION['user']) || !in_array($userRole, [1, 2, 3, 4])) {
-    echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
+// Check if user is logged in
+if (!isset($_SESSION['user'])) {
+    echo json_encode(['success' => false, 'error' => 'Bạn cần đăng nhập']);
     exit();
 }
 
 $pdo = getDBConnection();
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
+
+// Actions that require admin privileges
+$adminOnlyActions = ['add_location', 'update_location', 'delete_location', 'get_locations'];
+
+// Check admin privileges for admin-only actions
+$userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? null;
+if (in_array($action, $adminOnlyActions) && !in_array($userRole, [1, 2, 3, 4])) {
+    echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
+    exit();
+}
 
 try {
     switch ($action) {
@@ -92,8 +101,11 @@ try {
             break;
             
         case 'get_location':
-            // Lấy thông tin địa điểm theo ID
+            // Lấy thông tin địa điểm theo ID kèm danh sách phòng (nếu là địa điểm trong nhà)
             $locationId = $_POST['id'] ?? $_GET['id'] ?? null;
+            $eventDate = $_GET['event_date'] ?? $_POST['event_date'] ?? null;
+            $eventEndDate = $_GET['event_end_date'] ?? $_POST['event_end_date'] ?? null;
+            
             if (!$locationId) {
                 echo json_encode(['success' => false, 'error' => 'Thiếu ID địa điểm']);
                 break;
@@ -104,7 +116,71 @@ try {
             $location = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($location) {
-                echo json_encode(['success' => true, 'location' => $location]);
+                // Nếu là địa điểm trong nhà, lấy danh sách phòng sẵn sàng
+                $rooms = [];
+                if ($location['LoaiDiaDiem'] === 'Trong nhà' || $location['LoaiDiaDiem'] === 'Trong nha') {
+                    // Lấy tất cả phòng có trạng thái "Sẵn sàng"
+                    $stmt = $pdo->prepare("SELECT * FROM phong WHERE ID_DD = ? AND TrangThai = 'Sẵn sàng' ORDER BY TenPhong");
+                    $stmt->execute([$locationId]);
+                    $allRooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    // Nếu có ngày sự kiện, lọc các phòng đã bị đặt trong khoảng thời gian đó
+                    if ($eventDate && $eventEndDate) {
+                        // Tạo datetime từ eventDate và eventEndDate (nếu có thời gian cụ thể thì dùng, không thì dùng 00:00:00 và 23:59:59)
+                        $startDateTime = $eventDate . ' 00:00:00';
+                        $endDateTime = $eventEndDate . ' 23:59:59';
+                        
+                        // Lấy danh sách phòng đã được đặt trong khoảng thời gian này
+                        // Kiểm tra xem có overlap thời gian không
+                        $stmt = $pdo->prepare("SELECT DISTINCT ID_Phong FROM datlichsukien 
+                                               WHERE ID_DD = ? 
+                                               AND ID_Phong IS NOT NULL
+                                               AND TrangThaiDuyet != 'Từ chối'
+                                               AND TrangThaiDuyet != 'Đã hủy'
+                                               AND (
+                                                   (NgayBatDau <= ? AND NgayKetThuc >= ?) OR
+                                                   (NgayBatDau <= ? AND NgayKetThuc >= ?) OR
+                                                   (NgayBatDau >= ? AND NgayKetThuc <= ?)
+                                               )");
+                        $stmt->execute([$locationId, $startDateTime, $startDateTime, $endDateTime, $endDateTime, $startDateTime, $endDateTime]);
+                        $bookedRoomIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                        
+                        // Lọc ra các phòng chưa bị đặt
+                        $rooms = array_filter($allRooms, function($room) use ($bookedRoomIds) {
+                            return !in_array($room['ID_Phong'], $bookedRoomIds);
+                        });
+                        $rooms = array_values($rooms);
+                        
+                        error_log("Filtered rooms: Total=" . count($allRooms) . ", Booked=" . count($bookedRoomIds) . ", Available=" . count($rooms));
+                    } else {
+                        // Nếu không có ngày, trả về tất cả phòng sẵn sàng
+                        $rooms = $allRooms;
+                    }
+                    
+                    // Debug log
+                    error_log("=== DEBUG get_location ===");
+                    error_log("Location ID: " . $locationId);
+                    error_log("LoaiDiaDiem: " . $location['LoaiDiaDiem']);
+                    error_log("Event Date: " . ($eventDate ?? 'null'));
+                    error_log("Event End Date: " . ($eventEndDate ?? 'null'));
+                    error_log("All rooms count: " . count($allRooms ?? []));
+                    error_log("Available rooms count: " . count($rooms));
+                    
+                    // Log room details và đảm bảo giá trị đúng format
+                    foreach ($rooms as &$room) {
+                        // Đảm bảo GiaThueGio và GiaThueNgay là số (không phải string)
+                        $room['GiaThueGio'] = $room['GiaThueGio'] !== null ? (float)$room['GiaThueGio'] : null;
+                        $room['GiaThueNgay'] = $room['GiaThueNgay'] !== null ? (float)$room['GiaThueNgay'] : null;
+                        
+                        error_log("Room: ID={$room['ID_Phong']}, TenPhong={$room['TenPhong']}, GiaThueGio={$room['GiaThueGio']}, GiaThueNgay={$room['GiaThueNgay']}, LoaiThue={$room['LoaiThue']}, TrangThai={$room['TrangThai']}");
+                    }
+                    unset($room); // Unset reference
+                }
+                
+                $location['rooms'] = $rooms;
+                $response = ['success' => true, 'location' => $location];
+                error_log("API Response: " . json_encode($response, JSON_UNESCAPED_UNICODE));
+                echo json_encode($response, JSON_UNESCAPED_UNICODE);
             } else {
                 echo json_encode(['success' => false, 'error' => 'Không tìm thấy địa điểm']);
             }
@@ -118,7 +194,8 @@ try {
             error_log("Add location - Received data: " . json_encode($input));
             error_log("Add location - FILES data: " . json_encode($_FILES));
             
-            $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'DiaChi', 'SucChua', 'LoaiThue'];
+            // QuanHuyen và TinhThanh là bắt buộc, các trường khác có thể để trống
+            $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'SucChua', 'LoaiThue', 'QuanHuyen', 'TinhThanh'];
             foreach ($requiredFields as $field) {
                 if (empty($input[$field])) {
                     echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
@@ -181,19 +258,36 @@ try {
                 }
             }
             
+            // Nếu loại địa điểm là "Trong nhà", set giá thuê về null
+            $loaiDiaDiem = $input['LoaiDiaDiem'] ?? 'Trong nhà';
+            $giaThueGio = null;
+            $giaThueNgay = null;
+            $loaiThue = null;
+            
+            if ($loaiDiaDiem === 'Ngoài trời') {
+                $giaThueGio = !empty($input['GiaThueGio']) ? $input['GiaThueGio'] : null;
+                $giaThueNgay = !empty($input['GiaThueNgay']) ? $input['GiaThueNgay'] : null;
+                $loaiThue = $input['LoaiThue'] ?? 'Cả hai';
+            }
+            
             $stmt = $pdo->prepare("
-                INSERT INTO diadiem (TenDiaDiem, LoaiDiaDiem, DiaChi, SucChua, GiaThueGio, GiaThueNgay, LoaiThue, MoTa, TrangThaiHoatDong, HinhAnh) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO diadiem (TenDiaDiem, LoaiDiaDiem, DiaChi, SoNha, DuongPho, PhuongXa, QuanHuyen, TinhThanh, SucChua, GiaThueGio, GiaThueNgay, LoaiThue, MoTa, TrangThaiHoatDong, HinhAnh) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             
             $stmt->execute([
                 $input['TenDiaDiem'],
-                $input['LoaiDiaDiem'] ?? 'Trong nhà',
-                $input['DiaChi'],
+                $loaiDiaDiem,
+                $input['DiaChi'] ?? '', // Địa chỉ đầy đủ (sẽ được trigger tự động tạo nếu không có)
+                $input['SoNha'] ?? null,
+                $input['DuongPho'] ?? null,
+                $input['PhuongXa'] ?? null,
+                $input['QuanHuyen'] ?? null,
+                $input['TinhThanh'] ?? null,
                 $input['SucChua'],
-                $input['GiaThueGio'] ?? null,
-                $input['GiaThueNgay'] ?? null,
-                $input['LoaiThue'] ?? 'Cả hai',
+                $giaThueGio,
+                $giaThueNgay,
+                $loaiThue,
                 $input['MoTa'] ?? '',
                 $input['TrangThaiHoatDong'] ?? 'Hoạt động',
                 $imageName
@@ -215,7 +309,8 @@ try {
                 exit();
             }
             
-            $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'DiaChi', 'SucChua', 'LoaiThue'];
+            // QuanHuyen và TinhThanh là bắt buộc, LoaiThue chỉ bắt buộc cho địa điểm ngoài trời
+            $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'SucChua', 'QuanHuyen', 'TinhThanh'];
             foreach ($requiredFields as $field) {
                 if (empty($input[$field])) {
                     echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
@@ -230,11 +325,19 @@ try {
                 break;
             }
             
-            // Validate LoaiThue
-            $allowedRentTypes = ['Theo giờ', 'Theo ngày', 'Cả hai'];
-            if (!in_array($input['LoaiThue'], $allowedRentTypes)) {
-                echo json_encode(['success' => false, 'error' => 'Loại thuê không hợp lệ']);
+            // LoaiThue chỉ bắt buộc cho địa điểm ngoài trời
+            if (($input['LoaiDiaDiem'] ?? '') === 'Ngoài trời' && empty($input['LoaiThue'])) {
+                echo json_encode(['success' => false, 'error' => 'Loại thuê là bắt buộc cho địa điểm ngoài trời']);
                 break;
+            }
+            
+            // Validate LoaiThue (nếu có)
+            if (!empty($input['LoaiThue'])) {
+                $allowedRentTypes = ['Theo giờ', 'Theo ngày', 'Cả hai'];
+                if (!in_array($input['LoaiThue'], $allowedRentTypes)) {
+                    echo json_encode(['success' => false, 'error' => 'Loại thuê không hợp lệ']);
+                    break;
+                }
             }
             
             // Validate capacity
@@ -297,22 +400,39 @@ try {
                 }
             }
             
+            // Nếu loại địa điểm là "Trong nhà", set giá thuê về null
+            $loaiDiaDiem = $input['LoaiDiaDiem'] ?? 'Trong nhà';
+            $giaThueGio = null;
+            $giaThueNgay = null;
+            $loaiThue = null;
+            
+            if ($loaiDiaDiem === 'Ngoài trời') {
+                $giaThueGio = !empty($input['GiaThueGio']) ? $input['GiaThueGio'] : null;
+                $giaThueNgay = !empty($input['GiaThueNgay']) ? $input['GiaThueNgay'] : null;
+                $loaiThue = $input['LoaiThue'] ?? 'Cả hai';
+            }
+            
             // Nếu có hình ảnh mới, cập nhật cả hình ảnh
             if ($imageName) {
                 $stmt = $pdo->prepare("
                     UPDATE diadiem 
-                    SET TenDiaDiem = ?, LoaiDiaDiem = ?, DiaChi = ?, SucChua = ?, GiaThueGio = ?, GiaThueNgay = ?, LoaiThue = ?, MoTa = ?, TrangThaiHoatDong = ?, HinhAnh = ?
+                    SET TenDiaDiem = ?, LoaiDiaDiem = ?, DiaChi = ?, SoNha = ?, DuongPho = ?, PhuongXa = ?, QuanHuyen = ?, TinhThanh = ?, SucChua = ?, GiaThueGio = ?, GiaThueNgay = ?, LoaiThue = ?, MoTa = ?, TrangThaiHoatDong = ?, HinhAnh = ?
                     WHERE ID_DD = ?
                 ");
                 
                 $stmt->execute([
                     $input['TenDiaDiem'],
-                    $input['LoaiDiaDiem'] ?? 'Trong nhà',
-                    $input['DiaChi'],
+                    $loaiDiaDiem,
+                    $input['DiaChi'] ?? '', // Địa chỉ đầy đủ (sẽ được trigger tự động tạo nếu không có)
+                    $input['SoNha'] ?? null,
+                    $input['DuongPho'] ?? null,
+                    $input['PhuongXa'] ?? null,
+                    $input['QuanHuyen'] ?? null,
+                    $input['TinhThanh'] ?? null,
                     $input['SucChua'],
-                    $input['GiaThueGio'] ?? null,
-                    $input['GiaThueNgay'] ?? null,
-                    $input['LoaiThue'] ?? 'Cả hai',
+                    $giaThueGio,
+                    $giaThueNgay,
+                    $loaiThue,
                     $input['MoTa'] ?? '',
                     $input['TrangThaiHoatDong'] ?? 'Hoạt động',
                     $imageName,
@@ -322,18 +442,23 @@ try {
                 // Nếu không có hình ảnh mới, chỉ cập nhật thông tin khác
                 $stmt = $pdo->prepare("
                     UPDATE diadiem 
-                    SET TenDiaDiem = ?, LoaiDiaDiem = ?, DiaChi = ?, SucChua = ?, GiaThueGio = ?, GiaThueNgay = ?, LoaiThue = ?, MoTa = ?, TrangThaiHoatDong = ?
+                    SET TenDiaDiem = ?, LoaiDiaDiem = ?, DiaChi = ?, SoNha = ?, DuongPho = ?, PhuongXa = ?, QuanHuyen = ?, TinhThanh = ?, SucChua = ?, GiaThueGio = ?, GiaThueNgay = ?, LoaiThue = ?, MoTa = ?, TrangThaiHoatDong = ?
                     WHERE ID_DD = ?
                 ");
                 
                 $stmt->execute([
                     $input['TenDiaDiem'],
-                    $input['LoaiDiaDiem'] ?? 'Trong nhà',
-                    $input['DiaChi'],
+                    $loaiDiaDiem,
+                    $input['DiaChi'] ?? '', // Địa chỉ đầy đủ (sẽ được trigger tự động tạo nếu không có)
+                    $input['SoNha'] ?? null,
+                    $input['DuongPho'] ?? null,
+                    $input['PhuongXa'] ?? null,
+                    $input['QuanHuyen'] ?? null,
+                    $input['TinhThanh'] ?? null,
                     $input['SucChua'],
-                    $input['GiaThueGio'] ?? null,
-                    $input['GiaThueNgay'] ?? null,
-                    $input['LoaiThue'] ?? 'Cả hai',
+                    $giaThueGio,
+                    $giaThueNgay,
+                    $loaiThue,
                     $input['MoTa'] ?? '',
                     $input['TrangThaiHoatDong'] ?? 'Hoạt động',
                     $locationId
@@ -358,19 +483,8 @@ try {
                     break;
                 }
                 
-                // Check if location is being used in event registrations
-                $stmt = $pdo->prepare("SELECT COUNT(*) FROM datlichsukien WHERE ID_DD = ?");
-                $stmt->execute([$locationId]);
-                $eventCount = $stmt->fetchColumn();
-                
-                if ($eventCount > 0) {
-                    ob_clean();
-                    echo json_encode(['success' => false, 'error' => "Không thể xóa địa điểm vì đang được sử dụng trong {$eventCount} sự kiện"]);
-                    break;
-                }
-                
-                // Get location name for notification
-                $stmt = $pdo->prepare("SELECT TenDiaDiem FROM diadiem WHERE ID_DD = ?");
+                // Kiểm tra địa điểm có tồn tại không
+                $stmt = $pdo->prepare("SELECT TenDiaDiem, LoaiDiaDiem FROM diadiem WHERE ID_DD = ?");
                 $stmt->execute([$locationId]);
                 $location = $stmt->fetch(PDO::FETCH_ASSOC);
                 
@@ -380,12 +494,110 @@ try {
                     break;
                 }
                 
+                // QUAN TRỌNG: Kiểm tra sự kiện đang diễn ra (NgayBatDau <= NOW() AND NgayKetThuc >= NOW())
+                $stmt = $pdo->prepare("
+                    SELECT COUNT(*) as count, 
+                           GROUP_CONCAT(DISTINCT TenSuKien SEPARATOR ', ') as events
+                    FROM datlichsukien 
+                    WHERE ID_DD = ? 
+                    AND TrangThaiDuyet = 'Đã duyệt'
+                    AND NgayBatDau <= NOW() 
+                    AND NgayKetThuc >= NOW()
+                ");
+                $stmt->execute([$locationId]);
+                $activeEvent = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($activeEvent['count'] > 0) {
+                    ob_clean();
+                    echo json_encode([
+                        'success' => false, 
+                        'error' => "Không thể xóa địa điểm vì đang có sự kiện đang diễn ra: {$activeEvent['events']}"
+                    ]);
+                    break;
+                }
+                
+                // Kiểm tra sự kiện sắp diễn ra (NgayBatDau > NOW() AND TrangThaiDuyet = 'Đã duyệt')
+                $stmt = $pdo->prepare("
+                    SELECT COUNT(*) as count, 
+                           GROUP_CONCAT(DISTINCT TenSuKien SEPARATOR ', ') as events
+                    FROM datlichsukien 
+                    WHERE ID_DD = ? 
+                    AND TrangThaiDuyet = 'Đã duyệt'
+                    AND NgayBatDau > NOW()
+                ");
+                $stmt->execute([$locationId]);
+                $upcomingEvent = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($upcomingEvent['count'] > 0) {
+                    ob_clean();
+                    echo json_encode([
+                        'success' => false, 
+                        'error' => "Không thể xóa địa điểm vì đang có sự kiện sắp diễn ra: {$upcomingEvent['events']}"
+                    ]);
+                    break;
+                }
+                
+                // Kiểm tra sự kiện đã được đặt (kể cả chưa duyệt)
+                $stmt = $pdo->prepare("
+                    SELECT COUNT(*) as count 
+                    FROM datlichsukien 
+                    WHERE ID_DD = ? 
+                    AND TrangThaiDuyet != 'Từ chối'
+                ");
+                $stmt->execute([$locationId]);
+                $bookedEvent = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($bookedEvent['count'] > 0) {
+                    ob_clean();
+                    echo json_encode([
+                        'success' => false, 
+                        'error' => "Không thể xóa địa điểm vì đang có {$bookedEvent['count']} sự kiện đã được đặt (kể cả chưa duyệt)"
+                    ]);
+                    break;
+                }
+                
+                // QUAN TRỌNG: Xóa cascade các phòng thuộc địa điểm (nếu là địa điểm trong nhà)
+                if ($location['LoaiDiaDiem'] === 'Trong nhà') {
+                    // Kiểm tra phòng có sự kiện đang diễn ra không
+                    $stmt = $pdo->prepare("
+                        SELECT COUNT(*) as count 
+                        FROM phong p
+                        INNER JOIN datlichsukien d ON p.ID_Phong = d.ID_Phong
+                        WHERE p.ID_DD = ?
+                        AND d.TrangThaiDuyet = 'Đã duyệt'
+                        AND d.NgayBatDau <= NOW() 
+                        AND d.NgayKetThuc >= NOW()
+                    ");
+                    $stmt->execute([$locationId]);
+                    $roomActiveEvent = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($roomActiveEvent['count'] > 0) {
+                        ob_clean();
+                        echo json_encode([
+                            'success' => false, 
+                            'error' => "Không thể xóa địa điểm vì có phòng đang có sự kiện đang diễn ra"
+                        ]);
+                        break;
+                    }
+                    
+                    // Xóa các phòng thuộc địa điểm (cascade delete)
+                    $stmt = $pdo->prepare("DELETE FROM phong WHERE ID_DD = ?");
+                    $stmt->execute([$locationId]);
+                    $deletedRooms = $stmt->rowCount();
+                    error_log("Deleted {$deletedRooms} rooms for location {$locationId}");
+                }
+                
+                // Xóa địa điểm
                 $stmt = $pdo->prepare("DELETE FROM diadiem WHERE ID_DD = ?");
                 $result = $stmt->execute([$locationId]);
                 
                 if ($result && $stmt->rowCount() > 0) {
                     ob_clean();
-                    echo json_encode(['success' => true, 'message' => 'Xóa địa điểm thành công']);
+                    $message = 'Xóa địa điểm thành công';
+                    if (isset($deletedRooms) && $deletedRooms > 0) {
+                        $message .= " (đã xóa {$deletedRooms} phòng thuộc địa điểm)";
+                    }
+                    echo json_encode(['success' => true, 'message' => $message]);
                 } else {
                     ob_clean();
                     echo json_encode(['success' => false, 'error' => 'Không thể xóa địa điểm']);

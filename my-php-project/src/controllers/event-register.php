@@ -26,7 +26,7 @@ error_log("Debug - Action: " . $action);
 error_log("Debug - Session data: " . print_r($_SESSION, true));
 
 // For data loading actions, don't require login
-$publicActions = ['get_event_types', 'get_locations_by_type', 'get_all_locations', 'get_equipment_suggestions', 'get_combo_suggestions', 'get_all_equipment', 'get_all_combos', 'get_event_selected_data', 'get_event_equipment'];
+$publicActions = ['get_event_types', 'get_locations_by_type', 'get_all_locations', 'get_equipment_suggestions', 'get_combo_suggestions', 'get_all_equipment', 'get_all_combos', 'get_event_selected_data', 'get_event_equipment', 'check_equipment_availability', 'check_combo_availability'];
 
 if (!in_array($action, $publicActions)) {
     // Check if user is logged in for other actions
@@ -166,6 +166,199 @@ try {
                 $equipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 echo json_encode(['success' => true, 'equipment' => $equipment]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
+            }
+            break;
+            
+        case 'check_equipment_availability':
+            // Kiểm tra số lượng thiết bị còn lại trong ngày
+            $equipmentId = $_GET['equipment_id'] ?? null;
+            $startDate = $_GET['start_date'] ?? null;
+            $startTime = $_GET['start_time'] ?? null;
+            $endDate = $_GET['end_date'] ?? null;
+            $endTime = $_GET['end_time'] ?? null;
+            $eventId = $_GET['event_id'] ?? null; // Để loại trừ sự kiện đang chỉnh sửa
+            
+            if (!$equipmentId || !$startDate || !$endDate) {
+                echo json_encode(['success' => false, 'error' => 'Thiếu thông tin']);
+                break;
+            }
+            
+            try {
+                // Lấy tổng số lượng thiết bị
+                $stmt = $pdo->prepare("SELECT SoLuong FROM thietbi WHERE ID_TB = ?");
+                $stmt->execute([$equipmentId]);
+                $equipment = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$equipment) {
+                    echo json_encode(['success' => false, 'error' => 'Không tìm thấy thiết bị']);
+                    break;
+                }
+                
+                $totalQuantity = intval($equipment['SoLuong']);
+                
+                // Tính toán datetime từ date và time
+                $startDateTime = $startDate . ' ' . ($startTime ?? '00:00:00');
+                $endDateTime = $endDate . ' ' . ($endTime ?? '23:59:59');
+                
+                // Lấy số lượng thiết bị đã được đặt trong khoảng thời gian này
+                // Loại trừ các sự kiện bị từ chối hoặc đã hoàn thành
+                $sql = "
+                    SELECT COALESCE(SUM(ct.SoLuong), 0) as booked_quantity
+                    FROM chitietdatsukien ct
+                    INNER JOIN datlichsukien dl ON ct.ID_DatLich = dl.ID_DatLich
+                    WHERE ct.ID_TB = ?
+                    AND dl.TrangThaiDuyet != 'Từ chối'
+                    AND dl.TrangThaiDuyet != 'Hoàn thành'
+                    AND (
+                        (dl.NgayBatDau <= ? AND dl.NgayKetThuc >= ?) OR
+                        (dl.NgayBatDau <= ? AND dl.NgayKetThuc >= ?) OR
+                        (dl.NgayBatDau >= ? AND dl.NgayKetThuc <= ?)
+                    )
+                ";
+                
+                $params = [$equipmentId, $startDateTime, $startDateTime, $endDateTime, $endDateTime, $startDateTime, $endDateTime];
+                
+                // Nếu đang chỉnh sửa sự kiện, loại trừ sự kiện đó
+                if ($eventId) {
+                    $sql .= " AND dl.ID_DatLich != ?";
+                    $params[] = $eventId;
+                }
+                
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                $bookedQuantity = intval($result['booked_quantity'] ?? 0);
+                $availableQuantity = max(0, $totalQuantity - $bookedQuantity);
+                
+                echo json_encode([
+                    'success' => true,
+                    'total_quantity' => $totalQuantity,
+                    'booked_quantity' => $bookedQuantity,
+                    'available_quantity' => $availableQuantity
+                ]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
+            }
+            break;
+            
+        case 'check_combo_availability':
+            // Kiểm tra số lượng thiết bị của combo có đủ không trong ngày
+            $comboId = $_GET['combo_id'] ?? null;
+            $startDate = $_GET['start_date'] ?? null;
+            $startTime = $_GET['start_time'] ?? null;
+            $endDate = $_GET['end_date'] ?? null;
+            $endTime = $_GET['end_time'] ?? null;
+            $eventId = $_GET['event_id'] ?? null; // Để loại trừ sự kiện đang chỉnh sửa
+            
+            if (!$comboId || !$startDate || !$endDate) {
+                echo json_encode(['success' => false, 'error' => 'Thiếu thông tin']);
+                break;
+            }
+            
+            try {
+                // Tính toán datetime từ date và time
+                $startDateTime = $startDate . ' ' . ($startTime ?? '00:00:00');
+                $endDateTime = $endDate . ' ' . ($endTime ?? '23:59:59');
+                
+                // Lấy danh sách thiết bị trong combo từ bảng combo_thietbi hoặc combochitiet
+                $stmt = $pdo->prepare("
+                    SELECT ID_TB, SoLuong 
+                    FROM combo_thietbi 
+                    WHERE ID_Combo = ?
+                    UNION
+                    SELECT ID_TB, SoLuong 
+                    FROM combochitiet 
+                    WHERE ID_Combo = ?
+                ");
+                $stmt->execute([$comboId, $comboId]);
+                $comboEquipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                if (empty($comboEquipment)) {
+                    echo json_encode(['success' => false, 'error' => 'Combo không có thiết bị']);
+                    break;
+                }
+                
+                $equipmentAvailability = [];
+                $allAvailable = true;
+                
+                // Kiểm tra từng thiết bị trong combo
+                foreach ($comboEquipment as $item) {
+                    $equipmentId = $item['ID_TB'];
+                    $requiredQuantity = intval($item['SoLuong']);
+                    
+                    // Lấy tổng số lượng thiết bị
+                    $stmt = $pdo->prepare("SELECT SoLuong FROM thietbi WHERE ID_TB = ?");
+                    $stmt->execute([$equipmentId]);
+                    $equipment = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if (!$equipment) {
+                        $allAvailable = false;
+                        $equipmentAvailability[] = [
+                            'equipment_id' => $equipmentId,
+                            'required' => $requiredQuantity,
+                            'available' => 0,
+                            'total' => 0,
+                            'booked' => 0,
+                            'sufficient' => false
+                        ];
+                        continue;
+                    }
+                    
+                    $totalQuantity = intval($equipment['SoLuong']);
+                    
+                    // Lấy số lượng thiết bị đã được đặt trong khoảng thời gian này
+                    $sql = "
+                        SELECT COALESCE(SUM(ct.SoLuong), 0) as booked_quantity
+                        FROM chitietdatsukien ct
+                        INNER JOIN datlichsukien dl ON ct.ID_DatLich = dl.ID_DatLich
+                        WHERE ct.ID_TB = ?
+                        AND dl.TrangThaiDuyet != 'Từ chối'
+                        AND dl.TrangThaiDuyet != 'Đã hủy'
+                        AND (
+                            (dl.NgayBatDau <= ? AND dl.NgayKetThuc >= ?) OR
+                            (dl.NgayBatDau <= ? AND dl.NgayKetThuc >= ?) OR
+                            (dl.NgayBatDau >= ? AND dl.NgayKetThuc <= ?)
+                        )
+                    ";
+                    
+                    $params = [$equipmentId, $startDateTime, $startDateTime, $endDateTime, $endDateTime, $startDateTime, $endDateTime];
+                    
+                    // Nếu đang chỉnh sửa sự kiện, loại trừ sự kiện đó
+                    if ($eventId) {
+                        $sql .= " AND dl.ID_DatLich != ?";
+                        $params[] = $eventId;
+                    }
+                    
+                    $stmt = $pdo->prepare($sql);
+                    $stmt->execute($params);
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    $bookedQuantity = intval($result['booked_quantity'] ?? 0);
+                    $availableQuantity = max(0, $totalQuantity - $bookedQuantity);
+                    $sufficient = $availableQuantity >= $requiredQuantity;
+                    
+                    if (!$sufficient) {
+                        $allAvailable = false;
+                    }
+                    
+                    $equipmentAvailability[] = [
+                        'equipment_id' => $equipmentId,
+                        'required' => $requiredQuantity,
+                        'available' => $availableQuantity,
+                        'total' => $totalQuantity,
+                        'booked' => $bookedQuantity,
+                        'sufficient' => $sufficient
+                    ];
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'available' => $allAvailable,
+                    'equipment' => $equipmentAvailability
+                ]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
             }
@@ -357,11 +550,13 @@ try {
                 error_log("Debug - Converted LoaiThueApDung: " . ($loaiThueApDung ?? 'NULL'));
                 
                 // Insert into datlichsukien table
+                $roomId = $input['room_id'] ?? null;
+                
                 $sql = "INSERT INTO datlichsukien (
                     ID_KhachHang, TenSuKien, MoTa, NgayBatDau, NgayKetThuc, 
                     ID_DD, ID_LoaiSK, SoNguoiDuKien, NganSach, TongTien,
-                    TrangThaiDuyet, TrangThaiThanhToan, GhiChu, LoaiThueApDung
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    TrangThaiDuyet, TrangThaiThanhToan, GhiChu, LoaiThueApDung, ID_Phong
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 
                 $stmt = $pdo->prepare($sql);
                 $result = $stmt->execute([
@@ -378,7 +573,8 @@ try {
                     'Chờ duyệt',
                     'Chưa thanh toán',
                     'Đăng ký từ website',
-                    $loaiThueApDung
+                    $loaiThueApDung,
+                    $roomId
                 ]);
                 
                 if (!$result) {
@@ -387,36 +583,61 @@ try {
                 
                 $datLichId = $pdo->lastInsertId();
                 
-                // If combo was selected, add it to chitietdatsukien table
-                if (!empty($input['combo_id'])) {
-                    // Get combo price
-                    $stmt = $pdo->prepare("SELECT GiaCombo FROM combo WHERE ID_Combo = ?");
-                    $stmt->execute([$input['combo_id']]);
-                    $combo = $stmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if ($combo) {
-                        $stmt = $pdo->prepare("
-                            INSERT INTO chitietdatsukien (ID_DatLich, ID_Combo, SoLuong, DonGia, GhiChu) 
-                            VALUES (?, ?, 1, ?, 'Combo thiết bị')
-                        ");
-                        $stmt->execute([$datLichId, $input['combo_id'], $combo['GiaCombo']]);
+                // Nếu có combo được chọn, thêm vào bảng chitietdatsukien
+                // Hỗ trợ cả combo_id (single) và combo_ids (array) để tương thích ngược
+                $comboIds = [];
+                if (!empty($input['combo_ids']) && is_array($input['combo_ids'])) {
+                    $comboIds = $input['combo_ids'];
+                } elseif (!empty($input['combo_id'])) {
+                    // Tương thích ngược với format cũ
+                    $comboIds = [$input['combo_id']];
+                }
+                
+                if (!empty($comboIds)) {
+                    foreach ($comboIds as $comboId) {
+                        // Lấy giá combo
+                        $stmt = $pdo->prepare("SELECT GiaCombo, TenCombo FROM combo WHERE ID_Combo = ?");
+                        $stmt->execute([$comboId]);
+                        $combo = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($combo) {
+                            $stmt = $pdo->prepare("
+                                INSERT INTO chitietdatsukien (ID_DatLich, ID_Combo, SoLuong, DonGia, GhiChu) 
+                                VALUES (?, ?, 1, ?, ?)
+                            ");
+                            $comboName = $combo['TenCombo'] ?? 'Combo thiết bị';
+                            $stmt->execute([$datLichId, $comboId, $combo['GiaCombo'], "Combo: {$comboName}"]);
+                        }
                     }
                 }
                 
                 // If individual equipment was selected, add it to chitietdatsukien table
                 if (!empty($input['equipment_ids']) && is_array($input['equipment_ids'])) {
+                    // Get quantities if provided
+                    $equipmentQuantities = [];
+                    if (!empty($input['equipment_quantities']) && is_array($input['equipment_quantities'])) {
+                        foreach ($input['equipment_quantities'] as $eq) {
+                            if (isset($eq['id']) && isset($eq['quantity'])) {
+                                $equipmentQuantities[$eq['id']] = intval($eq['quantity']);
+                            }
+                        }
+                    }
+                    
                     foreach ($input['equipment_ids'] as $equipmentId) {
                         // Get equipment price
                         $stmt = $pdo->prepare("SELECT GiaThue FROM thietbi WHERE ID_TB = ?");
                         $stmt->execute([$equipmentId]);
                         $equipment = $stmt->fetch(PDO::FETCH_ASSOC);
                         
+                        // Get quantity (default to 1 if not provided)
+                        $quantity = isset($equipmentQuantities[$equipmentId]) ? $equipmentQuantities[$equipmentId] : 1;
+                        
                         if ($equipment) {
                             $stmt = $pdo->prepare("
                                 INSERT INTO chitietdatsukien (ID_DatLich, ID_TB, SoLuong, DonGia, GhiChu) 
-                                VALUES (?, ?, 1, ?, 'Thiết bị riêng lẻ')
+                                VALUES (?, ?, ?, ?, 'Thiết bị riêng lẻ')
                             ");
-                            $stmt->execute([$datLichId, $equipmentId, $equipment['GiaThue']]);
+                            $stmt->execute([$datLichId, $equipmentId, $quantity, $equipment['GiaThue']]);
                         }
                     }
                 }
@@ -485,8 +706,9 @@ try {
                 }
                 
                 $stmt = $pdo->prepare("
-                    SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue,
+                    SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue, d.LoaiDiaDiem,
                            ls.TenLoai, ls.GiaCoBan, k.HoTen, k.SoDienThoai,
+                           p.ID_Phong, p.TenPhong as TenPhong, p.GiaThueGio as PhongGiaThueGio, p.GiaThueNgay as PhongGiaThueNgay, p.LoaiThue as PhongLoaiThue,
                            COALESCE(equipment_total.TongGiaThietBi, 0) as TongGiaThietBi,
                            s.TrangThaiThucTe as TrangThaiSuKien,
                            COALESCE(pending_payments.PendingPayments, 0) as PendingPayments
@@ -495,6 +717,7 @@ try {
                     LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
                     LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
                     LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+                    LEFT JOIN phong p ON dl.ID_Phong = p.ID_Phong
                     LEFT JOIN (
                         SELECT ID_DatLich, SUM(DonGia * SoLuong) as TongGiaThietBi
                         FROM chitietdatsukien
@@ -811,7 +1034,23 @@ try {
                         $loaiThueApDung = 'Theo ngày';
                     }
                 }
+                
+                // Xử lý room_rental_type nếu có (cho địa điểm trong nhà)
+                $roomId = $input['room_id'] ?? null;
+                $roomRentalType = $input['room_rental_type'] ?? null;
+                
+                // Nếu có room_rental_type, ưu tiên dùng nó cho LoaiThueApDung
+                if ($roomRentalType) {
+                    if ($roomRentalType === 'hour') {
+                        $loaiThueApDung = 'Theo giờ';
+                    } elseif ($roomRentalType === 'day') {
+                        $loaiThueApDung = 'Theo ngày';
+                    }
+                }
+                
                 error_log("Debug - Update LoaiThueApDung: " . ($loaiThueApDung ?? 'NULL'));
+                error_log("Debug - Update room_id: " . ($roomId ?? 'NULL'));
+                error_log("Debug - Update room_rental_type: " . ($roomRentalType ?? 'NULL'));
                 
                 $stmt = $pdo->prepare("
                     UPDATE datlichsukien SET
@@ -825,7 +1064,8 @@ try {
                         MoTa = ?,
                         GhiChu = ?,
                         ID_DD = ?,
-                        LoaiThueApDung = ?
+                        LoaiThueApDung = ?,
+                        ID_Phong = ?
                     WHERE ID_DatLich = ?
                 ");
                 
@@ -841,6 +1081,7 @@ try {
                     $input['notes'],
                     $input['location_id'],
                     $loaiThueApDung,
+                    $roomId,
                     $editId
                 ]);
                 
@@ -850,7 +1091,22 @@ try {
                     $stmt->execute([$editId]);
                     
                     // Add new equipment
-                    if (!empty($input['equipment_ids'])) {
+                    if (!empty($input['equipment_ids']) && is_array($input['equipment_ids'])) {
+                        // Get quantities if provided
+                        $equipmentQuantities = [];
+                        if (!empty($input['equipment_quantities']) && is_array($input['equipment_quantities'])) {
+                            foreach ($input['equipment_quantities'] as $eq) {
+                                if (isset($eq['id']) && isset($eq['quantity'])) {
+                                    $equipmentQuantities[$eq['id']] = intval($eq['quantity']);
+                                }
+                            }
+                        }
+                        
+                        // Debug log
+                        error_log("Update Event - Equipment IDs: " . print_r($input['equipment_ids'], true));
+                        error_log("Update Event - Equipment Quantities: " . print_r($input['equipment_quantities'], true));
+                        error_log("Update Event - Parsed Quantities: " . print_r($equipmentQuantities, true));
+                        
                         foreach ($input['equipment_ids'] as $equipmentId) {
                             // Get equipment price
                             $stmt = $pdo->prepare("SELECT GiaThue FROM thietbi WHERE ID_TB = ?");
@@ -858,27 +1114,47 @@ try {
                             $equipment = $stmt->fetch(PDO::FETCH_ASSOC);
                             $price = $equipment ? $equipment['GiaThue'] : 0;
                             
+                            // Get quantity (default to 1 if not provided)
+                            $quantity = isset($equipmentQuantities[$equipmentId]) ? $equipmentQuantities[$equipmentId] : 1;
+                            
+                            error_log("Update Event - Equipment ID: {$equipmentId}, Quantity: {$quantity}, Price: {$price}");
+                            
                             $stmt = $pdo->prepare("
-                                INSERT INTO chitietdatsukien (ID_DatLich, ID_TB, DonGia) 
-                                VALUES (?, ?, ?)
+                                INSERT INTO chitietdatsukien (ID_DatLich, ID_TB, SoLuong, DonGia, GhiChu) 
+                                VALUES (?, ?, ?, ?, 'Thiết bị riêng lẻ')
                             ");
-                            $stmt->execute([$editId, $equipmentId, $price]);
+                            $stmt->execute([$editId, $equipmentId, $quantity, $price]);
+                            
+                            error_log("Update Event - Inserted equipment: ID_DatLich={$editId}, ID_TB={$equipmentId}, SoLuong={$quantity}");
                         }
                     }
                     
-                    // Add combo if selected
-                    if ($input['combo_id']) {
-                        // Get combo price
-                        $stmt = $pdo->prepare("SELECT GiaCombo FROM combo WHERE ID_Combo = ?");
-                        $stmt->execute([$input['combo_id']]);
-                        $combo = $stmt->fetch(PDO::FETCH_ASSOC);
-                        $price = $combo ? $combo['GiaCombo'] : 0;
-                        
-                        $stmt = $pdo->prepare("
-                            INSERT INTO chitietdatsukien (ID_DatLich, ID_Combo, DonGia) 
-                            VALUES (?, ?, ?)
-                        ");
-                        $stmt->execute([$editId, $input['combo_id'], $price]);
+                    // Thêm combo nếu được chọn
+                    // Hỗ trợ cả combo_id (single) và combo_ids (array) để tương thích ngược
+                    $comboIds = [];
+                    if (!empty($input['combo_ids']) && is_array($input['combo_ids'])) {
+                        $comboIds = $input['combo_ids'];
+                    } elseif (!empty($input['combo_id'])) {
+                        // Tương thích ngược với format cũ
+                        $comboIds = [$input['combo_id']];
+                    }
+                    
+                    if (!empty($comboIds)) {
+                        foreach ($comboIds as $comboId) {
+                            // Lấy giá combo
+                            $stmt = $pdo->prepare("SELECT GiaCombo, TenCombo FROM combo WHERE ID_Combo = ?");
+                            $stmt->execute([$comboId]);
+                            $combo = $stmt->fetch(PDO::FETCH_ASSOC);
+                            
+                            if ($combo) {
+                                $stmt = $pdo->prepare("
+                                    INSERT INTO chitietdatsukien (ID_DatLich, ID_Combo, SoLuong, DonGia, GhiChu) 
+                                    VALUES (?, ?, 1, ?, ?)
+                                ");
+                                $comboName = $combo['TenCombo'] ?? 'Combo thiết bị';
+                                $stmt->execute([$editId, $comboId, $combo['GiaCombo'], "Combo: {$comboName}"]);
+                            }
+                        }
                     }
                     
                     echo json_encode(['success' => true, 'message' => 'Cập nhật sự kiện thành công!']);
@@ -900,11 +1176,14 @@ try {
             }
             
             try {
-                // Get event location with applied rental type
+                // Get event location with applied rental type and room information
                 $stmt = $pdo->prepare("
-                    SELECT d.*, dl.LoaiThueApDung 
+                    SELECT d.*, dl.LoaiThueApDung, dl.ID_Phong,
+                           p.TenPhong, p.GiaThueGio as PhongGiaThueGio, p.GiaThueNgay as PhongGiaThueNgay, 
+                           p.LoaiThue as PhongLoaiThue, p.SucChua as PhongSucChua
                     FROM diadiem d
                     INNER JOIN datlichsukien dl ON d.ID_DD = dl.ID_DD
+                    LEFT JOIN phong p ON dl.ID_Phong = p.ID_Phong
                     WHERE dl.ID_DatLich = ?
                 ");
                 $stmt->execute([$eventId]);
@@ -919,6 +1198,12 @@ try {
                 ");
                 $stmt->execute([$eventId]);
                 $equipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Đảm bảo SoLuong là int
+                foreach ($equipment as &$eq) {
+                    $eq['SoLuong'] = intval($eq['SoLuong'] ?? 1);
+                }
+                unset($eq); // Unset reference
                 
                 // Get event combo
                 $stmt = $pdo->prepare("
@@ -1088,6 +1373,7 @@ function registerEventForExistingCustomer() {
         
         try {
             // 1. Calculate total cost
+            $event['room_id'] = $input['room_id'] ?? null;
             $totalCost = calculateTotalCost($event, $locationId, $equipment, $input['location_rental_type'] ?? null);
             
         // 2. Create event registration
@@ -1254,31 +1540,77 @@ function calculateTotalCost($eventData, $locationId, $equipment, $locationRental
     
     // 2. Location cost
     if ($locationId) {
-        $stmt = $pdo->prepare("SELECT GiaThueGio, GiaThueNgay, LoaiThue FROM diadiem WHERE ID_DD = ?");
+        // Kiểm tra xem địa điểm có phòng không (địa điểm trong nhà)
+        $stmt = $pdo->prepare("SELECT LoaiDiaDiem FROM diadiem WHERE ID_DD = ?");
         $stmt->execute([$locationId]);
-        $location = $stmt->fetch(PDO::FETCH_ASSOC);
+        $locationType = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($location) {
-            $startDate = new DateTime($eventData['startDate']);
-            $endDate = new DateTime($eventData['endDate']);
-            $durationHours = $startDate->diff($endDate)->h + ($startDate->diff($endDate)->days * 24);
-            $durationDays = $startDate->diff($endDate)->days + ($durationHours > 0 ? 1 : 0);
+        $roomId = $eventData['room_id'] ?? null;
+        
+        // Nếu là địa điểm trong nhà và có chọn phòng, tính giá theo phòng
+        if ($locationType && $locationType['LoaiDiaDiem'] === 'Trong nhà' && $roomId) {
+            $stmt = $pdo->prepare("SELECT GiaThueGio, GiaThueNgay, LoaiThue FROM phong WHERE ID_Phong = ?");
+            $stmt->execute([$roomId]);
+            $room = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            // Priority: User's selection > Database default
-            if ($locationRentalType) {
-                // User has explicitly chosen rental type
-                if ($locationRentalType === 'hour' && $location['GiaThueGio']) {
-                    $totalCost += $durationHours * floatval($location['GiaThueGio']);
-                } elseif ($locationRentalType === 'day' && $location['GiaThueNgay']) {
-                    $totalCost += $durationDays * floatval($location['GiaThueNgay']);
+            if ($room) {
+                $startDate = new DateTime($eventData['startDate']);
+                $endDate = new DateTime($eventData['endDate']);
+                $durationHours = $startDate->diff($endDate)->h + ($startDate->diff($endDate)->days * 24);
+                $durationDays = $startDate->diff($endDate)->days + ($durationHours > 0 ? 1 : 0);
+                
+                // Priority: User's selection > Database default
+                if ($locationRentalType) {
+                    if ($locationRentalType === 'hour' && $room['GiaThueGio']) {
+                        $totalCost += $durationHours * floatval($room['GiaThueGio']);
+                    } elseif ($locationRentalType === 'day' && $room['GiaThueNgay']) {
+                        $totalCost += $durationDays * floatval($room['GiaThueNgay']);
+                    }
+                } elseif ($room['LoaiThue'] === 'Theo giờ' && $room['GiaThueGio']) {
+                    $totalCost += $durationHours * floatval($room['GiaThueGio']);
+                } elseif ($room['LoaiThue'] === 'Theo ngày' && $room['GiaThueNgay']) {
+                    $totalCost += $durationDays * floatval($room['GiaThueNgay']);
+                } elseif ($room['LoaiThue'] === 'Cả hai') {
+                    // Use the cheaper option
+                    $hourlyPrice = $durationHours * floatval($room['GiaThueGio'] ?? 0);
+                    $dailyPrice = $durationDays * floatval($room['GiaThueNgay'] ?? 0);
+                    if ($hourlyPrice > 0 && $dailyPrice > 0) {
+                        $totalCost += min($hourlyPrice, $dailyPrice);
+                    } elseif ($hourlyPrice > 0) {
+                        $totalCost += $hourlyPrice;
+                    } elseif ($dailyPrice > 0) {
+                        $totalCost += $dailyPrice;
+                    }
                 }
-            } elseif ($location['LoaiThue'] === 'Theo giờ' && $location['GiaThueGio']) {
-                $totalCost += $durationHours * floatval($location['GiaThueGio']);
-            } elseif ($location['LoaiThue'] === 'Theo ngày' && $location['GiaThueNgay']) {
-                $totalCost += $durationDays * floatval($location['GiaThueNgay']);
-            } elseif ($location['LoaiThue'] === 'Cả hai') {
-                // Default to daily rental for better UX
-                $totalCost += $durationDays * floatval($location['GiaThueNgay'] ?? 0);
+            }
+        } else {
+            // Địa điểm ngoài trời hoặc không chọn phòng, tính giá theo địa điểm
+            $stmt = $pdo->prepare("SELECT GiaThueGio, GiaThueNgay, LoaiThue FROM diadiem WHERE ID_DD = ?");
+            $stmt->execute([$locationId]);
+            $location = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($location) {
+                $startDate = new DateTime($eventData['startDate']);
+                $endDate = new DateTime($eventData['endDate']);
+                $durationHours = $startDate->diff($endDate)->h + ($startDate->diff($endDate)->days * 24);
+                $durationDays = $startDate->diff($endDate)->days + ($durationHours > 0 ? 1 : 0);
+                
+                // Priority: User's selection > Database default
+                if ($locationRentalType) {
+                    // User has explicitly chosen rental type
+                    if ($locationRentalType === 'hour' && $location['GiaThueGio']) {
+                        $totalCost += $durationHours * floatval($location['GiaThueGio']);
+                    } elseif ($locationRentalType === 'day' && $location['GiaThueNgay']) {
+                        $totalCost += $durationDays * floatval($location['GiaThueNgay']);
+                    }
+                } elseif ($location['LoaiThue'] === 'Theo giờ' && $location['GiaThueGio']) {
+                    $totalCost += $durationHours * floatval($location['GiaThueGio']);
+                } elseif ($location['LoaiThue'] === 'Theo ngày' && $location['GiaThueNgay']) {
+                    $totalCost += $durationDays * floatval($location['GiaThueNgay']);
+                } elseif ($location['LoaiThue'] === 'Cả hai') {
+                    // Default to daily rental for better UX
+                    $totalCost += $durationDays * floatval($location['GiaThueNgay'] ?? 0);
+                }
             }
         }
     }
@@ -1303,12 +1635,14 @@ function createEventRegistration($eventData, $customerId, $locationId, $totalCos
         $loaiThueApDung = 'Theo ngày';
     }
     
+    $roomId = $eventData['room_id'] ?? null;
+    
     $stmt = $pdo->prepare("
         INSERT INTO datlichsukien (
             TenSuKien, MoTa, NgayBatDau, NgayKetThuc, SoNguoiDuKien, 
             NganSach, TongTien, TrangThaiDuyet, TrangThaiThanhToan, 
-            GhiChu, NgayTao, ID_KhachHang, ID_DD, ID_LoaiSK, LoaiThueApDung
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Chờ duyệt', 'Chưa thanh toán', ?, NOW(), ?, ?, ?, ?)
+            GhiChu, NgayTao, ID_KhachHang, ID_DD, ID_LoaiSK, LoaiThueApDung, ID_Phong
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Chờ duyệt', 'Chưa thanh toán', ?, NOW(), ?, ?, ?, ?, ?)
     ");
     
     $stmt->execute([
@@ -1323,7 +1657,8 @@ function createEventRegistration($eventData, $customerId, $locationId, $totalCos
         $customerId,
         $locationId,
         $eventData['type'],
-        $loaiThueApDung
+        $loaiThueApDung,
+        $roomId
     ]);
     
     return $pdo->lastInsertId();
