@@ -1,15 +1,15 @@
 <?php
-// Admin Header Template
+// Template Header Admin
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Include database connection
+// Kết nối database
 require_once __DIR__ . '/../../config/database.php';
 
-// Check if user is logged in and has admin access
+// Kiểm tra người dùng đã đăng nhập và có quyền admin
 if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['ID_Role'], [1, 2, 3, 4])) {
-    header('Location: login.php');
+    header('Location: ../login.php');
     exit;
 }
 
@@ -18,10 +18,10 @@ $isAdmin = $user['ID_Role'] == 1;
 $isManager = in_array($user['ID_Role'], [2, 3]);
 $isStaff = $user['ID_Role'] == 4;
 
-// Get current page name
+// Lấy tên trang hiện tại
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 
-// Page titles mapping
+// Ánh xạ tiêu đề trang
 $pageTitles = [
     'index' => 'Dashboard',
     'event-registrations' => 'Duyệt đăng ký sự kiện',
@@ -63,11 +63,14 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
     <!-- Custom Admin CSS -->
     <link rel="stylesheet" href="assets/css/admin-style.css">
     
+    <!-- CSRF Protection Helper - Load before other scripts -->
+    <script src="../assets/js/csrf-helper.js"></script>
+    
     <!-- Favicon -->
     <link rel="icon" href="img/logo/logo.jpg">
     
     <style>
-        /* Page-specific styles can be added here */
+        /* Có thể thêm các style riêng cho trang ở đây */
         .page-loading {
             position: fixed;
             top: 0;
@@ -88,7 +91,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             color: var(--primary-color);
         }
         
-        /* Chat Badge */
+        /* Huy hiệu Chat */
         .chat-badge {
             position: absolute;
             top: -5px;
@@ -110,12 +113,12 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             pointer-events: auto !important;
         }
         
-        /* Ensure all navigation links are clickable */
+        /* Đảm bảo tất cả liên kết điều hướng có thể click */
         .sidebar a, .menu-item, .menu-item * {
             pointer-events: auto !important;
         }
         
-        /* Ensure page loading doesn't block navigation */
+        /* Đảm bảo loading trang không chặn điều hướng */
         .page-loading {
             pointer-events: none !important;
         }
@@ -275,7 +278,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             
             <a href="customeredit_content.php" class="menu-item <?= $currentPage === 'customeredit_content' ? 'active' : '' ?>">
                 <i class="fas fa-users"></i>
-                <span>Thông tin khách hàng</span>
+                <span>Quản lý khách hàng</span>
             </a>
             
             <a href="reports.php" class="menu-item <?= $currentPage === 'reports' ? 'active' : '' ?>">
@@ -328,7 +331,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             
             <a href="customeredit_content.php" class="menu-item <?= $currentPage === 'customeredit_content' ? 'active' : '' ?>">
                 <i class="fas fa-users"></i>
-                <span>Thông tin khách hàng</span>
+                <span>Quản lý khách hàng</span>
             </a>
             
             <a href="reports.php" class="menu-item <?= $currentPage === 'reports' ? 'active' : '' ?>">

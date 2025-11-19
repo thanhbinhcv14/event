@@ -10,22 +10,47 @@ if (!isset($_SESSION['user'])) {
 
 $pdo = getDBConnection();
 $eventId = $_GET['event_id'] ?? null;
+$paymentTypeParam = $_GET['payment_type'] ?? 'deposit'; // 'deposit' or 'full'
 
 if (!$eventId) {
     header('Location: ../events/my-events.php');
     exit();
 }
 
-// Get event details
+$userId = $_SESSION['user']['ID_User'];
+
+// Get event details with all necessary information (similar to get_my_events)
+try {
 $stmt = $pdo->prepare("
-    SELECT dl.*, dd.TenDiaDiem, dd.DiaChi, dd.GiaThue as DiaDiemGia,
-           kh.HoTen as KhachHangTen, kh.SoDienThoai
+        SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue, d.LoaiDiaDiem,
+               ls.TenLoai, ls.GiaCoBan, k.HoTen, k.SoDienThoai, k.DiaChi as DiaChiKhachHang, k.ID_KhachHang,
+               u.Email as UserEmail,
+               p.ID_Phong, p.TenPhong as TenPhong, p.GiaThueGio as PhongGiaThueGio, p.GiaThueNgay as PhongGiaThueNgay, p.LoaiThue as PhongLoaiThue,
+               COALESCE(equipment_total.TongGiaThietBi, 0) as TongGiaThietBi,
+               s.TrangThaiThucTe as TrangThaiSuKien,
+               COALESCE(pending_payments.PendingPayments, 0) as PendingPayments
     FROM datlichsukien dl 
-    LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-    LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-    WHERE dl.ID_DatLich = ? AND dl.ID_KhachHang = (SELECT ID_KhachHang FROM khachhanginfo WHERE ID_User = ?)
-");
-$stmt->execute([$eventId, $_SESSION['user']['ID_User']]);
+        INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
+        LEFT JOIN users u ON k.ID_User = u.ID_User
+        LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
+        LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+        LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+        LEFT JOIN phong p ON dl.ID_Phong = p.ID_Phong
+        LEFT JOIN (
+            SELECT ID_DatLich, SUM(DonGia * SoLuong) as TongGiaThietBi
+            FROM chitietdatsukien
+            WHERE ID_TB IS NOT NULL OR ID_Combo IS NOT NULL
+            GROUP BY ID_DatLich
+        ) equipment_total ON dl.ID_DatLich = equipment_total.ID_DatLich
+        LEFT JOIN (
+            SELECT ID_DatLich, COUNT(*) as PendingPayments
+            FROM thanhtoan
+            WHERE TrangThai = 'Đang xử lý'
+            GROUP BY ID_DatLich
+        ) pending_payments ON pending_payments.ID_DatLich = dl.ID_DatLich
+        WHERE dl.ID_DatLich = ? AND k.ID_User = ?
+    ");
+    $stmt->execute([$eventId, $userId]);
 $event = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$event) {
@@ -33,265 +58,454 @@ if (!$event) {
     exit();
 }
 
-// Calculate total amount
-$totalAmount = $event['DiaDiemGia'] ?? 0;
-$depositAmount = $totalAmount * 0.3; // 30% deposit
+    // Calculate price breakdown
+    $eventTypePrice = floatval($event['GiaCoBan'] ?? 0);
+    $equipmentPrice = floatval($event['TongGiaThietBi'] ?? 0);
+    
+    // Calculate location price
+    $locationPrice = 0;
+    if (!empty($event['NgayBatDau']) && !empty($event['NgayKetThuc'])) {
+        $startDate = new DateTime($event['NgayBatDau']);
+        $endDate = new DateTime($event['NgayKetThuc']);
+        $durationHours = ceil(($endDate->getTimestamp() - $startDate->getTimestamp()) / 3600);
+        $durationDays = ceil(($endDate->getTimestamp() - $startDate->getTimestamp()) / 86400);
+        
+        // Check if indoor with room
+        $isIndoor = ($event['LoaiDiaDiem'] === 'Trong nhà' || $event['LoaiDiaDiem'] === 'Trong nha');
+        $hasRoom = !empty($event['TenPhong']) && !empty($event['ID_Phong']);
+        
+        if ($isIndoor && $hasRoom) {
+            // Use room price
+            if ($event['LoaiThueApDung'] === 'Theo giờ' && !empty($event['PhongGiaThueGio'])) {
+                $locationPrice = $durationHours * floatval($event['PhongGiaThueGio']);
+            } else if ($event['LoaiThueApDung'] === 'Theo ngày' && !empty($event['PhongGiaThueNgay'])) {
+                $locationPrice = $durationDays * floatval($event['PhongGiaThueNgay']);
+            } else if ($event['PhongLoaiThue'] === 'Theo giờ' && !empty($event['PhongGiaThueGio'])) {
+                $locationPrice = $durationHours * floatval($event['PhongGiaThueGio']);
+            } else if ($event['PhongLoaiThue'] === 'Theo ngày' && !empty($event['PhongGiaThueNgay'])) {
+                $locationPrice = $durationDays * floatval($event['PhongGiaThueNgay']);
+            } else if ($event['PhongLoaiThue'] === 'Cả hai') {
+                $hourlyPrice = $durationHours * floatval($event['PhongGiaThueGio'] ?? 0);
+                $dailyPrice = $durationDays * floatval($event['PhongGiaThueNgay'] ?? 0);
+                $locationPrice = ($hourlyPrice > 0 && $dailyPrice > 0) ? min($hourlyPrice, $dailyPrice) : max($hourlyPrice, $dailyPrice);
+            }
+        } else if ($event['LoaiThueApDung']) {
+            // Use applied rental type
+            if ($event['LoaiThueApDung'] === 'Theo giờ' && !empty($event['GiaThueGio'])) {
+                $locationPrice = $durationHours * floatval($event['GiaThueGio']);
+            } else if ($event['LoaiThueApDung'] === 'Theo ngày' && !empty($event['GiaThueNgay'])) {
+                $locationPrice = $durationDays * floatval($event['GiaThueNgay']);
+            }
+        } else if ($event['LoaiThue'] === 'Theo giờ' && !empty($event['GiaThueGio'])) {
+            $locationPrice = $durationHours * floatval($event['GiaThueGio']);
+        } else if ($event['LoaiThue'] === 'Theo ngày' && !empty($event['GiaThueNgay'])) {
+            $locationPrice = $durationDays * floatval($event['GiaThueNgay']);
+        } else if ($event['LoaiThue'] === 'Cả hai') {
+            $hourlyPrice = $durationHours * floatval($event['GiaThueGio'] ?? 0);
+            $dailyPrice = $durationDays * floatval($event['GiaThueNgay'] ?? 0);
+            $locationPrice = ($hourlyPrice > 0 && $dailyPrice > 0) ? min($hourlyPrice, $dailyPrice) : max($hourlyPrice, $dailyPrice);
+        }
+    }
+    
+    // Use TongTien if available, otherwise calculate
+    $totalAmount = !empty($event['TongTien']) && $event['TongTien'] > 0 
+        ? floatval($event['TongTien']) 
+        : ($locationPrice + $eventTypePrice + $equipmentPrice);
+    
+    // Calculate deposit amount
+    $depositAmount = !empty($event['TienCocYeuCau']) && $event['TienCocYeuCau'] > 0 
+        ? floatval($event['TienCocYeuCau']) 
+        : round($totalAmount * 0.3);
+    
 $remainingAmount = $totalAmount - $depositAmount;
+    
+    // Calculate days from registration to event
+    $daysFromRegistrationToEvent = 0;
+    if (!empty($event['NgayTao']) && !empty($event['NgayBatDau'])) {
+        $registrationDate = new DateTime($event['NgayTao']);
+        $eventStartDate = new DateTime($event['NgayBatDau']);
+        $daysFromRegistrationToEvent = $registrationDate->diff($eventStartDate)->days;
+    }
+    $requiresFullPayment = ($daysFromRegistrationToEvent > 0 && $daysFromRegistrationToEvent < 7);
+    
+    // Get payment deadline if deposit exists
+    $paymentDeadline = null;
+    if ($event['TrangThaiThanhToan'] === 'Đã đặt cọc' && !empty($event['NgayBatDau'])) {
+        $stmtDeposit = $pdo->prepare("
+            SELECT NgayThanhToan 
+            FROM thanhtoan 
+            WHERE ID_DatLich = ? 
+            AND LoaiThanhToan = 'Đặt cọc' 
+            AND TrangThai = 'Thành công'
+            ORDER BY NgayThanhToan ASC
+            LIMIT 1
+        ");
+        $stmtDeposit->execute([$eventId]);
+        $depositPayment = $stmtDeposit->fetch(PDO::FETCH_ASSOC);
+        
+        if ($depositPayment && !empty($depositPayment['NgayThanhToan'])) {
+            $depositDate = new DateTime($depositPayment['NgayThanhToan']);
+            $now = new DateTime();
+            $deadlineDate = clone $depositDate;
+            $deadlineDate->modify('+7 days');
+            
+            $daysUntilDeadline = $now->diff($deadlineDate)->days;
+            
+            $paymentDeadline = [
+                'deadline_date' => $deadlineDate->format('Y-m-d H:i:s'),
+                'deadline_formatted' => $deadlineDate->format('d/m/Y'),
+                'days_until_deadline' => $daysUntilDeadline,
+                'is_past_deadline' => $now > $deadlineDate,
+                'is_approaching' => $daysUntilDeadline <= 3 && $daysUntilDeadline > 0
+            ];
+        }
+    }
+    
+} catch (Exception $e) {
+    error_log("Error loading event: " . $e->getMessage());
+    header('Location: ../events/my-events.php');
+    exit();
+}
 ?>
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thanh toán sự kiện</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>Thanh toán sự kiện - <?= htmlspecialchars($event['TenSuKien']) ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .payment-method-card {
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .payment-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin: 2rem auto;
+            overflow: hidden;
+        }
+        
+        .payment-header {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .payment-header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        .payment-content {
+            padding: 2rem;
+        }
+        
+        .info-card {
             border: 2px solid #e9ecef;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 10px 0;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            background: white;
+        }
+        
+        .info-card h5 {
+            color: #667eea;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .payment-method-card {
             cursor: pointer;
             transition: all 0.3s ease;
-        }
-        .payment-method-card:hover {
-            border-color: #007bff;
-            box-shadow: 0 4px 8px rgba(0,123,255,0.1);
-        }
-        .payment-method-card.selected {
-            border-color: #007bff;
-            background-color: #f8f9ff;
-        }
-        .payment-icon {
-            font-size: 2rem;
-            margin-bottom: 10px;
-        }
-        .amount-display {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #28a745;
-        }
-        .banking-info {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 10px;
-        }
-        .qr-code {
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
             text-align: center;
-            margin: 15px 0;
+            margin-bottom: 1rem;
+        }
+        
+        .payment-method-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .payment-method-card.selected {
+            border-color: #667eea !important;
+            background-color: #f8f9ff !important;
+        }
+        
+        .payment-type-card {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .payment-type-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .payment-type-card.selected {
+            border-color: #667eea !important;
+            background-color: #f8f9ff !important;
+        }
+        
+        .summary-card {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            border-radius: 15px;
+            padding: 1.5rem;
+            position: sticky;
+            top: 20px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            font-weight: 600;
+            padding: 0.75rem 2rem;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .alert {
+            border-radius: 12px;
         }
     </style>
 </head>
 <body>
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-md-8">
-                <!-- Event Information -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h4><i class="fas fa-calendar-alt"></i> Thông tin sự kiện</h4>
+    <div class="container">
+        <div class="payment-container">
+            <!-- Header -->
+            <div class="payment-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1><i class="fas fa-credit-card"></i> Thanh toán sự kiện</h1>
+                        <p class="mb-0">Xác nhận thông tin và hoàn tất thanh toán</p>
                     </div>
-                    <div class="card-body">
+                    <div>
+                        <a href="../events/my-events.php" class="btn btn-light">
+                            <i class="fas fa-arrow-left"></i> Quay lại
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Content -->
+            <div class="payment-content">
+        <div class="row">
+                    <div class="col-lg-8">
+                <!-- Event Information -->
+                        <div class="info-card">
+                            <h5><i class="fas fa-calendar-alt"></i> Thông tin sự kiện</h5>
                         <div class="row">
                             <div class="col-md-6">
                                 <p><strong>Tên sự kiện:</strong> <?= htmlspecialchars($event['TenSuKien']) ?></p>
-                                <p><strong>Địa điểm:</strong> <?= htmlspecialchars($event['TenDiaDiem']) ?></p>
-                                <p><strong>Địa chỉ:</strong> <?= htmlspecialchars($event['DiaChi']) ?></p>
+                                    <p><strong>Loại sự kiện:</strong> <?= htmlspecialchars($event['TenLoai'] ?? 'Chưa xác định') ?></p>
+                                    <p><strong>Địa điểm:</strong> <?= htmlspecialchars($event['TenDiaDiem'] ?? 'Chưa xác định') ?></p>
+                                    <?php if (!empty($event['TenPhong']) && ($event['LoaiDiaDiem'] === 'Trong nhà' || $event['LoaiDiaDiem'] === 'Trong nha')): ?>
+                                    <p><strong>Phòng:</strong> <?= htmlspecialchars($event['TenPhong']) ?></p>
+                                    <?php endif; ?>
                             </div>
                             <div class="col-md-6">
                                 <p><strong>Ngày bắt đầu:</strong> <?= date('d/m/Y H:i', strtotime($event['NgayBatDau'])) ?></p>
                                 <p><strong>Ngày kết thúc:</strong> <?= date('d/m/Y H:i', strtotime($event['NgayKetThuc'])) ?></p>
-                                <p><strong>Số người:</strong> <?= $event['SoNguoiDuKien'] ?> người</p>
-                            </div>
+                                    <p><strong>Số người:</strong> <?= htmlspecialchars($event['SoNguoiDuKien'] ?? 'Chưa xác định') ?> người</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Payment Methods -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h4><i class="fas fa-credit-card"></i> Chọn phương thức thanh toán</h4>
-                    </div>
-                    <div class="card-body">
+                        <!-- Payment Method Selection -->
+                        <div class="info-card">
+                            <h5><i class="fas fa-credit-card"></i> Chọn phương thức thanh toán</h5>
                         <div class="row">
-                            <!-- Momo Payment -->
                             <div class="col-md-6">
-                                <div class="payment-method-card" data-method="Momo">
-                                    <div class="text-center">
-                                        <div class="payment-icon text-danger">
-                                            <i class="fas fa-mobile-alt"></i>
+                                    <div class="payment-method-card" data-method="sepay" id="sepayCard">
+                                        <i class="fas fa-university fa-3x text-primary mb-3"></i>
+                                        <h6>SePay Banking</h6>
+                                        <small class="text-muted">Thanh toán qua ngân hàng</small>
+                                    </div>
                                         </div>
-                                        <h5>Ví MoMo</h5>
-                                        <p class="text-muted">Thanh toán nhanh qua ví điện tử</p>
+                            <div class="col-md-6">
+                                    <div class="payment-method-card" data-method="cash" id="cashCard">
+                                        <i class="fas fa-money-bill-wave fa-3x text-success mb-3"></i>
+                                        <h6>Tiền mặt</h6>
+                                        <small class="text-muted">Thanh toán trực tiếp</small>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Banking Payment -->
-                            <div class="col-md-6">
-                                <div class="payment-method-card" data-method="Chuyển khoản">
-                                    <div class="text-center">
-                                        <div class="payment-icon text-primary">
-                                            <i class="fas fa-university"></i>
+                            <!-- Payment Details (hidden by default) -->
+                            <div id="paymentDetails" style="display: none;" class="mt-3">
+                                <div id="sepayDetails" class="payment-details" style="display: none;">
+                                    <div class="alert alert-info mb-0">
+                                        <i class="fas fa-info-circle"></i>
+                                        Sau khi nhấn "Xác nhận thanh toán", hệ thống sẽ hiển thị QR và thông tin ngân hàng.
+                                    </div>
                                         </div>
-                                        <h5>Chuyển khoản ngân hàng</h5>
-                                        <p class="text-muted">Chuyển khoản qua ngân hàng</p>
+                                <div id="cashDetails" class="payment-details" style="display: none;">
+                                    <div class="alert alert-success">
+                                        <h6><i class="fas fa-money-bill-wave"></i> Thanh toán tiền mặt</h6>
+                                        <p>Vui lòng liên hệ trực tiếp với chúng tôi để thanh toán:</p>
+                                        <ul>
+                                            <li><strong>Địa chỉ:</strong> 123 Đường ABC, Quận 1, TP.HCM</li>
+                                            <li><strong>Điện thoại:</strong> 0123456789</li>
+                                            <li><strong>Thời gian:</strong> 8:00 - 17:00 (Thứ 2 - Thứ 6)</li>
+                                        </ul>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- ZaloPay -->
-                            <div class="col-md-6">
-                                <div class="payment-method-card" data-method="ZaloPay">
-                                    <div class="text-center">
-                                        <div class="payment-icon text-info">
-                                            <i class="fas fa-wallet"></i>
-                                        </div>
-                                        <h5>ZaloPay</h5>
-                                        <p class="text-muted">Thanh toán qua ZaloPay</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- SePay -->
-                            <div class="col-md-6">
-                                <div class="payment-method-card" data-method="SePay">
-                                    <div class="text-center">
-                                        <div class="payment-icon text-success">
-                                            <i class="fas fa-university"></i>
-                                        </div>
-                                        <h5>SePay</h5>
-                                        <p class="text-muted">Thanh toán qua SePay</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Cash -->
-                            <div class="col-md-6">
-                                <div class="payment-method-card" data-method="Tiền mặt">
-                                    <div class="text-center">
-                                        <div class="payment-icon text-success">
-                                            <i class="fas fa-money-bill-wave"></i>
-                                        </div>
-                                        <h5>Tiền mặt</h5>
-                                        <p class="text-muted">Thanh toán trực tiếp tại văn phòng</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Banking Information (hidden by default) -->
-                <div class="card mb-4" id="bankingInfo" style="display: none;">
-                    <div class="card-header">
-                        <h4><i class="fas fa-university"></i> Thông tin chuyển khoản</h4>
-                    </div>
-                    <div class="card-body">
-                        <div class="banking-info">
+                        <!-- Payment Type Selection -->
+                        <div class="info-card" id="paymentTypeSection" style="display: none;">
+                            <h5><i class="fas fa-calculator"></i> Chọn loại thanh toán</h5>
                             <div class="row">
-                                <div class="col-md-6">
-                                    <p><strong>Ngân hàng:</strong> Vietcombank</p>
-                                    <p><strong>Số tài khoản:</strong> 1234567890</p>
-                                    <p><strong>Chủ tài khoản:</strong> CÔNG TY TNHH SỰ KIỆN ABC</p>
-                                </div>
-                                <div class="col-md-6">
-                                    <p><strong>Nội dung chuyển khoản:</strong></p>
-                                    <code>THANH TOAN <?= $event['ID_DatLich'] ?> <?= strtoupper($event['TenSuKien']) ?></code>
+                            <div class="col-md-6">
+                                    <div class="payment-type-card" data-type="deposit" id="depositCard">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="paymentType" id="depositPayment" value="deposit" 
+                                                   <?= ($paymentTypeParam === 'deposit' && !$requiresFullPayment && $event['TrangThaiThanhToan'] !== 'Đã đặt cọc') ? 'checked' : '' ?>
+                                                   <?= ($requiresFullPayment || $event['TrangThaiThanhToan'] === 'Đã đặt cọc') ? 'disabled' : '' ?>>
+                                            <label class="form-check-label w-100" for="depositPayment">
+                                                <strong>Đặt cọc</strong>
+                                                <br>
+                                                <span class="text-primary fw-bold"><?= number_format($depositAmount, 0, ',', '.') ?> VNĐ</span>
+                                                <br>
+                                                <small class="text-muted">Thanh toán 30% để giữ chỗ</small>
+                                                <?php if ($requiresFullPayment): ?>
+                                                <br><small class="text-danger"><i class="fas fa-ban"></i> Sự kiện diễn ra trong vòng 7 ngày, không thể đặt cọc</small>
+                                                <?php endif; ?>
+                                            </label>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="qr-code">
-                                <img src="../img/qr-code-banking.png" alt="QR Code" class="img-fluid" style="max-width: 200px;">
-                                <p class="text-muted mt-2">Quét mã QR để chuyển khoản</p>
+                            <div class="col-md-6">
+                                    <div class="payment-type-card" data-type="full" id="fullCard">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="paymentType" id="fullPayment" value="full"
+                                                   <?= ($paymentTypeParam === 'full' || $requiresFullPayment || $event['TrangThaiThanhToan'] === 'Đã đặt cọc') ? 'checked' : '' ?>
+                                                   <?= (!$requiresFullPayment && $event['TrangThaiThanhToan'] !== 'Đã đặt cọc') ? 'disabled' : '' ?>>
+                                            <label class="form-check-label w-100" for="fullPayment">
+                                                <strong>Thanh toán đủ</strong>
+                                                <br>
+                                                <span class="text-success fw-bold"><?= number_format($totalAmount, 0, ',', '.') ?> VNĐ</span>
+                                                <br>
+                                                <small class="text-muted">Thanh toán toàn bộ số tiền</small>
+                                                <?php if ($requiresFullPayment): ?>
+                                                <br><small class="text-warning"><i class="fas fa-exclamation-triangle"></i> Bắt buộc thanh toán đủ (sự kiện diễn ra trong vòng 7 ngày)</small>
+                                                <?php endif; ?>
+                                                <?php if ($paymentDeadline): ?>
+                                                <br><small class="<?= $paymentDeadline['is_past_deadline'] ? 'text-danger' : ($paymentDeadline['is_approaching'] ? 'text-warning' : 'text-info') ?>">
+                                                    <i class="fas fa-clock"></i> Hạn: <?= $paymentDeadline['deadline_formatted'] ?>
+                                                    <?= $paymentDeadline['is_past_deadline'] ? '<br><strong>⚠️ Đã quá hạn! Phải đến công ty đóng tiền mặt.</strong>' : '' ?>
+                                                </small>
+                                                <?php endif; ?>
+                                            </label>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Cash Payment Information (hidden by default) -->
-                <div class="card mb-4" id="cashInfo" style="display: none;">
-                    <div class="card-header">
-                        <h4><i class="fas fa-money-bill-wave"></i> Thông tin thanh toán tiền mặt</h4>
+                        <!-- Contact Information -->
+                        <div class="info-card">
+                            <h5><i class="fas fa-user"></i> Thông tin liên lạc</h5>
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-info-circle"></i> 
+                                <small>Vui lòng kiểm tra và cập nhật thông tin liên lạc để chúng tôi có thể liên hệ với bạn về thanh toán.</small>
                     </div>
-                    <div class="card-body">
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i>
-                            <strong>Lưu ý:</strong> Bạn cần đến văn phòng công ty để thanh toán trực tiếp bằng tiền mặt.
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-building"></i> Thông tin công ty</h6>
-                                <p><strong>Tên công ty:</strong> CÔNG TY TNHH QUẢN LÝ SỰ KIỆN ABC</p>
-                                <p><strong>Địa chỉ:</strong> 123 Đường Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh</p>
-                                <p><strong>Số điện thoại:</strong> (028) 1234-5678</p>
-                                <p><strong>Email:</strong> info@eventabc.com</p>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Họ tên <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="invoiceName" value="<?= htmlspecialchars($event['HoTen'] ?? '') ?>" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Số điện thoại <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="invoicePhone" value="<?= htmlspecialchars($event['SoDienThoai'] ?? '') ?>" required>
+                                    <small class="text-muted">Số điện thoại để liên lạc (có thể khác với số đăng ký)</small>
+                                </div>
                             </div>
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-clock"></i> Giờ làm việc</h6>
-                                <p><strong>Thứ 2 - Thứ 6:</strong> 8:00 - 17:00</p>
-                                <p><strong>Thứ 7:</strong> 8:00 - 12:00</p>
-                                <p><strong>Chủ nhật:</strong> Nghỉ</p>
-                                <p><strong>Nghỉ lễ:</strong> Theo quy định nhà nước</p>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Email <span class="text-muted">(không thể thay đổi)</span></label>
+                                    <input type="email" class="form-control" id="invoiceEmail" value="<?= htmlspecialchars($event['UserEmail'] ?? '') ?>" readonly disabled style="background-color: #e9ecef; cursor: not-allowed;">
+                                    <small class="text-muted">Email đăng ký tài khoản (không thể thay đổi)</small>
                             </div>
-                        </div>
-                        <div class="mt-3">
-                            <h6><i class="fas fa-map-marker-alt"></i> Hướng dẫn đường đi</h6>
-                            <p class="text-muted">
-                                Từ trung tâm TP.HCM, đi theo đường Nguyễn Huệ về hướng Bến Nghé. 
-                                Văn phòng nằm ở tầng 5, tòa nhà ABC Plaza, đối diện với Vincom Center.
-                            </p>
-                        </div>
-                        <div class="mt-3">
-                            <h6><i class="fas fa-exclamation-triangle text-warning"></i> Lưu ý quan trọng</h6>
-                            <ul class="text-muted">
-                                <li>Vui lòng mang theo CMND/CCCD để xác minh danh tính</li>
-                                <li>Chuẩn bị đúng số tiền theo hóa đơn</li>
-                                <li>Nhận biên lai thanh toán sau khi hoàn tất</li>
-                                <li>Thanh toán sẽ được xác nhận trong vòng 24 giờ</li>
-                            </ul>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Địa chỉ</label>
+                                    <input type="text" class="form-control" id="invoiceAddress" value="<?= htmlspecialchars($event['DiaChiKhachHang'] ?? '') ?>" placeholder="Nhập địa chỉ liên lạc">
+                                    <small class="text-muted">Địa chỉ để liên lạc (có thể khác với địa chỉ đăng ký)</small>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                    <!-- Summary Sidebar -->
+                    <div class="col-lg-4">
+                        <div class="summary-card">
+                            <h5 class="mb-3"><i class="fas fa-receipt"></i> Tóm tắt thanh toán</h5>
+                            
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Giá loại sự kiện:</span>
+                                    <strong><?= number_format($eventTypePrice, 0, ',', '.') ?> VNĐ</strong>
+                    </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Giá địa điểm:</span>
+                                    <strong><?= number_format($locationPrice, 0, ',', '.') ?> VNĐ</strong>
+                        </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Giá thiết bị:</span>
+                                    <strong><?= number_format($equipmentPrice, 0, ',', '.') ?> VNĐ</strong>
+                            </div>
+                                <hr>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span><strong>Tổng tiền:</strong></span>
+                                    <strong class="text-primary"><?= number_format($totalAmount, 0, ',', '.') ?> VNĐ</strong>
+                            </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Tiền cọc:</span>
+                                    <strong class="text-warning"><?= number_format($depositAmount, 0, ',', '.') ?> VNĐ</strong>
+                        </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Còn lại:</span>
+                                    <strong class="text-info"><?= number_format($remainingAmount, 0, ',', '.') ?> VNĐ</strong>
                 </div>
             </div>
 
-            <div class="col-md-4">
-                <!-- Payment Summary -->
-                <div class="card">
-                    <div class="card-header">
-                        <h4><i class="fas fa-receipt"></i> Tóm tắt thanh toán</h4>
-                    </div>
-                    <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label">Loại thanh toán</label>
-                            <select class="form-select" id="paymentType">
-                                <option value="Đặt cọc">Đặt cọc (30%)</option>
-                                <option value="Thanh toán đủ">Thanh toán đủ (100%)</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Số tiền</label>
+                                <label class="form-label"><strong>Số tiền thanh toán:</strong></label>
                             <div class="input-group">
-                                <input type="number" class="form-control" id="amount" readonly>
+                                    <input type="text" class="form-control form-control-lg text-center fw-bold" id="amountDisplay" readonly>
                                 <span class="input-group-text">VNĐ</span>
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Ghi chú</label>
-                            <textarea class="form-control" id="note" rows="3" placeholder="Ghi chú thêm (tùy chọn)"></textarea>
-                        </div>
-
                         <div class="d-grid">
                             <button class="btn btn-primary btn-lg" id="proceedPayment" disabled>
-                                <i class="fas fa-credit-card"></i> Tiến hành thanh toán
+                                    <i class="fas fa-credit-card"></i> Xác nhận thanh toán
                             </button>
                         </div>
 
-                        <div class="mt-3">
+                            <div class="mt-3 text-center">
                             <small class="text-muted">
                                 <i class="fas fa-shield-alt"></i> 
                                 Thông tin thanh toán được mã hóa và bảo mật
@@ -299,236 +513,546 @@ $remainingAmount = $totalAmount - $depositAmount;
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Loading Modal -->
-    <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static">
-        <div class="modal-dialog modal-sm">
-            <div class="modal-content">
-                <div class="modal-body text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2">Đang xử lý thanh toán...</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="../assets/js/csrf-helper.js"></script>
     <script>
-        let selectedMethod = null;
-        let totalAmount = <?= $totalAmount ?>;
-        let depositAmount = <?= $depositAmount ?>;
-        let remainingAmount = <?= $remainingAmount ?>;
-
-        // Update amount based on payment type
-        function updateAmount() {
-            const paymentType = document.getElementById('paymentType').value;
-            const amount = paymentType === 'Đặt cọc' ? depositAmount : totalAmount;
-            document.getElementById('amount').value = amount;
+        const eventId = <?= $eventId ?>;
+        const totalAmount = <?= $totalAmount ?>;
+        const depositAmount = <?= $depositAmount ?>;
+        const requiresFullPayment = <?= $requiresFullPayment ? 'true' : 'false' ?>;
+        const hasDeposit = <?= ($event['TrangThaiThanhToan'] === 'Đã đặt cọc') ? 'true' : 'false' ?>;
+        
+        let selectedPaymentType = '<?= $paymentTypeParam ?>';
+        let selectedPaymentMethod = null;
+        
+        // Update amount display
+        function updateAmountDisplay() {
+            const amount = selectedPaymentType === 'deposit' ? depositAmount : totalAmount;
+            $('#amountDisplay').val(new Intl.NumberFormat('vi-VN').format(amount));
         }
-
-        // Payment method selection
-        document.querySelectorAll('.payment-method-card').forEach(card => {
-            card.addEventListener('click', function() {
-                // Remove previous selection
-                document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('selected'));
-                
-                // Add selection to clicked card
-                this.classList.add('selected');
-                selectedMethod = this.dataset.method;
-                
-                // Show/hide banking info and cash info
-                const bankingInfo = document.getElementById('bankingInfo');
-                const cashInfo = document.getElementById('cashInfo');
-                const paymentTypeSelect = document.getElementById('paymentType');
-                
-                if (selectedMethod === 'Chuyển khoản') {
-                    bankingInfo.style.display = 'block';
-                    cashInfo.style.display = 'none';
-                    // Banking must be deposit
-                    paymentTypeSelect.value = 'Đặt cọc';
-                    paymentTypeSelect.disabled = true;
-                    updateAmount();
-                } else if (selectedMethod === 'Tiền mặt') {
-                    bankingInfo.style.display = 'none';
-                    cashInfo.style.display = 'block';
-                    // Cash must be full payment
-                    paymentTypeSelect.value = 'Thanh toán đủ';
-                    paymentTypeSelect.disabled = true;
-                    updateAmount();
-                } else if (selectedMethod === 'Momo' || selectedMethod === 'ZaloPay') {
-                    bankingInfo.style.display = 'none';
-                    cashInfo.style.display = 'none';
-                    // E-wallet must be deposit
-                    paymentTypeSelect.value = 'Đặt cọc';
-                    paymentTypeSelect.disabled = true;
-                    updateAmount();
-                } else if (selectedMethod === 'SePay') {
-                    bankingInfo.style.display = 'block';
-                    cashInfo.style.display = 'none';
-                    // SePay must be deposit
-                    paymentTypeSelect.value = 'Đặt cọc';
-                    paymentTypeSelect.disabled = true;
-                    updateAmount();
-                } else {
-                    bankingInfo.style.display = 'none';
-                    cashInfo.style.display = 'none';
-                    paymentTypeSelect.disabled = false;
-                }
-                
-                // Enable proceed button
-                document.getElementById('proceedPayment').disabled = false;
-            });
+        
+        // Update payment type card selection
+        function updatePaymentTypeSelection() {
+            $('.payment-type-card').removeClass('selected');
+            if (selectedPaymentType === 'deposit') {
+                $('#depositCard').addClass('selected');
+            } else {
+                $('#fullCard').addClass('selected');
+            }
+        }
+        
+        // Payment type selection
+        $('input[name="paymentType"]').on('change', function() {
+            selectedPaymentType = $(this).val();
+            updateAmountDisplay();
+            updatePaymentTypeSelection();
+            checkProceedButton();
         });
 
-        // Payment type change
-        document.getElementById('paymentType').addEventListener('change', updateAmount);
+        // Payment method selection
+        $('.payment-method-card').on('click', function() {
+            $('.payment-method-card').removeClass('selected');
+            $(this).addClass('selected');
+            selectedPaymentMethod = $(this).data('method');
+            
+            // Show payment type section
+            $('#paymentTypeSection').slideDown(300);
+            
+            // Show/hide payment details
+            $('.payment-details').hide();
+            $('#paymentDetails').show();
+            if (selectedPaymentMethod === 'sepay') {
+                $('#sepayDetails').show();
+                // SePay: restore payment type logic
+                if (requiresFullPayment || hasDeposit) {
+                    $('#depositPayment').prop('disabled', true);
+                    $('#fullPayment').prop('checked', true).prop('disabled', false);
+                    selectedPaymentType = 'full';
+                } else {
+                    $('#depositPayment').prop('disabled', false);
+                    $('#fullPayment').prop('disabled', true);
+                    selectedPaymentType = 'deposit';
+                    $('#depositPayment').prop('checked', true);
+                }
+                updateAmountDisplay();
+                updatePaymentTypeSelection();
+            } else if (selectedPaymentMethod === 'cash') {
+                $('#cashDetails').show();
+                    // Cash must be full payment
+                $('#depositPayment').prop('disabled', true);
+                $('#fullPayment').prop('checked', true).prop('disabled', false);
+                selectedPaymentType = 'full';
+                updateAmountDisplay();
+                updatePaymentTypeSelection();
+            }
+            
+            checkProceedButton();
+        });
+        
+        // Check if proceed button should be enabled
+        function checkProceedButton() {
+            const invoiceName = $('#invoiceName').val().trim();
+            const invoicePhone = $('#invoicePhone').val().trim();
+            
+            if (selectedPaymentMethod && selectedPaymentType && invoiceName && invoicePhone) {
+                $('#proceedPayment').prop('disabled', false);
+            } else {
+                $('#proceedPayment').prop('disabled', true);
+            }
+        }
+        
+        // Validate contact info
+        $('#invoiceName, #invoicePhone').on('input', checkProceedButton);
+        
+        // Initialize
+        updateAmountDisplay();
+        updatePaymentTypeSelection();
 
         // Proceed payment
-        document.getElementById('proceedPayment').addEventListener('click', function() {
-            if (!selectedMethod) {
+        $('#proceedPayment').on('click', function() {
+            if (!selectedPaymentMethod) {
                 alert('Vui lòng chọn phương thức thanh toán');
                 return;
             }
 
-            const amount = document.getElementById('amount').value;
-            const note = document.getElementById('note').value;
-            const paymentType = document.getElementById('paymentType').value;
+            const invoiceName = $('#invoiceName').val().trim();
+            const invoicePhone = $('#invoicePhone').val().trim();
+            
+            if (!invoiceName || !invoicePhone) {
+                alert('Vui lòng điền đầy đủ thông tin liên lạc (Họ tên và Số điện thoại)');
+                return;
+            }
 
-            // Show loading modal
-            const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
-            loadingModal.show();
-
-            // Create payment
-            const formData = new FormData();
-            formData.append('action', 'create_payment');
-            formData.append('event_id', <?= $event['ID_DatLich'] ?>);
-            formData.append('amount', amount);
-            formData.append('payment_type', paymentType === 'Đặt cọc' ? 'deposit' : 'full');
-            formData.append('payment_method', selectedMethod === 'Tiền mặt' ? 'cash' : 
-                           selectedMethod === 'Chuyển khoản' ? 'banking' : 
-                           selectedMethod === 'Momo' ? 'momo' : 
-                           selectedMethod === 'SePay' ? 'sepay' : 'zalo');
-            formData.append('note', note);
-
-            fetch('../src/controllers/payment.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                loadingModal.hide();
+            const amount = selectedPaymentType === 'deposit' ? depositAmount : totalAmount;
+            const invoiceData = {
+                name: invoiceName,
+                phone: invoicePhone,
+                address: $('#invoiceAddress').val().trim() || null
+            };
+            
+            if (confirm(`Xác nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(amount)} VNĐ qua ${selectedPaymentMethod === 'sepay' ? 'SePay Banking' : 'Tiền mặt'}?`)) {
+                // Show loading
+                $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang xử lý...');
                 
-                if (data.success) {
-                    if (selectedMethod === 'Momo' && data.momo_url) {
-                        // Redirect to Momo payment
-                        window.location.href = data.momo_url;
-                    } else if (selectedMethod === 'Chuyển khoản') {
-                        // Show banking info and redirect to payment status
-                        alert('Vui lòng chuyển khoản theo thông tin bên dưới và xác nhận thanh toán');
-                        window.location.href = `payment-status.php?payment_id=${data.payment_id}`;
-                    } else if (selectedMethod === 'SePay') {
-                        // Show SePay form
-                        showSePayForm(data.payment_id, amount);
-                    } else if (selectedMethod === 'Tiền mặt') {
-                        // For cash, set to processing and return to My Events
+                // Prepare API data
+            let apiAction, apiData;
+            
+            if (selectedPaymentMethod === 'sepay') {
+                apiAction = 'create_sepay_payment';
+                apiData = {
+                    action: apiAction,
+                    event_id: eventId,
+                    amount: amount,
+                    payment_type: selectedPaymentType,
+                    invoice_data: invoiceData
+                };
+            } else {
+                apiAction = 'create_payment';
+                apiData = {
+                    action: apiAction,
+                    event_id: eventId,
+                    amount: amount,
+                    payment_method: 'cash',
+                    payment_type: selectedPaymentType,
+                    invoice_data: invoiceData
+                };
+            }
+            
+            // Đảm bảo CSRF token được thêm vào trước khi gửi request
+            const sendPaymentRequest = async () => {
+                    try {
+                        // Lấy CSRF token
+                        const csrfToken = await (window.CSRFHelper ? window.CSRFHelper.getToken() : Promise.resolve(null));
+                        
+                        // Thêm token vào data nếu chưa có
+                        if (csrfToken && !apiData.csrf_token) {
+                            apiData.csrf_token = csrfToken;
+                        }
+                        
+                        // Process payment
+                        $.ajax({
+                            url: '../src/controllers/payment.php',
+                method: 'POST',
+                            data: apiData,
+                            dataType: 'json',
+                            beforeSend: function(xhr) {
+                                if (csrfToken) {
+                                    xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+                                }
+                            },
+                            success: function(response) {
+                                console.log('Payment Response:', response);
+                                
+                                if (response.success) {
+                                    if (selectedPaymentMethod === 'cash') {
                         alert('Yêu cầu thanh toán tiền mặt đã được tạo. Trạng thái: Đang xử lý.');
-                        window.location.href = `../events/my-events.php`;
+                                        window.location.href = '../events/my-events.php';
+                                    } else if (response.bank_info || response.qr_code || response.qr_string) {
+                                        // Hiển thị QR code và thông tin ngân hàng ngay trên trang
+                                        console.log('Calling showSePayQRCode with:', response);
+                                        showSePayQRCode(response);
+                                        
+                                        // ✅ Tự động bắt đầu polling sau 30 giây (để user có thời gian chuyển khoản)
+                                        if (response.payment_id) {
+                                            setTimeout(function() {
+                                                console.log('Starting auto-polling for payment:', response.payment_id);
+                                                startAutoPolling(response.payment_id, response.transaction_code || response.transaction_id);
+                                            }, 30000); // Đợi 30 giây trước khi bắt đầu polling
+                                        }
                     } else {
-                        // Other payment methods
-                        alert('Thanh toán đã được tạo. Vui lòng liên hệ admin để xác nhận.');
+                                        console.warn('Response không có bank_info hoặc qr_code:', response);
+                                        alert('Thanh toán thành công! Chúng tôi sẽ xác nhận trong thời gian sớm nhất.');
                         window.location.href = '../events/my-events.php';
                     }
                 } else {
-                    alert('Lỗi: ' + (data.error || 'Không thể tạo thanh toán'));
-                }
-            })
-            .catch(error => {
-                loadingModal.hide();
-                alert('Lỗi: ' + error.message);
-            });
+                                    alert('Lỗi thanh toán: ' + response.error);
+                                    $('#proceedPayment').prop('disabled', false).html('<i class="fas fa-credit-card"></i> Xác nhận thanh toán');
+                                }
+                            },
+                            error: function(xhr, status, error) {
+                                console.error('Payment Error:', xhr, status, error);
+                                console.error('Response:', xhr.responseText);
+                                
+                                // Nếu lỗi CSRF, thử refresh token và gửi lại
+                                if (xhr.status === 403 && xhr.responseJSON && xhr.responseJSON.code === 'CSRF_TOKEN_INVALID') {
+                                    if (window.CSRFHelper) {
+                                        window.CSRFHelper.refreshToken().then(() => {
+                                            alert('Phiên làm việc đã hết hạn. Vui lòng thử lại.');
+                                            location.reload();
+                                        });
+                                    } else {
+                                        alert('Lỗi xác thực. Vui lòng tải lại trang và thử lại.');
+                                    }
+                                } else {
+                                    alert('Lỗi kết nối. Vui lòng thử lại.');
+                                }
+                                $('#proceedPayment').prop('disabled', false).html('<i class="fas fa-credit-card"></i> Xác nhận thanh toán');
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Error getting CSRF token:', error);
+                        alert('Lỗi xác thực. Vui lòng tải lại trang và thử lại.');
+                        $('#proceedPayment').prop('disabled', false).html('<i class="fas fa-credit-card"></i> Xác nhận thanh toán');
+                    }
+                };
+                
+                // Gọi hàm async
+                sendPaymentRequest();
+            }
         });
-
-        // SePay form function
-        function showSePayForm(paymentId, amount) {
-            // Create modal for SePay form
-            const modalHtml = `
-                <div class="modal fade" id="sepayModal" tabindex="-1">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">
-                                    <i class="fas fa-university"></i>
-                                    Thanh toán qua SePay
-                                </h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="text-center mb-3">
-                                    <h6>Số tiền: <strong>${formatCurrency(amount)} VNĐ</strong></h6>
-                                    <p class="text-muted">Vui lòng click vào nút bên dưới để chuyển đến trang thanh toán SePay</p>
+        
+        // Hiển thị QR code và thông tin ngân hàng SePay
+        function showSePayQRCode(paymentData) {
+            console.log('showSePayQRCode called with:', paymentData);
+            
+            try {
+                // Tạo HTML hiển thị QR code và thông tin ngân hàng
+                const qrCodeHtml = `
+                <div class="row justify-content-center">
+                    <div class="col-lg-10">
+                        <div class="info-card text-center">
+                            <h5 class="mb-4"><i class="fas fa-qrcode text-primary"></i> Quét mã QR để thanh toán</h5>
+                            
+                            <div class="mb-4">
+                                <div id="qrcodeContainer" class="d-flex justify-content-center mb-3">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Đang tạo QR code...</span>
+                                    </div>
                                 </div>
-                                <div id="sepayFormContainer">
-                                    <div class="text-center">
-                                        <div class="spinner-border" role="status">
-                                            <span class="visually-hidden">Đang tải...</span>
+                                <p class="text-muted small">Vui lòng đợi QR code được tạo...</p>
+                            </div>
+                            
+                            <div class="row mt-4">
+                                <div class="col-md-6 mb-3">
+                                    <div class="info-card">
+                                        <h6 class="text-primary mb-3"><i class="fas fa-info-circle"></i> Thông tin thanh toán</h6>
+                                        <table class="table table-sm table-borderless text-start">
+                                            <tr><td class="text-muted" style="width: 40%;">Sự kiện:</td><td><strong>${paymentData.event_name || 'N/A'}</strong></td></tr>
+                                            <tr><td class="text-muted">Số tiền:</td><td><strong class="text-primary">${new Intl.NumberFormat('vi-VN').format(paymentData.amount)} VNĐ</strong></td></tr>
+                                            <tr><td class="text-muted">Mã giao dịch:</td><td><code>${paymentData.transaction_code || paymentData.transaction_id || 'N/A'}</code></td></tr>
+                                        </table>
+                                </div>
                                         </div>
-                                        <p class="mt-2">Đang tải form thanh toán...</p>
+                                <div class="col-md-6 mb-3">
+                                    <div class="info-card">
+                                        <h6 class="text-primary mb-3"><i class="fas fa-university"></i> Thông tin ngân hàng</h6>
+                                        <table class="table table-sm table-borderless text-start">
+                                            <tr><td class="text-muted" style="width: 40%;">Ngân hàng:</td><td><strong>${paymentData.bank_info?.bank_name || 'N/A'}</strong></td></tr>
+                                            <tr><td class="text-muted">Số tài khoản:</td><td><code>${paymentData.bank_info?.account_number || 'N/A'}</code></td></tr>
+                                            <tr><td class="text-muted">Chủ tài khoản:</td><td>${paymentData.bank_info?.account_name || 'N/A'}</td></tr>
+                                            <tr><td class="text-muted">Nội dung:</td><td><code class="text-break">${paymentData.bank_info?.content || 'N/A'}</code></td></tr>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                            
+                            <div class="d-flex justify-content-center gap-2 mt-4">
+                                <button class="btn btn-secondary" onclick="window.location.href='../events/my-events.php'">
+                                    <i class="fas fa-arrow-left"></i> Quay lại
+                                </button>
+                                <button class="btn btn-success" onclick="verifyPaymentStatus(${paymentData.payment_id}, '${paymentData.transaction_code || paymentData.transaction_id}')">
+                                    <i class="fas fa-check-circle"></i> Xác nhận thanh toán
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
             `;
             
-            // Remove existing modal if any
-            const existingModal = document.getElementById('sepayModal');
-            if (existingModal) {
-                existingModal.remove();
+                // Thay thế toàn bộ nội dung trong payment-content
+                const $paymentContent = $('.payment-content');
+                if ($paymentContent.length === 0) {
+                    console.error('Không tìm thấy .payment-content');
+                    alert('Lỗi: Không thể hiển thị QR code. Vui lòng thử lại.');
+                    return;
+                }
+                
+                $paymentContent.html(qrCodeHtml);
+                
+                // Generate QR Code sau khi HTML đã được thêm
+                setTimeout(function() {
+                    generateQRCodeWithFallback(paymentData);
+                }, 100);
+            } catch (error) {
+                console.error('Lỗi khi hiển thị QR code:', error);
+                alert('Lỗi khi hiển thị QR code. Vui lòng thử lại.');
+            }
+        }
+        
+        // Generate QR Code with fallback
+        function generateQRCodeWithFallback(paymentData) {
+            try {
+                let qrUrl = paymentData.qr_code || paymentData.qr_string || '';
+                const fallbackQr = paymentData.fallback_qr || '';
+                
+                if (!qrUrl && paymentData.bank_info) {
+                    // Tạo QR từ thông tin ngân hàng
+                    const qrData = `Bank: ${paymentData.bank_info.bank_name}\nAccount: ${paymentData.bank_info.account_number}\nAmount: ${paymentData.amount}\nContent: ${paymentData.bank_info.content}`;
+                    qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`;
+                }
+                
+                // Danh sách QR services để thử
+                const qrServices = [];
+                
+                // Nếu có VietQR URL, thêm với proxy
+                if (qrUrl && qrUrl.includes('vietqr.io')) {
+                    const withoutProtocol = qrUrl.replace(/^https?:\/\//, '');
+                    qrServices.push(`https://images.weserv.nl/?url=${encodeURIComponent(withoutProtocol)}`);
+                    qrServices.push(`https://wsrv.nl/?url=${encodeURIComponent(withoutProtocol)}`);
+                }
+                
+                // Thêm QR URL gốc
+                if (qrUrl) {
+                    qrServices.push(qrUrl);
+                }
+                
+                // Thêm fallback QR
+                if (fallbackQr) {
+                    qrServices.push(fallbackQr);
+                }
+                
+                // Thêm các QR services khác
+                if (paymentData.bank_info) {
+                    const qrData = `Bank: ${paymentData.bank_info.bank_name}\nAccount: ${paymentData.bank_info.account_number}\nAmount: ${paymentData.amount}\nContent: ${paymentData.bank_info.content}`;
+                    qrServices.push(`https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=${encodeURIComponent(qrData)}`);
+                    qrServices.push(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}&format=png`);
+                }
+                
+                // Thử từng service
+                let currentService = 0;
+                const qrContainer = $('#qrcodeContainer');
+                
+                if (qrContainer.length === 0) {
+                    console.error('Không tìm thấy #qrcodeContainer');
+                    return;
+                }
+                
+                function tryNextService() {
+                    if (currentService >= qrServices.length) {
+                        // Tất cả services đều fail, hiển thị thông tin thủ công
+                        qrContainer.html(`
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <h6>QR Code không khả dụng</h6>
+                                <p class="mb-0">Vui lòng chuyển khoản theo thông tin ngân hàng bên dưới</p>
+                            </div>
+                        `);
+                        return;
+                    }
+                    
+                    const img = new Image();
+                    img.onload = function() {
+                        qrContainer.html(`
+                            <img src="${qrServices[currentService]}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px; max-height: 300px;">
+                        `);
+                    };
+                    img.onerror = function() {
+                        currentService++;
+                        tryNextService();
+                    };
+                    img.src = qrServices[currentService];
+                }
+                
+                tryNextService();
+            } catch (error) {
+                console.error('Lỗi khi tạo QR code:', error);
+                const qrContainer = $('#qrcodeContainer');
+                if (qrContainer.length > 0) {
+                    qrContainer.html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h6>Lỗi khi tạo QR Code</h6>
+                            <p class="mb-0">Vui lòng chuyển khoản theo thông tin ngân hàng bên dưới</p>
+                        </div>
+                    `);
+                }
+            }
+        }
+        
+        // Verify payment status - tự động kiểm tra trạng thái khi xác nhận
+        function verifyPaymentStatus(paymentId, transactionCode) {
+            if (!confirm('Bạn đã hoàn tất chuyển khoản? Hệ thống sẽ kiểm tra và xác nhận thanh toán.')) {
+                return;
             }
             
-            // Add modal to body
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            // Hiển thị loading
+            const verifyBtn = event.target;
+            const originalText = verifyBtn.innerHTML;
+            verifyBtn.disabled = true;
+            verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra...';
             
-            // Show modal
-            const modal = new bootstrap.Modal(document.getElementById('sepayModal'));
-            modal.show();
-            
-            // Load SePay form
-            fetch(`../src/controllers/payment.php?action=get_sepay_form&event_id=<?= $event['ID_DatLich'] ?>&amount=${amount}&payment_type=deposit`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('sepayFormContainer').innerHTML = data.form_html;
+            // Gọi API verify payment (tự động kiểm tra trạng thái)
+            $.ajax({
+                url: '../src/controllers/payment.php',
+                method: 'POST',
+                data: {
+                    action: 'verify_payment',
+                    payment_id: paymentId,
+                    transaction_code: transactionCode
+                },
+                dataType: 'json',
+                success: function(response) {
+                    verifyBtn.disabled = false;
+                    verifyBtn.innerHTML = originalText;
+                    
+                    if (response.success) {
+                        if (response.is_success) {
+                            // ✅ Thanh toán thành công → Redirect đến success.php
+                            const successUrl = `success.php?payment_id=${paymentId}&amount=${response.amount}&order_id=${response.transaction_code}`;
+                            window.location.href = successUrl;
+                        } else if (response.is_pending) {
+                            // ⏳ Đang xử lý → Bắt đầu auto-polling
+                            startAutoPolling(paymentId, transactionCode);
+                            alert('⏳ ' + response.message + '\n\nHệ thống đang tự động kiểm tra. Vui lòng đợi...');
+                        } else {
+                            // ❌ Thất bại → Redirect đến failure.php
+                            const failureUrl = `failure.php?payment_id=${paymentId}&order_id=${response.transaction_code}&message=${encodeURIComponent(response.message)}`;
+                            window.location.href = failureUrl;
+                        }
                     } else {
-                        document.getElementById('sepayFormContainer').innerHTML = `
-                            <div class="alert alert-danger">
-                                <i class="fas fa-exclamation-circle"></i>
-                                Lỗi tải form SePay: ${data.error}
-                            </div>
-                        `;
+                        alert('❌ Lỗi: ' + (response.error || 'Không thể xác nhận thanh toán'));
                     }
-                })
-                .catch(error => {
-                    document.getElementById('sepayFormContainer').innerHTML = `
-                        <div class="alert alert-danger">
-                            <i class="fas fa-exclamation-circle"></i>
-                            Lỗi tải form SePay: ${error.message}
-                        </div>
-                    `;
-                });
+                },
+                error: function() {
+                    verifyBtn.disabled = false;
+                    verifyBtn.innerHTML = originalText;
+                    alert('❌ Lỗi kết nối khi xác nhận thanh toán. Vui lòng thử lại sau.');
+                }
+            });
         }
-
-        // Initialize
-        updateAmount();
+        
+        // Auto-polling để tự động kiểm tra payment status sau khi user chuyển khoản
+        let pollingInterval = null;
+        let pollingAttempts = 0;
+        const MAX_POLLING_ATTEMPTS = 60; // Tối đa 60 lần (5 phút nếu mỗi 5 giây)
+        
+        function startAutoPolling(paymentId, transactionCode) {
+            // Dừng polling cũ nếu có
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+            
+            pollingAttempts = 0;
+            
+            // Hiển thị thông báo đang kiểm tra
+            const statusDiv = $('.payment-status-message');
+            if (statusDiv.length === 0) {
+                $('.payment-content').prepend(`
+                    <div class="alert alert-info payment-status-message">
+                        <i class="fas fa-spinner fa-spin"></i> 
+                        Đang tự động kiểm tra trạng thái thanh toán...
+                        <div class="mt-2">
+                            <small>Hệ thống sẽ tự động cập nhật khi nhận được webhook từ SePay.</small>
+                        </div>
+                    </div>
+                `);
+            }
+            
+            // Bắt đầu polling mỗi 5 giây
+            pollingInterval = setInterval(function() {
+                pollingAttempts++;
+                
+                if (pollingAttempts > MAX_POLLING_ATTEMPTS) {
+                    // Dừng polling sau 5 phút
+                    clearInterval(pollingInterval);
+                    $('.payment-status-message').html(`
+                        <div class="alert alert-warning">
+                            <i class="fas fa-clock"></i> 
+                            Đã kiểm tra trong 5 phút nhưng chưa nhận được xác nhận.
+                            <div class="mt-2">
+                                <small>Vui lòng nhấn nút "Xác nhận thanh toán" để kiểm tra lại hoặc liên hệ hỗ trợ.</small>
+                            </div>
+                        </div>
+                    `);
+                    return;
+                }
+                
+                // Gọi API kiểm tra payment status
+                $.ajax({
+                    url: '../src/controllers/payment.php',
+                    method: 'POST',
+                    data: {
+                        action: 'verify_payment',
+                        payment_id: paymentId,
+                        transaction_code: transactionCode
+                    },
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            if (response.is_success) {
+                                // ✅ Thanh toán thành công → Dừng polling và redirect
+                                clearInterval(pollingInterval);
+                                const successUrl = `success.php?payment_id=${paymentId}&amount=${response.amount}&order_id=${response.transaction_code}`;
+                                window.location.href = successUrl;
+                            } else if (!response.is_pending) {
+                                // ❌ Thất bại → Dừng polling và redirect
+                                clearInterval(pollingInterval);
+                                const failureUrl = `failure.php?payment_id=${paymentId}&order_id=${response.transaction_code}&message=${encodeURIComponent(response.message)}`;
+                                window.location.href = failureUrl;
+                            }
+                            // Nếu vẫn pending, tiếp tục polling
+                        }
+                    },
+                    error: function() {
+                        // Lỗi kết nối, tiếp tục thử
+                        console.error('Polling error, retrying...');
+                    }
+                });
+            }, 5000); // Mỗi 5 giây
+        }
+        
+        // Dừng polling khi user rời trang
+        $(window).on('beforeunload', function() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+        });
     </script>
 </body>
 </html>

@@ -2,13 +2,13 @@
 session_start();
 require_once __DIR__ . '/../config/database.php';
 
-// Check if user is logged in and has role 2 (Quản lý tổ chức)
+// Kiểm tra người dùng đã đăng nhập và có role 2 (Quản lý tổ chức)
 if (!isset($_SESSION['user']) || $_SESSION['user']['ID_Role'] != 2) {
-    header('Location: login.php');
+    header('Location: ../login.php');
     exit;
 }
 
-// Get all plans with staff assignments
+// Lấy tất cả kế hoạch với phân công nhân viên
 try {
     $pdo = getDBConnection();
     $stmt = $pdo->query("
@@ -38,7 +38,7 @@ try {
     ");
     $plans = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Get all staff
+    // Lấy tất cả nhân viên
     $stmt = $pdo->query("
         SELECT 
             nv.ID_NhanVien,
@@ -415,7 +415,7 @@ try {
                                     <select class="form-select" id="scheduleEvent" name="event_id">
                                         <option value="">Chọn sự kiện (tùy chọn)</option>
                                         <?php
-                                        // Get approved events
+                                        // Lấy các sự kiện đã duyệt
                                         try {
                                             $stmt = $pdo->query("
                                                 SELECT dl.ID_DatLich, dl.TenSuKien, dl.NgayBatDau, dl.NgayKetThuc
@@ -485,25 +485,25 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <style>
-        /* Remove modal backdrop completely */
+        /* Xóa hoàn toàn backdrop của modal */
         .modal-backdrop {
             display: none !important;
         }
         
-        /* Ensure body doesn't get locked when modal is open */
+        /* Đảm bảo body không bị khóa khi modal mở */
         body.modal-open {
             overflow: auto !important;
             padding-right: 0 !important;
         }
         
-        /* Optional: Add a subtle overlay effect if you want some visual indication */
+        /* Tùy chọn: Thêm hiệu ứng overlay tinh tế nếu muốn có chỉ báo trực quan */
         .modal.show {
             background-color: rgba(0, 0, 0, 0.1);
         }
     </style>
 
     <script>
-        // Hide page loading overlay when page is fully loaded
+        // Ẩn overlay loading khi trang đã tải xong
         window.addEventListener('load', function() {
             const pageLoading = document.getElementById('pageLoading');
             if (pageLoading) {
@@ -511,7 +511,7 @@ try {
             }
         });
         
-        // Also hide loading overlay on DOMContentLoaded as fallback
+        // Cũng ẩn overlay loading trên DOMContentLoaded như dự phòng
         document.addEventListener('DOMContentLoaded', function() {
             setTimeout(function() {
                 const pageLoading = document.getElementById('pageLoading');
@@ -577,7 +577,7 @@ try {
             });
         }
 
-        // Show staff info when selected
+        // Hiển thị thông tin nhân viên khi được chọn
         document.getElementById('staffSelect').addEventListener('change', function() {
             const selectedOption = this.options[this.selectedIndex];
             const staffInfo = document.getElementById('staffInfo');
@@ -599,19 +599,19 @@ try {
             }
         });
         
-        // Show create schedule modal
+        // Hiển thị modal tạo lịch
         function showCreateScheduleModal() {
             const modal = new bootstrap.Modal(document.getElementById('createScheduleModal'));
             modal.show();
         }
         
-        // Save schedule function
+        // Hàm lưu lịch
         function saveSchedule() {
             const form = document.getElementById('createScheduleForm');
             const formData = new FormData(form);
             formData.append('action', 'create_assignment');
             
-            // Validate required fields
+            // Validate các trường bắt buộc
             const staffId = formData.get('staff_id');
             const taskDescription = formData.get('task_description');
             const startDate = formData.get('start_date');
@@ -622,7 +622,7 @@ try {
                 return;
             }
             
-            // Validate dates
+            // Validate ngày tháng
             if (new Date(startDate) > new Date(endDate)) {
                 alert('Ngày kết thúc phải sau ngày bắt đầu');
                 return;

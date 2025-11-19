@@ -1239,6 +1239,35 @@ if (!in_array($userRole, [1, 3, 5])) {
     <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
     <!-- Socket.IO - Sử dụng CDN cho production, local server cho development -->
     <script>
+    // ✅ Global flag để biết Socket.IO đã load chưa
+    window.socketIOLoaded = false;
+    window.socketIOReadyCallbacks = [];
+    
+    // ✅ Hàm để đăng ký callback khi Socket.IO sẵn sàng
+    function onSocketIOReady(callback) {
+        if (window.socketIOLoaded && typeof io !== 'undefined') {
+            // Socket.IO đã load, gọi callback ngay
+            callback();
+        } else {
+            // Chưa load, thêm vào queue
+            window.socketIOReadyCallbacks.push(callback);
+        }
+    }
+    
+    // ✅ Hàm để trigger tất cả callbacks khi Socket.IO đã load
+    function triggerSocketIOReady() {
+        window.socketIOLoaded = true;
+        console.log('✅ Socket.IO is ready, triggering callbacks...');
+        window.socketIOReadyCallbacks.forEach(callback => {
+            try {
+                callback();
+            } catch (e) {
+                console.error('Error in Socket.IO ready callback:', e);
+            }
+        });
+        window.socketIOReadyCallbacks = [];
+    }
+    
     // Load Socket.IO client
     (function() {
         const hostname = window.location.hostname;
@@ -1252,28 +1281,62 @@ if (!in_array($userRole, [1, 3, 5])) {
             // Production: Use CDN directly
             socketScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
             socketScript.onload = function() {
-                console.log('Socket.IO loaded from CDN (production)');
+                console.log('✅ Socket.IO loaded from CDN (production)');
+                if (typeof io !== 'undefined') {
+                    triggerSocketIOReady();
+                } else {
+                    // Đợi thêm một chút nếu io chưa sẵn sàng
+                    setTimeout(() => {
+                        if (typeof io !== 'undefined') {
+                            triggerSocketIOReady();
+                        } else {
+                            console.error('❌ Socket.IO script loaded but io is undefined');
+                        }
+                    }, 100);
+                }
             };
             socketScript.onerror = function() {
-                console.error('Failed to load Socket.IO from CDN');
+                console.error('❌ Failed to load Socket.IO from CDN');
             };
         } else {
             // Development: Try local server first
             socketScript.src = 'http://localhost:3000/socket.io/socket.io.js';
             socketScript.onerror = function() {
-                console.warn('Local Socket.IO server not available, using CDN fallback');
+                console.warn('⚠️ Local Socket.IO server not available, using CDN fallback');
                 const cdnScript = document.createElement('script');
                 cdnScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
                 cdnScript.onload = function() {
-                    console.log('Socket.IO loaded from CDN');
+                    console.log('✅ Socket.IO loaded from CDN (fallback)');
+                    if (typeof io !== 'undefined') {
+                        triggerSocketIOReady();
+                    } else {
+                        setTimeout(() => {
+                            if (typeof io !== 'undefined') {
+                                triggerSocketIOReady();
+                            } else {
+                                console.error('❌ Socket.IO script loaded but io is undefined');
+                            }
+                        }, 100);
+                    }
                 };
                 cdnScript.onerror = function() {
-                    console.error('Failed to load Socket.IO from both server and CDN');
+                    console.error('❌ Failed to load Socket.IO from both server and CDN');
                 };
                 document.head.appendChild(cdnScript);
             };
             socketScript.onload = function() {
-                console.log('Socket.IO loaded from local server');
+                console.log('✅ Socket.IO loaded from local server');
+                if (typeof io !== 'undefined') {
+                    triggerSocketIOReady();
+                } else {
+                    setTimeout(() => {
+                        if (typeof io !== 'undefined') {
+                            triggerSocketIOReady();
+                        } else {
+                            console.error('❌ Socket.IO script loaded but io is undefined');
+                        }
+                    }, 100);
+                }
             };
         }
         
@@ -1333,15 +1396,44 @@ if (!in_array($userRole, [1, 3, 5])) {
         // Interval IDs for polling/auto-refresh (to prevent multiple intervals)
         let autoRefreshInterval = null;
         
+        // ✅ Flag để tránh gọi initSocket() nhiều lần cùng lúc
+        let isInitializingSocket = false;
+        
         // ✅ Initialize chat
         $(document).ready(() => {
             // Set initial connecting status
             updateConnectionStatus('connecting', 'Đang kết nối...');
             
-            // Khởi tạo socket ngay lập tức
+            // ✅ QUAN TRỌNG: Đợi Socket.IO load xong rồi mới khởi tạo socket
+            onSocketIOReady(function() {
+                console.log('🚀 Socket.IO is ready, initializing socket connection...');
+                
+                // Khởi tạo socket ngay khi Socket.IO đã sẵn sàng
             initSocket();
+            });
             
-            // Các hàm khác
+            // ✅ Fallback: Nếu Socket.IO đã load trước khi $(document).ready() chạy
+            // Kiểm tra lại sau 100ms để đảm bảo không bỏ sót
+            setTimeout(function() {
+                if (typeof io !== 'undefined' && !socket && window.socketIOLoaded) {
+                    console.log('🚀 Socket.IO already loaded, initializing socket connection (fallback)...');
+                    initSocket();
+                }
+            }, 100);
+            
+            // ✅ Fallback timeout: Nếu Socket.IO không load trong 5 giây, thử initSocket() anyway
+            // (có thể Socket.IO đã load nhưng callback chưa chạy)
+            setTimeout(function() {
+                if (typeof io !== 'undefined' && !socket) {
+                    console.log('🚀 Socket.IO detected after timeout, initializing socket connection...');
+                    initSocket();
+                } else if (typeof io === 'undefined') {
+                    console.warn('⚠️ Socket.IO not loaded after 5 seconds, chat will work in offline mode');
+                    updateConnectionStatus('offline', 'Chế độ offline - Socket.IO chưa tải');
+                }
+            }, 5000);
+            
+            // Các hàm khác (không phụ thuộc vào socket)
             setUserOnline(); // Set user online
             loadConversations();
             setupChatEvents();
@@ -1412,10 +1504,34 @@ if (!in_array($userRole, [1, 3, 5])) {
                 } else {
                     let html = '';
                     filtered.forEach(conv => {
-                        const time = new Date(conv.updated_at).toLocaleTimeString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        });
+                        // Xử lý thời gian với kiểm tra hợp lệ
+                        let time = '--:--';
+                        try {
+                            if (conv.updated_at) {
+                                const date = new Date(conv.updated_at);
+                                if (!isNaN(date.getTime())) {
+                                    time = date.toLocaleTimeString('vi-VN', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+                                } else {
+                                    time = new Date().toLocaleTimeString('vi-VN', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+                                }
+                            } else {
+                                time = new Date().toLocaleTimeString('vi-VN', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
+                            }
+                        } catch (e) {
+                            time = new Date().toLocaleTimeString('vi-VN', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        }
                         const isOnline = conv.is_online === true || conv.is_online === 1 || conv.is_online === '1';
                         html += `
                         <div class="conversation-item" data-id="${conv.id}" onclick="selectConversation(${conv.id})">
@@ -1434,23 +1550,32 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // ✅ Kết nối Socket.IO - Tự động reconnect liên tục như admin/chat.php
         function initSocket() {
-            console.log('Initializing Socket.IO...');
+            // ✅ Tránh gọi nhiều lần cùng lúc
+            if (isInitializingSocket) {
+                console.log('📡 Socket initialization already in progress, skipping...');
+                return;
+            }
+            
+            console.log('🚀 Initializing Socket.IO...');
             
             // Kiểm tra Socket.IO có sẵn không
             if (typeof io === 'undefined') {
-                console.warn('Socket.IO not loaded, chat will work without real-time features');
+                console.warn('⚠️ Socket.IO not loaded, chat will work without real-time features');
                 isConnected = false;
                 updateConnectionStatus('offline', 'Chế độ offline - Không có kết nối real-time');
                 return;
             }
             
-            console.log('Socket.IO available, creating connection...');
+            console.log('✅ Socket.IO available, creating connection...');
             
             // QUAN TRỌNG: Nếu socket đã tồn tại và đang connected, không tạo lại
             if (socket && socket.connected) {
                 console.log('📡 Socket already connected, skipping re-init');
                 return;
             }
+            
+            // ✅ Set flag để tránh gọi lại
+            isInitializingSocket = true;
             
             // QUAN TRỌNG: Nếu socket đã tồn tại nhưng disconnected, đóng nó trước khi tạo mới
             if (socket && !socket.connected) {
@@ -1537,6 +1662,8 @@ if (!in_array($userRole, [1, 3, 5])) {
             console.error('❌ Failed to create Socket.IO connection:', error);
             console.error('Error stack:', error.stack);
             updateConnectionStatus('offline', 'Lỗi tạo kết nối: ' + (error.message || 'Unknown error'));
+            // ✅ Reset flag khi có lỗi
+            isInitializingSocket = false;
             return;
         }
 
@@ -1544,6 +1671,8 @@ if (!in_array($userRole, [1, 3, 5])) {
             socket.on('connect', () => {
                 console.log('✅ Socket.IO connected successfully');
                 isConnected = true;
+                // ✅ Reset flag khi đã connect thành công
+                isInitializingSocket = false;
                 updateConnectionStatus('online', 'Đã kết nối realtime');
                 
                 // Authenticate ngay khi connect
@@ -1574,6 +1703,12 @@ if (!in_array($userRole, [1, 3, 5])) {
                 console.error('Error description:', error.description);
                 
                 isConnected = false;
+                // ✅ Reset flag sau một khoảng thời gian để có thể retry
+                // (Socket.IO sẽ tự động retry, nhưng nếu retry quá nhiều lần thì reset flag)
+                setTimeout(() => {
+                    isInitializingSocket = false;
+                }, 2000);
+                
                 // Hiển thị connecting thay vì offline để người dùng biết đang thử kết nối lại
                 updateConnectionStatus('connecting', 'Đang kết nối...');
                 
@@ -1759,7 +1894,22 @@ if (!in_array($userRole, [1, 3, 5])) {
                 let html = '';
                 if (list.length > 0) {
                     list.forEach(c => {
-                        const time = new Date(c.updated_at || c.updated_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+                        // Xử lý thời gian với kiểm tra hợp lệ
+                        let time = '--:--';
+                        try {
+                            if (c.updated_at) {
+                                const date = new Date(c.updated_at);
+                                if (!isNaN(date.getTime())) {
+                                    time = date.toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+                                } else {
+                                    time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+                                }
+                            } else {
+                                time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+                            }
+                        } catch (e) {
+                            time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+                        }
                         const isOnline = c.is_online === true || c.is_online === 1 || c.is_online === '1';
                         html += `
                         <div class="conversation-item" data-id="${c.id}" onclick="selectConversation(${c.id})">
@@ -1863,10 +2013,34 @@ if (!in_array($userRole, [1, 3, 5])) {
             
             let html = '';
             conversations.forEach(conv => {
-                const time = new Date(conv.updated_at).toLocaleTimeString('vi-VN', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
+                // Xử lý thời gian với kiểm tra hợp lệ
+                let time = '--:--';
+                try {
+                    if (conv.updated_at) {
+                        const date = new Date(conv.updated_at);
+                        if (!isNaN(date.getTime())) {
+                            time = date.toLocaleTimeString('vi-VN', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        } else {
+                            time = new Date().toLocaleTimeString('vi-VN', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        }
+                    } else {
+                        time = new Date().toLocaleTimeString('vi-VN', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    }
+                } catch (e) {
+                    time = new Date().toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                }
                 
                 html += `
                     <div class="conversation-item" onclick="selectConversation(${conv.id})" data-conversation-id="${conv.id}">
@@ -1944,7 +2118,11 @@ if (!in_array($userRole, [1, 3, 5])) {
                 let html='';
                 if (res.messages && res.messages.length > 0) {
                     res.messages.forEach(m=>{
-                        html+=createMessageHTML(m);
+                        // Bỏ qua tin nhắn rỗng hoặc chỉ có khoảng trắng
+                        const messageText = (m.message || m.text || '').trim();
+                        if (messageText || m.message_type) { // Chỉ hiển thị nếu có nội dung hoặc là media/file
+                            html+=createMessageHTML(m);
+                        }
                     });
                     $('#chatMessages').html(html);
                     scrollToBottom();
@@ -2010,7 +2188,11 @@ if (!in_array($userRole, [1, 3, 5])) {
             messages.forEach((message, index) => {
                 console.log(`Processing message ${index}:`, message);
                 try {
-                    html += createMessageHTML(message);
+                    // Bỏ qua tin nhắn rỗng hoặc chỉ có khoảng trắng
+                    const messageText = (message.message || message.text || '').trim();
+                    if (messageText || message.message_type) { // Chỉ hiển thị nếu có nội dung hoặc là media/file
+                        html += createMessageHTML(message);
+                    }
                 } catch (error) {
                     console.error(`Error processing message ${index}:`, error, message);
                     html += '<div class="message error"><div class="message-content"><div>Lỗi hiển thị tin nhắn</div></div></div>';
@@ -2024,11 +2206,43 @@ if (!in_array($userRole, [1, 3, 5])) {
         // ✅ Tạo HTML tin nhắn
         function createMessageHTML(m){
             const isSent=m.sender_id==currentUserId;
-            const time=new Date(m.created_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+            
+            // Kiểm tra tin nhắn có nội dung không (bỏ qua tin nhắn rỗng)
+            const messageText = (m.message || m.text || '').trim();
+            if (!messageText && !m.message_type) {
+                // Tin nhắn rỗng và không phải media/file - không hiển thị
+                console.warn('Skipping empty message:', m);
+                return '';
+            }
+            
+            // Xử lý thời gian với kiểm tra hợp lệ
+            let time = '--:--';
+            try {
+                if (m.created_at) {
+                    const date = new Date(m.created_at);
+                    if (!isNaN(date.getTime())) {
+                        time = date.toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+                    } else {
+                        console.warn('Invalid date:', m.created_at);
+                        // Fallback về thời gian hiện tại nếu date không hợp lệ
+                        time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+                    }
+                } else {
+                    // Dùng thời gian hiện tại nếu không có created_at
+                    time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+                }
+            } catch (e) {
+                console.warn('Date parsing error:', e, 'for date:', m.created_at);
+                // Fallback về thời gian hiện tại
+                time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+            }
+            
             const messageId = m.id || m.message_id || '';
+            const displayText = messageText || (m.message_type ? 'Tin nhắn đa phương tiện' : 'Tin nhắn trống');
+            
             return `<div class="message ${isSent?'sent':'received'}" ${messageId ? `data-message-id="${messageId}"` : ''}>
                 <div class="message-content">
-                    <div>${escapeHtml(m.message)}</div>
+                    <div>${escapeHtml(displayText)}</div>
                     <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
                 </div>
             </div>`;
@@ -2036,6 +2250,13 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // ✅ Thêm tin nhắn vào khung chat
         function addMessageToChat(msg,isSent){
+            // Kiểm tra tin nhắn có nội dung không (bỏ qua tin nhắn rỗng)
+            const messageText = (msg.message || msg.text || '').trim();
+            if (!messageText && !msg.message_type && !msg.file_path) {
+                console.warn('Skipping empty message in addMessageToChat:', msg);
+                return;
+            }
+            
             // Kiểm tra duplicate dựa trên message_id
             if (msg.id || msg.message_id) {
                 const messageId = msg.id || msg.message_id;
@@ -2047,7 +2268,9 @@ if (!in_array($userRole, [1, 3, 5])) {
             }
             
             const html=createMessageHTML(msg);
-            $('#chatMessages').append(html);
+            if (html) { // Chỉ append nếu có HTML (không phải chuỗi rỗng)
+                $('#chatMessages').append(html);
+            }
         }
         
         // ✅ Setup chat events
@@ -2894,7 +3117,36 @@ if (!in_array($userRole, [1, 3, 5])) {
         // Enhanced message HTML creation for media
         function createMessageHTML(m) {
             const isSent = m.sender_id == currentUserId;
-            const time = new Date(m.created_at).toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+            
+            // Kiểm tra tin nhắn có nội dung không (bỏ qua tin nhắn rỗng)
+            const messageText = (m.message || m.text || '').trim();
+            if (!messageText && !m.message_type && !m.file_path) {
+                // Tin nhắn rỗng và không phải media/file - không hiển thị
+                console.warn('Skipping empty message:', m);
+                return '';
+            }
+            
+            // Xử lý thời gian với kiểm tra hợp lệ
+            let time = '--:--';
+            try {
+                if (m.created_at) {
+                    const date = new Date(m.created_at);
+                    if (!isNaN(date.getTime())) {
+                        time = date.toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+                    } else {
+                        console.warn('Invalid date:', m.created_at);
+                        // Fallback về thời gian hiện tại nếu date không hợp lệ
+                        time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+                    }
+                } else {
+                    // Dùng thời gian hiện tại nếu không có created_at
+                    time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+                }
+            } catch (e) {
+                console.warn('Date parsing error:', e, 'for date:', m.created_at);
+                // Fallback về thời gian hiện tại
+                time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+            }
             
             let messageContent = '';
             
@@ -3076,8 +3328,10 @@ if (!in_array($userRole, [1, 3, 5])) {
                     </div>
                 `;
             } else {
+                // Chỉ hiển thị nếu có nội dung
+                const displayText = messageText || 'Tin nhắn trống';
                 messageContent = `
-                    <div>${escapeHtml(m.message)}</div>
+                    <div>${escapeHtml(displayText)}</div>
                     <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
                 `;
             }

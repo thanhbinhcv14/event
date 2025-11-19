@@ -24,20 +24,20 @@
     
     <!-- Ensure DataTables is available -->
     <script>
-        // Check if DataTables is loaded and retry if needed
+        // Kiểm tra DataTables đã được tải chưa và thử lại nếu cần
         if (typeof $.fn.DataTable === 'undefined') {
-            console.warn('DataTables not loaded properly, will retry...');
-            // Retry DataTables initialization
+            console.warn('DataTables chưa được tải đúng cách, sẽ thử lại...');
+            // Thử lại khởi tạo DataTables
             if (typeof retryDataTablesInit === 'function') {
                 retryDataTablesInit();
             }
         } else {
-            console.log('DataTables loaded successfully');
+            console.log('DataTables đã được tải thành công');
         }
     </script>
     
     <script>
-        // Hide page loading overlay when page is fully loaded
+        // Ẩn overlay loading khi trang đã tải xong
         window.addEventListener('load', function() {
             const pageLoading = document.getElementById('pageLoading');
             if (pageLoading) {
@@ -45,14 +45,14 @@
             }
         });
         
-        // Initialize Socket.IO for real-time notifications
-        // Auto-detect Socket.IO server URL
+        // Khởi tạo Socket.IO cho thông báo real-time
+        // Tự động phát hiện URL server Socket.IO
         const getSocketServerURL = function() {
             const protocol = window.location.protocol;
             if (window.location.hostname.includes('sukien.info.vn')) {
-                return protocol + '//ws.sukien.info.vn';  // VPS WebSocket server
+                return protocol + '//ws.sukien.info.vn';  // Server WebSocket VPS
             }
-            return 'http://localhost:3000';  // Localhost development
+            return 'http://localhost:3000';  // Phát triển localhost
         };
         
         const socketServerURL = getSocketServerURL();
@@ -77,13 +77,13 @@
             console.log('Socket.IO not available:', error);
         }
         
-        // Global AJAX error handler
+        // Xử lý lỗi AJAX toàn cục
         $(document).ajaxError(function(event, xhr, settings, thrownError) {
             console.error('AJAX Error:', thrownError);
             if (xhr.status === 401) {
                 AdminPanel.showError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
                 setTimeout(() => {
-                    window.location.href = 'login.php';
+                    window.location.href = '../login.php';
                 }, 2000);
             } else if (xhr.status === 403) {
                 AdminPanel.showError('Bạn không có quyền thực hiện hành động này.');
@@ -94,12 +94,12 @@
             }
         });
         
-        // Auto-hide messages after 5 seconds
+        // Tự động ẩn thông báo sau 5 giây
         setTimeout(function() {
             $('.success-message, .warning-message, .info-message').fadeOut();
         }, 5000);
         
-        // Confirm before leaving page if form has unsaved changes
+        // Xác nhận trước khi rời trang nếu form có thay đổi chưa lưu
         let formChanged = false;
         $('form input, form select, form textarea').on('change', function() {
             formChanged = true;
@@ -109,7 +109,7 @@
             formChanged = false;
         });
         
-        // Disabled beforeunload warning to prevent unwanted popups
+        // Tắt cảnh báo beforeunload để tránh popup không mong muốn
         // window.addEventListener('beforeunload', function(e) {
         //     if (formChanged) {
         //         e.preventDefault();
@@ -117,9 +117,9 @@
         //     }
         // });
         
-        // Keyboard shortcuts
+        // Phím tắt bàn phím
         document.addEventListener('keydown', function(e) {
-            // Ctrl + S to save form
+            // Ctrl + S để lưu form
             if (e.ctrlKey && e.key === 's') {
                 e.preventDefault();
                 const saveBtn = document.querySelector('button[type="submit"], .btn-save');
@@ -128,7 +128,7 @@
                 }
             }
             
-            // Ctrl + N to add new item
+            // Ctrl + N để thêm mục mới
             if (e.ctrlKey && e.key === 'n') {
                 e.preventDefault();
                 const addBtn = document.querySelector('.btn-add, .btn-new');
@@ -137,7 +137,7 @@
                 }
             }
             
-            // Escape to close modal
+            // Escape để đóng modal
             if (e.key === 'Escape') {
                 const openModal = document.querySelector('.modal.show');
                 if (openModal) {
@@ -149,30 +149,30 @@
             }
         });
         
-        // Add loading state to buttons
+        // Thêm trạng thái loading cho nút
         $('button[type="submit"]').on('click', function() {
             const btn = $(this);
             const originalText = btn.html();
             btn.html('<i class="fas fa-spinner fa-spin me-2"></i>Đang xử lý...');
             btn.prop('disabled', true);
             
-            // Re-enable button after 10 seconds as fallback
+            // Kích hoạt lại nút sau 10 giây như dự phòng
             setTimeout(function() {
                 btn.html(originalText);
                 btn.prop('disabled', false);
             }, 10000);
         });
         
-        // Form validation enhancement
+        // Cải thiện validation form
         $('form').on('submit', function(e) {
             const form = $(this);
             let isValid = true;
             
-            // Clear previous validation
+            // Xóa validation trước đó
             form.find('.is-invalid').removeClass('is-invalid');
             form.find('.invalid-feedback').remove();
             
-            // Validate required fields
+            // Validate các trường bắt buộc
             form.find('[required]').each(function() {
                 const field = $(this);
                 if (!field.val().trim()) {
@@ -182,7 +182,7 @@
                 }
             });
             
-            // Validate email fields
+            // Validate các trường email
             form.find('input[type="email"]').each(function() {
                 const field = $(this);
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -193,7 +193,7 @@
                 }
             });
             
-            // Validate phone fields
+            // Validate các trường số điện thoại
             form.find('input[type="tel"]').each(function() {
                 const field = $(this);
                 const phoneRegex = /^[0-9+\-\s()]+$/;
@@ -211,22 +211,22 @@
             }
         });
         
-        // Auto-save draft functionality
+        // Chức năng tự động lưu bản nháp
         let autoSaveTimeout;
         $('form textarea, form input[type="text"]').on('input', function() {
             clearTimeout(autoSaveTimeout);
             autoSaveTimeout = setTimeout(function() {
-                // Auto-save logic can be implemented here
-                console.log('Auto-saving draft...');
-            }, 30000); // Auto-save every 30 seconds
+                // Logic tự động lưu có thể được triển khai ở đây
+                console.log('Đang tự động lưu bản nháp...');
+            }, 30000); // Tự động lưu mỗi 30 giây
         });
         
-        // Print functionality
+        // Chức năng in
         window.printPage = function() {
             window.print();
         };
         
-        // Export functionality
+        // Chức năng xuất dữ liệu
         window.exportData = function(format = 'csv') {
             const table = $('.table').DataTable();
             if (table) {
@@ -240,7 +240,7 @@
             }
         };
         
-        // Refresh data functionality
+        // Chức năng làm mới dữ liệu
         window.refreshData = function() {
             if (typeof loadData === 'function') {
                 loadData();
@@ -249,12 +249,12 @@
             }
         };
         
-        // Initialize tooltips on dynamic content
+        // Khởi tạo tooltip trên nội dung động
         $(document).on('mouseenter', '[data-bs-toggle="tooltip"]', function() {
             const tooltip = new bootstrap.Tooltip(this);
         });
         
-        // Performance monitoring
+        // Giám sát hiệu suất
         if ('performance' in window) {
             window.addEventListener('load', function() {
                 setTimeout(function() {

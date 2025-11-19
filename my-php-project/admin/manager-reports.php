@@ -1,13 +1,13 @@
 <?php
 require_once 'includes/admin-header.php';
 
-// Check if user has role 2 (Quản lý tổ chức)
+// Kiểm tra người dùng có role 2 (Quản lý tổ chức)
 if ($user['ID_Role'] != 2) {
     header('Location: index.php');
     exit;
 }
 
-// Get manager info
+// Lấy thông tin quản lý
 try {
     $pdo = getDBConnection();
     $userId = $_SESSION['user']['ID_User'];
@@ -27,30 +27,11 @@ try {
     $managerInfo = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$managerInfo) {
-        header('Location: login.php');
+        header('Location: ../login.php');
         exit;
     }
-    
-    // Create baocaosuco table if not exists
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS baocaosuco (
-            ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
-            ID_NhanVien INT NOT NULL,
-            ID_QuanLy INT NOT NULL,
-            ID_Task INT NOT NULL,
-            LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
-            TieuDe VARCHAR(255) NOT NULL,
-            MoTa TEXT,
-            MucDo ENUM('Thấp', 'Trung bình', 'Cao', 'Khẩn cấp') DEFAULT 'Trung bình',
-            TrangThai ENUM('Mới', 'Đang xử lý', 'Đã xử lý', 'Đã đóng') DEFAULT 'Mới',
-            NgayBaoCao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            NgayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (ID_NhanVien) REFERENCES nhanvieninfo(ID_NhanVien),
-            FOREIGN KEY (ID_QuanLy) REFERENCES nhanvieninfo(ID_NhanVien)
-        )
-    ");
 
-    // Get progress reports received
+    // Lấy báo cáo tiến độ đã nhận
     $stmt = $pdo->prepare("
         SELECT 
             bct.ID_BaoCao,
@@ -78,7 +59,7 @@ try {
     $stmt->execute([$managerInfo['ID_NhanVien']]);
     $progressReports = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Get issue reports received
+    // Lấy báo cáo sự cố đã nhận
     $stmt = $pdo->prepare("
         SELECT 
             bs.ID_BaoCao,
@@ -108,7 +89,7 @@ try {
     $stmt->execute([$managerInfo['ID_NhanVien']]);
     $issueReports = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Get statistics
+    // Lấy thống kê
     $stmt = $pdo->prepare("
         SELECT 
             COUNT(*) as total_progress_reports,
@@ -122,7 +103,7 @@ try {
     $stmt->execute([$managerInfo['ID_NhanVien']]);
     $progressStats = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Get issue reports statistics
+    // Lấy thống kê báo cáo sự cố
     $stmt = $pdo->prepare("
         SELECT 
             COUNT(*) as total_issue_reports,
@@ -476,7 +457,7 @@ try {
     </style>
 
     <script>
-    // Hide loading overlay
+    // Ẩn overlay loading
     window.addEventListener('load', function() {
         const loadingOverlay = document.getElementById('pageLoading');
         if (loadingOverlay) {
@@ -484,13 +465,13 @@ try {
         }
     });
 
-    // Show note function
+    // Hàm hiển thị ghi chú
     function showNote(note) {
         document.getElementById('noteContent').textContent = note;
         new bootstrap.Modal(document.getElementById('noteModal')).show();
     }
     
-    // Update issue status function
+    // Hàm cập nhật trạng thái sự cố
     function updateIssueStatus(reportId, newStatus) {
         if (!confirm(`Bạn có chắc muốn cập nhật trạng thái thành "${newStatus}"?`)) {
             return;

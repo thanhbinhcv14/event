@@ -238,11 +238,11 @@ if (!$payment) {
                 </button>
             </div>
 
-            <!-- Auto refresh info -->
+            <!-- Manual refresh info -->
             <div class="text-center mt-3">
                 <small class="text-muted">
                     <i class="fas fa-info-circle"></i>
-                    Trang này sẽ tự động cập nhật khi có thay đổi trạng thái
+                    Vui lòng nhấn nút "Kiểm tra trạng thái" để cập nhật thông tin thanh toán
                 </small>
             </div>
         </div>
@@ -288,25 +288,7 @@ if (!$payment) {
                 });
         }
 
-        // Auto refresh every 30 seconds
-        setInterval(() => {
-            fetch('../src/controllers/payment.php?action=get_payment_status&payment_id=<?= $paymentId ?>')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success && data.payment) {
-                        const status = data.payment.TrangThai;
-                        
-                        if (status === 'Thành công') {
-                            window.location.href = 'success.php?payment_id=<?= $paymentId ?>';
-                        } else if (status === 'Thất bại') {
-                            window.location.href = 'failure.php?payment_id=<?= $paymentId ?>';
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Auto refresh error:', error);
-                });
-        }, 30000); // 30 seconds
+        // Không tự động refresh - chỉ kiểm tra khi người dùng nhấn nút
     </script>
 </body>
 </html>

@@ -1456,6 +1456,10 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- CSRF Protection Helper - Phải load sau jQuery -->
+    <script src="../assets/js/csrf-helper.js"></script>
+    
     <script>
         let currentStep = 1;
         let selectedLocation = null;
@@ -1949,15 +1953,15 @@
                                             displaySuggestedLocations();
                                             displayAllLocations();
                                             
-                                            // Scroll đến địa điểm đã chọn
+                                            // Scroll đến địa điểm đã chọn (sau khi đã scroll to top)
                                             setTimeout(() => {
                                                 const selectedCard = $(`.suggestion-card[data-location-id="${selectedLocation.ID_DD}"]`);
-                                                if (selectedCard.length > 0) {
+                                                if (selectedCard.length > 0 && selectedCard.offset()) {
                                                     $('html, body').animate({
                                                         scrollTop: selectedCard.offset().top - 100
                                                     }, 500);
                                                 }
-                                            }, 300);
+                                            }, 400);
                                         } else {
                                             console.error('Failed to load room details:', response);
                                         }
@@ -1999,10 +2003,10 @@
                                 displaySuggestedLocations();
                                 displayAllLocations();
                                 
-                                // Scroll đến địa điểm đã chọn sau khi render
+                                // Scroll đến địa điểm đã chọn sau khi render (sau khi đã scroll to top)
                                 setTimeout(() => {
                                     const selectedCard = $(`.suggestion-card[data-location-id="${selectedLocation.ID_DD}"]`);
-                                    if (selectedCard.length > 0) {
+                                    if (selectedCard.length > 0 && selectedCard.offset()) {
                                         $('html, body').animate({
                                             scrollTop: selectedCard.offset().top - 100
                                         }, 500);
@@ -2010,7 +2014,7 @@
                                     } else {
                                         console.warn('Selected location card not found in DOM:', selectedLocation.ID_DD, 'Total cards:', $('.suggestion-card').length);
                                     }
-                                }, 500);
+                                }, 400);
                             }
                         }
                     } else {
@@ -2141,6 +2145,11 @@
             $(`#step${currentStep}`).addClass('active');
             $(`#step${currentStep}-indicator`).addClass('active');
             
+            // Scroll to top khi chuyển step
+            $('html, body').animate({
+                scrollTop: 0
+            }, 300);
+            
             // Khi vào step 2, đảm bảo địa điểm đã chọn được hiển thị rõ ràng (đặc biệt trong edit mode)
             if (currentStep === 2 && selectedLocation) {
                 // Đảm bảo địa điểm đã chọn có trong danh sách để hiển thị
@@ -2167,13 +2176,15 @@
                         updateSelectedRoomDisplay(selectedLocation.ID_DD);
                     }
                     
-                    // Scroll đến địa điểm đã chọn
-                    const selectedCard = $(`.suggestion-card[data-location-id="${selectedLocation.ID_DD}"]`);
-                    if (selectedCard.length > 0) {
-                        $('html, body').animate({
-                            scrollTop: selectedCard.offset().top - 100
-                        }, 500);
-                    }
+                    // Scroll đến địa điểm đã chọn (sau khi đã scroll to top)
+                    setTimeout(() => {
+                        const selectedCard = $(`.suggestion-card[data-location-id="${selectedLocation.ID_DD}"]`);
+                        if (selectedCard.length > 0 && selectedCard.offset()) {
+                            $('html, body').animate({
+                                scrollTop: selectedCard.offset().top - 100
+                            }, 500);
+                        }
+                    }, 400); // Đợi scroll to top hoàn tất (300ms) + thêm 100ms
                 }, 100);
             }
             
@@ -3842,11 +3853,33 @@
          * @param {number} locationId - ID của địa điểm cần chọn phòng
          */
         function openRoomSelectionModal(locationId) {
+            // Nếu chưa chọn địa điểm hoặc địa điểm khác, tự động chọn địa điểm này
             if (!selectedLocation || selectedLocation.ID_DD !== locationId) {
-                showError('Vui lòng chọn địa điểm trước');
+                // Tự động chọn địa điểm trước khi mở modal
+                selectLocation(locationId);
+                
+                // Đợi một chút để đảm bảo địa điểm đã được chọn xong
+                setTimeout(() => {
+                    // Kiểm tra lại sau khi chọn
+                    if (!selectedLocation || selectedLocation.ID_DD !== locationId) {
+                        showError('Không thể chọn địa điểm. Vui lòng thử lại.');
+                        return;
+                    }
+                    
+                    // Tiếp tục mở modal
+                    proceedOpenRoomModal(locationId);
+                }, 100);
                 return;
             }
             
+            // Nếu đã chọn đúng địa điểm, mở modal ngay
+            proceedOpenRoomModal(locationId);
+        }
+        
+        /**
+         * Hàm helper để mở modal chọn phòng (sau khi đã chọn địa điểm)
+         */
+        function proceedOpenRoomModal(locationId) {
             currentModalLocationId = locationId;
             selectedRoomInModal = null;
             
@@ -3861,7 +3894,7 @@
             $('#btn-confirm-room').prop('disabled', true);
             
             // Đặt lựa chọn hiện tại nếu có
-            if (selectedLocation.selectedRoomRentalType) {
+            if (selectedLocation && selectedLocation.selectedRoomRentalType) {
                 $('#modal-room-rental-type').val(selectedLocation.selectedRoomRentalType);
                 onModalRentalTypeChange();
             }
@@ -5597,34 +5630,69 @@
                 formData.edit_id = editId;
             }
             
-            $.ajax({
-                url: `../src/controllers/event-register.php?action=${editId ? 'update_event' : 'register'}`,
-                type: 'POST',
-                data: JSON.stringify(formData),
-                contentType: 'application/json',
-                dataType: 'json',
-                success: function(data) {
-                    console.log('AJAX success response:', data);
-                    $('#loadingSpinner').hide();
-                    $('#submitBtn').prop('disabled', false);
-                    
-                    if (data.success) {
-                        const message = editId ? 'Cập nhật sự kiện thành công!' : 'Đăng ký sự kiện thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.';
-                        showSuccess(message);
-                        setTimeout(() => {
-                            window.location.href = 'my-events.php';
-                        }, 2000);
+            // Đảm bảo có CSRF token trước khi submit
+            // Nếu token chưa có, fetch trước
+            (async function() {
+                try {
+                    // Lấy CSRF token (đợi nếu cần)
+                    const token = await CSRFHelper.getToken();
+                    if (token) {
+                        formData.csrf_token = token;
                     } else {
-                        showError('Lỗi: ' + (data.error || data.message));
+                        console.error('Failed to get CSRF token');
+                        showError('Không thể lấy CSRF token. Vui lòng tải lại trang.');
+                        $('#loadingSpinner').hide();
+                        $('#submitBtn').prop('disabled', false);
+                        return;
                     }
-                },
-                error: function(xhr, status, error) {
-                    console.log('AJAX error:', xhr, status, error);
+                    
+                    // Gửi request sau khi có token
+                    $.ajax({
+                        url: `../src/controllers/event-register.php?action=${editId ? 'update_event' : 'register'}`,
+                        type: 'POST',
+                        data: JSON.stringify(formData),
+                        contentType: 'application/json',
+                        dataType: 'json',
+                        success: function(data) {
+                            console.log('AJAX success response:', data);
+                            $('#loadingSpinner').hide();
+                            $('#submitBtn').prop('disabled', false);
+                            
+                            if (data.success) {
+                                const message = editId ? 'Cập nhật sự kiện thành công!' : 'Đăng ký sự kiện thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.';
+                                showSuccess(message);
+                                setTimeout(() => {
+                                    window.location.href = 'my-events.php';
+                                }, 2000);
+                            } else {
+                                showError('Lỗi: ' + (data.error || data.message));
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.log('AJAX error:', xhr, status, error);
+                            $('#loadingSpinner').hide();
+                            $('#submitBtn').prop('disabled', false);
+                            
+                            // Kiểm tra nếu là lỗi CSRF
+                            if (xhr.status === 403 && xhr.responseJSON && xhr.responseJSON.code === 'CSRF_TOKEN_INVALID') {
+                                showError('CSRF token không hợp lệ. Vui lòng tải lại trang và thử lại.');
+                                // Refresh token
+                                CSRFHelper.refreshToken();
+                            } else {
+                                showError('Lỗi kết nối. Vui lòng thử lại.');
+                            }
+                        }
+                    });
+                } catch (err) {
+                    console.error('Error getting CSRF token:', err);
+                    showError('Lỗi khi lấy CSRF token. Vui lòng tải lại trang.');
                     $('#loadingSpinner').hide();
                     $('#submitBtn').prop('disabled', false);
-                    showError('Lỗi kết nối. Vui lòng thử lại.');
                 }
-            });
+            })();
+            
+            // Return false để ngăn form submit mặc định
+            return false;
         });
     </script>
 </body>

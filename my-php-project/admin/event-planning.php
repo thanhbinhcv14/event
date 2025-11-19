@@ -2,21 +2,21 @@
 session_start();
 require_once __DIR__ . '/../config/database.php';
 
-// Check if user is logged in and has role 2 or 3 (Quản lý tổ chức hoặc Quản lý sự kiện)
+// Kiểm tra người dùng đã đăng nhập và có role 2 hoặc 3 (Quản lý tổ chức hoặc Quản lý sự kiện)
 if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['ID_Role'], [1, 2, 3])) {
-    header('Location: login.php');
+    header('Location: ../login.php');
     exit;
 }
 
-// Data will be loaded via AJAX API calls
-// Fallback: Load data directly if API fails
+// Dữ liệu sẽ được tải qua các lời gọi API AJAX
+// Dự phòng: Tải dữ liệu trực tiếp nếu API thất bại
 $approvedEvents = [];
 $existingPlans = [];
 
 try {
     $pdo = getDBConnection();
     
-    // Get approved events
+    // Lấy các sự kiện đã duyệt
     $sql = "
         SELECT 
             dl.ID_DatLich,
@@ -43,7 +43,7 @@ try {
     $stmt->execute();
                 $approvedEvents = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Get existing plans
+    // Lấy các kế hoạch hiện có
     $sql = "
         SELECT 
             kht.ID_KeHoach,
@@ -82,9 +82,9 @@ try {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <style>
-        /* Fix content positioning to avoid header overlap */
+        /* Sửa vị trí nội dung để tránh chồng lên header */
         body {
-            padding-top: 0; /* Remove any body padding */
+            padding-top: 0; /* Xóa mọi padding của body */
         }
         
         .container-fluid {
@@ -92,7 +92,7 @@ try {
             padding-top: 20px;
         }
         
-        /* Page Layout */
+        /* Bố cục Trang */
         .page-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -1465,22 +1465,22 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // Global variables to store data
+        // Biến toàn cục để lưu dữ liệu
         let approvedEvents = <?= json_encode($approvedEvents) ?>;
         let existingPlans = <?= json_encode($existingPlans) ?>;
         
-        // Hide page loading overlay when page is fully loaded
+        // Ẩn overlay loading khi trang đã tải xong
         document.addEventListener('DOMContentLoaded', function() {
             const pageLoading = document.getElementById('pageLoading');
             if (pageLoading) {
                 pageLoading.style.display = 'none';
             }
             
-            // Load initial data
+            // Tải dữ liệu ban đầu
             loadPageData();
         });
         
-        // Also hide loading overlay on window load as fallback
+        // Cũng ẩn overlay loading trên window load như dự phòng
         window.addEventListener('load', function() {
                 const pageLoading = document.getElementById('pageLoading');
                 if (pageLoading) {
@@ -1488,7 +1488,7 @@ try {
                 }
         });
         
-        // Auto refresh steps every 30 seconds to sync with staff updates
+        // Tự động làm mới các bước mỗi 30 giây để đồng bộ với cập nhật nhân viên
         setInterval(function() {
             const currentEventId = document.getElementById('stepEventId')?.value;
             if (currentEventId) {

@@ -60,15 +60,47 @@
         <h2 class="mb-3">Thanh toán thành công!</h2>
         <p class="text-muted mb-4">Cảm ơn bạn đã thanh toán. Giao dịch đã được xử lý thành công.</p>
         
-        <?php if (isset($_GET['amount'])): ?>
+        <?php
+        // Lấy thông tin payment từ database nếu có payment_id
+        $paymentInfo = null;
+        if (isset($_GET['payment_id'])) {
+            require_once '../config/database.php';
+            try {
+                $pdo = getDBConnection();
+                $stmt = $pdo->prepare("
+                    SELECT t.*, dl.TenSuKien, dl.ID_DatLich, kh.HoTen
+                    FROM thanhtoan t
+                    INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+                    INNER JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+                    WHERE t.ID_ThanhToan = ?
+                ");
+                $stmt->execute([$_GET['payment_id']]);
+                $paymentInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+            } catch (Exception $e) {
+                error_log("Error fetching payment info: " . $e->getMessage());
+            }
+        }
+        
+        $displayAmount = isset($_GET['amount']) ? $_GET['amount'] : ($paymentInfo ? $paymentInfo['SoTien'] : null);
+        $displayOrderId = isset($_GET['order_id']) ? $_GET['order_id'] : ($paymentInfo ? $paymentInfo['MaGiaoDich'] : null);
+        $displayEventName = $paymentInfo ? $paymentInfo['TenSuKien'] : null;
+        ?>
+        
+        <?php if ($displayAmount): ?>
         <div class="amount">
-            <?php echo number_format($_GET['amount']) . ' VNĐ'; ?>
+            <?php echo number_format($displayAmount, 0, ',', '.') . ' VNĐ'; ?>
         </div>
         <?php endif; ?>
         
-        <?php if (isset($_GET['order_id'])): ?>
+        <?php if ($displayEventName): ?>
         <p class="text-muted">
-            <strong>Mã giao dịch:</strong> <?php echo htmlspecialchars($_GET['order_id']); ?>
+            <strong>Sự kiện:</strong> <?php echo htmlspecialchars($displayEventName); ?>
+        </p>
+        <?php endif; ?>
+        
+        <?php if ($displayOrderId): ?>
+        <p class="text-muted">
+            <strong>Mã giao dịch:</strong> <?php echo htmlspecialchars($displayOrderId); ?>
         </p>
         <?php endif; ?>
         

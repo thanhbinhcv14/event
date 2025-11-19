@@ -43,6 +43,11 @@ if (isLoggedIn()) {
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" href="events/payment-history.php">
+                        <i class="fa fa-history me-1"></i>Lịch sử thanh toán
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="chat.php">
                         <i class="fa fa-comments me-1"></i>Chat hỗ trợ
                     </a>

@@ -148,20 +148,22 @@ include 'includes/admin-header.php';
 
         <!-- Payment Details Modal -->
         <div class="modal fade" id="paymentModal" tabindex="-1">
-            <div class="modal-dialog modal-lg">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content">
-                    <div class="modal-header">
+                    <div class="modal-header bg-primary text-white">
                         <h5 class="modal-title" id="paymentModalTitle">
                             <i class="fas fa-receipt"></i>
                             Chi tiết thanh toán
                         </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body" id="paymentModalBody">
                         <!-- Content will be loaded via AJAX -->
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Đóng
+                        </button>
                         <button type="button" class="btn btn-primary" id="updateStatusBtn" onclick="showStatusUpdate()">
                             <i class="fas fa-edit"></i> Cập nhật trạng thái
                         </button>
@@ -593,30 +595,247 @@ include 'includes/admin-header.php';
                     const payment = response.payment;
                     currentPaymentId = paymentId;
                     
+                    // Format số tiền
+                    const formattedAmount = AdminPanel.formatCurrency(payment.SoTien);
+                    
+                    // Format dates
+                    const paymentDate = payment.NgayThanhToan ? AdminPanel.formatDate(payment.NgayThanhToan, 'dd/mm/yyyy hh:mm') : 'N/A';
+                    const eventStartDate = payment.NgayBatDau ? AdminPanel.formatDate(payment.NgayBatDau, 'dd/mm/yyyy hh:mm') : 'N/A';
+                    const eventEndDate = payment.NgayKetThuc ? AdminPanel.formatDate(payment.NgayKetThuc, 'dd/mm/yyyy hh:mm') : 'N/A';
+                    const birthDate = payment.NgaySinh ? AdminPanel.formatDate(payment.NgaySinh, 'dd/mm/yyyy') : null;
+                    
+                    // Status và type classes
+                    const statusClass = getStatusClass(payment.TrangThai);
+                    const typeClass = getPaymentTypeClass(payment.LoaiThanhToan);
+                    
+                    // Check if customer info changed
+                    const infoChanged = payment.ID_HoaDon && (
+                        (payment.KhachHangTenGoc && payment.KhachHangTen !== payment.KhachHangTenGoc) || 
+                        (payment.SoDienThoaiGoc && payment.SoDienThoai !== payment.SoDienThoaiGoc)
+                    );
+                    
                     $('#paymentModalBody').html(`
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-receipt"></i> Thông tin thanh toán</h6>
-                                <table class="table table-sm">
-                                    <tr><td><strong>ID:</strong></td><td>${payment.ID_ThanhToan}</td></tr>
-                                    <tr><td><strong>Mã giao dịch:</strong></td><td>${payment.MaGiaoDich}</td></tr>
-                                    <tr><td><strong>Số tiền:</strong></td><td>${AdminPanel.formatCurrency(payment.SoTien)} VNĐ</td></tr>
-                                    <tr><td><strong>Phương thức:</strong></td><td>${payment.PhuongThuc}</td></tr>
-                                    <tr><td><strong>Loại thanh toán:</strong></td><td><span class="badge bg-${getPaymentTypeClass(payment.LoaiThanhToan)}">${payment.LoaiThanhToan}</span></td></tr>
-                                    <tr><td><strong>Trạng thái:</strong></td><td><span class="badge bg-${getStatusClass(payment.TrangThai)}">${payment.TrangThai}</span></td></tr>
-                                </table>
+                        <!-- Payment Summary Card -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <div class="payment-icon me-2">
+                                            <i class="fas fa-receipt"></i>
                             </div>
-                            <div class="col-md-6">
-                                <h6><i class="fas fa-calendar"></i> Thông tin sự kiện</h6>
-                                <table class="table table-sm">
-                                    <tr><td><strong>Tên sự kiện:</strong></td><td>${payment.TenSuKien}</td></tr>
-                                    <tr><td><strong>Ngày bắt đầu:</strong></td><td>${AdminPanel.formatDate(payment.NgayBatDau, 'dd/mm/yyyy hh:mm')}</td></tr>
-                                    <tr><td><strong>Ngày kết thúc:</strong></td><td>${AdminPanel.formatDate(payment.NgayKetThuc, 'dd/mm/yyyy hh:mm')}</td></tr>
-                                    <tr><td><strong>Ngày thanh toán:</strong></td><td>${AdminPanel.formatDate(payment.NgayThanhToan, 'dd/mm/yyyy hh:mm')}</td></tr>
-                                </table>
+                                        <div>
+                                            <h5 class="mb-0">Thanh toán #${payment.ID_ThanhToan}</h5>
+                                            <small class="text-muted">
+                                                <i class="fas fa-calendar-alt"></i> ${paymentDate}
+                                            </small>
                             </div>
                         </div>
-                        ${payment.GhiChu ? `<div class="mt-3"><strong>Ghi chú:</strong><br>${payment.GhiChu}</div>` : ''}
+                                    <div class="text-end">
+                                        <div class="mb-1">
+                                            <span class="badge bg-${statusClass}">
+                                                <i class="fas ${getStatusIcon(payment.TrangThai)}"></i> ${payment.TrangThai || 'N/A'}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-${typeClass}">
+                                                <i class="fas ${getPaymentTypeIcon(payment.LoaiThanhToan)}"></i> ${payment.LoaiThanhToan || 'N/A'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <hr class="my-2">
+                                <div class="row g-3">
+                                    <div class="col-4">
+                                        <small class="text-muted d-block mb-1"><i class="fas fa-money-bill-wave"></i> Số tiền</small>
+                                        <h5 class="text-primary mb-0">${formattedAmount}</h5>
+                                    </div>
+                                    <div class="col-4">
+                                        <small class="text-muted d-block mb-1"><i class="fas fa-credit-card"></i> Phương thức</small>
+                                        <span class="d-block">${payment.PhuongThuc || 'N/A'}</span>
+                                    </div>
+                                    <div class="col-4">
+                                        <small class="text-muted d-block mb-1"><i class="fas fa-barcode"></i> Mã giao dịch</small>
+                                        <code class="small">${payment.MaGiaoDich || 'N/A'}</code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Main Information Cards -->
+                        <div class="row g-3">
+                            <!-- Customer Information -->
+                            <div class="col-md-6">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-header bg-light py-2">
+                                        <h6 class="mb-0 small">
+                                            <i class="fas fa-user text-primary"></i> Thông tin khách hàng
+                                            ${payment.ID_HoaDon ? `<span class="badge bg-info ms-1"><small>Hóa đơn</small></span>` : ''}
+                                        </h6>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        ${payment.ID_HoaDon ? `
+                                            <div class="alert alert-info alert-sm mb-2 py-1 px-2">
+                                                <i class="fas fa-info-circle"></i> 
+                                                <small>Thông tin từ hóa đơn (có thể đã thay đổi)</small>
+                                            </div>
+                                        ` : ''}
+                                        
+                                        <div class="info-list">
+                                            <div class="info-item mb-2">
+                                                <div class="d-flex align-items-start">
+                                                    <div class="info-icon me-2">
+                                                        <i class="fas fa-user-circle text-primary"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <small class="text-muted d-block mb-0">Họ tên</small>
+                                                        <strong class="d-block small">${payment.KhachHangTen || 'N/A'}</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="info-item mb-2">
+                                                <div class="d-flex align-items-start">
+                                                    <div class="info-icon me-2">
+                                                        <i class="fas fa-phone text-success"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <small class="text-muted d-block mb-0">Số điện thoại</small>
+                                                        <span class="d-block small">${payment.SoDienThoai || 'N/A'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="info-item mb-2">
+                                                <div class="d-flex align-items-start">
+                                                    <div class="info-icon me-2">
+                                                        <i class="fas fa-envelope text-warning"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <small class="text-muted d-block mb-0">Email</small>
+                                                        <span class="d-block small">${payment.KhachHangEmail || 'N/A'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="info-item mb-2">
+                                                <div class="d-flex align-items-start">
+                                                    <div class="info-icon me-2">
+                                                        <i class="fas fa-map-marker-alt text-danger"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <small class="text-muted d-block mb-0">Địa chỉ</small>
+                                                        <span class="d-block small">${payment.KhachHangDiaChi || 'N/A'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            ${birthDate ? `
+                                                <div class="info-item mb-2">
+                                                    <div class="d-flex align-items-start">
+                                                        <div class="info-icon me-2">
+                                                            <i class="fas fa-birthday-cake text-info"></i>
+                                                        </div>
+                                                        <div class="flex-grow-1">
+                                                            <small class="text-muted d-block mb-0">Ngày sinh</small>
+                                                            <span class="d-block small">${birthDate}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                        
+                                        ${infoChanged ? `
+                                            <div class="alert alert-warning alert-sm mt-2 mb-0 py-1 px-2">
+                                                <i class="fas fa-history"></i> 
+                                                <strong class="small">Thông tin gốc:</strong>
+                                                <div class="mt-1">
+                                                    ${payment.KhachHangTenGoc && payment.KhachHangTen !== payment.KhachHangTenGoc ? 
+                                                        `<small>Tên: ${payment.KhachHangTenGoc}</small><br>` : ''}
+                                                    ${payment.SoDienThoaiGoc && payment.SoDienThoai !== payment.SoDienThoaiGoc ? 
+                                                        `<small>SĐT: ${payment.SoDienThoaiGoc}</small>` : ''}
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Event Information -->
+                            <div class="col-md-6">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-header bg-light py-2">
+                                        <h6 class="mb-0 small">
+                                            <i class="fas fa-calendar-alt text-success"></i> Thông tin sự kiện
+                                        </h6>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <div class="info-list">
+                                            <div class="info-item mb-2">
+                                                <div class="d-flex align-items-start">
+                                                    <div class="info-icon me-2">
+                                                        <i class="fas fa-star text-warning"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <small class="text-muted d-block mb-0">Tên sự kiện</small>
+                                                        <strong class="d-block small">${payment.TenSuKien || 'N/A'}</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="info-item mb-2">
+                                                <div class="d-flex align-items-start">
+                                                    <div class="info-icon me-2">
+                                                        <i class="fas fa-play-circle text-success"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <small class="text-muted d-block mb-0">Ngày bắt đầu</small>
+                                                        <span class="d-block small">${eventStartDate}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="info-item mb-2">
+                                                <div class="d-flex align-items-start">
+                                                    <div class="info-icon me-2">
+                                                        <i class="fas fa-stop-circle text-danger"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <small class="text-muted d-block mb-0">Ngày kết thúc</small>
+                                                        <span class="d-block small">${eventEndDate}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="info-item mb-2">
+                                                <div class="d-flex align-items-start">
+                                                    <div class="info-icon me-2">
+                                                        <i class="fas fa-clock text-primary"></i>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <small class="text-muted d-block mb-0">Ngày thanh toán</small>
+                                                        <span class="d-block small">${paymentDate}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Notes Section -->
+                        ${payment.GhiChu ? `
+                            <div class="card border-0 shadow-sm mt-3">
+                                <div class="card-header bg-light py-2">
+                                    <h6 class="mb-0 small">
+                                        <i class="fas fa-sticky-note text-warning"></i> Ghi chú
+                                    </h6>
+                                </div>
+                                <div class="card-body p-3">
+                                    <p class="mb-0 small">${payment.GhiChu}</p>
+                                </div>
+                            </div>
+                        ` : ''}
                     `);
                 } else {
                     $('#paymentModalBody').html(`
@@ -902,6 +1121,26 @@ include 'includes/admin-header.php';
             };
             return typeMap[type] || 'secondary';
         }
+        
+        function getStatusIcon(status) {
+            const iconMap = {
+                'Đang xử lý': 'fa-clock',
+                'Chờ thanh toán': 'fa-hourglass-half',
+                'Thành công': 'fa-check-circle',
+                'Thất bại': 'fa-times-circle',
+                'Đã hủy': 'fa-ban'
+            };
+            return iconMap[status] || 'fa-question';
+        }
+        
+        function getPaymentTypeIcon(type) {
+            const iconMap = {
+                'Đặt cọc': 'fa-hand-holding-usd',
+                'Thanh toán đủ': 'fa-check-circle',
+                'Hoàn tiền': 'fa-undo'
+            };
+            return iconMap[type] || 'fa-question';
+        }
 
         // Auto refresh every 30 seconds
         setInterval(() => {
@@ -919,6 +1158,96 @@ include 'includes/admin-header.php';
         .action-buttons .btn:hover {
             transform: translateY(-1px);
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+        
+        /* Payment Detail Modal Styles */
+        #paymentModal .modal-lg {
+            max-width: 900px;
+        }
+        
+        #paymentModal .payment-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            color: white;
+            flex-shrink: 0;
+        }
+        
+        #paymentModal .payment-icon i {
+            font-size: 1.2rem;
+        }
+        
+        #paymentModal .info-item {
+            padding: 0.25rem 0;
+        }
+        
+        #paymentModal .info-icon {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+        
+        #paymentModal .info-icon i {
+            font-size: 0.875rem;
+        }
+        
+        #paymentModal .card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        #paymentModal .card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+        }
+        
+        #paymentModal .card-header {
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 600;
+        }
+        
+        #paymentModal .alert-sm {
+            font-size: 0.75rem;
+            padding: 0.375rem 0.5rem;
+        }
+        
+        #paymentModal code {
+            background: #f8f9fa;
+            padding: 0.125rem 0.375rem;
+            border-radius: 3px;
+            color: #e83e8c;
+            font-size: 0.8rem;
+        }
+        
+        #paymentModal .info-list {
+            padding: 0.25rem 0;
+        }
+        
+        #paymentModal .card-body {
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            #paymentModal .modal-lg {
+                max-width: 95%;
+            }
+            
+            #paymentModal .payment-icon {
+                width: 35px;
+                height: 35px;
+            }
+            
+            #paymentModal .payment-icon i {
+                font-size: 1rem;
+            }
         }
     </style>
 

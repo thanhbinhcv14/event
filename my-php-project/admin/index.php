@@ -567,6 +567,7 @@ try {
                     <table class="table table-hover">
                         <thead>
                             <tr>
+                                <th>ID</th>
                                 <th>Sự kiện</th>
                                 <th>Khách hàng</th>
                                 <th>Địa điểm</th>
@@ -578,6 +579,7 @@ try {
                         <tbody>
                             <?php foreach ($dashboardData['recent_registrations'] as $reg): ?>
                             <tr>
+                                <td><strong>#<?= htmlspecialchars($reg['ID_DatLich']) ?></strong></td>
                                 <td>
                                     <strong><?= htmlspecialchars($reg['TenSuKien']) ?></strong>
                                     <br>
@@ -593,17 +595,9 @@ try {
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <button class="btn btn-info btn-sm" onclick="viewRegistration(<?= $reg['ID_DatLich'] ?>)">
-                                            <i class="fas fa-eye"></i>
+                                        <button class="btn btn-info btn-sm" onclick="viewRegistrationDetails(<?= $reg['ID_DatLich'] ?>)">
+                                            <i class="fas fa-eye"></i> Xem chi tiết
                                         </button>
-                                        <?php if ($reg['TrangThaiDuyet'] === 'Chờ duyệt' && ($userRole == 1 || $userRole == 2)): ?>
-                                        <button class="btn btn-success btn-sm" onclick="approveRegistration(<?= $reg['ID_DatLich'] ?>)">
-                                            <i class="fas fa-check"></i>
-                                        </button>
-                                        <button class="btn btn-danger btn-sm" onclick="rejectRegistration(<?= $reg['ID_DatLich'] ?>)">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
@@ -679,50 +673,79 @@ try {
             <?php endif; ?>
         </div>
 
+<!-- Modal Xem Chi Tiết Đăng Ký -->
+<div class="modal fade" id="registrationDetailModal" tabindex="-1" aria-labelledby="registrationDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="registrationDetailModalLabel">
+                    <i class="fas fa-info-circle"></i> Chi tiết đăng ký sự kiện
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="registrationDetailContent">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <p class="mt-2">Đang tải thông tin...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <a href="#" id="viewFullDetailsLink" class="btn btn-primary" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> Xem chi tiết đầy đủ
+                </a>
+            </div>
+        </div>
+    </div>
+        </div>
+
 <script>
         // Registration actions
-        function viewRegistration(id) {
-            window.location.href = `event-registrations.php?view=${id}`;
-        }
-
-        function approveRegistration(id) {
-            if (confirm('Bạn có chắc muốn duyệt đăng ký này?')) {
-                AdminPanel.makeAjaxRequest('src/controllers/admin-events.php', {
-                    action: 'approve',
-                    id: id
-                }, 'POST')
-                .then(response => {
-                    if (response.success) {
-                        AdminPanel.showSuccess('Đã duyệt đăng ký thành công');
-                        setTimeout(() => location.reload(), 1000);
+        function viewRegistrationDetails(id) {
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('registrationDetailModal'));
+            modal.show();
+            
+            // Reset content
+            document.getElementById('registrationDetailContent').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <p class="mt-2">Đang tải thông tin...</p>
+                </div>
+            `;
+            
+            // Set link to full details page
+            document.getElementById('viewFullDetailsLink').href = `event-registrations.php?view=${id}`;
+            
+            // Fetch registration details
+            fetch(`../src/controllers/admin-events.php?action=get_registration_details&id=${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.html) {
+                        // Endpoint trả về HTML sẵn, hiển thị trực tiếp
+                        document.getElementById('registrationDetailContent').innerHTML = data.html;
                     } else {
-                        AdminPanel.showError(response.message || 'Có lỗi xảy ra');
+                        document.getElementById('registrationDetailContent').innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                ${data.message || 'Không thể tải thông tin đăng ký'}
+                            </div>
+                        `;
                     }
                 })
                 .catch(error => {
-                    AdminPanel.showError('Có lỗi xảy ra khi duyệt đăng ký');
+                    console.error('Error:', error);
+                    document.getElementById('registrationDetailContent').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            Lỗi khi tải thông tin: ${error.message}
+                        </div>
+                    `;
                 });
-            }
-        }
-
-        function rejectRegistration(id) {
-            if (confirm('Bạn có chắc muốn từ chối đăng ký này?')) {
-                AdminPanel.makeAjaxRequest('src/controllers/admin-events.php', {
-                    action: 'reject',
-                    id: id
-                }, 'POST')
-                .then(response => {
-                    if (response.success) {
-                        AdminPanel.showSuccess('Đã từ chối đăng ký thành công');
-                        setTimeout(() => location.reload(), 1000);
-                    } else {
-                        AdminPanel.showError(response.message || 'Có lỗi xảy ra');
-                    }
-                })
-                .catch(error => {
-                    AdminPanel.showError('Có lỗi xảy ra khi từ chối đăng ký');
-                });
-            }
         }
 
         // Auto refresh data every 30 seconds

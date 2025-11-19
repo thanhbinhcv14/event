@@ -858,6 +858,9 @@ $user = $_SESSION['user'];
             border-radius: 0 0 12px 12px;
             border: none;
             padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
         }
         
         .modal-footer .btn {
@@ -1009,14 +1012,10 @@ $user = $_SESSION['user'];
                     <!-- Payment details will be populated here -->
                 </div>
                 <div class="modal-footer" id="paymentModalFooter">
-                    <div class="d-flex justify-content-between w-100">
-                        <div>
-                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Hủy</button>
-                            <button type="button" class="btn btn-primary" onclick="processPayment()">
-                                <i class="fas fa-credit-card"></i> Xác nhận thanh toán
-                            </button>
-                        </div>
-                    </div>
+                    <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" onclick="processPayment()">
+                        <i class="fas fa-credit-card"></i> Xác nhận thanh toán
+                    </button>
                 </div>
             </div>
         </div>
@@ -1069,8 +1068,38 @@ $user = $_SESSION['user'];
         </div>
     </div>
     
+    <!-- Invoice Modal -->
+    <div class="modal fade" id="invoiceModal" tabindex="-1" aria-labelledby="invoiceModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="modal-title" id="invoiceModalLabel">
+                        <i class="fas fa-file-invoice"></i> Hóa đơn thanh toán
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="invoiceModalBody">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Đang tải...</span>
+                        </div>
+                        <p class="mt-2">Đang tải thông tin hóa đơn...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-primary" onclick="printInvoice()">
+                        <i class="fas fa-print"></i> In hóa đơn
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- CSRF Protection Helper - Load after jQuery to override AJAX -->
+    <script src="../assets/js/csrf-helper.js"></script>
     <script>
         // Pass user data from PHP to JavaScript
         const currentUser = <?= json_encode($user) ?>;
@@ -1078,6 +1107,15 @@ $user = $_SESSION['user'];
         
         let allEvents = [];
         let filteredEvents = [];
+        
+        // Thông tin công ty (hardcode)
+        const companyInfo = {
+            TenCongTy: 'CÔNG TY TNHH EVENT MANAGEMENT',
+            DiaChi: '123 Đường ABC, Quận 1, TP.HCM',
+            SoDienThoai: '0123456789',
+            Email: 'info@eventmanagement.com',
+            GioLamViec: '8:00 - 17:00 (Thứ 2 - Thứ 6)'
+        };
         
         // Helper function to get location price text
         function getLocationPriceText(event) {
@@ -1444,6 +1482,11 @@ $user = $_SESSION['user'];
                         showError(`Có ${data.cancelled_expired} sự kiện đã qua thời gian tổ chức và chưa thanh toán đủ đã được tự động hủy.`);
                     }
                     
+                    // Show notification if events were cancelled due to payment deadline
+                    if (data.cancelled_deadline && data.cancelled_deadline > 0) {
+                        showError(`Có ${data.cancelled_deadline} sự kiện đã quá hạn thanh toán đủ và đã bị tự động hủy. Tiền cọc không được hoàn lại.`);
+                    }
+                    
                     displayEvents();
                     updateStatistics();
                 } else {
@@ -1470,6 +1513,8 @@ $user = $_SESSION['user'];
             filteredEvents.forEach(event => {
                 const statusClass = getStatusClass(event.TrangThaiDuyet);
                 const paymentClass = getPaymentClass(event.TrangThaiThanhToan);
+                // Tạo text hiển thị trạng thái thanh toán chi tiết
+                const paymentStatusText = getPaymentStatusText(event);
                 const eventDate = formatDateTime(event.NgayBatDau);
                 const eventEndDate = formatDateTime(event.NgayKetThuc);
                 const priceText = getLocationPriceText(event);
@@ -1479,22 +1524,60 @@ $user = $_SESSION['user'];
                 // Check if event has expired (passed end time)
                 const isExpired = isEventExpired(event);
                 const isFullyPaid = (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Đã thanh toán đủ';
+                const hasDeposit = (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Đã đặt cọc';
                 const showExpiredWarning = isExpired && !isFullyPaid;
+                const paymentDeadline = event.PaymentDeadline || null;
+                const isPendingApproval = (event.TrangThaiDuyet || 'Chờ duyệt') === 'Chờ duyệt';
+                const daysFromRegistration = event.DaysFromRegistrationToEvent || 0;
                 
                 html += `
                     <div class="event-card">
                         ${showExpiredWarning ? `
-                        <div class="alert alert-danger mb-3" role="alert">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <strong>Đã qua thời gian thanh toán!</strong> Sự kiện này đã qua thời gian tổ chức (${eventEndDate}) và chưa thanh toán đủ. Sự kiện đã được tự động hủy.
+                        <div class="alert alert-danger mb-2 py-2" role="alert">
+                            <i class="fas fa-ban"></i> <strong>Đã hết hạn:</strong> Sự kiện đã qua thời gian tổ chức và chưa thanh toán đủ. Đã tự động hủy.
+                        </div>
+                        ` : ''}
+                        ${!showExpiredWarning && isPendingApproval && !isFullyPaid ? `
+                        ${daysFromRegistration < 3 ? `
+                        <div class="alert alert-warning mb-2 py-2" role="alert">
+                            <i class="fas fa-clock"></i> <strong>Chờ duyệt sự kiện và thanh toán:</strong> Đăng ký trước ngày diễn ra.
+                        </div>
+                        ` : daysFromRegistration >= 7 ? `
+                        <div class="alert alert-info mb-2 py-2" role="alert">
+                            <i class="fas fa-info-circle"></i> <strong>Chờ duyệt sự kiện và thanh toán:</strong> Có 7 ngày để thanh toán.
+                        </div>
+                        ` : `
+                        <div class="alert alert-info mb-2 py-2" role="alert">
+                            <i class="fas fa-info-circle"></i> <strong>Chờ duyệt sự kiện và thanh toán:</strong> Có ${daysFromRegistration} ngày để thanh toán.
+                        </div>
+                        `}
+                        ` : ''}
+                        ${!showExpiredWarning && !isPendingApproval && hasDeposit && paymentDeadline ? `
+                        ${paymentDeadline.is_past_deadline ? `
+                        <div class="alert alert-danger mb-2 py-2" role="alert">
+                            <i class="fas fa-exclamation-triangle"></i> <strong>Quá hạn thanh toán:</strong> Hạn ${paymentDeadline.deadline_formatted}. <strong>Vui lòng đến công ty đóng tiền mặt</strong> trước khi sự kiện diễn ra, nếu không sự kiện sẽ bị hủy và không hoàn lại cọc.
+                        </div>
+                        ` : paymentDeadline.is_approaching ? `
+                        <div class="alert alert-warning mb-2 py-2" role="alert">
+                            <i class="fas fa-clock"></i> <strong>Cảnh báo:</strong> Còn <strong>${paymentDeadline.days_until_deadline} ngày</strong> đến hạn thanh toán đủ (${paymentDeadline.deadline_formatted}). Vui lòng thanh toán sớm.
+                        </div>
+                        ` : `
+                        <div class="alert alert-info mb-2 py-2" role="alert">
+                            <i class="fas fa-info-circle"></i> <strong>Hạn thanh toán đủ:</strong> ${paymentDeadline.deadline_formatted} (còn ${paymentDeadline.days_until_deadline} ngày).
+                        </div>
+                        `}
+                        ` : ''}
+                        ${!showExpiredWarning && !isPendingApproval && event.RequiresFullPayment && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Chưa thanh toán' ? `
+                        <div class="alert alert-info mb-2 py-2" role="alert">
+                            <i class="fas fa-info-circle"></i> <strong>Sự kiện sẽ diễn ra trong ${event.DaysFromRegistrationToEvent} ngày tới.</strong> Vui lòng thanh toán.
                         </div>
                         ` : ''}
                         <div class="event-header">
                             <div class="flex-grow-1">
                                 <h3 class="event-title">${event.TenSuKien}</h3>
-                                <div class="d-flex gap-2 mt-2">
+                                <div class="d-flex gap-2 mt-2 flex-wrap">
                                     <span class="status-badge ${statusClass}">${event.TrangThaiDuyet || 'Chờ duyệt'}</span>
-                                    <span class="status-badge ${paymentClass}">${event.TrangThaiThanhToan || 'Chưa thanh toán'}</span>
+                                    <span class="status-badge ${paymentClass}">${paymentStatusText}</span>
                                     ${showExpiredWarning ? `<span class="status-badge status-rejected"><i class="fas fa-clock"></i> Đã hết hạn</span>` : ''}
                                 </div>
                             </div>
@@ -1550,6 +1633,48 @@ $user = $_SESSION['user'];
                         </div>
                         ` : ''}
                         
+                        ${event.TrangThaiThanhToan === 'Thanh toán bằng tiền mặt' && companyInfo ? `
+                        <div class="mb-3 p-3 bg-info bg-opacity-10 border border-info rounded">
+                            <strong class="text-info"><i class="fas fa-money-bill-wave"></i> Thông tin thanh toán tiền mặt:</strong>
+                            <div class="mt-2">
+                                <div class="mb-2">
+                                    <strong>Số tiền cần thanh toán:</strong>
+                                    <span class="text-primary fw-bold ms-2">${new Intl.NumberFormat('vi-VN').format(priceBreakdown.totalPrice)} VNĐ</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong><i class="fas fa-building"></i> Địa chỉ công ty:</strong>
+                                    <div class="ms-3 mt-1">
+                                        <div>${companyInfo.TenCongTy || 'CÔNG TY TNHH EVENT MANAGEMENT'}</div>
+                                        <div>${companyInfo.DiaChi || '123 Đường ABC, Quận 1, TP.HCM'}</div>
+                                        <div><i class="fas fa-phone"></i> ${companyInfo.SoDienThoai || '0123456789'}</div>
+                                        ${companyInfo.GioLamViec ? `<div><i class="fas fa-clock"></i> ${companyInfo.GioLamViec}</div>` : ''}
+                                    </div>
+                                </div>
+                                <div class="alert alert-warning mb-0 mt-2 py-2">
+                                    <i class="fas fa-exclamation-triangle"></i> 
+                                    <small>Vui lòng đến công ty để thanh toán tiền mặt trước khi sự kiện diễn ra.</small>
+                                </div>
+                            </div>
+                        </div>
+                        ` : event.PaymentMethod && event.PaymentMethod !== 'cash' && event.PaymentType ? `
+                        <div class="mb-3 p-2 bg-light rounded">
+                            <strong class="text-primary"><i class="fas fa-info-circle"></i> Thông tin thanh toán:</strong>
+                            <div class="mt-2 d-flex gap-2 flex-wrap">
+                                ${event.PaymentMethod ? `
+                                    <span class="badge ${event.PaymentMethod === 'cash' ? 'bg-info' : 'bg-primary'}">
+                                        <i class="fas ${event.PaymentMethod === 'cash' ? 'fa-money-bill-wave' : 'fa-credit-card'}"></i> 
+                                        ${event.PaymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
+                                    </span>
+                                ` : ''}
+                                ${event.PaymentType ? `
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-receipt"></i> ${event.PaymentType}
+                                    </span>
+                                ` : ''}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
                         <div class="event-actions">
                             <button class="btn btn-primary btn-sm" onclick="viewEventDetails(${event.ID_DatLich})">
                                 <i class="fas fa-eye"></i> Xem chi tiết
@@ -1565,9 +1690,33 @@ $user = $_SESSION['user'];
                             ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' 
                               && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Chưa thanh toán'
                               && (!event.PendingPayments || event.PendingPayments == 0)
-                              && !isExpired ? `
-                            <button class="btn btn-outline-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
+                              && !isExpired 
+                              && !event.RequiresFullPayment ? `
+                            <button class="btn btn-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
                                 <i class="fas fa-credit-card"></i> Thanh toán
+                            </button>
+                            ` : ''}
+                            ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' 
+                              && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Chưa thanh toán'
+                              && (!event.PendingPayments || event.PendingPayments == 0)
+                              && !isExpired 
+                              && event.RequiresFullPayment ? `
+                            <button class="btn btn-primary btn-sm" onclick="makePayment(${event.ID_DatLich}, 'full')">
+                                <i class="fas fa-credit-card"></i> Thanh toán
+                            </button>
+                            ` : ''}
+                            ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' 
+                              && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Đã đặt cọc'
+                              && (!event.PendingPayments || event.PendingPayments == 0)
+                              && !isExpired 
+                              && (!paymentDeadline || !paymentDeadline.is_past_deadline) ? `
+                            <button class="btn btn-success btn-sm" onclick="makePayment(${event.ID_DatLich}, 'full')">
+                                <i class="fas fa-credit-card"></i> Thanh toán đủ
+                            </button>
+                            ` : ''}
+                            ${paymentDeadline && paymentDeadline.is_past_deadline && !isFullyPaid ? `
+                            <button class="btn btn-secondary btn-sm" disabled title="Đã quá hạn thanh toán đủ">
+                                <i class="fas fa-clock"></i> Đã quá hạn thanh toán
                             </button>
                             ` : ''}
                             ${isExpired && !isFullyPaid ? `
@@ -1579,6 +1728,17 @@ $user = $_SESSION['user'];
                             <button class="btn btn-review btn-sm" onclick="openReviewModal(${event.ID_DatLich}, '${event.TenSuKien}')" 
                                     title="Đánh giá sự kiện đã hoàn thành">
                                 <i class="fas fa-star"></i> Đánh giá
+                            </button>
+                            ` : ''}
+                            ${event.SuccessfulPayments && event.SuccessfulPayments.length > 0 ? `
+                            <button class="btn btn-info btn-sm" onclick="viewInvoice(${event.SuccessfulPayments[0].ID_ThanhToan})" 
+                                    title="Xem hóa đơn thanh toán">
+                                <i class="fas fa-file-invoice"></i> Xem hóa đơn
+                            </button>
+                            ` : event.PendingCashPayment && event.PendingCashPayment.ID_ThanhToan ? `
+                            <button class="btn btn-info btn-sm" onclick="viewInvoice(${event.PendingCashPayment.ID_ThanhToan})" 
+                                    title="Xem hóa đơn cần thanh toán (đang chờ duyệt)">
+                                <i class="fas fa-file-invoice"></i> Xem hóa đơn
                             </button>
                             ` : ''}
                             </div>
@@ -1640,10 +1800,57 @@ $user = $_SESSION['user'];
             
             switch(payment.trim()) {
                 case 'Chưa thanh toán': return 'status-pending';
+                case 'Thanh toán bằng tiền mặt': return 'status-approved';
                 case 'Đã đặt cọc': return 'status-approved';
                 case 'Đã thanh toán đủ': return 'status-paid';
                 default: return 'status-pending';
             }
+        }
+        
+        // Get payment status text with details
+        function getPaymentStatusText(event) {
+            const trangThai = event.TrangThaiThanhToan || 'Chưa thanh toán';
+            const paymentMethod = event.PaymentMethod || null;
+            const paymentType = event.PaymentType || null;
+            
+            // Nếu là "Thanh toán bằng tiền mặt"
+            if (trangThai === 'Thanh toán bằng tiền mặt') {
+                return 'Thanh toán bằng tiền mặt';
+            }
+            
+            // Nếu chưa thanh toán
+            if (trangThai === 'Chưa thanh toán' || !trangThai || trangThai.trim() === '') {
+                return 'Chưa thanh toán';
+            }
+            
+            // Xác định phương thức thanh toán
+            let methodText = '';
+            if (paymentMethod === 'cash') {
+                methodText = 'Tiền mặt';
+            } else if (paymentMethod === 'sepay') {
+                methodText = 'Chuyển khoản';
+            } else if (paymentMethod) {
+                // Các phương thức khác
+                methodText = paymentMethod;
+            }
+            
+            // Kết hợp loại thanh toán và phương thức
+            if (trangThai === 'Đã đặt cọc') {
+                if (methodText) {
+                    return `Đặt cọc - ${methodText}`;
+                }
+                return 'Đã đặt cọc';
+            } else if (trangThai === 'Đã thanh toán đủ') {
+                if (methodText) {
+                    return `Thanh toán đủ - ${methodText}`;
+                }
+                return 'Đã thanh toán đủ';
+            } else if (trangThai === 'Hoàn tiền') {
+                return 'Hoàn tiền';
+            }
+            
+            // Fallback
+            return trangThai;
         }
         
         // Format date time
@@ -1684,20 +1891,30 @@ $user = $_SESSION['user'];
             }
         }
         
-        // Make payment
-        function makePayment(eventId) {
+        // Make payment - Redirect to payment page
+        function makePayment(eventId, paymentType = 'deposit') {
             const event = allEvents.find(e => e.ID_DatLich === eventId);
             if (!event) return;
             
-            // Show payment modal
-            showPaymentModal(event);
+            // Check deadline if full payment
+            if (paymentType === 'full') {
+                const paymentDeadline = event.PaymentDeadline || null;
+                if (paymentDeadline && paymentDeadline.is_past_deadline) {
+                    alert(`Đã quá hạn thanh toán đủ (hạn: ${paymentDeadline.deadline_formatted}).\n\n⚠️ QUAN TRỌNG: Vui lòng đến công ty đóng tiền mặt trước khi sự kiện diễn ra.\nNếu không thanh toán, sự kiện sẽ bị hủy và KHÔNG HOÀN LẠI CỌC.`);
+                    return;
+                }
+            }
+            
+            // Redirect to payment page
+            window.location.href = `../payment/payment.php?event_id=${eventId}&payment_type=${paymentType}`;
         }
         
         // Show payment modal
-        function showPaymentModal(event) {
+        function showPaymentModal(event, defaultPaymentType = 'deposit') {
             const priceBreakdown = getEventPriceBreakdown(event);
             const totalAmount = priceBreakdown.totalPrice || event.TongTien || 0;
             const depositAmount = event.TienCocYeuCau && event.TienCocYeuCau > 0 ? event.TienCocYeuCau : Math.round(totalAmount * 0.3); // 30% deposit
+            const remainingAmount = totalAmount - depositAmount;
             
             // Debug logging
             console.log('Payment Modal Debug:', {
@@ -1710,9 +1927,9 @@ $user = $_SESSION['user'];
                 GiaCoBan: event.GiaCoBan,
                 GiaThueGio: event.GiaThueGio,
                 GiaThueNgay: event.GiaThueNgay,
-                LoaiThue: event.LoaiThue
+                LoaiThue: event.LoaiThue,
+                defaultPaymentType: defaultPaymentType
             });
-            const remainingAmount = totalAmount - depositAmount;
             
             $('#paymentModalTitle').text(`Thanh toán cho: ${event.TenSuKien}`);
             $('#paymentModalBody').html(`
@@ -1764,20 +1981,68 @@ $user = $_SESSION['user'];
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="paymentType" id="depositPayment" value="deposit" checked>
+                                <input class="form-check-input" type="radio" name="paymentType" id="depositPayment" value="deposit" ${defaultPaymentType === 'deposit' ? 'checked' : ''} ${event.TrangThaiThanhToan === 'Đã đặt cọc' || event.RequiresFullPayment ? 'disabled' : ''}>
                                 <label class="form-check-label" for="depositPayment">
                                     <strong>Đặt cọc</strong> - ${new Intl.NumberFormat('vi-VN').format(depositAmount)} VNĐ
                                     <br><small class="text-muted">Thanh toán 30% để giữ chỗ</small>
+                                    ${event.TrangThaiThanhToan === 'Đã đặt cọc' ? '<br><small class="text-success"><i class="fas fa-check"></i> Đã đặt cọc</small>' : ''}
+                                    ${event.RequiresFullPayment ? '<br><small class="text-danger"><i class="fas fa-ban"></i> Sự kiện diễn ra trong vòng 7 ngày, không thể đặt cọc</small>' : ''}
                                 </label>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="paymentType" id="fullPayment" value="full">
+                                <input class="form-check-input" type="radio" name="paymentType" id="fullPayment" value="full" ${defaultPaymentType === 'full' ? 'checked' : ''} ${event.RequiresFullPayment ? '' : (event.TrangThaiThanhToan !== 'Đã đặt cọc' ? 'disabled' : '')}>
                                 <label class="form-check-label" for="fullPayment">
                                     <strong>Thanh toán đủ</strong> - ${new Intl.NumberFormat('vi-VN').format(totalAmount)} VNĐ
                                     <br><small class="text-muted">Thanh toán toàn bộ số tiền</small>
+                                    ${event.RequiresFullPayment ? '<br><small class="text-warning"><i class="fas fa-exclamation-triangle"></i> Bắt buộc thanh toán đủ (sự kiện diễn ra trong vòng 7 ngày)</small>' : ''}
+                                    ${event.PaymentDeadline ? `
+                                    <br><small class="${event.PaymentDeadline.is_past_deadline ? 'text-danger' : event.PaymentDeadline.is_approaching ? 'text-warning' : 'text-info'}">
+                                        <i class="fas fa-clock"></i> Hạn: ${event.PaymentDeadline.deadline_formatted} (7 ngày sau khi đặt cọc)
+                                        ${event.PaymentDeadline.is_past_deadline ? 
+                                            '<br><strong class="text-danger">⚠️ Đã quá hạn! Phải đến công ty đóng tiền mặt. Nếu không, sự kiện sẽ bị hủy và không hoàn lại cọc.</strong>' : 
+                                            event.PaymentDeadline.is_approaching ? 
+                                                ` (Còn ${event.PaymentDeadline.days_until_deadline} ngày)` : 
+                                                ` (Còn ${event.PaymentDeadline.days_until_deadline} ngày)`}
+                                    </small>
+                                    ` : ''}
                                 </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <h6><i class="fas fa-user text-primary"></i> Thông tin liên lạc</h6>
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-info-circle"></i> 
+                                <small>Vui lòng kiểm tra và cập nhật thông tin liên lạc để chúng tôi có thể liên hệ với bạn về thanh toán.</small>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Họ tên <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="invoiceName" value="${event.HoTen || ''}" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Số điện thoại <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="invoicePhone" value="${event.SoDienThoai || ''}" required>
+                                    <small class="text-muted">Số điện thoại để liên lạc (có thể khác với số đăng ký)</small>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Email <span class="text-muted">(không thể thay đổi)</span></label>
+                                    <input type="email" class="form-control" id="invoiceEmail" value="${event.UserEmail || event.Email || ''}" readonly disabled style="background-color: #e9ecef; cursor: not-allowed;">
+                                    <small class="text-muted">Email đăng ký tài khoản (không thể thay đổi)</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Địa chỉ</label>
+                                    <input type="text" class="form-control" id="invoiceAddress" value="${event.DiaChiKhachHang || ''}" placeholder="Nhập địa chỉ liên lạc">
+                                    <small class="text-muted">Địa chỉ để liên lạc (có thể khác với địa chỉ đăng ký)</small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1835,6 +2100,30 @@ $user = $_SESSION['user'];
                 $('.payment-details').hide();
                 $(`#${method}Details`).show();
                 $('#paymentDetails').show();
+                
+                // Nếu chọn tiền mặt, chỉ cho phép thanh toán đủ
+                if (method === 'cash') {
+                    $('#depositPayment').prop('disabled', true);
+                    $('#fullPayment').prop('disabled', false).prop('checked', true);
+                } else {
+                    // Nếu chọn SePay, khôi phục logic ban đầu
+                    const event = $('#paymentModal').data('event');
+                    if (event) {
+                        if (event.TrangThaiThanhToan === 'Đã đặt cọc' || event.RequiresFullPayment) {
+                            $('#depositPayment').prop('disabled', true);
+                        } else {
+                            $('#depositPayment').prop('disabled', false);
+                        }
+                        
+                        if (event.RequiresFullPayment) {
+                            $('#fullPayment').prop('disabled', false);
+                        } else if (event.TrangThaiThanhToan !== 'Đã đặt cọc') {
+                            $('#fullPayment').prop('disabled', true);
+                        } else {
+                            $('#fullPayment').prop('disabled', false);
+                        }
+                    }
+                }
             });
         }
         
@@ -1850,6 +2139,23 @@ $user = $_SESSION['user'];
                 return;
             }
             
+            // Validate invoice information
+            const invoiceName = $('#invoiceName').val().trim();
+            const invoicePhone = $('#invoicePhone').val().trim();
+            
+            if (!invoiceName || !invoicePhone) {
+                alert('Vui lòng điền đầy đủ thông tin hóa đơn (Họ tên và Số điện thoại)');
+                return;
+            }
+            
+            // Get invoice information
+            // Email luôn lấy từ server (email đăng ký), không gửi từ form
+            const invoiceData = {
+                name: invoiceName,
+                phone: invoicePhone,
+                address: $('#invoiceAddress').val().trim() || null
+            };
+            
             const priceBreakdown = getEventPriceBreakdown(event);
             const totalEventPrice = priceBreakdown.totalPrice || event.TongTien || 0;
             
@@ -1863,7 +2169,8 @@ $user = $_SESSION['user'];
                 totalEventPrice: totalEventPrice,
                 TienCocYeuCau: event.TienCocYeuCau,
                 amount: amount,
-                priceBreakdown: priceBreakdown
+                priceBreakdown: priceBreakdown,
+                invoiceData: invoiceData
             });
             
             if (confirm(`Xác nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(amount)} VNĐ qua ${getPaymentMethodName(paymentMethod)}?`)) {
@@ -1887,7 +2194,8 @@ $user = $_SESSION['user'];
                         action: apiAction,
                         event_id: event.ID_DatLich,
                         amount: amount,
-                        payment_type: paymentType
+                        payment_type: paymentType,
+                        invoice_data: invoiceData
                     };
                 } else {
                     // Use offline payment (QR code)
@@ -1897,7 +2205,8 @@ $user = $_SESSION['user'];
                         event_id: event.ID_DatLich,
                         amount: amount,
                         payment_method: paymentMethod,
-                        payment_type: paymentType
+                        payment_type: paymentType,
+                        invoice_data: invoiceData
                     };
                 }
                 
@@ -2023,9 +2332,9 @@ $user = $_SESSION['user'];
                     <strong>Hướng dẫn:</strong> Mở app ngân hàng → Quét QR hoặc chuyển khoản theo thông tin trên
                 </div>
                 
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle"></i>
-                    <small>Sau khi chuyển khoản, hệ thống sẽ tự động cập nhật trạng thái.</small>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <small>Sau khi chuyển khoản, vui lòng nhấn nút <strong>"Xác nhận thanh toán"</strong> để hệ thống kiểm tra và cập nhật trạng thái.</small>
                 </div>
             `);
             
@@ -2045,19 +2354,7 @@ $user = $_SESSION['user'];
             // Generate QR Code for banking
             generateQRCodeWithFallback(paymentData);
 
-            // Auto-poll payment status every 12s and redirect on success/failure
-            try {
-                if (window.__sepayPollTimer) {
-                    clearInterval(window.__sepayPollTimer);
-                }
-                window.__sepayPollTimer = setInterval(function() {
-                    try {
-                        checkPaymentStatus(paymentData.transaction_id);
-                    } catch(e) {
-                        console.warn('Auto check status error:', e);
-                    }
-                }, 12000);
-            } catch(e) { console.warn(e); }
+            // Không tự động kiểm tra - chỉ kiểm tra khi người dùng nhấn nút "Xác nhận thanh toán"
         }
 
         // Show QR Code Modal
@@ -2103,10 +2400,10 @@ $user = $_SESSION['user'];
                     </div>
                     ` : ''}
                     
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i>
-                        <strong>Sau khi thanh toán:</strong>
-                        <p class="mb-0 mt-1">Hệ thống sẽ tự động cập nhật trạng thái thanh toán. Bạn có thể đóng cửa sổ này.</p>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Sau khi chuyển khoản:</strong>
+                        <p class="mb-0 mt-1">Vui lòng nhấn nút <strong>"Xác nhận thanh toán"</strong> để hệ thống kiểm tra và cập nhật trạng thái.</p>
                     </div>
                 </div>
             `);
@@ -2628,6 +2925,23 @@ $user = $_SESSION['user'];
                                         <td><strong>Trạng thái thanh toán:</strong></td>
                                         <td><span class="badge ${paymentClass}">${event.TrangThaiThanhToan || 'Chưa thanh toán'}</span></td>
                                     </tr>
+                                    ${event.PaymentMethod ? `
+                                    <tr>
+                                        <td><strong>Phương thức thanh toán:</strong></td>
+                                        <td>
+                                            <span class="badge ${event.PaymentMethod === 'cash' ? 'bg-info' : 'bg-primary'}">
+                                                <i class="fas ${event.PaymentMethod === 'cash' ? 'fa-money-bill-wave' : 'fa-credit-card'}"></i> 
+                                                ${event.PaymentMethod === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    ` : ''}
+                                    ${event.PaymentType ? `
+                                    <tr>
+                                        <td><strong>Loại thanh toán:</strong></td>
+                                        <td><span class="badge bg-warning text-dark"><i class="fas fa-receipt"></i> ${event.PaymentType}</span></td>
+                                    </tr>
+                                    ` : ''}
                                 </table>
                             </div>
                         </div>
@@ -3002,6 +3316,141 @@ $user = $_SESSION['user'];
             setTimeout(() => {
                 $('#errorMessage').hide();
             }, 5000);
+        }
+        
+        // View invoice
+        function viewInvoice(paymentId) {
+            const modal = new bootstrap.Modal(document.getElementById('invoiceModal'));
+            const modalBody = document.getElementById('invoiceModalBody');
+            
+            // Hiển thị loading
+            modalBody.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <p class="mt-2">Đang tải thông tin hóa đơn...</p>
+                </div>
+            `;
+            
+            modal.show();
+            
+            // Lấy thông tin hóa đơn
+            fetch(`../src/controllers/payment.php?action=get_invoice&payment_id=${paymentId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const invoice = data.invoice;
+                        const payment = data.payment;
+                        
+                        const isPendingCash = payment.TrangThai === 'Đang xử lý' && payment.PhuongThuc === 'Tiền mặt';
+                        
+                        modalBody.innerHTML = `
+                            <div class="invoice-details">
+                                ${isPendingCash ? `
+                                <div class="alert alert-warning mb-3">
+                                    <i class="fas fa-clock"></i> 
+                                    <strong>Đang chờ duyệt:</strong> Hóa đơn này đang chờ admin xác nhận thanh toán tiền mặt. 
+                                    Vui lòng đến công ty để thanh toán theo thông tin bên dưới.
+                                </div>
+                                ` : ''}
+                                
+                                <div class="text-center mb-4">
+                                    <h4 class="text-primary">HÓA ĐƠN THANH TOÁN</h4>
+                                    <p class="text-muted mb-0">Mã hóa đơn: #${invoice.ID_HoaDon || payment.ID_ThanhToan}</p>
+                                </div>
+                                
+                                <div class="row mb-4">
+                                    <div class="col-md-6">
+                                        <h6 class="text-primary mb-3"><i class="fas fa-user"></i> Thông tin khách hàng</h6>
+                                        <table class="table table-sm table-borderless">
+                                            <tr><td class="text-muted" style="width: 40%;">Họ tên:</td><td><strong>${invoice.HoTen || payment.HoTen}</strong></td></tr>
+                                            <tr><td class="text-muted">Số điện thoại:</td><td>${invoice.SoDienThoai || payment.SoDienThoai}</td></tr>
+                                            <tr><td class="text-muted">Email:</td><td>${invoice.Email || payment.UserEmail || 'N/A'}</td></tr>
+                                            <tr><td class="text-muted">Địa chỉ:</td><td>${invoice.DiaChi || payment.DiaChi || 'N/A'}</td></tr>
+                                        </table>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-primary mb-3"><i class="fas fa-info-circle"></i> Thông tin thanh toán</h6>
+                                        <table class="table table-sm table-borderless">
+                                            <tr><td class="text-muted" style="width: 40%;">Sự kiện:</td><td><strong>${payment.TenSuKien}</strong></td></tr>
+                                            <tr><td class="text-muted">Loại thanh toán:</td><td><span class="badge bg-${payment.LoaiThanhToan === 'Đặt cọc' ? 'warning' : 'success'}">${payment.LoaiThanhToan}</span></td></tr>
+                                            <tr><td class="text-muted">Số tiền:</td><td><strong class="text-primary">${new Intl.NumberFormat('vi-VN').format(payment.SoTien)} VNĐ</strong></td></tr>
+                                            <tr><td class="text-muted">Phương thức:</td><td>${payment.PhuongThuc}</td></tr>
+                                            <tr><td class="text-muted">Ngày tạo:</td><td>${new Date(payment.NgayThanhToan).toLocaleString('vi-VN')}</td></tr>
+                                            ${payment.MaGiaoDich ? `<tr><td class="text-muted">Mã giao dịch:</td><td><code>${payment.MaGiaoDich}</code></td></tr>` : ''}
+                                            <tr><td class="text-muted">Trạng thái:</td><td><span class="badge bg-${payment.TrangThai === 'Thành công' ? 'success' : payment.TrangThai === 'Đang xử lý' ? 'warning' : 'danger'}">${payment.TrangThai}</span></td></tr>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                ${isPendingCash && companyInfo ? `
+                                <div class="alert alert-info mb-3">
+                                    <h6 class="mb-2"><i class="fas fa-building"></i> Thông tin công ty để thanh toán:</h6>
+                                    <div class="ms-3">
+                                        <div><strong>${companyInfo.TenCongTy}</strong></div>
+                                        <div><i class="fas fa-map-marker-alt"></i> ${companyInfo.DiaChi}</div>
+                                        <div><i class="fas fa-phone"></i> ${companyInfo.SoDienThoai}</div>
+                                        ${companyInfo.GioLamViec ? `<div><i class="fas fa-clock"></i> ${companyInfo.GioLamViec}</div>` : ''}
+                                    </div>
+                                </div>
+                                ` : ''}
+                                
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-info-circle"></i> 
+                                    <strong>Lưu ý:</strong> Đây là hóa đơn ${payment.LoaiThanhToan === 'Đặt cọc' ? 'đặt cọc' : 'thanh toán đủ'} cho sự kiện "${payment.TenSuKien}".
+                                    ${payment.LoaiThanhToan === 'Đặt cọc' ? 'Bạn cần thanh toán đủ số tiền còn lại trước khi sự kiện diễn ra.' : ''}
+                                    ${isPendingCash ? 'Vui lòng đến công ty để thanh toán tiền mặt theo thông tin trên.' : ''}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        modalBody.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle"></i> ${data.error || 'Không thể tải thông tin hóa đơn'}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading invoice:', error);
+                    modalBody.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i> Lỗi khi tải thông tin hóa đơn. Vui lòng thử lại sau.
+                        </div>
+                    `;
+                });
+        }
+        
+        // Print invoice
+        function printInvoice() {
+            const invoiceContent = document.getElementById('invoiceModalBody').innerHTML;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Hóa đơn thanh toán</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        .invoice-details { max-width: 800px; margin: 0 auto; }
+                        table { width: 100%; margin-bottom: 20px; }
+                        .badge { padding: 5px 10px; border-radius: 4px; }
+                        .bg-success { background-color: #28a745; color: white; }
+                        .bg-warning { background-color: #ffc107; color: black; }
+                        .bg-danger { background-color: #dc3545; color: white; }
+                        @media print {
+                            button { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${invoiceContent}
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
         }
     </script>
 </body>

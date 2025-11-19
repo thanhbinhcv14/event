@@ -395,7 +395,7 @@ function hideMessages() {
 }
 
 // AJAX helper function
-function makeAjaxRequest(url, data = {}, method = 'GET', useFormData = false) {
+async function makeAjaxRequest(url, data = {}, method = 'GET', useFormData = false) {
     const defaultOptions = {
         method: method,
         headers: {
@@ -434,6 +434,57 @@ function makeAjaxRequest(url, data = {}, method = 'GET', useFormData = false) {
             }
         }
         url += (url.includes('?') ? '&' : '?') + params.toString();
+    }
+    
+    // Thêm CSRF token cho POST, PUT, DELETE, PATCH requests
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
+        // Sử dụng fetchWithCSRF nếu có, nếu không thì tự thêm token
+        if (typeof window.fetchWithCSRF === 'function') {
+            return window.fetchWithCSRF(url, defaultOptions)
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            try {
+                                const json = JSON.parse(text);
+                                throw new Error(json.error || `HTTP error! status: ${response.status}`);
+                            } catch (e) {
+                                if (e instanceof Error && e.message.includes('HTTP error')) {
+                                    throw e;
+                                }
+                                throw new Error(`HTTP error! status: ${response.status}, response: ${text}`);
+                            }
+                        });
+                    }
+                    return response.json();
+                })
+                .catch(error => {
+                    console.error('AJAX Error:', error);
+                    showError('Có lỗi xảy ra khi tải dữ liệu: ' + error.message);
+                    throw error;
+                });
+        } else {
+            // Fallback: tự thêm CSRF token nếu có CSRFHelper
+            if (typeof window.CSRFHelper !== 'undefined' && window.CSRFHelper.getToken) {
+                const token = await window.CSRFHelper.getToken();
+                if (token) {
+                    if (defaultOptions.body instanceof FormData) {
+                        defaultOptions.body.append('csrf_token', token);
+                    } else if (typeof defaultOptions.body === 'string') {
+                        try {
+                            const jsonData = JSON.parse(defaultOptions.body);
+                            jsonData.csrf_token = token;
+                            defaultOptions.body = JSON.stringify(jsonData);
+                        } catch (e) {
+                            // Không phải JSON, thêm vào query string
+                            url += (url.includes('?') ? '&' : '?') + 'csrf_token=' + encodeURIComponent(token);
+                        }
+                    } else if (typeof defaultOptions.body === 'object') {
+                        defaultOptions.body.csrf_token = token;
+                    }
+                    defaultOptions.headers['X-CSRF-Token'] = token;
+                }
+            }
+        }
     }
     
     // Debug logging

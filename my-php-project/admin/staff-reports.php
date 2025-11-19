@@ -1,13 +1,13 @@
 <?php
 require_once 'includes/admin-header.php';
 
-// Check if user has role 4 (Nhân viên)
+// Kiểm tra người dùng có role 4 (Nhân viên)
 if ($user['ID_Role'] != 4) {
     header('Location: index.php');
     exit;
 }
 
-// Get staff info
+// Lấy thông tin nhân viên
 try {
     $pdo = getDBConnection();
     $userId = $_SESSION['user']['ID_User'];
@@ -27,14 +27,14 @@ try {
     $staffInfo = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$staffInfo) {
-        header('Location: login.php');
+        header('Location: ../login.php');
         exit;
     }
     
-    // Get statistics from both sources
+    // Lấy thống kê từ cả hai nguồn
     $stats = ['total_assignments' => 0, 'completed' => 0, 'in_progress' => 0, 'pending' => 0, 'issues' => 0];
     
-    // From lichlamviec
+    // Từ lichlamviec
     $stmt = $pdo->prepare("
         SELECT 
             COUNT(*) as total_assignments,
@@ -48,7 +48,7 @@ try {
     $stmt->execute([$staffInfo['ID_NhanVien']]);
     $lichlamviecStats = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // From chitietkehoach
+    // Từ chitietkehoach
     $stmt = $pdo->prepare("
         SELECT 
             COUNT(*) as total_assignments,
@@ -62,14 +62,14 @@ try {
     $stmt->execute([$staffInfo['ID_NhanVien']]);
     $chitietkehoachStats = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Combine statistics
+    // Kết hợp thống kê
     $stats['total_assignments'] = $lichlamviecStats['total_assignments'] + $chitietkehoachStats['total_assignments'];
     $stats['completed'] = $lichlamviecStats['completed'] + $chitietkehoachStats['completed'];
     $stats['in_progress'] = $lichlamviecStats['in_progress'] + $chitietkehoachStats['in_progress'];
     $stats['pending'] = $lichlamviecStats['pending'] + $chitietkehoachStats['pending'];
     $stats['issues'] = $lichlamviecStats['issues'] + $chitietkehoachStats['issues'];
     
-    // Get monthly performance
+    // Lấy hiệu suất theo tháng
     $stmt = $pdo->prepare("
         SELECT 
             DATE_FORMAT(NgayTao, '%Y-%m') as month,
@@ -84,7 +84,7 @@ try {
     $stmt->execute([$staffInfo['ID_NhanVien']]);
     $monthlyStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Get recent reports
+    // Lấy báo cáo gần đây
     $stmt = $pdo->prepare("
         SELECT 
             llv.ID_LLV,

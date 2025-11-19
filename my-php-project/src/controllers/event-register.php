@@ -19,6 +19,9 @@ session_start();
 // Include Socket.IO client
 require_once __DIR__ . '/../socket/socket-client.php';
 
+// Include CSRF protection
+require_once __DIR__ . '/../auth/csrf.php';
+
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 // Debug action
@@ -26,7 +29,16 @@ error_log("Debug - Action: " . $action);
 error_log("Debug - Session data: " . print_r($_SESSION, true));
 
 // For data loading actions, don't require login
-$publicActions = ['get_event_types', 'get_locations_by_type', 'get_all_locations', 'get_equipment_suggestions', 'get_combo_suggestions', 'get_all_equipment', 'get_all_combos', 'get_event_selected_data', 'get_event_equipment', 'check_equipment_availability', 'check_combo_availability'];
+$publicActions = ['get_csrf_token', 'get_event_types', 'get_locations_by_type', 'get_all_locations', 'get_equipment_suggestions', 'get_combo_suggestions', 'get_all_equipment', 'get_all_combos', 'get_event_selected_data', 'get_event_equipment', 'check_equipment_availability', 'check_combo_availability'];
+
+// Xử lý get_csrf_token trước (không cần database)
+if ($action === 'get_csrf_token') {
+    echo json_encode([
+        'success' => true,
+        'csrf_token' => generateCSRFToken()
+    ]);
+    exit();
+}
 
 if (!in_array($action, $publicActions)) {
     // Check if user is logged in for other actions
@@ -57,6 +69,7 @@ try {
     error_log("Debug - Database connection successful");
     
     switch ($action) {
+            
         case 'get_event_types':
             // Get event types from database
             try {
@@ -409,8 +422,13 @@ try {
             break;
             
         case 'register':
+            // Verify CSRF token
+            requireCSRF();
+            
             // Register new event using datlichsukien table
-            $input = json_decode(file_get_contents('php://input'), true);
+            // Sử dụng getCachedInput() để tránh lỗi php://input chỉ đọc được một lần
+            $jsonInput = getCachedInput();
+            $input = json_decode($jsonInput, true);
             if (!$input) {
                 $input = $_POST;
             }
@@ -699,6 +717,72 @@ try {
                         $stmt->execute([$userId]);
                     }
                     
+                    // Tự động hủy sự kiện quá deadline thanh toán đủ (tính từ ngày đặt cọc)
+                    // Lấy các sự kiện đã đặt cọc nhưng chưa thanh toán đủ
+                    $stmt = $pdo->prepare("
+                        SELECT dl.ID_DatLich, dl.NgayBatDau, dl.TrangThaiDuyet
+                        FROM datlichsukien dl
+                        INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
+                        WHERE k.ID_User = ?
+                        AND dl.TrangThaiThanhToan = 'Đã đặt cọc'
+                        AND dl.TrangThaiDuyet = 'Đã duyệt'
+                    ");
+                    $stmt->execute([$userId]);
+                    $eventsWithDeposit = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    $deadlineCancelledCount = 0;
+                    foreach ($eventsWithDeposit as $event) {
+                        // Lấy ngày đặt cọc thành công
+                        $stmtDeposit = $pdo->prepare("
+                            SELECT NgayThanhToan 
+                            FROM thanhtoan 
+                            WHERE ID_DatLich = ? 
+                            AND LoaiThanhToan = 'Đặt cọc' 
+                            AND TrangThai = 'Thành công'
+                            ORDER BY NgayThanhToan ASC
+                            LIMIT 1
+                        ");
+                        $stmtDeposit->execute([$event['ID_DatLich']]);
+                        $depositPayment = $stmtDeposit->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($depositPayment && !empty($depositPayment['NgayThanhToan']) && !empty($event['NgayBatDau'])) {
+                            $depositDate = new DateTime($depositPayment['NgayThanhToan']);
+                            $eventStartDate = new DateTime($event['NgayBatDau']);
+                            $now = new DateTime();
+                            
+                            // Deadline luôn = đặt cọc + 7 ngày
+                            $deadlineDate = clone $depositDate;
+                            $deadlineDate->modify('+7 days');
+                            
+                            // Tính số ngày từ đặt cọc đến ngày tổ chức (để hiển thị)
+                            $daysFromDepositToEvent = $depositDate->diff($eventStartDate)->days;
+                            
+                            // Kiểm tra nếu đã quá deadline và chưa thanh toán đủ
+                            if ($now > $deadlineDate && $now < $eventStartDate) {
+                                // Hủy sự kiện và cập nhật ghi chú
+                                $stmtCancel = $pdo->prepare("
+                                    UPDATE datlichsukien 
+                                    SET TrangThaiDuyet = 'Đã hủy',
+                                        GhiChu = CONCAT(IFNULL(GhiChu, ''), ' | Tự động hủy: Quá hạn thanh toán đủ (hạn: ', ?, '). Không hoàn lại cọc.')
+                                    WHERE ID_DatLich = ?
+                                ");
+                                $stmtCancel->execute([$deadlineDate->format('d/m/Y'), $event['ID_DatLich']]);
+                                
+                                // Hủy các thanh toán đang chờ xử lý
+                                $stmtCancelPayments = $pdo->prepare("
+                                    UPDATE thanhtoan 
+                                    SET TrangThai = 'Hủy',
+                                        GhiChu = CONCAT(IFNULL(GhiChu, ''), ' - Tự động hủy: Quá hạn thanh toán đủ. Không hoàn lại cọc.')
+                                    WHERE ID_DatLich = ?
+                                    AND TrangThai = 'Đang xử lý'
+                                ");
+                                $stmtCancelPayments->execute([$event['ID_DatLich']]);
+                                
+                                $deadlineCancelledCount++;
+                            }
+                        }
+                    }
+                    
                     $pdo->commit();
                 } catch (Exception $e) {
                     $pdo->rollBack();
@@ -707,13 +791,15 @@ try {
                 
                 $stmt = $pdo->prepare("
                     SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue, d.LoaiDiaDiem,
-                           ls.TenLoai, ls.GiaCoBan, k.HoTen, k.SoDienThoai,
+                           ls.TenLoai, ls.GiaCoBan, k.HoTen, k.SoDienThoai, k.DiaChi as DiaChiKhachHang, k.ID_KhachHang,
+                           u.Email as UserEmail,
                            p.ID_Phong, p.TenPhong as TenPhong, p.GiaThueGio as PhongGiaThueGio, p.GiaThueNgay as PhongGiaThueNgay, p.LoaiThue as PhongLoaiThue,
                            COALESCE(equipment_total.TongGiaThietBi, 0) as TongGiaThietBi,
                            s.TrangThaiThucTe as TrangThaiSuKien,
                            COALESCE(pending_payments.PendingPayments, 0) as PendingPayments
                     FROM datlichsukien dl
                     INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
+                    LEFT JOIN users u ON k.ID_User = u.ID_User
                     LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
                     LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
                     LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
@@ -731,12 +817,128 @@ try {
                         GROUP BY ID_DatLich
                     ) pending_payments ON pending_payments.ID_DatLich = dl.ID_DatLich
                     WHERE k.ID_User = ?
-                    ORDER BY dl.NgayBatDau DESC
+                    ORDER BY dl.NgayTao DESC
                 ");
                 $stmt->execute([$userId]);
                 $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
-                echo json_encode(['success' => true, 'events' => $events, 'cancelled_expired' => $cancelledCount ?? 0]);
+                // Tính toán thông tin thanh toán cho mỗi sự kiện
+                foreach ($events as &$event) {
+                    // Tính khoảng cách từ đăng ký đến tổ chức
+                    $daysFromRegistrationToEvent = 0;
+                    if (!empty($event['NgayTao']) && !empty($event['NgayBatDau'])) {
+                        $registrationDate = new DateTime($event['NgayTao']);
+                        $eventStartDate = new DateTime($event['NgayBatDau']);
+                        $daysFromRegistrationToEvent = $registrationDate->diff($eventStartDate)->days;
+                    }
+                    $event['DaysFromRegistrationToEvent'] = $daysFromRegistrationToEvent;
+                    $event['RequiresFullPayment'] = ($daysFromRegistrationToEvent > 0 && $daysFromRegistrationToEvent < 7);
+                    
+                    // Lấy thông tin thanh toán thành công gần nhất (để hiển thị phương thức thanh toán)
+                    $stmtPayment = $pdo->prepare("
+                        SELECT PhuongThuc, LoaiThanhToan, TrangThai, NgayThanhToan
+                        FROM thanhtoan
+                        WHERE ID_DatLich = ?
+                        AND TrangThai = 'Thành công'
+                        ORDER BY NgayThanhToan DESC
+                        LIMIT 1
+                    ");
+                    $stmtPayment->execute([$event['ID_DatLich']]);
+                    $paymentInfo = $stmtPayment->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($paymentInfo) {
+                        // Map giá trị PhuongThuc từ database sang format frontend
+                        $phuongThuc = $paymentInfo['PhuongThuc'] ?? null;
+                        if ($phuongThuc === 'Tiền mặt') {
+                            $event['PaymentMethod'] = 'cash';
+                        } elseif ($phuongThuc === 'Chuyển khoản') {
+                            $event['PaymentMethod'] = 'sepay';
+                        } else {
+                            // Các phương thức khác (Momo, ZaloPay, Visa/MasterCard)
+                            $event['PaymentMethod'] = strtolower(str_replace(['/', ' '], ['', ''], $phuongThuc));
+                        }
+                        $event['PaymentType'] = $paymentInfo['LoaiThanhToan'] ?? null;
+                    } else {
+                        $event['PaymentMethod'] = null;
+                        $event['PaymentType'] = null;
+                    }
+                    
+                    // Lấy danh sách thanh toán để hiển thị nút xem hóa đơn
+                    // Bao gồm cả thanh toán thành công và thanh toán đang xử lý (nếu là tiền mặt)
+                    $stmtPayments = $pdo->prepare("
+                        SELECT ID_ThanhToan, LoaiThanhToan, SoTien, PhuongThuc, NgayThanhToan, TrangThai
+                        FROM thanhtoan
+                        WHERE ID_DatLich = ?
+                        AND (TrangThai = 'Thành công' OR (TrangThai = 'Đang xử lý' AND PhuongThuc = 'Tiền mặt'))
+                        ORDER BY NgayThanhToan DESC
+                    ");
+                    $stmtPayments->execute([$event['ID_DatLich']]);
+                    $event['SuccessfulPayments'] = $stmtPayments->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    // Lấy thanh toán đang xử lý (tiền mặt) để hiển thị thông tin
+                    $stmtPendingCash = $pdo->prepare("
+                        SELECT ID_ThanhToan, LoaiThanhToan, SoTien, PhuongThuc, NgayThanhToan, TrangThai
+                        FROM thanhtoan
+                        WHERE ID_DatLich = ?
+                        AND TrangThai = 'Đang xử lý'
+                        AND PhuongThuc = 'Tiền mặt'
+                        ORDER BY NgayThanhToan DESC
+                        LIMIT 1
+                    ");
+                    $stmtPendingCash->execute([$event['ID_DatLich']]);
+                    $pendingCashPayment = $stmtPendingCash->fetch(PDO::FETCH_ASSOC);
+                    $event['PendingCashPayment'] = $pendingCashPayment ? $pendingCashPayment : null;
+                    
+                    // Tính toán hạn thanh toán đủ cho sự kiện đã đặt cọc (tính từ ngày đặt cọc)
+                    if ($event['TrangThaiThanhToan'] === 'Đã đặt cọc' && !empty($event['NgayBatDau'])) {
+                        // Lấy ngày đặt cọc thành công đầu tiên
+                        $stmtDeposit = $pdo->prepare("
+                            SELECT NgayThanhToan 
+                            FROM thanhtoan 
+                            WHERE ID_DatLich = ? 
+                            AND LoaiThanhToan = 'Đặt cọc' 
+                            AND TrangThai = 'Thành công'
+                            ORDER BY NgayThanhToan ASC
+                            LIMIT 1
+                        ");
+                        $stmtDeposit->execute([$event['ID_DatLich']]);
+                        $depositPayment = $stmtDeposit->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($depositPayment && !empty($depositPayment['NgayThanhToan'])) {
+                            $depositDate = new DateTime($depositPayment['NgayThanhToan']);
+                            $eventStartDate = new DateTime($event['NgayBatDau']);
+                            $now = new DateTime();
+                            
+                            // Deadline luôn = đặt cọc + 7 ngày
+                            $deadlineDate = clone $depositDate;
+                            $deadlineDate->modify('+7 days');
+                            
+                            // Tính số ngày từ đặt cọc đến ngày tổ chức (để hiển thị)
+                            $daysFromDepositToEvent = $depositDate->diff($eventStartDate)->days;
+                            
+                            $daysUntilDeadline = $now->diff($deadlineDate)->days;
+                            
+                            $event['PaymentDeadline'] = [
+                                'deadline_date' => $deadlineDate->format('Y-m-d H:i:s'),
+                                'deadline_formatted' => $deadlineDate->format('d/m/Y'),
+                                'days_until_deadline' => $daysUntilDeadline,
+                                'is_past_deadline' => $now > $deadlineDate,
+                                'is_approaching' => $daysUntilDeadline <= 3 && $daysUntilDeadline > 0,
+                                'days_from_deposit_to_event' => $daysFromDepositToEvent,
+                                'deposit_date' => $depositPayment['NgayThanhToan'],
+                                'days_from_registration_to_event' => $daysFromRegistrationToEvent
+                            ];
+                        }
+                    }
+                }
+                unset($event);
+
+                echo json_encode([
+                    'success' => true, 
+                    'events' => $events, 
+                    'cancelled_expired' => $cancelledCount ?? 0,
+                    'cancelled_deadline' => $deadlineCancelledCount ?? 0
+                ]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
             }
@@ -901,7 +1103,10 @@ try {
             break;
             
         case 'update_event':
-            $input = json_decode(file_get_contents('php://input'), true);
+            // Verify CSRF token
+            requireCSRF();
+            
+            $input = json_decode(getCachedInput(), true);
             
             if (!$input) {
                 echo json_encode(['success' => false, 'error' => 'Dữ liệu không hợp lệ']);
@@ -1332,7 +1537,7 @@ function registerEventForExistingCustomer() {
     
     try {
         // Get JSON input
-        $input = json_decode(file_get_contents('php://input'), true);
+        $input = json_decode(getCachedInput(), true);
         
         if (!$input) {
             echo json_encode(['success' => false, 'message' => 'Dữ liệu không hợp lệ']);
@@ -1409,7 +1614,7 @@ function registerEventForCustomer() {
     
     try {
         // Get JSON input
-        $input = json_decode(file_get_contents('php://input'), true);
+        $input = json_decode(getCachedInput(), true);
         
         if (!$input) {
             echo json_encode(['success' => false, 'message' => 'Dữ liệu không hợp lệ']);
@@ -1493,12 +1698,11 @@ function createOrGetCustomer($customerData) {
         // Update existing customer info
         $stmt = $pdo->prepare("
             UPDATE khachhanginfo 
-            SET HoTen = ?, Email = ?, DiaChi = ?, NgaySinh = ?, GhiChu = ?
+            SET HoTen = ?, DiaChi = ?, NgaySinh = ?, GhiChu = ?
             WHERE ID_KhachHang = ?
         ");
         $stmt->execute([
             $customerData['name'],
-            $customerData['email'] ?? null,
             $customerData['address'] ?? null,
             $customerData['birthday'] ?? null,
             $customerData['notes'] ?? null,
@@ -1509,13 +1713,12 @@ function createOrGetCustomer($customerData) {
     } else {
         // Create new customer
         $stmt = $pdo->prepare("
-            INSERT INTO khachhanginfo (HoTen, SoDienThoai, Email, DiaChi, NgaySinh, GhiChu, NgayTao)
-            VALUES (?, ?, ?, ?, ?, ?, NOW())
+            INSERT INTO khachhanginfo (HoTen, SoDienThoai, DiaChi, NgaySinh, GhiChu, NgayTao)
+            VALUES (?, ?, ?, ?, ?, NOW())
         ");
         $stmt->execute([
             $customerData['name'],
             $customerData['phone'],
-            $customerData['email'] ?? null,
             $customerData['address'] ?? null,
             $customerData['birthday'] ?? null,
             $customerData['notes'] ?? null

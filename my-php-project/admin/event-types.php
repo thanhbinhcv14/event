@@ -4,20 +4,15 @@ include 'includes/admin-header.php';
 ?>
     
         <!-- Page Header -->
-        <div class="page-header d-flex justify-content-between align-items-center">
-            <h1 class="page-title m-0">
+        <div class="page-header">
+            <h1 class="page-title">
                 <i class="fas fa-tags"></i>
                 Quản lý loại sự kiện
             </h1>
-            <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-primary" onclick="showAddEventTypeModal()">
-                    <i class="fas fa-plus"></i> Thêm loại sự kiện
-                </button>
-            </div>
+            <p class="page-subtitle">Quản lý các loại sự kiện trong hệ thống</p>
         </div>
-        <p class="page-subtitle">Quản lý các loại sự kiện trong hệ thống</p>
             
-            <!-- Error/Success Messages -->
+        <!-- Error/Success Messages -->
         <div class="error-message" id="errorMessage"></div>
         <div class="success-message" id="successMessage"></div>
         
@@ -59,27 +54,67 @@ include 'includes/admin-header.php';
                         </span>
                         <input type="text" class="form-control" id="searchInput" 
                                placeholder="Nhập tên loại sự kiện, mô tả...">
-                        
-                </div>
-            </div>
-            
-            <div id="eventTypesList">
-                <div class="loading-spinner">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+                        <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
-                    <p class="mt-2">Đang tải danh sách loại sự kiện...</p>
+                </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label">Sắp xếp</label>
+                    <select class="form-select" id="sortBy">
+                        <option value="TenLoai">Tên loại</option>
+                        <option value="GiaCoBan">Giá cơ bản</option>
+                        <option value="NgayTao">Ngày tạo</option>
+                        <option value="NgayCapNhat">Ngày cập nhật</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" onclick="applyFilters()">
+                            <i class="fas fa-filter"></i> Lọc
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="clearFilters()">
+                            <i class="fas fa-times"></i> Xóa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="table-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="mb-0">
+                    <i class="fas fa-list"></i>
+                    Danh sách loại sự kiện
+                </h3>
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="showAddEventTypeModal()">
+                        <i class="fas fa-plus"></i> Thêm loại sự kiện
+                    </button>
                 </div>
             </div>
             
-            <!-- Empty State -->
-            <div class="empty-state" id="emptyState" style="display: none;">
-                <i class="fas fa-tags"></i>
-                <h3>Chưa có loại sự kiện nào</h3>
-                <p>Hãy thêm loại sự kiện đầu tiên để bắt đầu quản lý.</p>
-                <button class="btn btn-primary" onclick="showAddEventTypeModal()">
-                    <i class="fas fa-plus"></i> Thêm loại sự kiện
-                </button>
+            <div class="table-responsive">
+                <table class="table table-hover" id="eventTypesTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tên loại sự kiện</th>
+                            <th>Giá cơ bản</th>
+                            <th>Mô tả</th>
+                            <th>Ngày tạo</th>
+                            <th>Ngày cập nhật</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Data will be loaded via AJAX -->
+                    </tbody>
+                </table>
             </div>
         </div>
     
@@ -91,7 +126,7 @@ include 'includes/admin-header.php';
                     <h5 class="modal-title" id="eventTypeModalTitle">
                         <i class="fas fa-plus"></i> Thêm loại sự kiện
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form id="eventTypeForm">
@@ -136,7 +171,7 @@ include 'includes/admin-header.php';
                     <h5 class="modal-title" id="viewEventTypeModalTitle">
                         <i class="fas fa-eye"></i> Chi tiết loại sự kiện
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="viewEventTypeModalBody">
                     <!-- Event type details will be populated here -->
@@ -167,204 +202,192 @@ include 'includes/admin-header.php';
     </style>
 
     <script>
-        let allEventTypes = [];
-        let filteredEventTypes = [];
-        
-        // Initialize the page
+        let eventTypesTable;
+        let currentFilters = {};
+
+        // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
-            loadEventTypes();
+            initializeDataTable();
             loadStatistics();
-            
-            // Setup filters - only add listeners if elements exist
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) {
-                searchInput.addEventListener('keyup', filterEventTypes);
-            }
-            
-            const priceFilter = document.getElementById('priceFilter');
-            if (priceFilter) {
-                priceFilter.addEventListener('change', filterEventTypes);
-            }
-            
-            const sortBy = document.getElementById('sortBy');
-            if (sortBy) {
-                sortBy.addEventListener('change', filterEventTypes);
-            }
+            setupEventListeners();
         });
-        
-        // Load event types
-        function loadEventTypes() {
-            document.getElementById('eventTypesList').innerHTML = `
-                <div class="loading-spinner">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2">Đang tải danh sách loại sự kiện...</p>
-                </div>
-            `;
-            
-            fetch('../src/controllers/event-types.php?action=get_all')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        allEventTypes = data.event_types;
-                        filteredEventTypes = allEventTypes;
-                        displayEventTypes();
-                        updateStatistics();
-                    } else {
-                        showError('Không thể tải danh sách loại sự kiện: ' + data.error);
-                        document.getElementById('eventTypesList').innerHTML = '';
-                    }
-                })
-                .catch(error => {
-                    showError('Lỗi kết nối khi tải danh sách loại sự kiện');
-                    document.getElementById('eventTypesList').innerHTML = '';
-                });
-        }
-        
-        // Display event types
-        function displayEventTypes() {
-            if (filteredEventTypes.length === 0) {
-                document.getElementById('eventTypesList').innerHTML = '';
-                document.getElementById('emptyState').style.display = 'block';
+
+        function initializeDataTable() {
+            // Check if DataTables is available
+            if (typeof $.fn.DataTable === 'undefined') {
+                console.error('DataTables not available');
+                AdminPanel.showError('DataTables không khả dụng');
                 return;
             }
-            
-            document.getElementById('emptyState').style.display = 'none';
-            
-            let html = '';
-            filteredEventTypes.forEach(eventType => {
-                const price = new Intl.NumberFormat('vi-VN').format(eventType.GiaCoBan);
-                const createdDate = formatDateTime(eventType.NgayTao);
-                const updatedDate = formatDateTime(eventType.NgayCapNhat);
-                
-                html += `
-                    <div class="event-type-card fade-in">
-                        <div class="event-type-header">
-                            <div class="flex-grow-1">
-                                <h3 class="event-type-title">${eventType.TenLoai}</h3>
-                                <div class="event-type-price">${price} VNĐ</div>
-                            </div>
-                        </div>
-                        
-                        <div class="event-type-description">
-                            ${eventType.MoTa || 'Không có mô tả'}
-                        </div>
-                        
-                        <div class="event-type-meta">
-                            <small class="text-muted">
-                                <i class="fas fa-calendar-plus"></i> Tạo: ${createdDate}
-                            </small>
-                            <small class="text-muted">
-                                <i class="fas fa-calendar-edit"></i> Cập nhật: ${updatedDate}
-                            </small>
-                        </div>
-                        
-                        <div class="action-buttons mt-3">
-                            <button class="btn btn-primary btn-sm" onclick="viewEventType(${eventType.ID_LoaiSK})">
-                                <i class="fas fa-eye"></i> Xem chi tiết
-                            </button>
-                            <button class="btn btn-outline-primary btn-sm" onclick="editEventType(${eventType.ID_LoaiSK})">
-                                <i class="fas fa-edit"></i> Sửa
-                            </button>
-                            <button class="btn btn-outline-danger btn-sm" onclick="deleteEventType(${eventType.ID_LoaiSK})">
-                                <i class="fas fa-trash"></i> Xóa
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            document.getElementById('eventTypesList').innerHTML = html;
+
+            try {
+                eventTypesTable = $('#eventTypesTable').DataTable({
+                    processing: true,
+                    serverSide: false,
+                    ajax: {
+                        url: '../src/controllers/event-types.php',
+                        type: 'GET',
+                        data: function(d) {
+                            return $.extend({
+                                action: 'get_all'
+                            }, currentFilters);
+                        },
+                        dataSrc: function(json) {
+                            if (json.success && json.event_types) {
+                                return json.event_types;
+                            } else {
+                                console.error('Invalid data format:', json);
+                                return [];
+                            }
+                        },
+                        error: function(xhr, error, thrown) {
+                            console.error('DataTable AJAX Error:', error);
+                            AdminPanel.showError('Không thể tải dữ liệu loại sự kiện');
+                        }
+                    },
+                    columns: [
+                        { 
+                            data: 'ID_LoaiSK', 
+                            className: 'text-center',
+                            render: function(data) {
+                                return `<strong>#${data}</strong>`;
+                            }
+                        },
+                        { 
+                            data: 'TenLoai',
+                            render: function(data) {
+                                return `<strong>${data || 'N/A'}</strong>`;
+                            }
+                        },
+                        { 
+                            data: 'GiaCoBan',
+                            render: function(data) {
+                                return data ? AdminPanel.formatCurrency(data) : 'N/A';
+                            }
+                        },
+                        { 
+                            data: 'MoTa',
+                            render: function(data) {
+                                if (!data) return '<span class="text-muted">Không có mô tả</span>';
+                                const shortDesc = data.length > 50 ? data.substring(0, 50) + '...' : data;
+                                return `<span title="${data}">${shortDesc}</span>`;
+                            }
+                        },
+                        { 
+                            data: 'NgayTao',
+                            render: function(data) {
+                                return data ? AdminPanel.formatDate(data, 'dd/mm/yyyy hh:mm') : 'N/A';
+                            }
+                        },
+                        { 
+                            data: 'NgayCapNhat',
+                            render: function(data) {
+                                return data ? AdminPanel.formatDate(data, 'dd/mm/yyyy hh:mm') : 'N/A';
+                            }
+                        },
+                        { 
+                            data: null,
+                            orderable: false,
+                            className: 'text-center',
+                            render: function(data, type, row) {
+                                return `
+                                    <div class="action-buttons">
+                                        <button class="btn btn-info btn-sm" onclick="viewEventType(${row.ID_LoaiSK})" title="Xem chi tiết">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-warning btn-sm" onclick="editEventType(${row.ID_LoaiSK})" title="Chỉnh sửa">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" onclick="deleteEventType(${row.ID_LoaiSK})" title="Xóa">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        }
+                    ],
+                    order: [[1, 'asc']], // Sort by name by default
+                    language: {
+                        processing: "Đang xử lý...",
+                        search: "Tìm kiếm:",
+                        lengthMenu: "Hiển thị _MENU_ mục",
+                        info: "Hiển thị _START_ đến _END_ trong tổng số _TOTAL_ mục",
+                        infoEmpty: "Hiển thị 0 đến 0 trong tổng số 0 mục",
+                        infoFiltered: "(đã lọc từ _MAX_ mục)",
+                        loadingRecords: "Đang tải...",
+                        zeroRecords: "Không tìm thấy dữ liệu",
+                        emptyTable: "Không có dữ liệu",
+                        paginate: {
+                            first: "Đầu",
+                            previous: "Trước",
+                            next: "Sau",
+                            last: "Cuối"
+                        }
+                    },
+                    pageLength: 10,
+                    responsive: true
+                });
+            } catch (error) {
+                console.error('DataTable initialization error:', error);
+                AdminPanel.showError('Lỗi khởi tạo bảng dữ liệu');
+            }
         }
-        
-        // Filter event types
-        function filterEventTypes() {
-            const searchInput = document.getElementById('searchInput');
-            const priceFilterEl = document.getElementById('priceFilter');
-            const sortByEl = document.getElementById('sortBy');
-            
-            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-            const priceFilter = priceFilterEl ? priceFilterEl.value : '';
-            const sortBy = sortByEl ? sortByEl.value : '';
-            
-            filteredEventTypes = allEventTypes.filter(eventType => {
-                const matchesSearch = !searchTerm || 
-                    eventType.TenLoai.toLowerCase().includes(searchTerm) ||
-                    (eventType.MoTa && eventType.MoTa.toLowerCase().includes(searchTerm));
-                
-                let matchesPrice = true;
-                if (priceFilter) {
-                    const price = eventType.GiaCoBan;
-                    switch(priceFilter) {
-                        case '0-5000000':
-                            matchesPrice = price < 5000000;
-                            break;
-                        case '5000000-10000000':
-                            matchesPrice = price >= 5000000 && price < 10000000;
-                            break;
-                        case '10000000-20000000':
-                            matchesPrice = price >= 10000000 && price < 20000000;
-                            break;
-                        case '20000000+':
-                            matchesPrice = price >= 20000000;
-                            break;
-                    }
-                }
-                
-                return matchesSearch && matchesPrice;
+
+        function setupEventListeners() {
+            // Search input
+            $('#searchInput').on('keyup', function() {
+                eventTypesTable.search(this.value).draw();
             });
+        }
+
+        function applyFilters() {
+            const searchTerm = $('#searchInput').val();
+            const sortBy = $('#sortBy').val();
             
-            // Sort results
-            if (sortBy === 'TenLoai') {
-                filteredEventTypes.sort((a, b) => a.TenLoai.localeCompare(b.TenLoai));
-            } else if (sortBy === 'GiaCoBan') {
-                filteredEventTypes.sort((a, b) => b.GiaCoBan - a.GiaCoBan);
-            } else if (sortBy === 'NgayTao') {
-                filteredEventTypes.sort((a, b) => new Date(b.NgayTao) - new Date(a.NgayTao));
+            // Apply search
+            if (searchTerm) {
+                eventTypesTable.search(searchTerm).draw();
+            } else {
+                eventTypesTable.search('').draw();
             }
             
-            displayEventTypes();
-        }
-        
-        // Clear search
-        function clearSearch() {
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) {
-                searchInput.value = '';
+            // Apply sorting
+            let sortColumn = 1; // Default to name column
+            let sortDir = 'asc';
+            
+            switch(sortBy) {
+                case 'TenLoai':
+                    sortColumn = 1;
+                    sortDir = 'asc';
+                    break;
+                case 'GiaCoBan':
+                    sortColumn = 2;
+                    sortDir = 'desc';
+                    break;
+                case 'NgayTao':
+                    sortColumn = 4;
+                    sortDir = 'desc';
+                    break;
+                case 'NgayCapNhat':
+                    sortColumn = 5;
+                    sortDir = 'desc';
+                    break;
             }
-            filterEventTypes();
+            
+            eventTypesTable.order([sortColumn, sortDir]).draw();
         }
-        
-        // Clear all filters
+
         function clearFilters() {
-            const searchInput = document.getElementById('searchInput');
-            const priceFilterEl = document.getElementById('priceFilter');
-            const sortByEl = document.getElementById('sortBy');
-            
-            if (searchInput) {
-                searchInput.value = '';
-            }
-            if (priceFilterEl) {
-                priceFilterEl.value = '';
-            }
-            if (sortByEl) {
-                sortByEl.value = 'TenLoai';
-            }
-            filterEventTypes();
+            $('#searchInput').val('');
+            $('#sortBy').val('TenLoai');
+            eventTypesTable.search('').order([[1, 'asc']]).draw();
         }
-        
-        // Update statistics
-        function updateStatistics() {
-            const total = allEventTypes.length;
-            const active = allEventTypes.length; // All are active for now
-            const totalEvents = 0; // This would need to be calculated from events table
-            
-            document.getElementById('totalEventTypes').textContent = total;
-            document.getElementById('activeEventTypes').textContent = active;
-            document.getElementById('totalEvents').textContent = totalEvents;
+
+        function clearSearch() {
+            $('#searchInput').val('');
+            eventTypesTable.search('').draw();
         }
-        
+
         // Load statistics
         function loadStatistics() {
             AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', {
@@ -381,13 +404,7 @@ include 'includes/admin-header.php';
                 console.error('Statistics load error:', error);
             });
         }
-        
-        // Format date time
-        function formatDateTime(dateTimeString) {
-            const date = new Date(dateTimeString);
-            return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
-        }
-        
+
         // Show add event type modal
         function showAddEventTypeModal() {
             document.getElementById('eventTypeModalTitle').innerHTML = '<i class="fas fa-plus"></i> Thêm loại sự kiện';
@@ -397,7 +414,7 @@ include 'includes/admin-header.php';
             const modal = new bootstrap.Modal(document.getElementById('eventTypeModal'));
             modal.show();
         }
-        
+
         // Edit event type
         function editEventType(id) {
             AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', {
@@ -423,7 +440,7 @@ include 'includes/admin-header.php';
                 AdminPanel.showError('Có lỗi xảy ra khi tải thông tin loại sự kiện');
             });
         }
-        
+
         // View event type
         function viewEventType(id) {
             AdminPanel.showLoading('#viewEventTypeModalBody');
@@ -439,8 +456,8 @@ include 'includes/admin-header.php';
                 if (response.success) {
                     const eventType = response.event_type;
                     const price = new Intl.NumberFormat('vi-VN').format(eventType.GiaCoBan);
-                    const createdDate = formatDateTime(eventType.NgayTao);
-                    const updatedDate = formatDateTime(eventType.NgayCapNhat);
+                    const createdDate = eventType.NgayTao ? AdminPanel.formatDate(eventType.NgayTao, 'dd/mm/yyyy hh:mm') : 'N/A';
+                    const updatedDate = eventType.NgayCapNhat ? AdminPanel.formatDate(eventType.NgayCapNhat, 'dd/mm/yyyy hh:mm') : 'N/A';
                     
                     document.getElementById('viewEventTypeModalTitle').textContent = eventType.TenLoai;
                     document.getElementById('viewEventTypeModalBody').innerHTML = `
@@ -448,6 +465,7 @@ include 'includes/admin-header.php';
                             <div class="col-md-6">
                                 <h6><i class="fas fa-info-circle text-primary"></i> Thông tin cơ bản</h6>
                                 <table class="table table-borderless">
+                                    <tr><td><strong>ID:</strong></td><td>#${eventType.ID_LoaiSK}</td></tr>
                                     <tr><td><strong>Tên loại:</strong></td><td>${eventType.TenLoai}</td></tr>
                                     <tr><td><strong>Giá cơ bản:</strong></td><td><span class="text-success fw-bold">${price} VNĐ</span></td></tr>
                                     <tr><td><strong>Ngày tạo:</strong></td><td>${createdDate}</td></tr>
@@ -503,7 +521,8 @@ include 'includes/admin-header.php';
                         modal.hide();
                     }
                     
-                    loadEventTypes();
+                    // Reload table
+                    eventTypesTable.ajax.reload();
                     loadStatistics();
                 } else {
                     AdminPanel.showError(response.error || response.message || 'Có lỗi xảy ra khi lưu loại sự kiện');
@@ -516,52 +535,45 @@ include 'includes/admin-header.php';
         
         // Delete event type
         function deleteEventType(id) {
-            const eventType = allEventTypes.find(et => et.ID_LoaiSK === id);
-            if (!eventType) return;
-            
-            AdminPanel.sweetConfirm(
-                'Xác nhận xóa',
-                `Bạn có chắc chắn muốn xóa loại sự kiện "${eventType.TenLoai}"? Hành động này không thể hoàn tác.`,
-                () => {
-                    const formData = new FormData();
-                    formData.append('action', 'delete');
-                    formData.append('id', id);
+            // Get event type name for confirmation
+            AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', {
+                action: 'get',
+                id: id
+            })
+            .then(response => {
+                if (response.success) {
+                    const eventType = response.event_type;
                     
-                    AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', formData, 'POST')
-                    .then(response => {
-                        if (response.success) {
-                            AdminPanel.showSuccess('Đã xóa loại sự kiện thành công');
-                            loadEventTypes();
-                            loadStatistics();
-                        } else {
-                            AdminPanel.showError(response.error || response.message || 'Có lỗi xảy ra khi xóa loại sự kiện');
+                    AdminPanel.sweetConfirm(
+                        'Xác nhận xóa',
+                        `Bạn có chắc chắn muốn xóa loại sự kiện "${eventType.TenLoai}"? Hành động này không thể hoàn tác.`,
+                        () => {
+                            const formData = new FormData();
+                            formData.append('action', 'delete');
+                            formData.append('id', id);
+                            
+                            AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', formData, 'POST')
+                            .then(response => {
+                                if (response.success) {
+                                    AdminPanel.showSuccess('Đã xóa loại sự kiện thành công');
+                                    eventTypesTable.ajax.reload();
+                                    loadStatistics();
+                                } else {
+                                    AdminPanel.showError(response.error || response.message || 'Có lỗi xảy ra khi xóa loại sự kiện');
+                                }
+                            })
+                            .catch(error => {
+                                AdminPanel.showError('Có lỗi xảy ra khi xóa loại sự kiện');
+                            });
                         }
-                    })
-                    .catch(error => {
-                        AdminPanel.showError('Có lỗi xảy ra khi xóa loại sự kiện');
-                    });
+                    );
+                } else {
+                    AdminPanel.showError('Không thể tải thông tin loại sự kiện');
                 }
-            );
-        }
-        
-        // Show error message
-        function showError(message) {
-            const errorEl = document.getElementById('errorMessage');
-            errorEl.textContent = message;
-            errorEl.style.display = 'block';
-            setTimeout(() => {
-                errorEl.style.display = 'none';
-            }, 5000);
-        }
-        
-        // Show success message
-        function showSuccess(message) {
-            const successEl = document.getElementById('successMessage');
-            successEl.textContent = message;
-            successEl.style.display = 'block';
-            setTimeout(() => {
-                successEl.style.display = 'none';
-            }, 5000);
+            })
+            .catch(error => {
+                AdminPanel.showError('Có lỗi xảy ra khi tải thông tin loại sự kiện');
+            });
         }
     </script>
 

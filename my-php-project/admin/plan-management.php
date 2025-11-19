@@ -2,13 +2,13 @@
 session_start();
 require_once __DIR__ . '/../config/database.php';
 
-// Check if user is logged in and has role 1 or 2 (Admin or Quản lý tổ chức)
+// Kiểm tra người dùng đã đăng nhập và có role 1 hoặc 2 (Admin hoặc Quản lý tổ chức)
 if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['ID_Role'], [1, 2])) {
-    header('Location: login.php');
+    header('Location: ../login.php');
     exit;
 }
 
-// Get all plans
+// Lấy tất cả kế hoạch
 try {
     $pdo = getDBConnection();
     $stmt = $pdo->query("
@@ -35,7 +35,7 @@ try {
     ");
     $plans = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Get all staff for dropdown
+    // Lấy tất cả nhân viên cho dropdown
     $stmt = $pdo->query("
         SELECT 
             nv.ID_NhanVien,
@@ -65,9 +65,9 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
     <style>
-        /* Fix content positioning to avoid header overlap */
+        /* Sửa vị trí nội dung để tránh chồng lên header */
         body {
-            padding-top: 80px; /* Add padding to account for fixed header */
+            padding-top: 80px; /* Thêm padding để tính đến header cố định */
         }
         
         .container-fluid {
@@ -75,7 +75,7 @@ try {
             padding-top: 20px;
         }
         
-        /* Ensure table and content are visible */
+        /* Đảm bảo bảng và nội dung hiển thị được */
         .table-responsive {
             margin-top: 20px;
         }
@@ -712,10 +712,10 @@ try {
                         
                         console.log('Form filled successfully');
                         
-                        // Load staff options
+                        // Tải tùy chọn nhân viên
                         loadStaffOptionsForEdit();
                         
-                        // Show modal
+                        // Hiển thị modal
                         const modal = new bootstrap.Modal(document.getElementById('editPlanModal'));
                         modal.show();
                         
@@ -737,7 +737,7 @@ try {
             const formData = new FormData(form);
             formData.append('action', 'update_plan');
             
-            // Debug form data
+            // Debug dữ liệu form
             console.log('Update plan form data:');
             for (let [key, value] of formData.entries()) {
                 console.log(key + ': ' + value);
@@ -760,7 +760,7 @@ try {
                 return;
             }
             
-            // Combine date and time
+            // Kết hợp ngày và giờ
             const startDateTime = startDate + ' 00:00:00';
             const endDateTime = endDate + ' 23:59:59';
             
@@ -868,13 +868,13 @@ try {
             document.querySelector('#manageStepsModal .modal-title').innerHTML = 
                 '<i class="fas fa-cogs"></i> Quản lý bước thực hiện: ' + planName;
             
-            // Load existing steps
+            // Tải các bước hiện có
             loadSteps(planId);
             
-            // Load staff options
+            // Tải tùy chọn nhân viên
             loadStaffOptionsForSteps();
             
-            // Set default dates
+            // Đặt ngày mặc định
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('stepStartDate').value = today;
             
@@ -1034,21 +1034,21 @@ try {
             formData.append('action', 'add_plan_step');
             formData.append('planId', document.getElementById('stepPlanId').value);
             
-            // Get date and time values
+            // Lấy giá trị ngày và giờ
             const startDate = formData.get('stepStartDate');
             const startTime = formData.get('stepStartTime');
             const endDate = formData.get('stepEndDate');
             const endTime = formData.get('stepEndTime');
             
-            // Combine date and time
+            // Kết hợp ngày và giờ
             const startDateTime = startDate + ' ' + startTime;
             const endDateTime = endDate + ' ' + endTime;
             
-            // Update form data with combined datetime
+            // Cập nhật dữ liệu form với datetime đã kết hợp
             formData.set('stepStartDateTime', startDateTime);
             formData.set('stepEndDateTime', endDateTime);
             
-            // Validate dates
+            // Validate ngày tháng
             const startDateObj = new Date(startDateTime);
             const endDateObj = new Date(endDateTime);
             
@@ -1130,7 +1130,7 @@ try {
             }
         }
         
-        // Auto refresh steps every 30 seconds to sync with staff updates
+        // Tự động làm mới các bước mỗi 30 giây để đồng bộ với cập nhật nhân viên
         setInterval(function() {
             const currentPlanId = document.getElementById('stepPlanId')?.value;
             if (currentPlanId) {
