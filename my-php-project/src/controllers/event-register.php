@@ -1,10 +1,10 @@
 <?php
-// Set error reporting to prevent HTML errors from being displayed
+// Thiết lập error reporting để tránh hiển thị lỗi HTML
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
-// Set JSON headers first
+// Thiết lập JSON headers trước
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -16,10 +16,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 session_start();
 
-// Include Socket.IO client
+// Bao gồm Socket.IO client
 require_once __DIR__ . '/../socket/socket-client.php';
 
-// Include CSRF protection
+// Bao gồm bảo vệ CSRF
 require_once __DIR__ . '/../auth/csrf.php';
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -28,7 +28,7 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 error_log("Debug - Action: " . $action);
 error_log("Debug - Session data: " . print_r($_SESSION, true));
 
-// For data loading actions, don't require login
+// Đối với các action tải dữ liệu, không yêu cầu đăng nhập
 $publicActions = ['get_csrf_token', 'get_event_types', 'get_locations_by_type', 'get_all_locations', 'get_equipment_suggestions', 'get_combo_suggestions', 'get_all_equipment', 'get_all_combos', 'get_event_selected_data', 'get_event_equipment', 'check_equipment_availability', 'check_combo_availability'];
 
 // Xử lý get_csrf_token trước (không cần database)
@@ -41,7 +41,7 @@ if ($action === 'get_csrf_token') {
 }
 
 if (!in_array($action, $publicActions)) {
-    // Check if user is logged in for other actions
+    // Kiểm tra người dùng đã đăng nhập chưa cho các action khác
     if (!isset($_SESSION['user'])) {
         echo json_encode(['success' => false, 'error' => 'Chưa đăng nhập']);
         exit();
@@ -60,7 +60,7 @@ try {
     require_once __DIR__ . '/../../config/database.php';
     $pdo = getDBConnection();
     
-    // Debug database connection
+    // Debug kết nối database
     if (!$pdo) {
         error_log("Debug - Database connection failed");
         echo json_encode(['success' => false, 'error' => 'Lỗi kết nối database']);
@@ -71,7 +71,7 @@ try {
     switch ($action) {
             
         case 'get_event_types':
-            // Get event types from database
+            // Lấy loại sự kiện từ database
             try {
                 $stmt = $pdo->query("SELECT * FROM loaisukien ORDER BY TenLoai");
                 $eventTypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -82,7 +82,7 @@ try {
             break;
             
         case 'get_locations_by_type':
-            // Get locations suitable for specific event type
+            // Lấy địa điểm phù hợp với loại sự kiện cụ thể
             $eventType = $_GET['event_type'] ?? '';
             
             if (!$eventType) {
@@ -91,10 +91,10 @@ try {
             }
             
             try {
-                // Debug: Log the event type
+                // Debug: Ghi log loại sự kiện
                 error_log("Debug - Event type: " . $eventType);
                 
-                // Get event type ID
+                // Lấy ID loại sự kiện
                 $stmt = $pdo->prepare("SELECT ID_LoaiSK FROM loaisukien WHERE TenLoai = ?");
                 $stmt->execute([$eventType]);
                 $eventTypeData = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -106,7 +106,7 @@ try {
                     exit();
                 }
                 
-                // Get locations suitable for this event type from diadiem_loaisk table
+                // Lấy địa điểm phù hợp với loại sự kiện này từ bảng diadiem_loaisk
                 $stmt = $pdo->prepare("
                     SELECT d.* 
                     FROM diadiem d
@@ -120,7 +120,7 @@ try {
                 error_log("Debug - Found locations: " . count($locations));
                 error_log("Debug - Locations: " . print_r($locations, true));
                 
-                // If no specific locations found, get all active locations
+                // Nếu không tìm thấy địa điểm cụ thể, lấy tất cả địa điểm đang hoạt động
                 if (empty($locations)) {
                     error_log("Debug - No specific locations found, getting all active locations");
                     $stmt = $pdo->query("
@@ -139,7 +139,7 @@ try {
             break;
             
         case 'get_all_locations':
-            // Get all active locations
+            // Lấy tất cả địa điểm đang hoạt động
             try {
                 $stmt = $pdo->prepare("
                     SELECT 
@@ -168,7 +168,7 @@ try {
             break;
             
         case 'get_all_equipment':
-            // Get all available equipment
+            // Lấy tất cả thiết bị có sẵn
             try {
                 $stmt = $pdo->prepare("
                     SELECT * FROM thietbi 
@@ -410,7 +410,7 @@ try {
                 $stmt->execute([$eventTypeData['ID_LoaiSK']]);
                 $equipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
-                // If no specific equipment found, get general equipment suggestions
+                // Nếu không tìm thấy thiết bị cụ thể, lấy gợi ý thiết bị chung
                 if (empty($equipment)) {
                     $equipment = getGeneralEquipmentSuggestions($eventType, $pdo);
                 }
@@ -567,7 +567,7 @@ try {
                 }
                 error_log("Debug - Converted LoaiThueApDung: " . ($loaiThueApDung ?? 'NULL'));
                 
-                // Insert into datlichsukien table
+                // Chèn vào bảng datlichsukien
                 $roomId = $input['room_id'] ?? null;
                 
                 $sql = "INSERT INTO datlichsukien (
@@ -663,7 +663,7 @@ try {
                 $pdo->commit();
                 $success = true;
                 
-                // Send real-time notification to admins
+                // Gửi thông báo real-time cho admin
                 $userName = $user['Email'] ?? 'User';
                 notifyEventRegistration($datLichId, $input['event_name'], $userName, $userId);
                 
@@ -682,7 +682,53 @@ try {
         case 'get_my_events':
             // Get user's registered events
             try {
-                // First, auto-cancel expired events that haven't been fully paid
+                // First, auto-cancel expired pending payments (older than 15 minutes)
+                // Chỉ hủy thanh toán của user hiện tại để tránh xử lý quá nhiều
+                try {
+                    $expirationTime = date('Y-m-d H:i:s', strtotime('-15 minutes'));
+                    
+                    // Tìm và hủy các thanh toán "Đang xử lý" đã quá 15 phút của user hiện tại
+                    $stmt = $pdo->prepare("
+                        UPDATE thanhtoan t
+                        INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+                        INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
+                        SET t.TrangThai = 'Hủy',
+                            t.GhiChu = CONCAT(IFNULL(t.GhiChu, ''), ' - Tự động hủy: Quá thời gian chờ thanh toán (', NOW(), ')')
+                        WHERE k.ID_User = ?
+                        AND t.TrangThai = 'Đang xử lý'
+                        AND t.NgayTao < ?
+                        AND t.PhuongThuc = 'Chuyển khoản'
+                    ");
+                    $stmt->execute([$userId, $expirationTime]);
+                    $cancelledPayments = $stmt->rowCount();
+                    
+                    // Đặt lại trạng thái sự kiện về "Chưa thanh toán" nếu không còn thanh toán "Đang xử lý" nào
+                    if ($cancelledPayments > 0) {
+                        $stmt = $pdo->prepare("
+                            UPDATE datlichsukien dl
+                            INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
+                            SET dl.TrangThaiThanhToan = 'Chưa thanh toán'
+                            WHERE k.ID_User = ?
+                            AND dl.ID_DatLich IN (
+                                SELECT DISTINCT t.ID_DatLich
+                                FROM thanhtoan t
+                                WHERE t.TrangThai = 'Hủy'
+                                AND t.GhiChu LIKE '%Tự động hủy: Quá thời gian chờ thanh toán%'
+                                AND t.NgayTao < ?
+                            )
+                            AND NOT EXISTS (
+                                SELECT 1 FROM thanhtoan t2
+                                WHERE t2.ID_DatLich = dl.ID_DatLich
+                                AND t2.TrangThai IN ('Đang xử lý', 'Thành công')
+                            )
+                        ");
+                        $stmt->execute([$userId, $expirationTime]);
+                    }
+                } catch (Exception $e) {
+                    error_log("Error auto-cancelling expired pending payments: " . $e->getMessage());
+                }
+                
+                // Sau đó, tự động hủy các sự kiện đã hết hạn chưa thanh toán đủ
                 $pdo->beginTransaction();
                 try {
                     $stmt = $pdo->prepare("
@@ -700,7 +746,7 @@ try {
                     $stmt->execute([$userId]);
                     $cancelledCount = $stmt->rowCount();
                     
-                    // Also cancel pending payments for expired events
+                    // Cũng hủy các thanh toán đang xử lý cho sự kiện đã hết hạn
                     if ($cancelledCount > 0) {
                         $stmt = $pdo->prepare("
                             UPDATE thanhtoan t
@@ -847,14 +893,14 @@ try {
                     $paymentInfo = $stmtPayment->fetch(PDO::FETCH_ASSOC);
                     
                     if ($paymentInfo) {
-                        // Map giá trị PhuongThuc từ database sang format frontend
+                        // Ánh xạ giá trị PhuongThuc từ database sang format frontend
                         $phuongThuc = $paymentInfo['PhuongThuc'] ?? null;
                         if ($phuongThuc === 'Tiền mặt') {
                             $event['PaymentMethod'] = 'cash';
                         } elseif ($phuongThuc === 'Chuyển khoản') {
                             $event['PaymentMethod'] = 'sepay';
                         } else {
-                            // Các phương thức khác (Momo, ZaloPay, Visa/MasterCard)
+                            // Các phương thức khác (Momo, ZaloPay, Visa/MasterCard) - không còn sử dụng
                             $event['PaymentMethod'] = strtolower(str_replace(['/', ' '], ['', ''], $phuongThuc));
                         }
                         $event['PaymentType'] = $paymentInfo['LoaiThanhToan'] ?? null;
@@ -945,7 +991,7 @@ try {
             break;
             
         case 'get_all_combos':
-            // Get all available combos
+            // Lấy tất cả combo có sẵn
             try {
                 $stmt = $pdo->prepare("
                     SELECT c.ID_Combo, c.TenCombo, c.MoTa, c.GiaCombo
@@ -976,7 +1022,7 @@ try {
             break;
             
         case 'get_combo_suggestions':
-            // Get combo suggestions based on event type
+            // Lấy gợi ý combo dựa trên loại sự kiện
             try {
                 $eventType = $_GET['event_type'] ?? '';
                 $locationId = $_GET['location_id'] ?? '';
@@ -998,7 +1044,7 @@ try {
                 
                 $eventTypeId = $eventTypeData['ID_LoaiSK'];
                 
-                // Get combo suggestions for this event type
+                // Lấy gợi ý combo cho loại sự kiện này
                 $stmt = $pdo->prepare("
                     SELECT c.ID_Combo, c.TenCombo, c.MoTa, c.GiaCombo, 
                            COALESCE(cl.UuTien, 1) as UuTien
@@ -1068,7 +1114,7 @@ try {
                 
                 error_log("Debug - Customer ID: " . $customerId);
                 
-                // Get event details
+                // Lấy chi tiết sự kiện
                 $stmt = $pdo->prepare("
                     SELECT * FROM datlichsukien 
                     WHERE ID_DatLich = ? AND ID_KhachHang = ? AND TrangThaiDuyet = 'Chờ duyệt'
@@ -1078,7 +1124,7 @@ try {
                 
                 error_log("Debug - Found event: " . print_r($event, true));
                 
-                // If no event found with status restriction, try without status restriction
+                // Nếu không tìm thấy sự kiện với hạn chế trạng thái, thử không có hạn chế trạng thái
                 if (!$event) {
                     error_log("Debug - No event found with status restriction, trying without status");
                     $stmt = $pdo->prepare("
@@ -1140,7 +1186,7 @@ try {
                 
                 $customerId = $customer['ID_KhachHang'];
                 
-                // Check if event belongs to user and is not approved yet
+                // Kiểm tra sự kiện có thuộc về người dùng và chưa được duyệt không
                 $stmt = $pdo->prepare("
                     SELECT ID_DatLich FROM datlichsukien 
                     WHERE ID_DatLich = ? AND ID_KhachHang = ? AND TrangThaiDuyet = 'Chờ duyệt'
@@ -1170,13 +1216,13 @@ try {
                     }
                 }
                 
-                // Validate event type ID
+                // Xác thực ID loại sự kiện
                 if (!$eventTypeId) {
                     echo json_encode(['success' => false, 'error' => 'Loại sự kiện không hợp lệ']);
                     break;
                 }
                 
-                // Validate dates
+                // Xác thực ngày tháng
                 $eventDate = $input['event_date'];
                 $eventEndDate = $input['event_end_date'];
                 $eventTime = $input['event_time'] ?? '00:00';
@@ -1210,7 +1256,7 @@ try {
                     break;
                 }
                 
-                // Validate time if same date
+                // Xác thực thời gian nếu cùng ngày
                 if ($eventDate === $eventEndDate) {
                     if ($eventTime >= $eventEndTime) {
                         echo json_encode(['success' => false, 'error' => 'Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày']);
@@ -1218,7 +1264,7 @@ try {
                     }
                 }
                 
-                // Check if event end time is in the past
+                // Kiểm tra thời gian kết thúc sự kiện có trong quá khứ không
                 $eventEndDateTime = new DateTime($eventEndDate . ' ' . $eventEndTime);
                 
                 if ($eventEndDateTime < $now) {
@@ -1226,7 +1272,7 @@ try {
                     break;
                 }
                 
-                // Update event
+                // Cập nhật sự kiện
                 $startDateTime = $input['event_date'] . ' ' . $input['event_time'];
                 $endDateTime = $input['event_end_date'] . ' ' . $input['event_end_time'];
                 

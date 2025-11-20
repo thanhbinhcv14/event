@@ -119,7 +119,7 @@ function getConversations($pdo, $userId) {
         $currentUserRole = $stmt->fetchColumn();
 
         if ($currentUserRole == 5) {
-            // Chỉ hiện admin (1) và event manager (3)
+            // Chỉ hiển thị admin (1) và quản lý sự kiện (3)
             $stmt = $pdo->prepare("
                 SELECT 
                     c.id, c.user1_id, c.user2_id, c.updated_at,
@@ -239,7 +239,7 @@ function createConversation($pdo, $userId) {
         $otherUserId = $staff['ID_User'];
     }
 
-    // Kiểm tra trùng hội thoại
+    // Kiểm tra trùng lặp hội thoại
     $stmt = $pdo->prepare("
         SELECT id FROM conversations 
         WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)
@@ -321,7 +321,7 @@ function getMessages($pdo, $userId) {
         return;
     }
     
-    // Check if user has access to this conversation
+    // Kiểm tra người dùng có quyền truy cập hội thoại này không
     $stmt = $pdo->prepare("
         SELECT id FROM conversations 
         WHERE id = ? AND (user1_id = ? OR user2_id = ?)
@@ -333,7 +333,7 @@ function getMessages($pdo, $userId) {
         return;
     }
     
-    // Get messages with proper field mapping (including file/media fields)
+    // Lấy tin nhắn với ánh xạ trường đúng (bao gồm các trường file/media)
     $stmt = $pdo->prepare("
         SELECT m.id,
                m.conversation_id,
@@ -359,10 +359,10 @@ function getMessages($pdo, $userId) {
     $stmt->execute([$conversationId]);
     $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Debug logging
+    // Ghi log để debug
     error_log("Retrieved " . count($messages) . " messages for conversation $conversationId");
     
-    // Format messages for frontend (including file/media fields)
+    // Định dạng tin nhắn cho frontend (bao gồm các trường file/media)
     $formattedMessages = [];
     foreach ($messages as $message) {
         $formattedMessage = [
@@ -375,7 +375,7 @@ function getMessages($pdo, $userId) {
             'sender_name' => $message['sender_name']
         ];
         
-        // Add file/media fields if they exist
+        // Thêm các trường file/media nếu chúng tồn tại
         if (!empty($message['message_type'])) {
             $formattedMessage['message_type'] = $message['message_type'];
         }
@@ -398,7 +398,7 @@ function getMessages($pdo, $userId) {
         $formattedMessages[] = $formattedMessage;
     }
     
-    // Mark messages as read
+    // Đánh dấu tin nhắn đã đọc
     $stmt = $pdo->prepare("
         UPDATE messages 
         SET IsRead = 1 
@@ -431,7 +431,7 @@ function sendMessage($pdo, $userId) {
         return;
     }
     
-    // Check if user has access to this conversation
+    // Kiểm tra người dùng có quyền truy cập hội thoại này không
     $stmt = $pdo->prepare("
         SELECT id, user1_id, user2_id FROM conversations 
         WHERE id = ? AND (user1_id = ? OR user2_id = ?)
@@ -446,7 +446,7 @@ function sendMessage($pdo, $userId) {
     }
     
     try {
-        // Insert message
+        // Chèn tin nhắn
         $stmt = $pdo->prepare("
             INSERT INTO messages (conversation_id, sender_id, MessageText, IsRead, SentAt) 
             VALUES (?, ?, ?, 0, NOW())
@@ -456,7 +456,7 @@ function sendMessage($pdo, $userId) {
         $messageId = $pdo->lastInsertId();
         error_log("Message inserted with ID: " . $messageId);
         
-        // Update conversation timestamp
+        // Cập nhật timestamp hội thoại
         $stmt = $pdo->prepare("
             UPDATE conversations 
             SET updated_at = NOW()
@@ -464,7 +464,7 @@ function sendMessage($pdo, $userId) {
         ");
         $stmt->execute([$conversationId]);
         
-        // Get the inserted message with proper field mapping
+        // Lấy tin nhắn đã chèn với ánh xạ trường đúng
         $stmt = $pdo->prepare("
             SELECT m.*, 
                    COALESCE(nv.HoTen, kh.HoTen, u.Email) as sender_name,
@@ -480,7 +480,7 @@ function sendMessage($pdo, $userId) {
         $stmt->execute([$messageId]);
         $messageData = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        // Format message for frontend
+        // Định dạng tin nhắn cho frontend
         $formattedMessage = [
             'id' => $messageData['id'],
             'conversation_id' => $messageData['conversation_id'],
@@ -491,7 +491,7 @@ function sendMessage($pdo, $userId) {
             'sender_name' => $messageData['sender_name']
         ];
         
-        // Debug logging for message alignment
+        // Ghi log để debug cho việc căn chỉnh tin nhắn
         error_log("Message sent by user $userId: " . json_encode($formattedMessage));
         
         echo json_encode(['success' => true, 'message' => $formattedMessage]);
@@ -663,7 +663,7 @@ function transferChat($pdo, $userId) {
         return;
     }
     
-    // Check if user has access to this conversation
+    // Kiểm tra người dùng có quyền truy cập hội thoại này không
     $stmt = $pdo->prepare("
         SELECT id FROM conversations 
         WHERE id = ? AND (user1_id = ? OR user2_id = ?)
@@ -675,7 +675,7 @@ function transferChat($pdo, $userId) {
         return;
     }
     
-    // Update conversation with new staff member
+    // Cập nhật hội thoại với nhân viên mới
     $stmt = $pdo->prepare("
         UPDATE conversations 
         SET user2_id = ?, updated_at = NOW()
@@ -683,7 +683,7 @@ function transferChat($pdo, $userId) {
     ");
     $stmt->execute([$transferTo, $conversationId]);
     
-    // Add transfer notification message
+    // Thêm tin nhắn thông báo chuyển giao
     $stmt = $pdo->prepare("
         INSERT INTO messages (conversation_id, sender_id, MessageText, IsRead, SentAt) 
         VALUES (?, ?, ?, 0, NOW())
@@ -705,7 +705,7 @@ function markAsRead($pdo, $userId) {
         return;
     }
     
-    // Check if user has access to this conversation
+    // Kiểm tra người dùng có quyền truy cập hội thoại này không
     $stmt = $pdo->prepare("
         SELECT id FROM conversations 
         WHERE id = ? AND (user1_id = ? OR user2_id = ?)
@@ -717,7 +717,7 @@ function markAsRead($pdo, $userId) {
         return;
     }
     
-    // Mark messages as read
+    // Đánh dấu tin nhắn đã đọc
     $stmt = $pdo->prepare("
         UPDATE messages 
         SET IsRead = 1 
@@ -733,7 +733,7 @@ function markAsRead($pdo, $userId) {
  */
 function getChatStats($pdo, $userId) {
     try {
-        // Get total conversations
+        // Lấy tổng số hội thoại
         $stmt = $pdo->prepare("
             SELECT COUNT(*) as total_conversations
             FROM conversations 
@@ -742,7 +742,7 @@ function getChatStats($pdo, $userId) {
         $stmt->execute([$userId, $userId]);
         $totalConversations = $stmt->fetchColumn();
         
-        // Get unread messages
+        // Lấy tin nhắn chưa đọc
         $stmt = $pdo->prepare("
             SELECT COUNT(*) as unread_messages
             FROM messages m
@@ -753,7 +753,7 @@ function getChatStats($pdo, $userId) {
         $stmt->execute([$userId, $userId, $userId]);
         $unreadMessages = $stmt->fetchColumn();
         
-        // Get online users
+        // Lấy người dùng đang online
         $stmt = $pdo->prepare("
             SELECT COUNT(*) as online_users
             FROM users 
@@ -829,7 +829,7 @@ function getOnlineUsers($pdo) {
  */
 function getOnlineCount($pdo) {
     try {
-        // Debug: Log the query
+        // Debug: Ghi log query
         error_log("getOnlineCount - Executing query");
         
         // Đếm users có OnlineStatus = 'Online' và LastActivity trong 5 phút gần đây
@@ -844,10 +844,10 @@ function getOnlineCount($pdo) {
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        // Debug: Log the result
+        // Debug: Ghi log kết quả
         error_log("getOnlineCount - Result: " . print_r($result, true));
         
-        // Also get detailed info for debugging
+        // Cũng lấy thông tin chi tiết để debug
         $stmt2 = $pdo->prepare("
             SELECT ID_User, Email, TrangThai, OnlineStatus, LastActivity, ID_Role
             FROM users 
@@ -968,7 +968,7 @@ function getMediaMessages($pdo, $userId) {
         return;
     }
     
-    // Check if user has access to this conversation
+    // Kiểm tra người dùng có quyền truy cập hội thoại này không
     $stmt = $pdo->prepare("
         SELECT id FROM conversations 
         WHERE id = ? AND (user1_id = ? OR user2_id = ?)
@@ -980,7 +980,7 @@ function getMediaMessages($pdo, $userId) {
         return;
     }
     
-    // Get media messages
+    // Lấy tin nhắn media
     $stmt = $pdo->prepare("
         SELECT m.id,
                m.conversation_id,
@@ -1022,7 +1022,7 @@ function deleteMessage($pdo, $userId) {
         return;
     }
     
-    // Check if user has access to this message
+    // Kiểm tra người dùng có quyền truy cập tin nhắn này không
     $stmt = $pdo->prepare("
         SELECT m.id, m.sender_id, m.message_type, m.file_path, cm.file_path as media_path
         FROM messages m
@@ -1038,7 +1038,7 @@ function deleteMessage($pdo, $userId) {
     }
     
     try {
-        // Delete file if exists
+        // Xóa file nếu tồn tại
         if ($message['file_path'] && file_exists($message['file_path'])) {
             unlink($message['file_path']);
         }
@@ -1046,7 +1046,7 @@ function deleteMessage($pdo, $userId) {
             unlink($message['media_path']);
         }
         
-        // Delete from database
+        // Xóa khỏi database
         $stmt = $pdo->prepare("DELETE FROM messages WHERE id = ?");
         $stmt->execute([$messageId]);
         

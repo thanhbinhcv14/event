@@ -4,13 +4,13 @@
  * File này để redirect từ callback URL cũ sang webhook handler mới
  */
 
-// Redirect to the actual webhook handler
-$webhookUrl = 'https://sukien.info.vn/event/my-php-project/hooks/sepay-payment.php';
+// Chuyển hướng đến webhook handler thực tế
+$webhookUrl = 'https://sukien.info.vn/hooks/sepay-payment.php';
 
-// Log the redirect
+// Ghi log chuyển hướng
 error_log("SePay Callback redirect from: " . $_SERVER['REQUEST_URI'] . " to: " . $webhookUrl);
 
-// Forward the request to the actual webhook handler
+// Chuyển tiếp request đến webhook handler thực tế
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $webhookUrl);
 curl_setopt($ch, CURLOPT_POST, true);
@@ -27,13 +27,13 @@ $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $error = curl_error($ch);
 curl_close($ch);
 
-// Set the same HTTP status code
+// Đặt cùng mã trạng thái HTTP
 http_response_code($httpCode);
 
-// Return the same response
+// Trả về cùng response
 echo $response;
 
-// Log the result
+// Ghi log kết quả
 if ($error) {
     error_log("SePay Callback redirect error: " . $error);
 } else {

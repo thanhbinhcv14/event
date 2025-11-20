@@ -20,7 +20,7 @@ try {
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
-// Debug: Log request info
+// Debug: Ghi log thông tin request
 error_log('Gemini AI API called - Action: ' . $action);
 error_log('Request method: ' . $_SERVER['REQUEST_METHOD']);
 error_log('Request URI: ' . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
@@ -58,7 +58,7 @@ try {
  * Xử lý chat với Gemini AI
  */
 function handleChat($pdo) {
-    // Log để debug
+    // Ghi log để debug
     error_log('Chat request received');
     error_log('POST data: ' . print_r($_POST, true));
     
@@ -80,7 +80,7 @@ function handleChat($pdo) {
         $systemInfo = getSystemInfoForAI($pdo);
         error_log('System info retrieved: ' . count($systemInfo['event_types']) . ' event types, ' . count($systemInfo['locations']) . ' locations');
         
-        // Debug: Log thông tin phòng
+        // Debug: Ghi log thông tin phòng
         $totalRooms = 0;
         foreach ($systemInfo['rooms'] ?? [] as $rooms) {
             $totalRooms += count($rooms);
@@ -166,7 +166,7 @@ function getSystemInfoForAI($pdo) {
         ");
         $allRooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Debug: Log số lượng phòng lấy được
+        // Debug: Ghi log số lượng phòng lấy được
         error_log("Gemini AI - Total rooms loaded: " . count($allRooms));
         if (!empty($allRooms)) {
             error_log("Gemini AI - Sample room data: " . json_encode($allRooms[0]));
@@ -182,7 +182,7 @@ function getSystemInfoForAI($pdo) {
             $info['rooms'][$locationId][] = $room;
         }
         
-        // Debug: Log số lượng địa điểm có phòng
+        // Debug: Ghi log số lượng địa điểm có phòng
         error_log("Gemini AI - Locations with rooms: " . count($info['rooms']));
         foreach ($info['rooms'] as $locId => $rooms) {
             error_log("Gemini AI - Location ID {$locId} has " . count($rooms) . " rooms");
@@ -299,7 +299,7 @@ function buildPrompt($message, $conversationHistory, $systemInfo) {
             $locationId = $location['ID_DD'];
             $rooms = $systemInfo['rooms'][$locationId] ?? [];
             
-            // Debug: Log thông tin phòng cho địa điểm này
+            // Debug: Ghi log thông tin phòng cho địa điểm này
             error_log("Gemini AI - Location ID {$locationId} ({$location['TenDiaDiem']}) - Rooms found: " . count($rooms));
             
             if (!empty($rooms)) {
@@ -326,7 +326,7 @@ function buildPrompt($message, $conversationHistory, $systemInfo) {
                     $systemContext .= "\n";
                 }
                 
-                // Debug: Log để kiểm tra prompt có chứa thông tin phòng
+                // Debug: Ghi log để kiểm tra prompt có chứa thông tin phòng
                 error_log("Gemini AI - Added " . count($rooms) . " rooms to prompt for location {$locationId}");
             } else {
                 $systemContext .= "  Lưu ý: Địa điểm trong nhà có các phòng riêng, giá thuê được tính theo từng phòng (chưa có thông tin phòng chi tiết)\n";

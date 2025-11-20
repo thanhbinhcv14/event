@@ -32,6 +32,9 @@ function openChatWidget() {
             chatWidget.classList.add('show');
             isChatOpen = true;
             
+            // ✅ Lưu trạng thái mở vào localStorage
+            localStorage.setItem('chatWidgetOpen', 'true');
+            
             if (chatBtn) {
                 chatBtn.innerHTML = '<i class="fas fa-times"></i>';
                 chatBtn.title = 'Đóng chat';
@@ -61,6 +64,9 @@ function closeChatWidget() {
     if (chatWidget) {
         chatWidget.classList.remove('show');
         isChatOpen = false;
+        
+        // ✅ Lưu trạng thái đóng vào localStorage
+        localStorage.setItem('chatWidgetOpen', 'false');
         
         if (chatBtn) {
             chatBtn.innerHTML = '<i class="fas fa-comments"></i>';
@@ -522,6 +528,33 @@ window.addEventListener('pageshow', function(e) {
 document.addEventListener('DOMContentLoaded', function() {
     loadConversationHistory();
     
+    // ✅ Khôi phục trạng thái mở/đóng của chat widget từ localStorage
+    const savedChatState = localStorage.getItem('chatWidgetOpen');
+    if (savedChatState === 'true') {
+        console.log('✅ Khôi phục trạng thái chat: Mở');
+        // Đợi một chút để đảm bảo DOM đã sẵn sàng
+        setTimeout(function() {
+            const chatWidget = document.getElementById('chatWidget');
+            if (chatWidget) {
+                chatWidget.classList.add('show');
+                isChatOpen = true;
+                
+                const chatBtn = document.getElementById('floatingChatBtn') || document.querySelector('.floating-chat-btn');
+                if (chatBtn) {
+                    chatBtn.innerHTML = '<i class="fas fa-times"></i>';
+                    chatBtn.title = 'Đóng chat';
+                }
+                
+                // Khôi phục lịch sử nếu có
+                if (conversationHistory.length > 0) {
+                    restoreConversation();
+                } else {
+                    showWelcomeMessage();
+                }
+            }
+        }, 100);
+    }
+    
     // Thêm listener cho phím Enter
     const chatInput = document.getElementById('chatInput');
     if (chatInput) {
@@ -533,7 +566,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Tự động mở chat box sau 5 giây nếu người dùng chưa mở
+    // Tự động mở chat box sau 5 giây nếu người dùng chưa mở và chưa có trạng thái lưu
     let autoOpenTimer = null;
     let userHasInteracted = false;
     
@@ -544,22 +577,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }, { once: true, passive: true });
     });
     
-    // Tự động mở sau 5 giây nếu người dùng chưa tương tác và chưa mở chat
-    autoOpenTimer = setTimeout(function() {
-        if (!isChatOpen && !userHasInteracted) {
-            console.log('Tự động mở chat box sau 5 giây');
-            openChatWidget();
-            
-            // Thêm animation pulse cho nút chat để thu hút sự chú ý
-            const chatBtn = document.getElementById('floatingChatBtn');
-            if (chatBtn) {
-                chatBtn.classList.add('pulse');
-                setTimeout(function() {
-                    chatBtn.classList.remove('pulse');
-                }, 2000);
+    // Tự động mở sau 5 giây nếu người dùng chưa tương tác, chưa mở chat và không có trạng thái lưu
+    if (savedChatState !== 'true') {
+        autoOpenTimer = setTimeout(function() {
+            if (!isChatOpen && !userHasInteracted) {
+                console.log('Tự động mở chat box sau 5 giây');
+                openChatWidget();
+                
+                // Thêm animation pulse cho nút chat để thu hút sự chú ý
+                const chatBtn = document.getElementById('floatingChatBtn');
+                if (chatBtn) {
+                    chatBtn.classList.add('pulse');
+                    setTimeout(function() {
+                        chatBtn.classList.remove('pulse');
+                    }, 2000);
+                }
             }
-        }
-    }, 5000);
+        }, 5000);
+    }
     
     // Hủy auto-open nếu người dùng đã mở chat thủ công
     // Lưu reference đến hàm openChatWidget gốc

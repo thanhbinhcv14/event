@@ -1,5 +1,5 @@
 <?php
-// Include admin header
+// Bao gồm header admin
 include 'includes/admin-header.php';
 ?>
 
@@ -346,7 +346,7 @@ include 'includes/admin-header.php';
         let locationsTable;
         let currentFilters = {};
 
-        // Initialize page
+        // Khởi tạo trang
         document.addEventListener('DOMContentLoaded', function() {
             initializeDataTable();
             loadStatistics();
@@ -354,7 +354,7 @@ include 'includes/admin-header.php';
         });
 
         function initializeDataTable() {
-            // Check if DataTables is available
+            // Kiểm tra DataTables có sẵn không
             if (typeof $.fn.DataTable === 'undefined') {
                 console.error('DataTables not available');
                 AdminPanel.showError('DataTables không khả dụng');
@@ -492,7 +492,7 @@ include 'includes/admin-header.php';
         }
 
         function setupEventListeners() {
-            // Search input with debounce
+            // Ô tìm kiếm với debounce
             let searchTimeout;
             $('#searchInput').on('keyup', function() {
                 clearTimeout(searchTimeout);
@@ -501,7 +501,7 @@ include 'includes/admin-header.php';
                 }, 300);
             });
 
-            // Filter change events
+            // Sự kiện thay đổi bộ lọc
             $('#statusFilter, #typeFilter, #sortBy').on('change', function() {
                 applyFilters();
             });
@@ -513,10 +513,10 @@ include 'includes/admin-header.php';
             const typeFilter = $('#typeFilter').val();
             const sortBy = $('#sortBy').val();
             
-            // Apply search to DataTable
+            // Áp dụng tìm kiếm vào DataTable
             locationsTable.search(searchValue).draw();
             
-            // Apply column filters
+            // Áp dụng bộ lọc cột
             if (statusFilter) {
                 locationsTable.column(6).search(statusFilter);
             } else {
@@ -529,7 +529,7 @@ include 'includes/admin-header.php';
                 locationsTable.column(2).search('');
             }
             
-            // Apply sorting
+            // Áp dụng sắp xếp
             if (sortBy === 'TenDiaDiem') {
                 locationsTable.order([1, 'asc']).draw();
             } else if (sortBy === 'DiaChi') {
@@ -540,7 +540,7 @@ include 'includes/admin-header.php';
                 locationsTable.order([7, 'desc']).draw();
             }
             
-            // Redraw table
+            // Vẽ lại bảng
             locationsTable.draw();
         }
 
@@ -550,7 +550,7 @@ include 'includes/admin-header.php';
             $('#typeFilter').val('');
             $('#sortBy').val('TenDiaDiem');
             
-            // Clear all DataTable filters
+            // Xóa tất cả bộ lọc DataTable
             locationsTable.search('');
             locationsTable.columns().search('');
             locationsTable.order([0, 'desc']).draw();
@@ -765,7 +765,7 @@ include 'includes/admin-header.php';
 
         // Gắn sự kiện cho các trường địa chỉ
         $(document).ready(function() {
-            // Load danh sách tỉnh/thành phố khi trang load
+            // Tải danh sách tỉnh/thành phố khi trang tải
             loadProvinces();
             
             // Khi chọn tỉnh/thành phố, load quận/huyện
@@ -802,11 +802,11 @@ include 'includes/admin-header.php';
                     $('#locationSoNha').val(location.SoNha || '');
                     $('#locationDuongPho').val(location.DuongPho || '');
                     
-                    // Load tỉnh/thành phố trước
+                    // Tải tỉnh/thành phố trước
                     loadProvinces();
                     if (location.TinhThanh) {
                         $('#locationTinhThanh').val(location.TinhThanh);
-                        // Load quận/huyện sau khi chọn tỉnh/thành phố
+                        // Tải quận/huyện sau khi chọn tỉnh/thành phố
                         loadDistricts(location.TinhThanh);
                     }
                     
@@ -950,7 +950,7 @@ include 'includes/admin-header.php';
                 formData.set('LoaiThue', '');
             }
             
-            // Add action to form data
+            // Thêm action vào form data
             formData.append('action', action);
             
             // Debug: Log form data
@@ -984,7 +984,7 @@ include 'includes/admin-header.php';
                     formData.append('action', 'delete_location');
                     formData.append('id', id);
                     
-                    // Debug: Log form data
+                    // Debug: Ghi log form data
                     console.log('Delete location - Form data being sent:');
                     for (let [key, value] of formData.entries()) {
                         console.log(key + ': ' + value);
@@ -1009,7 +1009,7 @@ include 'includes/admin-header.php';
 
         
 
-        // Auto refresh every 30 seconds
+        // Tự động làm mới mỗi 30 giây
         setInterval(() => {
             loadStatistics();
         }, 30000);

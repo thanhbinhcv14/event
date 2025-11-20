@@ -1,5 +1,5 @@
 <?php
-// Include admin header
+// Bao gồm header admin
 include 'includes/admin-header.php';
 ?>
     
@@ -205,7 +205,7 @@ include 'includes/admin-header.php';
         let eventTypesTable;
         let currentFilters = {};
 
-        // Initialize page
+        // Khởi tạo trang
         document.addEventListener('DOMContentLoaded', function() {
             initializeDataTable();
             loadStatistics();
@@ -213,7 +213,7 @@ include 'includes/admin-header.php';
         });
 
         function initializeDataTable() {
-            // Check if DataTables is available
+            // Kiểm tra DataTables có sẵn không
             if (typeof $.fn.DataTable === 'undefined') {
                 console.error('DataTables not available');
                 AdminPanel.showError('DataTables không khả dụng');
@@ -306,7 +306,7 @@ include 'includes/admin-header.php';
                             }
                         }
                     ],
-                    order: [[1, 'asc']], // Sort by name by default
+                    order: [[1, 'asc']], // Sắp xếp theo tên mặc định
                     language: {
                         processing: "Đang xử lý...",
                         search: "Tìm kiếm:",
@@ -334,7 +334,7 @@ include 'includes/admin-header.php';
         }
 
         function setupEventListeners() {
-            // Search input
+            // Ô tìm kiếm
             $('#searchInput').on('keyup', function() {
                 eventTypesTable.search(this.value).draw();
             });
@@ -344,15 +344,15 @@ include 'includes/admin-header.php';
             const searchTerm = $('#searchInput').val();
             const sortBy = $('#sortBy').val();
             
-            // Apply search
+            // Áp dụng tìm kiếm
             if (searchTerm) {
                 eventTypesTable.search(searchTerm).draw();
             } else {
                 eventTypesTable.search('').draw();
             }
             
-            // Apply sorting
-            let sortColumn = 1; // Default to name column
+            // Áp dụng sắp xếp
+            let sortColumn = 1; // Mặc định là cột tên
             let sortDir = 'asc';
             
             switch(sortBy) {
@@ -405,7 +405,7 @@ include 'includes/admin-header.php';
             });
         }
 
-        // Show add event type modal
+        // Hiển thị modal thêm loại sự kiện
         function showAddEventTypeModal() {
             document.getElementById('eventTypeModalTitle').innerHTML = '<i class="fas fa-plus"></i> Thêm loại sự kiện';
             document.getElementById('eventTypeForm').reset();
@@ -415,7 +415,7 @@ include 'includes/admin-header.php';
             modal.show();
         }
 
-        // Edit event type
+        // Chỉnh sửa loại sự kiện
         function editEventType(id) {
             AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', {
                 action: 'get',
@@ -441,7 +441,7 @@ include 'includes/admin-header.php';
             });
         }
 
-        // View event type
+        // Xem loại sự kiện
         function viewEventType(id) {
             AdminPanel.showLoading('#viewEventTypeModalBody');
             
@@ -497,7 +497,7 @@ include 'includes/admin-header.php';
             });
         }
         
-        // Save event type
+        // Lưu loại sự kiện
         function saveEventType() {
             if (!AdminPanel.validateForm('eventTypeForm')) {
                 return;
@@ -514,14 +514,14 @@ include 'includes/admin-header.php';
                 if (response.success) {
                     AdminPanel.showSuccess(isEdit ? 'Đã cập nhật loại sự kiện thành công' : 'Đã thêm loại sự kiện thành công');
                     
-                    // Close modal
+                    // Đóng modal
                     const modalElement = document.getElementById('eventTypeModal');
                     const modal = bootstrap.Modal.getInstance(modalElement);
                     if (modal) {
                         modal.hide();
                     }
                     
-                    // Reload table
+                    // Tải lại bảng
                     eventTypesTable.ajax.reload();
                     loadStatistics();
                 } else {
@@ -533,9 +533,9 @@ include 'includes/admin-header.php';
             });
         }
         
-        // Delete event type
+        // Xóa loại sự kiện
         function deleteEventType(id) {
-            // Get event type name for confirmation
+            // Lấy tên loại sự kiện để xác nhận
             AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', {
                 action: 'get',
                 id: id

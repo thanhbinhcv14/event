@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../config/database.php';
 
 header('Content-Type: application/json');
 
-// Check if user is logged in and has admin privileges
+// Kiểm tra người dùng đã đăng nhập và có quyền admin
 $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? null;
 if (!isset($_SESSION['user']) || !in_array($userRole, [1, 2])) {
     echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);

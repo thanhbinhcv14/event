@@ -22,20 +22,20 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
-        /* Sidebar Styles */
+        /* Sidebar Styles - Màu dịu nhẹ đồng bộ với chat.php */
         .sidebar {
             position: fixed;
             top: 0;
             left: 0;
             height: 100vh;
             width: 300px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            color: white;
+            background: linear-gradient(135deg, #c5d9f0 0%, #d5c9ed 50%, #e5c9ea 100%);
+            color: #333;
             z-index: 1000;
             transform: translateX(-100%);
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow-y: auto;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 0 30px rgba(197, 217, 240, 0.3);
         }
         
         .sidebar.show {
@@ -44,22 +44,23 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         
         .sidebar-header {
             padding: 30px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            border-bottom: 1px solid rgba(197, 217, 240, 0.3);
             text-align: center;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.4);
             backdrop-filter: blur(10px);
         }
         
         
         .sidebar-header h5 {
-            font-weight: 600;
+            font-weight: 700;
             margin-bottom: 5px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            color: #333;
         }
         
         .sidebar-header small {
             font-size: 0.85rem;
-            opacity: 0.9;
+            color: #6c757d;
+            font-weight: 500;
         }
         
         .user-avatar {
@@ -455,6 +456,66 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             margin-left: 0.5rem;
         }
         
+        /* ✅ Nút Sự kiện nổi bật bên phải navbar - Màu sáng dịu nhẹ */
+        .navbar-event-btn {
+            background: linear-gradient(135deg, #c5d9f0 0%, #d5c9ed 50%, #e5c9ea 100%);
+            color: #5a5a5a !important;
+            border: 2px solid rgba(197, 217, 240, 0.5);
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(197, 217, 240, 0.25);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+            margin-right: 10px;
+        }
+        
+        .navbar-event-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .navbar-event-btn:hover::before {
+            left: 100%;
+        }
+        
+        .navbar-event-btn:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 6px 20px rgba(197, 217, 240, 0.35);
+            background: linear-gradient(135deg, #d5e5f5 0%, #e5d9f2 50%, #f5d9ef 100%);
+            border-color: rgba(197, 217, 240, 0.8);
+        }
+        
+        .navbar-event-btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+        
+        .navbar-event-btn i {
+            font-size: 1.2rem;
+            color: #667eea;
+            animation: bounce-icon-nav 2s ease-in-out infinite;
+        }
+        
+        @keyframes bounce-icon-nav {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-2px);
+            }
+        }
+        
         .dropdown-menu {
             border: none;
             box-shadow: 0 10px 30px rgba(0,0,0,0.15);
@@ -485,6 +546,59 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         .dropdown-divider {
             margin: 0.5rem 0;
             border-color: #e9ecef;
+        }
+        
+        /* ✅ Dropdown menu cho nút Sự kiện - Màu sáng dịu nhẹ */
+        .navbar-event-dropdown {
+            min-width: 250px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(197, 217, 240, 0.2);
+            border: 1px solid rgba(197, 217, 240, 0.4);
+            margin-top: 10px !important;
+            background: white;
+            padding: 8px;
+        }
+        
+        .navbar-event-dropdown .dropdown-item {
+            padding: 12px 20px;
+            font-weight: 500;
+            border-radius: 10px;
+            margin: 4px 0;
+            transition: all 0.3s ease;
+            color: #5a5a5a;
+            border: 1px solid transparent;
+        }
+        
+        .navbar-event-dropdown .dropdown-item:hover {
+            background: linear-gradient(135deg, #e8f2fa 0%, #f0e8f7 100%);
+            color: #667eea;
+            transform: translateX(5px);
+            border-color: rgba(197, 217, 240, 0.5);
+        }
+        
+        .navbar-event-dropdown .dropdown-item:first-child {
+            background: linear-gradient(135deg, #d5e5f5 0%, #e5d9f2 100%);
+            color: #667eea;
+            font-weight: 600;
+            border-color: rgba(197, 217, 240, 0.6);
+        }
+        
+        .navbar-event-dropdown .dropdown-item:first-child:hover {
+            background: linear-gradient(135deg, #e5eff8 0%, #f0e8f7 100%);
+            transform: translateX(5px) scale(1.02);
+            border-color: rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(197, 217, 240, 0.3);
+        }
+        
+        .navbar-event-dropdown .dropdown-item i {
+            color: #667eea;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .navbar-event-dropdown .dropdown-divider {
+            margin: 8px 0;
+            border-color: rgba(197, 217, 240, 0.3);
         }
         
         .navbar-brand img {
@@ -1351,6 +1465,13 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                 justify-content: center;
             }
             
+            .navbar-event-btn {
+                margin-right: 0;
+                margin-bottom: 10px;
+                width: 100%;
+                justify-content: center;
+            }
+            
             .dropdown-menu {
                 position: static !important;
                 transform: none !important;
@@ -1757,25 +1878,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                     </li>
                     <?php if ($user): ?>
                     <!-- Chức năng dành cho người dùng đã đăng nhập -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="eventsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-calendar-alt me-1"></i>Sự kiện
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="eventsDropdown">
-                            <li><a class="dropdown-item" href="events/register.php">
-                                <i class="fas fa-calendar-plus me-2"></i>Đăng ký sự kiện
-                            </a></li>
-                            <li><a class="dropdown-item" href="events/my-events.php">
-                                <i class="fas fa-list-alt me-2"></i>Sự kiện của tôi
-                            </a></li>
-                            <?php if (in_array($userRole, [1, 2, 3, 4])): ?>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="admin/event-registrations.php">
-                                <i class="fas fa-cogs me-2"></i>Quản lý sự kiện
-                            </a></li>
-                            <?php endif; ?>
-                        </ul>
-                    </li>
                     <li class="nav-item">
                         <a class="nav-link" href="chat.php">
                             <i class="fas fa-comments me-1"></i>Chat hỗ trợ
@@ -1783,8 +1885,30 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                     </li>
                     <?php endif; ?>
                 </ul>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 align-items-center">
                     <?php if ($user): ?>
+                        <!-- ✅ Nút Sự kiện nổi bật bên phải -->
+                        <div class="dropdown">
+                            <button class="navbar-event-btn dropdown-toggle" type="button" id="eventsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-calendar-plus"></i>
+                                <span>Sự kiện</span>
+                            </button>
+                            <ul class="dropdown-menu navbar-event-dropdown" aria-labelledby="eventsDropdown">
+                                <li><a class="dropdown-item" href="events/register.php">
+                                    <i class="fas fa-calendar-plus me-2"></i>Đăng ký sự kiện
+                                </a></li>
+                                <li><a class="dropdown-item" href="events/my-events.php">
+                                    <i class="fas fa-list-alt me-2"></i>Sự kiện của tôi
+                                </a></li>
+                                <?php if (in_array($userRole, [1, 2, 3, 4])): ?>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="admin/event-registrations.php">
+                                    <i class="fas fa-cogs me-2"></i>Quản lý sự kiện
+                                </a></li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                        
                         <a href="profile.php" class="btn btn-outline-primary">
                             <i class="fa fa-user me-1"></i> Tài khoản
                         </a>
@@ -2274,23 +2398,8 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         
         // Chat Widget is now handled by chat-widget.php
         
-        // Auto-hide chat widget after 30 seconds of inactivity
-        let chatInactivityTimer;
-        function resetChatTimer() {
-            clearTimeout(chatInactivityTimer);
-            chatInactivityTimer = setTimeout(() => {
-                const chatWidget = document.getElementById('chatWidget');
-                const chatToggle = document.querySelector('.chat-toggle');
-                if (chatWidget && chatWidget.classList.contains('show')) {
-                    chatWidget.classList.remove('show');
-                    if (chatToggle) chatToggle.style.display = 'block';
-                }
-            }, 30000);
-        }
-        
-        // Reset timer on any interaction
-        document.addEventListener('click', resetChatTimer);
-        document.addEventListener('keypress', resetChatTimer);
+        // ✅ Đã bỏ logic auto-hide chat widget để chat không bị đóng khi load trang
+        // Chat widget sẽ giữ nguyên trạng thái mở/đóng dựa trên localStorage
     </script>
     
     

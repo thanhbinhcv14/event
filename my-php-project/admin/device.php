@@ -1,5 +1,5 @@
 <?php
-// Include admin header
+// Bao gồm header admin
 include 'includes/admin-header.php';
 ?>
 
@@ -285,7 +285,7 @@ include 'includes/admin-header.php';
         let devicesTable;
         let currentFilters = {};
 
-        // Initialize page
+        // Khởi tạo trang
         document.addEventListener('DOMContentLoaded', function() {
             initializeDataTable();
             loadStatistics();
@@ -293,7 +293,7 @@ include 'includes/admin-header.php';
         });
 
         function initializeDataTable() {
-            // Check if DataTables is available
+            // Kiểm tra DataTables có sẵn không
             if (typeof $.fn.DataTable === 'undefined') {
                 console.error('DataTables not available');
                 AdminPanel.showError('DataTables không khả dụng');
@@ -416,7 +416,7 @@ include 'includes/admin-header.php';
             .then(response => {
                 if (response.success && response.stats) {
                     $('#totalDevices').text(response.stats.total || 0);
-                    // Calculate other stats from get_all data
+                    // Tính toán các thống kê khác từ dữ liệu get_all
                     AdminPanel.makeAjaxRequest('../src/controllers/deviceedit.php', {
                         action: 'get_all'
                     })
@@ -440,7 +440,7 @@ include 'includes/admin-header.php';
         }
 
         function setupEventListeners() {
-            // Search input with debounce
+            // Ô tìm kiếm với debounce
             let searchTimeout;
             $('#searchInput').on('keyup', function() {
                 clearTimeout(searchTimeout);
@@ -449,7 +449,7 @@ include 'includes/admin-header.php';
                 }, 300);
             });
 
-            // Filter change events
+            // Sự kiện thay đổi bộ lọc
             $('#statusFilter, #typeFilter, #sortBy').on('change', function() {
                 applyFilters();
             });
@@ -461,10 +461,10 @@ include 'includes/admin-header.php';
             const typeFilter = $('#typeFilter').val();
             const sortBy = $('#sortBy').val();
             
-            // Apply search to DataTable
+            // Áp dụng tìm kiếm vào DataTable
             devicesTable.search(searchValue).draw();
             
-            // Apply column filters
+            // Áp dụng bộ lọc cột
             if (statusFilter) {
                 devicesTable.column(6).search(statusFilter);
             } else {
@@ -477,7 +477,7 @@ include 'includes/admin-header.php';
                 devicesTable.column(2).search('');
             }
             
-            // Apply sorting
+            // Áp dụng sắp xếp
             if (sortBy === 'TenThietBi') {
                 devicesTable.order([1, 'asc']).draw();
             } else if (sortBy === 'LoaiThietBi') {
@@ -488,7 +488,7 @@ include 'includes/admin-header.php';
                 devicesTable.order([7, 'desc']).draw();
             }
             
-            // Redraw table
+            // Vẽ lại bảng
             devicesTable.draw();
         }
 
@@ -498,7 +498,7 @@ include 'includes/admin-header.php';
             $('#typeFilter').val('');
             $('#sortBy').val('TenThietBi');
             
-            // Clear all DataTable filters
+            // Xóa tất cả bộ lọc DataTable
             devicesTable.search('');
             devicesTable.columns().search('');
             devicesTable.order([0, 'desc']).draw();
@@ -675,7 +675,7 @@ include 'includes/admin-header.php';
             const isEdit = $('#deviceId').val() !== '';
             const action = isEdit ? 'update' : 'add';
             
-            // Add action to form data
+            // Thêm action vào form data
             formData.append('action', action);
 
             AdminPanel.makeAjaxRequest('../src/controllers/deviceedit.php', formData, 'POST')
@@ -722,7 +722,7 @@ include 'includes/admin-header.php';
 
         
 
-        // Auto refresh every 30 seconds
+        // Tự động làm mới mỗi 30 giây
         setInterval(() => {
             loadStatistics();
         }, 30000);

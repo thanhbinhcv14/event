@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lỗi thanh toán - Event Management</title>
+    <link rel="icon" href="../img/logo/logo.jpg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -61,10 +62,10 @@
         <?php endif; ?>
         
         <div class="mt-4">
-            <a href="/event/my-php-project/events/my-events.php" class="btn-custom">
+            <a href="/events/my-events.php" class="btn-custom">
                 <i class="fas fa-calendar-alt me-2"></i>Xem sự kiện của tôi
             </a>
-            <a href="/event/my-php-project/" class="btn-custom">
+            <a href="/" class="btn-custom">
                 <i class="fas fa-home me-2"></i>Về trang chủ
             </a>
         </div>

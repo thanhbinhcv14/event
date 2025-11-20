@@ -1,5 +1,5 @@
 <?php
-// Include admin header
+// Bao gồm header admin
 include 'includes/admin-header.php';
 ?>
 
@@ -342,9 +342,9 @@ include 'includes/admin-header.php';
         let paymentsTable;
         let currentPaymentId = null;
 
-        // Initialize page
+        // Khởi tạo trang
         document.addEventListener('DOMContentLoaded', function() {
-            // Wait for AdminPanel to be available
+            // Đợi AdminPanel sẵn sàng
             if (typeof AdminPanel === 'undefined') {
                 console.error('AdminPanel not loaded');
                 setTimeout(() => {
@@ -510,7 +510,7 @@ include 'includes/admin-header.php';
                     $('#successfulPayments').text(response.stats.successful || 0);
                     $('#totalAmount').text(AdminPanel.formatCurrency(response.stats.total_amount || 0));
                     
-                    // Calculate pending payments
+                    // Tính toán thanh toán đang chờ
                     const pending = (response.stats.total || 0) - (response.stats.successful || 0);
                     $('#pendingPayments').text(pending);
                 }
@@ -521,7 +521,7 @@ include 'includes/admin-header.php';
         }
 
         function setupEventListeners() {
-            // Search input with debounce
+            // Ô tìm kiếm với debounce
             let searchTimeout;
             $('#searchInput').on('keyup', function() {
                 clearTimeout(searchTimeout);
@@ -530,7 +530,7 @@ include 'includes/admin-header.php';
                 }, 300);
             });
 
-            // Filter change events
+            // Sự kiện thay đổi bộ lọc
             $('#statusFilter, #methodFilter, #typeFilter').on('change', function() {
                 applyFilters();
             });
@@ -542,29 +542,29 @@ include 'includes/admin-header.php';
             const methodFilter = $('#methodFilter').val();
             const typeFilter = $('#typeFilter').val();
             
-            // Apply search to DataTable
+            // Áp dụng tìm kiếm vào DataTable
             paymentsTable.search(searchValue).draw();
             
-            // Apply column filters
+            // Áp dụng bộ lọc cột
             if (statusFilter) {
-                paymentsTable.column(7).search(statusFilter); // Trạng thái is now column 7
+                paymentsTable.column(7).search(statusFilter); // Trạng thái là cột 7
             } else {
                 paymentsTable.column(7).search('');
             }
             
             if (methodFilter) {
-                paymentsTable.column(5).search(methodFilter); // Phương thức is still column 5
+                paymentsTable.column(5).search(methodFilter); // Phương thức vẫn là cột 5
             } else {
                 paymentsTable.column(5).search('');
             }
             
             if (typeFilter) {
-                paymentsTable.column(6).search(typeFilter); // Loại thanh toán is now column 6
+                paymentsTable.column(6).search(typeFilter); // Loại thanh toán là cột 6
             } else {
                 paymentsTable.column(6).search('');
             }
             
-            // Redraw table
+            // Vẽ lại bảng
             paymentsTable.draw();
         }
 
@@ -574,7 +574,7 @@ include 'includes/admin-header.php';
             $('#methodFilter').val('');
             $('#typeFilter').val('');
             
-            // Clear all DataTable filters
+            // Xóa tất cả bộ lọc DataTable
             paymentsTable.search('');
             paymentsTable.columns().search('');
             paymentsTable.draw();
@@ -595,20 +595,20 @@ include 'includes/admin-header.php';
                     const payment = response.payment;
                     currentPaymentId = paymentId;
                     
-                    // Format số tiền
+                    // Định dạng số tiền
                     const formattedAmount = AdminPanel.formatCurrency(payment.SoTien);
                     
-                    // Format dates
+                    // Định dạng ngày tháng
                     const paymentDate = payment.NgayThanhToan ? AdminPanel.formatDate(payment.NgayThanhToan, 'dd/mm/yyyy hh:mm') : 'N/A';
                     const eventStartDate = payment.NgayBatDau ? AdminPanel.formatDate(payment.NgayBatDau, 'dd/mm/yyyy hh:mm') : 'N/A';
                     const eventEndDate = payment.NgayKetThuc ? AdminPanel.formatDate(payment.NgayKetThuc, 'dd/mm/yyyy hh:mm') : 'N/A';
                     const birthDate = payment.NgaySinh ? AdminPanel.formatDate(payment.NgaySinh, 'dd/mm/yyyy') : null;
                     
-                    // Status và type classes
+                    // Lớp trạng thái và loại
                     const statusClass = getStatusClass(payment.TrangThai);
                     const typeClass = getPaymentTypeClass(payment.LoaiThanhToan);
                     
-                    // Check if customer info changed
+                    // Kiểm tra thông tin khách hàng có thay đổi không
                     const infoChanged = payment.ID_HoaDon && (
                         (payment.KhachHangTenGoc && payment.KhachHangTen !== payment.KhachHangTenGoc) || 
                         (payment.SoDienThoaiGoc && payment.SoDienThoai !== payment.SoDienThoaiGoc)
@@ -859,7 +859,7 @@ include 'includes/admin-header.php';
         function showStatusUpdate() {
             if (!currentPaymentId) return;
             
-            // Get current payment status
+            // Lấy trạng thái thanh toán hiện tại
             AdminPanel.makeAjaxRequest('../src/controllers/payment.php', {
                 action: 'get_payment_status',
                 payment_id: currentPaymentId
@@ -877,7 +877,7 @@ include 'includes/admin-header.php';
             });
         }
 
-        // Edit payment: open the status update modal for the selected payment
+        // Chỉnh sửa thanh toán: mở modal cập nhật trạng thái cho thanh toán đã chọn
         function editPayment(paymentId) {
             try {
                 console.log('editPayment called with ID:', paymentId);
@@ -894,7 +894,7 @@ include 'includes/admin-header.php';
             }
         }
 
-        // Update payment status from the status modal
+        // Cập nhật trạng thái thanh toán từ modal trạng thái
         function updatePaymentStatus() {
             try {
                 console.log('updatePaymentStatus called');
@@ -927,11 +927,11 @@ include 'includes/admin-header.php';
                 .then(response => {
                     if (response.success) {
                         AdminPanel.showSuccess('Cập nhật trạng thái thành công');
-                        // Close modal
+                        // Đóng modal
                         const modalEl = document.getElementById('statusModal');
                         const modal = bootstrap.Modal.getInstance(modalEl);
                         if (modal) modal.hide();
-                        // Refresh table and stats
+                        // Làm mới bảng và thống kê
                         if (paymentsTable) paymentsTable.ajax.reload();
                         loadStatistics();
                     } else {
@@ -948,7 +948,7 @@ include 'includes/admin-header.php';
         }
 
         function confirmCashPayment(paymentId) {
-            // Get payment details
+            // Lấy chi tiết thanh toán
             AdminPanel.makeAjaxRequest('../src/controllers/payment.php', {
                 action: 'get_payment_status',
                 payment_id: paymentId
@@ -957,10 +957,10 @@ include 'includes/admin-header.php';
                 if (response.success && response.payment) {
                     const payment = response.payment;
                     
-                    // Set payment ID
+                    // Đặt ID thanh toán
                     $('#cashPaymentId').val(paymentId);
                     
-                    // Display payment info
+                    // Hiển thị thông tin thanh toán
                     $('#cashPaymentInfo').html(`
                         <div class="row">
                             <div class="col-md-6">
@@ -978,11 +978,11 @@ include 'includes/admin-header.php';
                         </div>
                     `);
                     
-                    // Clear form
+                    // Xóa form
                     $('#confirmNote').val('');
                     $('#confirmCheck').prop('checked', false);
                     
-                    // Show modal
+                    // Hiển thị modal
                     const modal = new bootstrap.Modal(document.getElementById('cashConfirmModal'));
                     modal.show();
                 } else {
@@ -1022,7 +1022,7 @@ include 'includes/admin-header.php';
         }
 
         function confirmBankingPayment(paymentId) {
-            // Get payment details
+            // Lấy chi tiết thanh toán
             AdminPanel.makeAjaxRequest('../src/controllers/payment.php', {
                 action: 'get_payment_status',
                 payment_id: paymentId
@@ -1031,10 +1031,10 @@ include 'includes/admin-header.php';
                 if (response.success && response.payment) {
                     const payment = response.payment;
                     
-                    // Set payment ID
+                    // Đặt ID thanh toán
                     $('#bankingPaymentId').val(paymentId);
                     
-                    // Display payment info
+                    // Hiển thị thông tin thanh toán
                     $('#bankingPaymentInfo').html(`
                         <div class="row">
                             <div class="col-md-6">
@@ -1052,11 +1052,11 @@ include 'includes/admin-header.php';
                         </div>
                     `);
                     
-                    // Clear form
+                    // Xóa form
                     $('#bankingConfirmNote').val('');
                     $('#bankingConfirmCheck').prop('checked', false);
                     
-                    // Show modal
+                    // Hiển thị modal
                     const modal = new bootstrap.Modal(document.getElementById('bankingConfirmModal'));
                     modal.show();
                 } else {
@@ -1098,7 +1098,7 @@ include 'includes/admin-header.php';
         
 
         function exportPayments() {
-            // Export functionality would be implemented here
+            // Chức năng xuất sẽ được triển khai ở đây
             AdminPanel.showInfo('Chức năng xuất Excel sẽ được triển khai');
         }
 
@@ -1142,7 +1142,7 @@ include 'includes/admin-header.php';
             return iconMap[type] || 'fa-question';
         }
 
-        // Auto refresh every 30 seconds
+        // Tự động làm mới mỗi 30 giây
         setInterval(() => {
             loadStatistics();
         }, 30000);

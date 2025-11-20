@@ -2,7 +2,7 @@
 session_start();
 require_once '../config/database.php';
 
-// Check if user is logged in
+// Kiểm tra người dùng đã đăng nhập chưa
 if (!isset($_SESSION['user'])) {
     header('Location: ../login.php');
     exit();
@@ -16,7 +16,7 @@ if (!$paymentId) {
     exit();
 }
 
-// Get payment details
+// Lấy chi tiết thanh toán
 $stmt = $pdo->prepare("
     SELECT t.*, dl.TenSuKien, dl.NgayBatDau, dl.NgayKetThuc,
            kh.HoTen as KhachHangTen, kh.SoDienThoai
@@ -251,13 +251,13 @@ if (!$payment) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function checkPaymentStatus() {
-            // Show loading
+            // Hiển thị loading
             const button = event.target;
             const originalText = button.innerHTML;
             button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Đang kiểm tra...';
             button.disabled = true;
 
-            // Check payment status
+            // Kiểm tra trạng thái thanh toán
             fetch('../src/controllers/payment.php?action=get_payment_status&payment_id=<?= $paymentId ?>')
                 .then(response => response.json())
                 .then(data => {
@@ -282,7 +282,7 @@ if (!$payment) {
                     alert('Có lỗi xảy ra khi kiểm tra trạng thái. Vui lòng thử lại sau.');
                 })
                 .finally(() => {
-                    // Restore button
+                    // Khôi phục nút
                     button.innerHTML = originalText;
                     button.disabled = false;
                 });

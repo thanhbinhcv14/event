@@ -2,16 +2,16 @@
 session_start();
 require_once __DIR__ . '/src/auth/auth.php';
 
-// Check if user is logged in
+// Kiểm tra người dùng đã đăng nhập chưa
 if (!isLoggedIn()) {
     header('Location: login.php');
     exit;
 }
 
-// Get user role
+// Lấy vai trò người dùng
 $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? 0;
 
-// Allow admin (1), event manager (3), and customers (5) to use chat
+// Cho phép admin (1), quản lý sự kiện (3), và khách hàng (5) sử dụng chat
 if (!in_array($userRole, [1, 3, 5])) {
     echo '<script>alert("Bạn không có quyền sử dụng chat với nhân viên. Chỉ quản trị viên, quản lý sự kiện và khách hàng mới có thể sử dụng tính năng này."); window.location.href = "index.php";</script>';
     exit;
@@ -23,12 +23,13 @@ if (!in_array($userRole, [1, 3, 5])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Hỗ trợ - Event Management System</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+    <link rel="icon" href="img/logo/logo.jpg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        /* ✅ Thiết kế lại trang chat - Giao diện hiện đại đồng bộ với index.php */
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
             min-height: 100vh;
             height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -50,37 +51,48 @@ if (!in_array($userRole, [1, 3, 5])) {
             left: 0;
             right: 0;
             bottom: 0;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.1);
         }
         
         .chat-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
             color: white;
             padding: 1rem 1.5rem;
             position: relative;
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
         }
         
         .header-icon {
-            width: 40px;
-            height: 40px;
+            width: 45px;
+            height: 45px;
             background: rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             margin-right: 0.75rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .header-icon:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
         }
         
         .header-icon i {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             color: white;
         }
         
         .header-content h1 {
             margin: 0;
             font-size: 1.5rem;
-            font-weight: 600;
+            font-weight: 700;
             position: relative;
             z-index: 1;
+            color: white;
         }
         
         .header-actions {
@@ -97,22 +109,23 @@ if (!in_array($userRole, [1, 3, 5])) {
             z-index: 1;
             padding: 0.5rem;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.2);
             transition: all 0.3s ease;
             min-width: 40px;
             justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
         
         .connection-status.online {
-            background: linear-gradient(135deg, rgba(40, 167, 69, 0.2), rgba(40, 167, 69, 0.1));
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.3), rgba(40, 167, 69, 0.2));
         }
         
         .connection-status.offline {
-            background: linear-gradient(135deg, rgba(220, 53, 69, 0.2), rgba(220, 53, 69, 0.1));
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.3), rgba(220, 53, 69, 0.2));
         }
         
         .connection-status.connecting {
-            background: linear-gradient(135deg, rgba(255, 193, 7, 0.2), rgba(255, 193, 7, 0.1));
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.3), rgba(255, 193, 7, 0.2));
         }
         
         .connection-text {
@@ -179,24 +192,27 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .btn-home {
-            width: 40px;
-            height: 40px;
-            background: rgba(255, 255, 255, 0.2);
+            width: 45px;
+            height: 45px;
+            background: rgba(255, 255, 255, 0.6);
             border: none;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
+            color: #667eea;
             text-decoration: none;
             transition: all 0.3s ease;
             position: relative;
             z-index: 1;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
         }
         
         .btn-home:hover {
-            background: rgba(255, 255, 255, 0.3);
-            color: white;
+            background: rgba(255, 255, 255, 0.9);
+            color: #667eea;
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
         
         .role-badge {
@@ -238,62 +254,89 @@ if (!in_array($userRole, [1, 3, 5])) {
         .chat-content {
             display: flex;
             height: calc(100vh - 80px);
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #f8f9fa 0%, #f0f4f8 100%);
             position: relative;
         }
         
         .chat-sidebar {
-            width: 300px;
+            width: 320px;
             background: #ffffff;
-            border-right: 1px solid #dee2e6;
+            border-right: 1px solid rgba(102, 126, 234, 0.2);
             display: flex;
             flex-direction: column;
             position: relative;
             z-index: 1;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
         }
         
         .sidebar-header {
-            padding: 1rem;
-            border-bottom: 1px solid #dee2e6;
+            padding: 1.25rem 1rem;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: #ffffff;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
         }
         
         .sidebar-header h6 {
             margin: 0;
-            font-weight: 600;
-            color: #495057;
-            font-size: 0.95rem;
+            font-weight: 700;
+            color: #333;
+            font-size: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
         
+        .sidebar-header h6 i {
+            color: #667eea;
+        }
+        
         .btn-new-chat {
-            width: 32px;
-            height: 32px;
+            width: 38px;
+            height: 38px;
             border: none;
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 1rem;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
         
         .btn-new-chat:hover {
-            background: #5568d3;
+            background: linear-gradient(135deg, #5a6fe0 0%, #8a4dc5 100%);
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
         
         .sidebar-content {
             flex: 1;
             overflow-y: auto;
             padding: 0.5rem;
+        }
+        
+        /* Custom scrollbar cho sidebar */
+        .sidebar-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar-content::-webkit-scrollbar-track {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+        }
+        
+        .sidebar-content::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+        }
+        
+        .sidebar-content::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #5a6fe0 0%, #8a4dc5 100%);
         }
         
         .loading-state {
@@ -306,10 +349,10 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .spinner {
-            width: 30px;
-            height: 30px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(102, 126, 234, 0.2);
+            border-top: 4px solid #667eea;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-bottom: 1rem;
@@ -320,6 +363,15 @@ if (!in_array($userRole, [1, 3, 5])) {
             100% { transform: rotate(360deg); }
         }
         
+        .loading-state {
+            color: #6c757d;
+        }
+        
+        .loading-state p {
+            margin-top: 1rem;
+            font-weight: 500;
+        }
+        
         .chat-main {
             flex: 1;
             display: flex;
@@ -327,12 +379,13 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .chat-header-bar {
-            padding: 0.75rem 1rem;
-            background: white;
-            border-bottom: 1px solid #dee2e6;
+            padding: 1rem 1.5rem;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
         
         .chat-user-info {
@@ -341,41 +394,76 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .user-avatar-small {
-            width: 36px;
-            height: 36px;
+            width: 42px;
+            height: 42px;
             border-radius: 50%;
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
             margin-right: 0.75rem;
-            font-size: 0.9rem;
+            font-size: 1rem;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.8);
         }
         
         .user-details h6 {
             margin: 0;
-            font-weight: 600;
+            font-weight: 700;
             color: #333;
-            font-size: 0.95rem;
+            font-size: 1rem;
         }
         
         .user-details small {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
+            font-weight: 500;
         }
         
         .chat-messages {
             flex: 1;
-            padding: 1rem;
+            padding: 1.5rem;
             overflow-y: auto;
-            background: #ffffff;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
             position: relative;
         }
         
+        /* Custom scrollbar cho chat messages */
+        .chat-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-track {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 10px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #5a6fe0 0%, #8a4dc5 100%);
+        }
+        
         .message {
-            margin-bottom: 0.75rem;
+            margin-bottom: 1rem;
             display: flex;
             align-items: flex-start;
+            animation: fadeInMessage 0.3s ease;
+        }
+        
+        @keyframes fadeInMessage {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
         .message.sent {
@@ -388,21 +476,28 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         .message-content {
             max-width: 70%;
-            padding: 0.75rem 1rem;
-            border-radius: 18px;
+            padding: 0.85rem 1.2rem;
+            border-radius: 20px;
             position: relative;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+        }
+        
+        .message-content:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
         }
         
         .message.sent .message-content {
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            border-bottom-right-radius: 4px;
+            border-bottom-right-radius: 6px;
         }
         
         .message.received .message-content {
-            background: #f1f3f5;
+            background: #ffffff;
             color: #333;
-            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-bottom-left-radius: 6px;
         }
         
         .message-time {
@@ -416,100 +511,117 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .chat-input {
-            padding: 0.75rem 1rem;
-            background: white;
-            border-top: 1px solid #dee2e6;
+            padding: 1rem 1.5rem;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-top: 1px solid rgba(102, 126, 234, 0.2);
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
         }
         
         .chat-input-group {
             display: flex;
-            gap: 0.5rem;
+            gap: 0.75rem;
             align-items: center;
         }
         
         .chat-input input {
             flex: 1;
-            border: 1px solid #dee2e6;
-            border-radius: 20px;
-            padding: 0.6rem 1rem;
+            border: 2px solid rgba(197, 217, 240, 0.5);
+            border-radius: 25px;
+            padding: 0.75rem 1.25rem;
             font-size: 0.95rem;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
+            background: #ffffff;
         }
         
         .chat-input input:focus {
             border-color: #667eea;
             outline: none;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
         .chat-input button {
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 45px;
+            height: 45px;
             color: white;
-            font-size: 1rem;
-            transition: all 0.2s ease;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
         
         .chat-input button#sendButton {
-            width: 40px;
-            height: 40px;
-            background: #28a745;
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
         }
         
         .chat-input button#voiceCallButton {
-            background: #17a2b8;
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            color: white;
         }
         
         .chat-input button#videoCallButton {
-            background: #dc3545;
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
         }
         
         .chat-input button#attachButton {
-            background: #6c757d;
+            background: linear-gradient(135deg, #6c757d, #5a6268);
+            color: white;
         }
         
         .chat-input button:hover:not(:disabled) {
-            opacity: 0.9;
-            transform: scale(1.05);
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
         
         .chat-input button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+            transform: none;
         }
         
         .conversation-item {
-            padding: 0.75rem;
-            border-bottom: 1px solid #e9ecef;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(197, 217, 240, 0.2);
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
             position: relative;
             background: #ffffff;
-            border-radius: 8px;
-            margin-bottom: 0.25rem;
+            border-radius: 12px;
+            margin: 0.5rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid transparent;
         }
         
         .conversation-item:hover {
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #f8f9fa 0%, #f0f4f8 100%);
+            transform: translateX(5px);
+            border-color: rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
         }
         
         .conversation-item.active {
-            background: #e7f3ff;
-            border-left: 3px solid #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border-left: 4px solid #667eea;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
         }
         
         .conversation-user {
-            font-weight: 600;
+            font-weight: 700;
             color: #333;
-            margin-bottom: 0.25rem;
-            font-size: 0.9rem;
+            margin-bottom: 0.4rem;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         
         .conversation-preview {
@@ -518,25 +630,38 @@ if (!in_array($userRole, [1, 3, 5])) {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.4rem;
+            line-height: 1.4;
         }
         
         .conversation-time {
             font-size: 0.75rem;
             color: #adb5bd;
+            font-weight: 500;
         }
         
         .status-indicator {
             display: inline-block;
-            width: 8px;
-            height: 8px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             margin-right: 0.5rem;
             position: relative;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
         }
         
         .status-online {
             background: #28a745;
+            animation: pulse-online 2s infinite;
+        }
+        
+        @keyframes pulse-online {
+            0%, 100% {
+                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8), 0 0 0 4px rgba(40, 167, 69, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8), 0 0 0 6px rgba(40, 167, 69, 0.1);
+            }
         }
         
         .status-offline {
@@ -544,9 +669,9 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .customer-search {
-            padding: 0.75rem;
-            border-bottom: 1px solid #dee2e6;
-            background: #ffffff;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(197, 217, 240, 0.3);
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
         }
         
         .customer-search .input-group {
@@ -556,27 +681,60 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         .customer-search input {
             flex: 1;
-            border: 1px solid #dee2e6;
-            border-radius: 20px;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.85rem;
+            border: 1px solid rgba(197, 217, 240, 0.5);
+            border-radius: 25px;
+            padding: 0.6rem 1rem;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            background: #ffffff;
+        }
+        
+        .customer-search input:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
         .customer-search button {
-            border-radius: 20px;
-            padding: 0.5rem 0.75rem;
-            border: 1px solid #dee2e6;
+            border-radius: 25px;
+            padding: 0.6rem 1rem;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .customer-search button:hover {
+            background: linear-gradient(135deg, #5a6fe0 0%, #8a4dc5 100%);
+            transform: scale(1.05);
         }
         
         .typing-indicator {
             display: none;
-            padding: 0.5rem 1rem;
+            padding: 0.75rem 1.25rem;
             color: #6c757d;
             font-style: italic;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            margin: 0.5rem 1rem;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
         
         .typing-indicator.show {
             display: block;
+            animation: fadeInTyping 0.3s ease;
+        }
+        
+        @keyframes fadeInTyping {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
         .welcome-screen {
@@ -590,32 +748,44 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .welcome-icon {
-            width: 60px;
-            height: 60px;
-            background: #667eea;
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
         }
         
         .welcome-icon i {
-            font-size: 1.5rem;
+            font-size: 2rem;
             color: white;
         }
         
         .welcome-screen h4 {
-            color: #495057;
+            color: #333;
             margin-bottom: 0.75rem;
-            font-weight: 600;
-            font-size: 1.1rem;
+            font-weight: 700;
+            font-size: 1.3rem;
         }
         
         .welcome-screen p {
             color: #6c757d;
             margin-bottom: 1.5rem;
-            font-size: 0.95rem;
+            font-size: 1rem;
+            line-height: 1.6;
         }
         
         .welcome-info {
@@ -630,28 +800,43 @@ if (!in_array($userRole, [1, 3, 5])) {
             align-items: center;
             gap: 0.5rem;
             color: #6c757d;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            border: 1px solid rgba(197, 217, 240, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .info-item:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
         }
         
         .info-item i {
             color: #667eea;
-            font-size: 0.9rem;
+            font-size: 1rem;
         }
         
         /* Online status styles */
         .manager-card.border-success {
             border-left: 4px solid #28a745 !important;
-            background: linear-gradient(135deg, rgba(40, 167, 69, 0.05) 0%, rgba(40, 167, 69, 0.02) 100%);
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.08) 0%, rgba(40, 167, 69, 0.03) 100%);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1);
         }
         
         .manager-card.border-secondary {
             border-left: 4px solid #6c757d !important;
-            background: linear-gradient(135deg, rgba(108, 117, 125, 0.05) 0%, rgba(108, 117, 125, 0.02) 100%);
+            background: linear-gradient(135deg, rgba(108, 117, 125, 0.08) 0%, rgba(108, 117, 125, 0.03) 100%);
+            border-radius: 12px;
         }
         
         .manager-card.border-danger {
             border-left: 4px solid #dc3545 !important;
-            background: linear-gradient(135deg, rgba(220, 53, 69, 0.05) 0%, rgba(220, 53, 69, 0.02) 100%);
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.08) 0%, rgba(220, 53, 69, 0.03) 100%);
+            border-radius: 12px;
         }
         
         .badge.bg-success {
@@ -686,13 +871,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         /* Offline status indicator */
         .status-offline {
-            background: linear-gradient(135deg, #dc3545, #c82333);
-            animation: offlinePulse 3s infinite;
-        }
-        
-        @keyframes offlinePulse {
-            0%, 100% { opacity: 0.8; }
-            50% { opacity: 0.5; }
+            background: #6c757d;
         }
         
         .notification-alert {
@@ -717,15 +896,17 @@ if (!in_array($userRole, [1, 3, 5])) {
             max-height: 300px;
             width: auto;
             height: auto;
-            border-radius: 10px;
+            border-radius: 15px;
             cursor: pointer;
             transition: transform 0.3s ease;
             display: block;
             object-fit: contain;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         
         .media-message img:hover {
-            transform: scale(1.02);
+            transform: scale(1.03);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
         }
         
         .media-message .file-info {
@@ -789,55 +970,73 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .call-container {
-            background: white;
-            border-radius: 20px;
-            padding: 2rem;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 25px;
+            padding: 2.5rem;
             text-align: center;
             max-width: 400px;
             width: 90%;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 50px rgba(102, 126, 234, 0.2);
             margin: auto;
             position: relative;
+            border: 1px solid rgba(102, 126, 234, 0.3);
         }
         
         .call-avatar {
-            width: 120px;
-            height: 120px;
+            width: 130px;
+            height: 130px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 1rem;
-            font-size: 3rem;
+            margin: 0 auto 1.5rem;
+            font-size: 3.5rem;
             color: white;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            animation: pulse-avatar 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-avatar {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+            }
         }
         
         .call-info h3 {
             margin-bottom: 0.5rem;
             color: #333;
+            font-weight: 700;
+            font-size: 1.5rem;
         }
         
         .call-info p {
-            color: #666;
+            color: #6c757d;
             margin-bottom: 2rem;
+            font-size: 1rem;
         }
         
         .call-controls {
             display: flex;
             justify-content: center;
-            gap: 1rem;
+            gap: 1.25rem;
         }
         
         .call-btn {
-            width: 60px;
-            height: 60px;
+            width: 65px;
+            height: 65px;
             border-radius: 50%;
             border: none;
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             color: white;
             cursor: pointer;
             transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
         
         .call-btn.accept {
@@ -853,13 +1052,15 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         .call-btn:hover {
-            transform: scale(1.1);
+            transform: scale(1.15) translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
         }
         
         .call-status {
             margin: 1rem 0;
-            font-weight: 600;
+            font-weight: 700;
             color: #667eea;
+            font-size: 1.1rem;
         }
         
         /* Video Call Styles */
@@ -966,18 +1167,18 @@ if (!in_array($userRole, [1, 3, 5])) {
             }
             
             .header-icon {
-                width: 36px;
-                height: 36px;
+                width: 38px;
+                height: 38px;
                 margin-right: 0.5rem;
             }
             
             .header-icon i {
-                font-size: 1rem;
+                font-size: 1.1rem;
             }
             
             .btn-home {
-                width: 36px;
-                height: 36px;
+                width: 38px;
+                height: 38px;
             }
             
             .chat-content {
@@ -987,7 +1188,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             
             .chat-sidebar {
                 width: 100%;
-                height: 180px;
+                height: 200px;
             }
             
             .sidebar-header {
@@ -1000,7 +1201,22 @@ if (!in_array($userRole, [1, 3, 5])) {
             }
             
             .chat-main {
-                height: calc(100vh - 280px);
+                height: calc(100vh - 300px);
+            }
+            
+            .conversation-item {
+                margin: 0.25rem;
+                padding: 0.75rem;
+            }
+            
+            .chat-input {
+                padding: 0.75rem 1rem;
+            }
+            
+            .chat-input button {
+                width: 40px;
+                height: 40px;
+                font-size: 1rem;
             }
         }
     </style>
@@ -1128,7 +1344,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                                 <i class="fas fa-paper-plane"></i>
                             </button>
                         </div>
-                        <input type="file" id="fileInput" accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;">
+                        <input type="file" id="fileInput" accept="image/*,video/*,.pdf,.doc,.docx,.txt,.zip,.rar" multiple style="display: none;">
                     </div>
                 </div>
             </div>
@@ -1235,8 +1451,8 @@ if (!in_array($userRole, [1, 3, 5])) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- WebRTC Adapter.js - Tương thích cross-browser -->
-    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+    <!-- LiveKit Client SDK -->
+    <script src="https://unpkg.com/livekit-client@latest/dist/livekit-client.umd.js"></script>
     <!-- Socket.IO - Sử dụng CDN cho production, local server cho development -->
     <script>
     // ✅ Global flag để biết Socket.IO đã load chưa
@@ -1268,17 +1484,17 @@ if (!in_array($userRole, [1, 3, 5])) {
         window.socketIOReadyCallbacks = [];
     }
     
-    // Load Socket.IO client
+    // Tải Socket.IO client
     (function() {
         const hostname = window.location.hostname;
         const isProduction = hostname.includes('sukien.info.vn') || hostname.includes('sukien');
         
-        // For production, use CDN directly (more reliable on cPanel)
-        // For localhost, try local server first, then CDN fallback
+        // Cho production, sử dụng CDN trực tiếp (ổn định hơn trên cPanel)
+        // Cho localhost, thử local server trước, sau đó fallback về CDN
         let socketScript = document.createElement('script');
         
         if (isProduction) {
-            // Production: Use CDN directly
+            // Production: Sử dụng CDN trực tiếp
             socketScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
             socketScript.onload = function() {
                 console.log('✅ Socket.IO loaded from CDN (production)');
@@ -1299,7 +1515,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 console.error('❌ Failed to load Socket.IO from CDN');
             };
         } else {
-            // Development: Try local server first
+            // Development: Thử local server trước
             socketScript.src = 'http://localhost:3000/socket.io/socket.io.js';
             socketScript.onerror = function() {
                 console.warn('⚠️ Local Socket.IO server not available, using CDN fallback');
@@ -1344,27 +1560,24 @@ if (!in_array($userRole, [1, 3, 5])) {
     })();
     </script>
     <script>
-        // Helper function để tự động phát hiện đường dẫn API đúng
+        // Hàm helper để tự động phát hiện đường dẫn API đúng
         function getApiPath(relativePath) {
             const path = window.location.pathname;
             const hostname = window.location.hostname;
             
-            // Production domain
+            // Domain production (sukien.info.vn) - không có my-php-project
             if (hostname.includes('sukien.info.vn') || hostname.includes('sukien')) {
-                if (path.includes('/my-php-project/')) {
-                    return '/my-php-project/' + relativePath;
-                }
                 return '/' + relativePath;
             }
             
-            // Localhost development
+            // Localhost development - giữ nguyên để test local
             if (path.includes('/my-php-project/')) {
                 return '/my-php-project/' + relativePath;
             } else if (path.includes('/event/')) {
                 return '/event/my-php-project/' + relativePath;
             }
             
-            // Fallback: relative path
+            // Fallback: đường dẫn tương đối
             return '../' + relativePath;
         }
         
@@ -1385,23 +1598,23 @@ if (!in_array($userRole, [1, 3, 5])) {
         let isConnected = false;
         let typingTimeout;
         
-        // Media and Call variables
+        // Biến cho Media và Call (LiveKit)
         let currentCall = null;
-        let localStream = null;
-        let remoteStream = null;
-        let peerConnection = null;
+        let room = null; // LiveKit Room object
+        let localVideoTrack = null;
+        let localAudioTrack = null;
         let isMuted = false;
         let isCameraOff = false;
         
-        // Interval IDs for polling/auto-refresh (to prevent multiple intervals)
+        // ID của interval cho polling/auto-refresh (để tránh tạo nhiều interval)
         let autoRefreshInterval = null;
         
         // ✅ Flag để tránh gọi initSocket() nhiều lần cùng lúc
         let isInitializingSocket = false;
         
-        // ✅ Initialize chat
+        // ✅ Khởi tạo chat
         $(document).ready(() => {
-            // Set initial connecting status
+            // Thiết lập trạng thái kết nối ban đầu
             updateConnectionStatus('connecting', 'Đang kết nối...');
             
             // ✅ QUAN TRỌNG: Đợi Socket.IO load xong rồi mới khởi tạo socket
@@ -1434,14 +1647,14 @@ if (!in_array($userRole, [1, 3, 5])) {
             }, 5000);
             
             // Các hàm khác (không phụ thuộc vào socket)
-            setUserOnline(); // Set user online
+            setUserOnline(); // Đặt người dùng online
             loadConversations();
             setupChatEvents();
             setupMediaEvents();
-            // ✅ setupCallSocketEvents() will be called in socket.on('connect')
-            // to ensure socket is connected before setting up event listeners
-            setupQuickReplies(); // Setup quick reply buttons
-            setupConversationSearch(); // Setup search functionality
+            // ✅ setupCallSocketEvents() sẽ được gọi trong socket.on('connect')
+            // để đảm bảo socket đã kết nối trước khi thiết lập event listeners
+            setupQuickReplies(); // Thiết lập nút trả lời nhanh
+            setupConversationSearch(); // Thiết lập chức năng tìm kiếm
             startAutoRefresh();
             
             // QUAN TRỌNG: Thêm interval để kiểm tra và reconnect nếu cần
@@ -1464,13 +1677,13 @@ if (!in_array($userRole, [1, 3, 5])) {
                 }
             }, 10000); // Kiểm tra mỗi 10 giây
             
-            // Set user offline when page is closed
+            // Đặt người dùng offline khi đóng trang
             $(window).on('beforeunload', function() {
                 setUserOffline();
             });
         });
         
-        // ✅ Setup quick reply buttons
+        // ✅ Thiết lập nút trả lời nhanh
         function setupQuickReplies() {
             $(document).on('click', '.quick-reply', function(e) {
                 e.preventDefault();
@@ -1484,7 +1697,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // ✅ Setup conversation search
+        // ✅ Thiết lập tìm kiếm cuộc trò chuyện
         function setupConversationSearch() {
             $('#conversationSearch').on('input', function() {
                 const searchTerm = $(this).val().toLowerCase().trim();
@@ -1574,7 +1787,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 return;
             }
             
-            // ✅ Set flag để tránh gọi lại
+            // ✅ Đặt flag để tránh gọi lại
             isInitializingSocket = true;
             
             // QUAN TRỌNG: Nếu socket đã tồn tại nhưng disconnected, đóng nó trước khi tạo mới
@@ -1585,7 +1798,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 socket = null;
             }
             
-        // Detect environment and set Socket.IO server URL
+        // Phát hiện môi trường và thiết lập URL server Socket.IO
         // ✅ FIX: Dùng base URL với mount point, path là relative
         const getSocketServerURL = function() {
             const protocol = window.location.protocol;
@@ -1603,7 +1816,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         const socketServerURL = getSocketServerURL();
         console.log('📡 Connecting to Socket.IO server:', socketServerURL);
         
-        // Get SOCKET_PATH for path option
+        // Lấy SOCKET_PATH cho path option
         // ✅ FIX: Path option phải là relative path từ base URL
         // Nếu base URL = 'https://sukien.info.vn/nodeapp', path = '/socket.io'
         // → Socket.IO client tạo request: 'https://sukien.info.vn/nodeapp/socket.io/...'
@@ -1617,16 +1830,16 @@ if (!in_array($userRole, [1, 3, 5])) {
         console.log('📡 Socket.IO path:', socketPath);
         console.log('📡 Full Socket.IO URL:', socketServerURL + socketPath);
         
-        // Check if Socket.IO library is loaded
+        // Kiểm tra Socket.IO library đã được tải chưa
         if (typeof io === 'undefined') {
             console.error('❌ Socket.IO library not loaded!');
             updateConnectionStatus('offline', 'Socket.IO library chưa được tải');
             return;
         }
         
-        // Create Socket.IO connection with improved error handling
+        // Tạo kết nối Socket.IO với xử lý lỗi cải thiện
         try {
-            // Validate variables before creating connection
+            // Xác thực biến trước khi tạo kết nối
             if (!socketServerURL) {
                 throw new Error('socketServerURL is not defined');
             }
@@ -1637,7 +1850,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             // QUAN TRỌNG: Tạo socket mới với cấu hình reconnect tự động
             socket = io(socketServerURL, {
                 path: socketPath,
-                transports: ['polling', 'websocket'], // Try polling first, then websocket
+                transports: ['polling', 'websocket'], // Thử polling trước, sau đó websocket
                 reconnection: true, // Bật tự động reconnect
                 reconnectionAttempts: Infinity, // Tiếp tục thử kết nối lại vô hạn
                 reconnectionDelay: 1000, // Delay 1 giây trước khi thử lại
@@ -1645,7 +1858,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 timeout: 20000,
                 forceNew: false, // Không force tạo connection mới nếu đã có
                 autoConnect: true, // Tự động kết nối ngay khi tạo
-                // Add query parameters for debugging
+                // Thêm query parameters để debug
                 query: {
                     clientType: 'web',
                     timestamp: Date.now()
@@ -1675,14 +1888,14 @@ if (!in_array($userRole, [1, 3, 5])) {
                 isInitializingSocket = false;
                 updateConnectionStatus('online', 'Đã kết nối realtime');
                 
-                // Authenticate ngay khi connect
+                // Xác thực ngay khi kết nối
                 socket.emit('authenticate', {
                     userId: currentUserId,
                     userRole: currentUserRole,
                     userName: currentUserName
                 });
                 
-                // Ensure user is in their own room for receiving calls
+                // Đảm bảo người dùng ở trong room của mình để nhận cuộc gọi
                 socket.emit('join_user_room', { userId: currentUserId });
                 console.log('Socket connected, joined user room:', currentUserId);
                 
@@ -1692,7 +1905,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     console.log('Rejoined conversation:', currentConversationId);
                 }
                 
-                // ✅ Setup call socket events AFTER socket is connected
+                // ✅ Thiết lập call socket events SAU KHI socket đã kết nối
                 setupCallSocketEvents();
             });
             
@@ -1818,7 +2031,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 }
             });
 
-            // Handle broadcast messages
+            // Xử lý tin nhắn broadcast
             socket.on('broadcast_message', data => {
                 console.log('Received broadcast message:', data);
                 if (data.conversation_id === currentConversationId && data.userId !== currentUserId) {
@@ -1827,7 +2040,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 }
             });
 
-            // Handle message read status
+            // Xử lý trạng thái đã đọc tin nhắn
             socket.on('message_read', data => {
                 console.log('Message read status:', data);
                 if (data.conversation_id === currentConversationId) {
@@ -1841,7 +2054,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         }
         
-        // ✅ Set user online
+        // ✅ Đặt người dùng online
         function setUserOnline() {
             $.ajax({
                 url: getApiPath('src/controllers/chat-controller.php?action=set_user_online'),
@@ -1861,7 +2074,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // ✅ Set user offline
+        // ✅ Đặt người dùng offline
         function setUserOffline() {
             $.ajax({
                 url: getApiPath('src/controllers/chat-controller.php?action=set_user_offline'),
@@ -1932,7 +2145,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // Show conversation error
+        // Hiển thị lỗi cuộc trò chuyện
         function showConversationError(errorMessage) {
                     $('#conversationsList').html(`
                         <div class="alert alert-danger">
@@ -1949,11 +2162,11 @@ if (!in_array($userRole, [1, 3, 5])) {
                         </div>
                     `);
                 
-                // Enable input for creating new conversation
+                // Bật input để tạo cuộc trò chuyện mới
                 enableInput();
         }
         
-        // Mark messages as read
+        // Đánh dấu tin nhắn đã đọc
         function markMessagesAsRead(conversationId) {
             if (!conversationId) return;
             
@@ -1964,7 +2177,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             }, function(data) {
                 if (data.success) {
                     console.log('Messages marked as read');
-                    // Reload conversations to update unread count
+                    // Tải lại cuộc trò chuyện để cập nhật số tin nhắn chưa đọc
                     loadConversations();
                 }
             }, 'json').fail(function(xhr, status, error) {
@@ -1975,7 +2188,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // Display conversations
+        // Hiển thị cuộc trò chuyện
         function displayConversations() {
             if (conversations.length === 0) {
                 $('#conversationsList').html(`
@@ -2006,7 +2219,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     </div>
                 `);
                 
-                // Enable input for creating new conversation
+                // Bật input để tạo cuộc trò chuyện mới
                 enableInput();
                 return;
             }
@@ -2084,7 +2297,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             $('#typingIndicator').hide();
             if (socket && typeof socket.emit === 'function') {
                 socket.emit('join_conversation',{conversation_id:id});
-                // Also ensure user is in their own room for receiving calls
+                // Đảm bảo người dùng ở trong room của mình để nhận cuộc gọi
                 socket.emit('join_user_room', { userId: currentUserId });
                 console.log('Joined conversation room:', id, 'and user room:', currentUserId);
             }
@@ -2092,7 +2305,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             markMessagesAsRead(id);
         }
         
-        // Enable input when no conversation is selected
+        // Bật input khi chưa chọn cuộc trò chuyện
         function enableInput() {
             $('#messageInput').prop('disabled', false);
             $('#sendButton').prop('disabled', false);
@@ -2143,7 +2356,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // Show message error
+        // Hiển thị lỗi tin nhắn
         function showMessageError(errorMessage) {
                     $('#chatMessages').html(`
                         <div class="alert alert-danger">
@@ -2158,7 +2371,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 `);
         }
         
-        // Display messages
+        // Hiển thị tin nhắn
         function displayMessages(messages) {
             console.log('displayMessages called with:', messages);
             
@@ -2273,9 +2486,9 @@ if (!in_array($userRole, [1, 3, 5])) {
             }
         }
         
-        // ✅ Setup chat events
+        // ✅ Thiết lập sự kiện chat
         function setupChatEvents() {
-            // Welcome screen buttons
+            // Nút màn hình chào mừng
             $('#startAutoChat').click(function() {
                 createConversation('auto');
             });
@@ -2317,7 +2530,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             const text=$('#messageInput').val().trim();
             if(!text||!currentConversationId) return;
             
-            // Show loading state
+            // Hiển thị trạng thái loading
             const sendButton = $('#sendButton');
             const originalText = sendButton.html();
             sendButton.html('<i class="fas fa-spinner fa-spin"></i>');
@@ -2336,11 +2549,11 @@ if (!in_array($userRole, [1, 3, 5])) {
                     if (res.success) {
                         $('#messageInput').val('');
                         
-                        // Add message immediately for instant feedback
+                        // Thêm tin nhắn ngay lập tức để phản hồi tức thì
                         addMessageToChat(res.message, true);
                         scrollToBottom();
                         
-                        // Emit real-time events
+                        // Phát sự kiện real-time
                         if (isConnected && socket) {
                             if (socket && typeof socket.emit === 'function') {
                                 socket.emit('new_message', {
@@ -2364,10 +2577,10 @@ if (!in_array($userRole, [1, 3, 5])) {
                             }
                         }
                         
-                        // Update conversation preview
+                        // Cập nhật preview cuộc trò chuyện
                         updateConversationPreview(currentConversationId, res.message.message || res.message.text);
                         
-                        // Refresh conversation list if not connected
+                        // Làm mới danh sách cuộc trò chuyện nếu chưa kết nối
                         if (!isConnected) {
                             setTimeout(function() {
                                 loadConversations();
@@ -2398,18 +2611,18 @@ if (!in_array($userRole, [1, 3, 5])) {
                     alert('Lỗi gửi tin nhắn: ' + errorMessage);
                 },
                 complete: function() {
-                    // Restore button state
+                    // Khôi phục trạng thái nút
                     sendButton.html(originalText);
                     sendButton.prop('disabled', false);
                 }
             });
         }
         
-        // Create new conversation
+        // Tạo cuộc trò chuyện mới
         function createNewConversation() {
             console.log('Creating new conversation...');
             
-            // Show loading state
+            // Hiển thị trạng thái loading
             const button = event.target;
             const originalText = button.innerHTML;
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo...';
@@ -2428,7 +2641,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     console.log('Conversation created:', data.conversation_id);
                     currentConversationId = data.conversation_id;
                     
-                    // Enable input
+                    // Bật input
                     $('#messageInput').prop('disabled', false);
                     $('#sendButton').prop('disabled', false);
                     
@@ -2459,7 +2672,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     alert('Lỗi tạo cuộc trò chuyện: ' + errorMessage);
                 },
                 complete: function() {
-                // Restore button state
+                // Khôi phục trạng thái nút
                 button.innerHTML = originalText;
                 button.disabled = false;
                 }
@@ -2472,10 +2685,10 @@ if (!in_array($userRole, [1, 3, 5])) {
             const indicator = $('#connectionIndicator .status-dot');
             const textEl = $('#connectionText');
             
-            // Update status dot
+            // Cập nhật status dot
             indicator.removeClass('online offline connecting').addClass(status);
             
-            // Update connection status container
+            // Cập nhật container trạng thái kết nối
             statusEl.removeClass('online offline connecting').addClass(status);
             
             // Ẩn text, chỉ hiển thị icon (nút xanh/đỏ)
@@ -2483,7 +2696,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 textEl.hide(); // Ẩn text
             }
             
-            // Update tooltip với text đầy đủ
+            // Cập nhật tooltip với text đầy đủ
             const tooltipText = text || (status === 'online' ? 'Đã kết nối realtime' : status === 'offline' ? 'Chế độ offline' : 'Đang kết nối...');
             indicator.attr('title', tooltipText);
             statusEl.attr('title', tooltipText);
@@ -2491,7 +2704,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             console.log('Connection status updated:', status, text);
         }
         
-        // Show typing indicator
+        // Hiển thị chỉ báo đang nhập
         function showTypingIndicator(userName) {
             $('#typingIndicator').html(`
                 <i class="fas fa-circle fa-xs"></i>
@@ -2501,12 +2714,12 @@ if (!in_array($userRole, [1, 3, 5])) {
             `).addClass('show');
         }
         
-        // Hide typing indicator
+        // Ẩn chỉ báo đang nhập
         function hideTypingIndicator() {
             $('#typingIndicator').removeClass('show');
         }
         
-        // Update message read status
+        // Cập nhật trạng thái đã đọc tin nhắn
         function updateMessageReadStatus(messageId) {
             $(`.message[data-message-id="${messageId}"] .message-time`).html(function() {
                 return $(this).html().replace('<i class="fas fa-check text-muted"></i>', '<i class="fas fa-check-double text-primary"></i>');
@@ -2515,13 +2728,13 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // ✅ Tự reload hội thoại mỗi 30s khi offline
         function startAutoRefresh(){
-            // Clear existing interval first to prevent duplicates
+            // Xóa interval hiện có trước để tránh trùng lặp
             if (autoRefreshInterval) {
                 clearInterval(autoRefreshInterval);
                 autoRefreshInterval = null;
             }
             
-            // Only start if not connected
+            // Chỉ bắt đầu nếu chưa kết nối
             autoRefreshInterval = setInterval(() => {
                 if (!isConnected) {
                     loadConversations();
@@ -2529,34 +2742,34 @@ if (!in_array($userRole, [1, 3, 5])) {
             }, 30000);
         }
         
-        // Real-time message update handler
+        // Xử lý cập nhật tin nhắn real-time
         function handleRealTimeMessage(data) {
             console.log('Handling real-time message:', data);
             
-            // Add message to current conversation if it matches
+            // Thêm tin nhắn vào cuộc trò chuyện hiện tại nếu khớp
             if (data.conversation_id === currentConversationId) {
                 addMessageToChat(data, false);
             }
             
-            // Update conversation preview
+            // Cập nhật preview cuộc trò chuyện
             updateConversationPreview(data.conversation_id, data.message);
             
-            // Update conversation list
+            // Cập nhật danh sách cuộc trò chuyện
             loadConversations();
         }
         
-        // Enhanced message loading with real-time updates
+        // Tải tin nhắn với cập nhật real-time
         function loadMessagesWithRealTime(conversationId) {
             console.log('Loading messages with real-time updates for:', conversationId);
             
-            // Load messages immediately
+            // Tải tin nhắn ngay lập tức
             loadMessages(conversationId);
             
-            // Set up real-time listeners for this conversation
+            // Thiết lập listeners real-time cho cuộc trò chuyện này
             if (isConnected && socket && typeof socket.emit === 'function') {
                 socket.emit('join_conversation', { conversation_id: conversationId });
                 
-                // Listen for new messages in this conversation
+                // Lắng nghe tin nhắn mới trong cuộc trò chuyện này
                 if (socket && typeof socket.on === 'function') {
                     socket.on('new_message', function(data) {
                         if (data.conversation_id === conversationId) {
@@ -2567,7 +2780,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             }
         }
         
-        // Broadcast message instantly to all connected users
+        // Phát tin nhắn ngay lập tức đến tất cả người dùng đã kết nối
         function broadcastMessageInstantly(messageData) {
             if (isConnected && socket) {
                 socket.emit('broadcast_message', {
@@ -2579,7 +2792,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             }
         }
         
-        // Handle instant message broadcasting
+        // Xử lý phát tin nhắn tức thì
         if (socket && typeof socket.on === 'function') {
             socket.on('broadcast_message', function(data) {
                 console.log('Received broadcast message:', data);
@@ -2591,7 +2804,7 @@ if (!in_array($userRole, [1, 3, 5])) {
         }
         
         // Quản lý chọn nhân viên
-        let allManagers = []; // Lưu danh sách tất cả managers để filter
+        let allManagers = []; // Lưu danh sách tất cả managers để lọc
         
         function showManagerSelection() {
             const modal = new bootstrap.Modal(document.getElementById('managerSelectionModal'));
@@ -2868,7 +3081,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             }
         });
         
-        // Update conversation preview
+        // Cập nhật preview cuộc trò chuyện
         function updateConversationPreview(conversationId, message) {
             const convEl = $(`.conversation-item[data-conversation-id="${conversationId}"]`);
             if (convEl.length) {
@@ -2886,9 +3099,9 @@ if (!in_array($userRole, [1, 3, 5])) {
             el.scrollTop(el[0].scrollHeight);
         }
         
-        // Get current user ID
+        // Lấy ID người dùng hiện tại
         function getCurrentUserId() {
-            // This should be set from PHP session
+            // Nên được thiết lập từ PHP session
             return window.currentUserId || <?php 
                 if (isset($_SESSION['user']['ID_User'])) {
                     echo $_SESSION['user']['ID_User'];
@@ -2917,29 +3130,30 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // ==================== MEDIA FUNCTIONS ====================
+        // ==================== CÁC HÀM MEDIA ====================
         
-        // Setup media events
+        // Thiết lập sự kiện media
         function setupMediaEvents() {
             // Xóa event listeners cũ trước khi attach mới (tránh duplicate)
             $('#fileInput').off('change');
             $(document).off('click', '#attachButton');
             
-            // File input change
+            // Thay đổi file input - Hỗ trợ nhiều files
             $('#fileInput').on('change', function(e) {
                 console.log('File input changed');
-                const file = e.target.files[0];
-                if (file) {
-                    console.log('File selected:', file.name, file.type, file.size);
-                    uploadFile(file);
+                const files = e.target.files;
+                if (files && files.length > 0) {
+                    console.log('Files selected:', files.length);
+                    // Upload từng file một (tuần tự để tránh quá tải)
+                    uploadMultipleFiles(files);
                     // Reset file input sau khi upload để có thể chọn lại cùng file
                     $(this).val('');
                 } else {
-                    console.log('No file selected');
+                    console.log('No files selected');
                 }
             });
             
-            // Attach button click
+            // Click nút đính kèm
             $(document).on('click', '#attachButton', function() {
                 console.log('Attach button clicked');
                 if ($(this).prop('disabled')) {
@@ -2951,12 +3165,12 @@ if (!in_array($userRole, [1, 3, 5])) {
                     return;
                 }
                 
-                // Trigger file input click
+                // Kích hoạt click file input
                 $('#fileInput').click();
                 console.log('File input clicked');
             });
             
-            // Voice call button
+            // Nút gọi thoại
             $(document).on('click', '#voiceCallButton', function() {
                 if ($(this).prop('disabled')) {
                     return;
@@ -2968,7 +3182,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 initiateCall('voice');
             });
             
-            // Video call button
+            // Nút gọi video
             $(document).on('click', '#videoCallButton', function() {
                 if ($(this).prop('disabled')) {
                     return;
@@ -2981,27 +3195,73 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // Upload file
-        function uploadFile(file) {
+        // Upload nhiều files cùng lúc
+        function uploadMultipleFiles(files) {
             if (!currentConversationId) {
                 alert('Vui lòng chọn cuộc trò chuyện trước');
                 return;
             }
             
-            // Validate file size (10MB max)
-            const maxSize = 10 * 1024 * 1024; // 10MB
-            if (file.size > maxSize) {
-                alert('File quá lớn. Tối đa 10MB');
+            const fileArray = Array.from(files);
+            console.log('Uploading', fileArray.length, 'files');
+            
+            // Upload từng file một (tuần tự để tránh quá tải server)
+            let uploadIndex = 0;
+            
+            const uploadNext = () => {
+                if (uploadIndex >= fileArray.length) {
+                    console.log('All files uploaded');
+                    return;
+                }
+                
+                const file = fileArray[uploadIndex];
+                uploadIndex++;
+                
+                uploadFile(file, () => {
+                    // Upload file tiếp theo sau khi file hiện tại hoàn thành
+                    setTimeout(uploadNext, 300); // Delay 300ms giữa các file
+                });
+            };
+            
+            uploadNext();
+        }
+        
+        // Upload file (một file)
+        function uploadFile(file, callback) {
+            if (!currentConversationId) {
+                alert('Vui lòng chọn cuộc trò chuyện trước');
+                if (callback) callback();
                 return;
             }
             
-            // Validate file type
-            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-                                 'application/pdf', 'application/msword', 
-                                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                 'text/plain', 'application/zip', 'application/x-rar-compressed'];
+            // Xác thực kích thước file
+            // Video: tối đa 50MB, Hình ảnh: tối đa 10MB, Khác: tối đa 10MB
+            const isVideo = file.type.startsWith('video/');
+            const isImage = file.type.startsWith('image/');
+            const maxSize = isVideo ? (50 * 1024 * 1024) : (10 * 1024 * 1024); // Video: 50MB, Khác: 10MB
+            
+            if (file.size > maxSize) {
+                const maxSizeMB = isVideo ? '50MB' : '10MB';
+                alert(`File "${file.name}" quá lớn. Tối đa ${maxSizeMB}`);
+                if (callback) callback();
+                return;
+            }
+            
+            // Xác thực loại file
+            const allowedTypes = [
+                // Hình ảnh
+                'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+                // Video
+                'video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska',
+                // Tài liệu
+                'application/pdf', 'application/msword', 
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'text/plain', 'application/zip', 'application/x-rar-compressed'
+            ];
+            
             if (!allowedTypes.includes(file.type)) {
-                alert('Loại file không được hỗ trợ. Vui lòng chọn file hình ảnh, PDF, Word, hoặc text.');
+                alert(`Loại file "${file.name}" không được hỗ trợ. Vui lòng chọn file hình ảnh, video, PDF, Word, hoặc text.`);
+                if (callback) callback();
                 return;
             }
             
@@ -3009,20 +3269,21 @@ if (!in_array($userRole, [1, 3, 5])) {
             formData.append('file', file);
             formData.append('conversation_id', currentConversationId);
             
-            // Show upload progress
+            // Show upload progress với unique ID cho mỗi file
+            const progressId = 'uploadProgress_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             const progressHtml = `
-                <div class="upload-progress">
+                <div class="upload-progress" id="progress_${progressId}">
                     <i class="fas fa-upload"></i>
                     <div>Đang upload ${file.name}...</div>
                     <div class="progress-bar">
-                        <div class="progress-fill" id="uploadProgress"></div>
+                        <div class="progress-fill" id="${progressId}"></div>
                     </div>
                 </div>
             `;
             $('#chatMessages').append(progressHtml);
             scrollToBottom();
             
-            // Disable attach button during upload
+            // Vô hiệu hóa nút đính kèm trong khi upload
             $('#attachButton').prop('disabled', true);
             
             $.ajax({
@@ -3031,23 +3292,26 @@ if (!in_array($userRole, [1, 3, 5])) {
                 data: formData,
                 processData: false,
                 contentType: false,
-                timeout: 60000, // 60 seconds timeout
+                timeout: 60000, // Timeout 60 giây
                 xhr: function() {
                     const xhr = new window.XMLHttpRequest();
                     xhr.upload.addEventListener("progress", function(evt) {
                         if (evt.lengthComputable) {
                             const percentComplete = evt.loaded / evt.total * 100;
-                            $('#uploadProgress').css('width', percentComplete + '%');
+                            $('#' + progressId).css('width', percentComplete + '%');
                         }
                     }, false);
                     return xhr;
                 },
                 success: function(response) {
-                    $('.upload-progress').remove();
-                    $('#attachButton').prop('disabled', false);
-                    $('#fileInput').val(''); // Reset file input
+                    $('#progress_' + progressId).remove();
+                    // Chỉ enable attach button nếu không còn progress nào
+                    if ($('.upload-progress').length === 0) {
+                        $('#attachButton').prop('disabled', false);
+                    }
+                    // Không reset file input ở đây vì có thể còn files khác đang upload
                     
-                    // Check if response is a string (JSON string)
+                    // Kiểm tra response có phải là string (JSON string) không
                     if (typeof response === 'string') {
                         try {
                             response = JSON.parse(response);
@@ -3062,26 +3326,39 @@ if (!in_array($userRole, [1, 3, 5])) {
                         addMessageToChat(response.message, true);
                         scrollToBottom();
                         
-                        // Update conversation preview
-                        updateConversationPreview(currentConversationId, response.message.message || '[File]');
+                        // Cập nhật preview cuộc trò chuyện
+                        let previewText = response.message.message || '[File]';
+                        if (response.message.message_type === 'video') {
+                            previewText = '[Video]';
+                        } else if (response.message.message_type === 'image') {
+                            previewText = '[Hình ảnh]';
+                        }
+                        updateConversationPreview(currentConversationId, previewText);
                         
-                        // Note: Không emit Socket.IO event ở đây vì message đã được broadcast từ server
+                        // Lưu ý: Không emit Socket.IO event ở đây vì message đã được broadcast từ server
                         // Nếu emit sẽ gây duplicate message (1 lần từ AJAX success, 1 lần từ Socket.IO event)
                         
-                        // Refresh conversation list if not connected
+                        // Làm mới danh sách cuộc trò chuyện nếu chưa kết nối
                         if (!isConnected) {
                             setTimeout(function() {
                                 loadConversations();
                             }, 500);
                         }
+                        
+                        // Call callback nếu có
+                        if (callback) callback();
                     } else {
-                        alert('Lỗi upload: ' + (response.error || 'Unknown error'));
+                        alert('Lỗi upload "' + file.name + '": ' + (response.error || 'Unknown error'));
+                        if (callback) callback();
                     }
                 },
                 error: function(xhr, status, error) {
-                    $('.upload-progress').remove();
-                    $('#attachButton').prop('disabled', false);
-                    $('#fileInput').val(''); // Reset file input
+                    $('#progress_' + progressId).remove();
+                    // Chỉ enable attach button nếu không còn progress nào
+                    if ($('.upload-progress').length === 0) {
+                        $('#attachButton').prop('disabled', false);
+                    }
+                    // Không reset file input ở đây vì có thể còn files khác đang upload
                     
                     console.error('Upload error:', status, error);
                     console.error('Response:', xhr.responseText);
@@ -3105,16 +3382,17 @@ if (!in_array($userRole, [1, 3, 5])) {
                             const errorResponse = JSON.parse(xhr.responseText);
                             errorMessage = errorResponse.error || errorMessage;
                         } catch (e) {
-                            // Keep default error message
+                            // Giữ thông báo lỗi mặc định
                         }
                     }
                     
                     alert(errorMessage);
+                    if (callback) callback();
                 }
             });
         }
         
-        // Enhanced message HTML creation for media
+        // Tạo HTML tin nhắn nâng cao cho media
         function createMessageHTML(m) {
             const isSent = m.sender_id == currentUserId;
             
@@ -3150,41 +3428,43 @@ if (!in_array($userRole, [1, 3, 5])) {
             
             let messageContent = '';
             
-            // Get base path from current location - Auto detect for both localhost and production
+            // Lấy base path từ vị trí hiện tại - Tự động phát hiện cho cả localhost và production
             const getBasePath = function() {
                 const path = window.location.pathname;
                 const hostname = window.location.hostname;
                 
-                // Production domain (sukien.info.vn)
+                // Domain production (sukien.info.vn)
                 if (hostname.includes('sukien.info.vn') || hostname.includes('sukien')) {
-                    // If at root, return empty or '/'
+                    // Nếu ở root, trả về rỗng hoặc '/'
                     if (path === '/' || path.split('/').filter(p => p).length === 0) {
                         return '';
                     }
-                    // Extract base path from current location
-                    // e.g., /chat.php -> '' (root), /admin/chat.php -> '' (root)
+                    // Trích xuất base path từ vị trí hiện tại
+                    // ví dụ: /chat.php -> '' (root), /admin/chat.php -> '' (root)
                     const pathParts = path.split('/').filter(p => p);
                     if (pathParts.length > 0 && pathParts[0] !== 'chat.php' && pathParts[0] !== 'admin') {
-                        // If there's a subdirectory, return it
+                        // Nếu có subdirectory, trả về nó
                         return '/' + pathParts[0] + '/';
                     }
                     // Root domain
                     return '';
                 }
                 
-                // Localhost development - try to detect my-php-project
-                if (path.includes('/my-php-project/')) {
-                    return path.substring(0, path.indexOf('/my-php-project/') + '/my-php-project/'.length);
-                } else if (path.includes('/event/')) {
-                    return path.substring(0, path.indexOf('/event/') + '/event/'.length) + 'my-php-project/';
+                // Localhost development - thử phát hiện my-php-project (chỉ cho localhost)
+                if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                    if (path.includes('/my-php-project/')) {
+                        return path.substring(0, path.indexOf('/my-php-project/') + '/my-php-project/'.length);
+                    } else if (path.includes('/event/')) {
+                        return path.substring(0, path.indexOf('/event/') + '/event/'.length) + 'my-php-project/';
+                    }
                 }
                 
-                // Default fallback - try to get from current path
-                // If we're at /chat.php, assume root
-                // If we're at /admin/chat.php, assume root
+                // Fallback mặc định - thử lấy từ path hiện tại
+                // Nếu đang ở /chat.php, giả định là root
+                // Nếu đang ở /admin/chat.php, giả định là root
                 const pathParts = path.split('/').filter(p => p && p !== 'chat.php' && p !== 'admin');
                 if (pathParts.length > 0) {
-                    // There's a subdirectory
+                    // Có subdirectory
                     return '/' + pathParts[0] + '/';
                 }
                 
@@ -3194,10 +3474,10 @@ if (!in_array($userRole, [1, 3, 5])) {
             const basePath = getBasePath();
             
             if (m.message_type === 'image') {
-                // Fix file path - ensure correct path format
+                // Sửa đường dẫn file - đảm bảo định dạng đường dẫn đúng
                 let imagePath = m.file_path || '';
                 
-                // Normalize path - remove '../' and 'my-php-project/' prefix if present
+                // Chuẩn hóa đường dẫn - xóa '../' và prefix 'my-php-project/' nếu có
                 if (imagePath.startsWith('../')) {
                     imagePath = imagePath.substring(3);
                 }
@@ -3205,7 +3485,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     imagePath = imagePath.substring(15);
                 }
                 
-                // Check if path already contains base path (to avoid duplication)
+                // Kiểm tra đường dẫn đã chứa base path chưa (để tránh trùng lặp)
                 let pathAlreadyHasBase = false;
                 if (basePath && basePath !== '') {
                     const basePathNoSlash = basePath.startsWith('/') ? basePath.substring(1) : basePath;
@@ -3214,21 +3494,21 @@ if (!in_array($userRole, [1, 3, 5])) {
                     }
                 }
                 
-                // Remove leading slash temporarily for processing
+                // Xóa leading slash tạm thời để xử lý
                 const hadLeadingSlash = imagePath.startsWith('/');
                 if (hadLeadingSlash) {
                     imagePath = imagePath.substring(1);
                 }
                 
-                // Only add base path if not already present
+                // Chỉ thêm base path nếu chưa có
                 if (!imagePath.startsWith('http') && imagePath.length > 0) {
                     if (pathAlreadyHasBase) {
-                        // Path already has base, just ensure leading slash
+                        // Đường dẫn đã có base, chỉ đảm bảo leading slash
                         if (!imagePath.startsWith('/')) {
                             imagePath = '/' + imagePath;
                         }
                     } else {
-                        // Add base path
+                        // Thêm base path
                         if (basePath === '') {
                             if (!imagePath.startsWith('/')) {
                                 imagePath = '/' + imagePath;
@@ -3243,12 +3523,12 @@ if (!in_array($userRole, [1, 3, 5])) {
                     }
                 }
                 
-                // Use thumbnail if available for display, but use original for preview
+                // Sử dụng thumbnail nếu có để hiển thị, nhưng dùng bản gốc để preview
                 let displayImagePath = imagePath;
                 if (m.thumbnail_path && !imagePath.startsWith('http')) {
                     let thumbPath = m.thumbnail_path;
                     
-                    // Normalize thumbnail path
+                    // Chuẩn hóa đường dẫn thumbnail
                     if (thumbPath.startsWith('../')) {
                         thumbPath = thumbPath.substring(3);
                     }
@@ -3256,7 +3536,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                         thumbPath = thumbPath.substring(15);
                     }
                     
-                    // Check if thumbnail path already has base path
+                    // Kiểm tra đường dẫn thumbnail đã chứa base path chưa
                     let thumbAlreadyHasBase = false;
                     if (basePath && basePath !== '') {
                         const basePathNoSlash = basePath.startsWith('/') ? basePath.substring(1) : basePath;
@@ -3265,13 +3545,13 @@ if (!in_array($userRole, [1, 3, 5])) {
                         }
                     }
                     
-                    // Remove leading slash temporarily
+                    // Xóa leading slash tạm thời
                     const thumbHadLeadingSlash = thumbPath.startsWith('/');
                     if (thumbHadLeadingSlash) {
                         thumbPath = thumbPath.substring(1);
                     }
                     
-                    // Add base path if not already present
+                    // Thêm base path nếu chưa có
                     if (!thumbPath.startsWith('http') && thumbPath.length > 0) {
                         if (thumbAlreadyHasBase) {
                             if (!thumbPath.startsWith('/')) {
@@ -3291,7 +3571,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                             }
                         }
                     }
-                    // Use thumbnail for display (faster loading)
+                    // Sử dụng thumbnail để hiển thị (tải nhanh hơn)
                     displayImagePath = thumbPath;
                 }
                 
@@ -3302,6 +3582,65 @@ if (!in_array($userRole, [1, 3, 5])) {
                              style="max-width: 300px; max-height: 300px; width: auto; height: auto; border-radius: 10px; cursor: pointer; transition: transform 0.3s ease; display: block; object-fit: contain;"
                              onmouseover="this.style.transform='scale(1.02)'"
                              onmouseout="this.style.transform='scale(1)'">
+                        <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
+                    </div>
+                `;
+            } else if (m.message_type === 'video') {
+                // Sửa đường dẫn file - đảm bảo định dạng đường dẫn đúng
+                let videoPath = m.file_path || '';
+                
+                // Chuẩn hóa đường dẫn - xóa '../' và prefix 'my-php-project/' nếu có
+                if (videoPath.startsWith('../')) {
+                    videoPath = videoPath.substring(3);
+                }
+                if (videoPath.startsWith('my-php-project/')) {
+                    videoPath = videoPath.substring(15);
+                }
+                
+                // Kiểm tra đường dẫn đã chứa base path chưa (để tránh trùng lặp)
+                let pathAlreadyHasBase = false;
+                if (basePath && basePath !== '') {
+                    const basePathNoSlash = basePath.startsWith('/') ? basePath.substring(1) : basePath;
+                    if (videoPath.includes(basePathNoSlash) || videoPath.startsWith('/' + basePathNoSlash)) {
+                        pathAlreadyHasBase = true;
+                    }
+                }
+                
+                // Xóa leading slash tạm thời để xử lý
+                const hadLeadingSlash = videoPath.startsWith('/');
+                if (hadLeadingSlash) {
+                    videoPath = videoPath.substring(1);
+                }
+                
+                // Chỉ thêm base path nếu chưa có
+                if (!videoPath.startsWith('http') && videoPath.length > 0) {
+                    if (pathAlreadyHasBase) {
+                        // Đường dẫn đã có base, chỉ đảm bảo leading slash
+                        if (!videoPath.startsWith('/')) {
+                            videoPath = '/' + videoPath;
+                        }
+                    } else {
+                        // Thêm base path
+                        if (basePath === '') {
+                            if (!videoPath.startsWith('/')) {
+                                videoPath = '/' + videoPath;
+                            }
+                        } else {
+                            const base = basePath.endsWith('/') ? basePath : basePath + '/';
+                            videoPath = base + videoPath;
+                            if (!videoPath.startsWith('/')) {
+                                videoPath = '/' + videoPath;
+                            }
+                        }
+                    }
+                }
+                
+                messageContent = `
+                    <div class="media-message">
+                        <video controls style="max-width: 400px; max-height: 400px; width: auto; height: auto; border-radius: 10px; display: block; object-fit: contain;">
+                            <source src="${videoPath}" type="${m.mime_type || 'video/mp4'}">
+                            Trình duyệt của bạn không hỗ trợ video tag.
+                        </video>
                         <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
                     </div>
                 `;
@@ -3344,16 +3683,16 @@ if (!in_array($userRole, [1, 3, 5])) {
             </div>`;
         }
         
-        // Preview image
+        // Xem trước hình ảnh
         function previewImage(imagePath) {
             console.log('Preview image called with path:', imagePath);
             
-            // Fix image path - Auto detect base path
+            // Sửa đường dẫn hình ảnh - Tự động phát hiện base path
             const getBasePath = function() {
                 const path = window.location.pathname;
                 const hostname = window.location.hostname;
                 
-                // Production domain
+                // Domain production
                 if (hostname.includes('sukien.info.vn') || hostname.includes('sukien')) {
                     const pathParts = path.split('/').filter(p => p);
                     if (pathParts.length > 0 && pathParts[0] !== 'chat.php' && pathParts[0] !== 'admin') {
@@ -3362,11 +3701,13 @@ if (!in_array($userRole, [1, 3, 5])) {
                     return '';
                 }
                 
-                // Localhost
-                if (path.includes('/my-php-project/')) {
-                    return path.substring(0, path.indexOf('/my-php-project/') + '/my-php-project/'.length);
-                } else if (path.includes('/event/')) {
-                    return path.substring(0, path.indexOf('/event/') + '/event/'.length) + 'my-php-project/';
+                // Localhost (chỉ cho localhost)
+                if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                    if (path.includes('/my-php-project/')) {
+                        return path.substring(0, path.indexOf('/my-php-project/') + '/my-php-project/'.length);
+                    } else if (path.includes('/event/')) {
+                        return path.substring(0, path.indexOf('/event/') + '/event/'.length) + 'my-php-project/';
+                    }
                 }
                 
                 const pathParts = path.split('/').filter(p => p && p !== 'chat.php' && p !== 'admin');
@@ -3380,12 +3721,12 @@ if (!in_array($userRole, [1, 3, 5])) {
             
             let fixedPath = imagePath;
             
-            // Handle absolute URL
+            // Xử lý URL tuyệt đối
             if (fixedPath.startsWith('http://') || fixedPath.startsWith('https://')) {
-                // Already absolute URL, use as is
+                // Đã là URL tuyệt đối, dùng như vậy
                 console.log('Using absolute URL:', fixedPath);
             } else {
-                // Normalize path - remove '../' and 'my-php-project/' prefix if present
+                // Chuẩn hóa đường dẫn - xóa '../' và prefix 'my-php-project/' nếu có
                 if (fixedPath.startsWith('../')) {
                     fixedPath = fixedPath.substring(3);
                 }
@@ -3393,33 +3734,33 @@ if (!in_array($userRole, [1, 3, 5])) {
                     fixedPath = fixedPath.substring(15);
                 }
                 
-                // Check if path already contains base path (to avoid duplication)
+                // Kiểm tra đường dẫn đã chứa base path chưa (để tránh trùng lặp)
                 let pathAlreadyHasBase = false;
                 if (basePath && basePath !== '') {
-                    // Remove leading slash from basePath for comparison
+                    // Xóa leading slash từ basePath để so sánh
                     const basePathNoSlash = basePath.startsWith('/') ? basePath.substring(1) : basePath;
-                    // Check if fixedPath already contains base path
+                    // Kiểm tra fixedPath đã chứa base path chưa
                     if (fixedPath.includes(basePathNoSlash) || fixedPath.startsWith('/' + basePathNoSlash)) {
                         pathAlreadyHasBase = true;
                         console.log('Path already contains base path, skipping addition');
                     }
                 }
                 
-                // Remove leading slash temporarily for processing
+                // Xóa leading slash tạm thời để xử lý
                 const hadLeadingSlash = fixedPath.startsWith('/');
                 if (hadLeadingSlash) {
                     fixedPath = fixedPath.substring(1);
                 }
                 
-                // Only add base path if not already present
+                // Chỉ thêm base path nếu chưa có
                 if (fixedPath.length > 0) {
                     if (pathAlreadyHasBase) {
-                        // Path already has base, just ensure leading slash
+                        // Đường dẫn đã có base, chỉ đảm bảo leading slash
                         if (!fixedPath.startsWith('/')) {
                             fixedPath = '/' + fixedPath;
                         }
                     } else {
-                        // Add base path
+                        // Thêm base path
                         if (basePath === '') {
                             if (!fixedPath.startsWith('/')) {
                                 fixedPath = '/' + fixedPath;
@@ -3427,7 +3768,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                         } else {
                             const base = basePath.endsWith('/') ? basePath : basePath + '/';
                             fixedPath = base + fixedPath;
-                            // Ensure leading slash
+                            // Đảm bảo leading slash
                             if (!fixedPath.startsWith('/')) {
                                 fixedPath = '/' + fixedPath;
                             }
@@ -3437,7 +3778,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 console.log('Fixed path:', fixedPath);
             }
             
-            // Set image src and show modal
+            // Đặt src hình ảnh và hiển thị modal
             const $previewImg = $('#previewImage');
             if ($previewImg.length === 0) {
                 console.error('Preview image element not found!');
@@ -3445,7 +3786,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 return;
             }
             
-            // Set src with error handling
+            // Đặt src với xử lý lỗi
             $previewImg.attr('src', fixedPath);
             $previewImg.on('error', function() {
                 console.error('Image failed to load:', fixedPath);
@@ -3453,7 +3794,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 $(this).after('<div class="text-danger mt-2">Không thể tải hình ảnh. Đường dẫn: ' + fixedPath + '</div>');
             });
             
-            // Show modal
+            // Hiển thị modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('imagePreviewModal'));
             if (modal) {
                 modal.show();
@@ -3465,7 +3806,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             console.log('Modal shown with image path:', fixedPath);
         }
         
-        // Format file size
+        // Định dạng kích thước file
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
@@ -3474,12 +3815,18 @@ if (!in_array($userRole, [1, 3, 5])) {
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
         
-        // ==================== CALL FUNCTIONS ====================
+        // ==================== CÁC HÀM CALL ====================
         
-        // Initiate call
+        // Khởi tạo cuộc gọi với LiveKit
         function initiateCall(callType) {
             if (!currentConversationId) {
                 alert('Vui lòng chọn cuộc trò chuyện trước khi gọi');
+                return;
+            }
+            
+            // Kiểm tra LiveKit SDK đã load chưa
+            if (typeof LiveKit === 'undefined') {
+                alert('LiveKit SDK chưa được tải. Vui lòng tải lại trang.');
                 return;
             }
             
@@ -3498,7 +3845,10 @@ if (!in_array($userRole, [1, 3, 5])) {
                     
                     showCallModal('outgoing', response.receiver_name, callType);
                     
-                    // Emit call event via socket
+                    // Lấy LiveKit token và join room
+                    getLiveKitTokenAndJoin(response.call_id, callType);
+                    
+                    // Phát sự kiện call qua socket
                     if (isConnected && socket && typeof socket.emit === 'function') {
                         const callData = {
                             call_id: response.call_id,
@@ -3522,7 +3872,246 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // Show call modal
+        // Lấy LiveKit token và join room
+        function getLiveKitTokenAndJoin(callId, callType) {
+            $.post(getApiPath('src/controllers/livekit-controller.php?action=get_token'), {
+                call_id: callId,
+                conversation_id: currentConversationId
+            }, function(response) {
+                if (response.success) {
+                    console.log('✅ LiveKit token received');
+                    joinLiveKitRoom(response.token, response.room_name, response.ws_url, callType, true);
+                } else {
+                    console.error('❌ Failed to get LiveKit token:', response.error);
+                    alert('Lỗi lấy token LiveKit: ' + response.error);
+                }
+            }, 'json').fail(function(xhr, status, error) {
+                console.error('❌ Error getting LiveKit token:', error);
+                alert('Lỗi kết nối khi lấy token LiveKit: ' + error);
+            });
+        }
+        
+        // Join LiveKit room
+        async function joinLiveKitRoom(token, roomName, wsUrl, callType, isCaller) {
+            try {
+                console.log('📞 Joining LiveKit room:', roomName);
+                
+                // Tạo room options
+                const roomOptions = {
+                    // Adaptive stream cho chất lượng tốt hơn
+                    adaptiveStream: true,
+                    // Dynacast để tự động điều chỉnh chất lượng
+                    dynacast: true,
+                    // Publish defaults
+                    publishDefaults: {
+                        videoCodec: 'vp8',
+                        audioPreset: {
+                            maxBitrate: 16000
+                        }
+                    }
+                };
+                
+                // Tạo room instance
+                room = new LiveKit.Room(roomOptions);
+                
+                // Event listeners cho LiveKit Room
+                room.on('participantConnected', (participant) => {
+                    console.log('✅ Participant connected:', participant.identity);
+                    // Setup tracks cho participant mới kết nối
+                    setupRemoteTracks(participant, callType);
+                });
+                
+                room.on('participantDisconnected', (participant) => {
+                    console.log('⚠️ Participant disconnected:', participant.identity);
+                    cleanupRemoteTracks();
+                });
+                
+                room.on('trackSubscribed', (track, publication, participant) => {
+                    console.log('✅ Track subscribed:', track.kind, 'from', participant.identity);
+                    handleRemoteTrack(track, publication, participant, callType);
+                });
+                
+                room.on('trackUnsubscribed', (track, publication, participant) => {
+                    console.log('⚠️ Track unsubscribed:', track.kind);
+                    handleTrackUnsubscribed(track, publication, participant);
+                });
+                
+                room.on('disconnected', () => {
+                    console.log('⚠️ Disconnected from room');
+                    cleanupLiveKit();
+                });
+                
+                room.on('localTrackPublished', (publication, participant) => {
+                    console.log('✅ Local track published:', publication.track ? publication.track.kind : 'unknown');
+                });
+                
+                room.on('localTrackUnpublished', (publication, participant) => {
+                    console.log('⚠️ Local track unpublished:', publication.track ? publication.track.kind : 'unknown');
+                });
+                
+                // Xử lý khi có participant mới join và đã publish tracks
+                room.on('trackPublished', (publication, participant) => {
+                    console.log('📞 Track published:', publication.trackSid, 'by', participant.identity);
+                    if (publication.track) {
+                        handleRemoteTrack(publication.track, publication, participant, callType);
+                    }
+                });
+                
+                // Connect to room
+                await room.connect(wsUrl, token);
+                console.log('✅ Connected to LiveKit room:', roomName);
+                
+                // Enable camera/microphone based on call type
+                if (callType === 'video') {
+                    // Video call: enable both camera and microphone
+                    await enableCameraAndMicrophone();
+                } else {
+                    // Voice call: only microphone
+                    await enableMicrophone();
+                }
+                
+            } catch (error) {
+                console.error('❌ Error joining LiveKit room:', error);
+                alert('Lỗi kết nối LiveKit: ' + error.message);
+                cleanupLiveKit();
+            }
+        }
+        
+        // Enable camera and microphone với LiveKit
+        async function enableCameraAndMicrophone() {
+            try {
+                // Sử dụng LiveKit để tạo tracks trực tiếp
+                localVideoTrack = await LiveKit.createLocalVideoTrack({
+                    resolution: LiveKit.VideoPresets.h720,
+                    facingMode: 'user'
+                });
+                
+                localAudioTrack = await LiveKit.createLocalAudioTrack({
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                });
+                
+                // Publish tracks
+                await room.localParticipant.publishVideoTrack(localVideoTrack);
+                await room.localParticipant.publishAudioTrack(localAudioTrack);
+                
+                // Display local video
+                const localVideo = document.getElementById('localVideo');
+                if (localVideo && localVideoTrack) {
+                    localVideoTrack.attach(localVideo);
+                }
+                
+                console.log('✅ Camera and microphone enabled');
+            } catch (error) {
+                console.error('❌ Error enabling camera/microphone:', error);
+                alert('Lỗi truy cập camera/microphone: ' + error.message);
+            }
+        }
+        
+        // Enable microphone only với LiveKit
+        async function enableMicrophone() {
+            try {
+                // Sử dụng LiveKit để tạo audio track trực tiếp
+                localAudioTrack = await LiveKit.createLocalAudioTrack({
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                });
+                
+                // Publish track
+                await room.localParticipant.publishAudioTrack(localAudioTrack);
+                
+                console.log('✅ Microphone enabled');
+            } catch (error) {
+                console.error('❌ Error enabling microphone:', error);
+                alert('Lỗi truy cập microphone: ' + error.message);
+            }
+        }
+        
+        // Setup remote tracks from participant với LiveKit
+        function setupRemoteTracks(participant, callType) {
+            // LiveKit: tracks được quản lý qua participant.trackPublications
+            participant.trackPublications.forEach((publication) => {
+                if (publication.track) {
+                    handleRemoteTrack(publication.track, publication, participant, callType);
+                }
+            });
+        }
+        
+        // Handle remote track với LiveKit
+        function handleRemoteTrack(track, publication, participant, callType) {
+            if (!track) {
+                console.warn('⚠️ Track is null or undefined');
+                return;
+            }
+            
+            if (track.kind === 'video') {
+                // Video track
+                const remoteVideo = document.getElementById('remoteVideo');
+                if (remoteVideo) {
+                    track.attach(remoteVideo);
+                    remoteVideo.play().catch(err => {
+                        console.error('❌ Error playing remote video:', err);
+                    });
+                }
+            } else if (track.kind === 'audio') {
+                // Audio track
+                const remoteAudio = document.getElementById('remoteAudio');
+                if (remoteAudio) {
+                    track.attach(remoteAudio);
+                    remoteAudio.play().catch(err => {
+                        console.error('❌ Error playing remote audio:', err);
+                        // Retry after user interaction
+                        document.addEventListener('click', () => {
+                            remoteAudio.play().catch(e => console.error('Still error:', e));
+                        }, { once: true });
+                    });
+                }
+            }
+        }
+        
+        // Handle track unsubscribed
+        function handleTrackUnsubscribed(track, publication, participant) {
+            track.detach();
+        }
+        
+        // Cleanup remote tracks
+        function cleanupRemoteTracks() {
+            const remoteVideo = document.getElementById('remoteVideo');
+            const remoteAudio = document.getElementById('remoteAudio');
+            
+            if (remoteVideo) {
+                remoteVideo.srcObject = null;
+            }
+            if (remoteAudio) {
+                remoteAudio.srcObject = null;
+            }
+        }
+        
+        // Cleanup LiveKit
+        function cleanupLiveKit() {
+            if (localVideoTrack) {
+                localVideoTrack.stop();
+                localVideoTrack.detach();
+                localVideoTrack = null;
+            }
+            
+            if (localAudioTrack) {
+                localAudioTrack.stop();
+                localAudioTrack.detach();
+                localAudioTrack = null;
+            }
+            
+            if (room) {
+                room.disconnect();
+                room = null;
+            }
+            
+            cleanupRemoteTracks();
+        }
+        
+        // Hiển thị modal cuộc gọi
         function showCallModal(type, name, callType) {
             console.log('📞 showCallModal called:', { type, name, callType });
             
@@ -3531,9 +4120,9 @@ if (!in_array($userRole, [1, 3, 5])) {
             
             if (type === 'incoming') {
                 $('#callStatus').text('Cuộc gọi đến...');
-                // Clear existing buttons first
+                // Xóa các nút hiện có trước
                 $('#callControls').empty();
-                // Add both accept and reject buttons - Đồng nhất với admin/chat.php
+                // Thêm cả nút chấp nhận và từ chối - Đồng nhất với admin/chat.php
                 $('#callControls').html(`
                     <button class="btn btn-success btn-lg me-2" onclick="acceptCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
                         <i class="fas fa-phone"></i>
@@ -3545,16 +4134,16 @@ if (!in_array($userRole, [1, 3, 5])) {
                 console.log('✅ Incoming call - Added accept and reject buttons');
             } else {
                 $('#callStatus').text('Đang gọi...');
-                // Clear existing buttons first
+                // Xóa các nút hiện có trước
                 $('#callControls').empty();
-                // Add end call button - Đồng nhất với admin/chat.php
+                // Thêm nút kết thúc cuộc gọi - Đồng nhất với admin/chat.php
                 $('#callControls').html(`
                     <button class="btn btn-danger btn-lg" id="endCallBtn" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; z-index: 10001;">
                         <i class="fas fa-phone-slash"></i>
                     </button>
                 `);
                 
-                // Also attach event listener as backup
+                // Cũng attach event listener như backup
                 $('#endCallBtn').off('click').on('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -3565,7 +4154,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 console.log('📤 Outgoing call - Added end button only');
             }
             
-            // Show modal - Đảm bảo căn giữa màn hình
+            // Hiển thị modal - Đảm bảo căn giữa màn hình
             const modalElement = document.getElementById('callModal');
             if (modalElement) {
                 // Force show với CSS để đảm bảo căn giữa
@@ -3585,7 +4174,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 console.error('❌ Call modal element not found!');
             }
             
-            // Debug: Check if buttons are in DOM - Đồng nhất với admin/chat.php
+            // Debug: Kiểm tra các nút có trong DOM không - Đồng nhất với admin/chat.php
             setTimeout(() => {
                 const acceptBtn = $('#callControls .btn-success');
                 const rejectBtn = $('#callControls .btn-danger');
@@ -3602,7 +4191,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     modalDisplay: $('#callModal').css('display')
                 });
                 
-                // Force show buttons if not visible
+                // Force show buttons nếu không hiển thị
                 if (type === 'incoming') {
                     if (acceptBtn.length > 0 && !acceptBtn.is(':visible')) {
                         acceptBtn.css('display', 'inline-flex');
@@ -3614,10 +4203,16 @@ if (!in_array($userRole, [1, 3, 5])) {
             }, 100);
         }
         
-        // Accept call
+        // Chấp nhận cuộc gọi với LiveKit
         function acceptCall() {
             if (!currentCall) {
                 console.error('No current call to accept');
+                return;
+            }
+            
+            // Kiểm tra LiveKit SDK đã load chưa
+            if (typeof LiveKit === 'undefined') {
+                alert('LiveKit SDK chưa được tải. Vui lòng tải lại trang.');
                 return;
             }
             
@@ -3625,28 +4220,39 @@ if (!in_array($userRole, [1, 3, 5])) {
                 call_id: currentCall.id
             }, function(response) {
                 if (response.success) {
-                    if (currentCall.type === 'video') {
-                        // For video call, hide modal and show video container
-                        $('#callModal').removeClass('show').css('display', 'none');
-                        startVideoCall();
-                    } else {
-                        // For voice call, don't hide modal yet - show active call UI
-                        startVoiceCall();
-                        
-                        // QUAN TRỌNG: Đảm bảo remote audio được play sau khi accept (user interaction)
-                        setTimeout(() => {
-                            const remoteAudio = document.getElementById('remoteAudio');
-                            if (remoteAudio && remoteAudio.srcObject) {
-                                remoteAudio.play().then(() => {
-                                    console.log('✅ Remote audio played after accepting call');
-                                }).catch(err => {
-                                    console.warn('⚠️ Could not play audio immediately:', err);
+                    // Lấy LiveKit token và join room
+                    $.post(getApiPath('src/controllers/livekit-controller.php?action=get_token'), {
+                        call_id: currentCall.id,
+                        conversation_id: currentConversationId
+                    }, function(tokenResponse) {
+                        if (tokenResponse.success) {
+                            console.log('✅ LiveKit token received for accept');
+                            
+                            if (currentCall.type === 'video') {
+                                // Video call: ẩn modal và hiển thị video container
+                                $('#callModal').removeClass('show').css('display', 'none');
+                                $('#videoCallContainer').addClass('show').css({
+                                    'display': 'block',
+                                    'visibility': 'visible',
+                                    'opacity': '1',
+                                    'z-index': '10000'
                                 });
+                            } else {
+                                // Voice call: hiển thị UI cuộc gọi đang hoạt động
+                                showVoiceCallUI();
                             }
-                        }, 500);
-                    }
+                            
+                            // Join LiveKit room
+                            joinLiveKitRoom(tokenResponse.token, tokenResponse.room_name, tokenResponse.ws_url, currentCall.type, false);
+                        } else {
+                            alert('Lỗi lấy token LiveKit: ' + tokenResponse.error);
+                        }
+                    }, 'json').fail(function(xhr, status, error) {
+                        console.error('❌ Error getting LiveKit token:', error);
+                        alert('Lỗi kết nối khi lấy token LiveKit: ' + error);
+                    });
                     
-                    // Emit accept event
+                    // Phát sự kiện accept
                     if (isConnected && socket && typeof socket.emit === 'function') {
                         socket.emit('call_accepted', {
                             call_id: currentCall.id,
@@ -3663,7 +4269,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // Reject call
+        // Từ chối cuộc gọi
         function rejectCall() {
             if (!currentCall) {
                 console.error('No current call to reject');
@@ -3688,7 +4294,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 }
                 currentCall = null;
                 
-                // Emit reject event
+                // Phát sự kiện reject
                 if (isConnected && socket && typeof socket.emit === 'function') {
                     socket.emit('call_rejected', {
                         call_id: callId,
@@ -3707,73 +4313,27 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // End call
+        // Kết thúc cuộc gọi với LiveKit
         function endCall() {
             console.log('📞 End call function called');
             console.log('📞 Current call:', currentCall);
-            console.log('📞 Local stream:', localStream);
-            console.log('📞 Remote stream:', remoteStream);
-            console.log('📞 Peer connection:', peerConnection);
+            console.log('📞 LiveKit room:', room);
             
             // QUAN TRỌNG: Ẩn modal ngay lập tức để người dùng thấy phản hồi
             $('#callModal').removeClass('show').css('display', 'none');
-            $('#videoCallContainer').hide().css({
+            $('#videoCallContainer').removeClass('show').css({
                 'display': 'none',
                 'visibility': 'hidden',
                 'opacity': '0'
             });
             
-            // Dừng remote audio nếu đang phát
-            const remoteAudio = document.getElementById('remoteAudio');
-            if (remoteAudio) {
-                remoteAudio.pause();
-                remoteAudio.srcObject = null;
-                console.log('✅ Remote audio stopped');
-            }
-            
-            // Stop local stream ngay lập tức
-            if (localStream) {
-                try {
-                    localStream.getTracks().forEach(track => {
-                        track.stop();
-                        console.log('📞 Stopped local track:', track.kind);
-                    });
-                    localStream = null;
-                    console.log('✅ Local stream stopped');
-                } catch (e) {
-                    console.error('Error stopping local stream:', e);
-                }
-            }
-            
-            // Stop remote stream ngay lập tức
-            if (remoteStream) {
-                try {
-                    remoteStream.getTracks().forEach(track => {
-                        track.stop();
-                        console.log('📞 Stopped remote track:', track.kind);
-                    });
-                    remoteStream = null;
-                    console.log('✅ Remote stream stopped');
-                } catch (e) {
-                    console.error('Error stopping remote stream:', e);
-                }
-            }
-            
-            // Close peer connection ngay lập tức
-            if (peerConnection) {
-                try {
-                    peerConnection.close();
-                    peerConnection = null;
-                    console.log('✅ Peer connection closed');
-                } catch (e) {
-                    console.error('Error closing peer connection:', e);
-                }
-            }
+            // Cleanup LiveKit
+            cleanupLiveKit();
             
             // Lấy callId trước khi clear currentCall
             const callId = currentCall ? currentCall.id : null;
             
-            // Clear currentCall ngay lập tức để tránh gọi lại
+            // Xóa currentCall ngay lập tức để tránh gọi lại
             currentCall = null;
             
             // Nếu không có callId, chỉ cleanup và return
@@ -3784,13 +4344,13 @@ if (!in_array($userRole, [1, 3, 5])) {
             
             console.log('📞 Ending call with ID:', callId);
             
-            // Call backend to end call (async, không chặn UI)
+            // Gọi backend để kết thúc cuộc gọi (async, không chặn UI)
             $.post(getApiPath('src/controllers/call-controller.php?action=end_call'), {
                 call_id: callId
             }, function(response) {
                 console.log('📞 End call response:', response);
                 
-                // Emit end event via socket
+                // Phát sự kiện end qua socket
                 if (isConnected && socket && typeof socket.emit === 'function') {
                     socket.emit('call_ended', {
                         call_id: callId,
@@ -3804,7 +4364,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                 console.error('❌ End call backend error:', error);
                 console.error('Response:', xhr.responseText);
                 
-                // Vẫn emit end event ngay cả khi backend fail
+                // Vẫn phát sự kiện end ngay cả khi backend fail
                 if (isConnected && socket && typeof socket.emit === 'function') {
                     socket.emit('call_ended', {
                         call_id: callId,
@@ -3817,146 +4377,46 @@ if (!in_array($userRole, [1, 3, 5])) {
             });
         }
         
-        // Make endCall globally accessible
+        // Làm endCall có thể truy cập toàn cục
         window.endCall = endCall;
         
-        // Start video call
+        // Bắt đầu cuộc gọi video (đã được xử lý trong joinLiveKitRoom)
         function startVideoCall() {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                alert('Trình duyệt của bạn không hỗ trợ video call. Vui lòng sử dụng trình duyệt khác.');
-                return;
-            }
-            
-            // QUAN TRỌNG: Ẩn call modal trước khi hiển thị video container
-            $('#callModal').removeClass('show').css('display', 'none');
-            
-            // Hiển thị video call container với CSS rõ ràng
-            $('#videoCallContainer').addClass('show').css({
-                'display': 'block',
-                'visibility': 'visible',
-                'opacity': '1',
-                'z-index': '10000'
-            });
-            
-            console.log('📹 Starting video call, requesting camera and microphone...');
-            
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                .then(stream => {
-                    localStream = stream;
-                    console.log('📹 Local stream obtained:', stream);
-                    console.log('📹 Local video tracks:', stream.getVideoTracks());
-                    console.log('📹 Local audio tracks:', stream.getAudioTracks());
-                    
-                    const localVideo = document.getElementById('localVideo');
-                    if (localVideo) {
-                        localVideo.srcObject = stream;
-                        console.log('✅ Local video assigned to video element');
-                    } else {
-                        console.error('❌ Local video element not found!');
-                    }
-                    
-                    // Initialize WebRTC peer connection
-                    initializePeerConnection();
-                    
-                    console.log('✅ Video call started successfully');
-                })
-                .catch(error => {
-                    console.error('❌ Error accessing media devices:', error);
-                    console.error('Error details:', {
-                        name: error.name,
-                        message: error.message
-                    });
-                    
-                    // Ẩn video container nếu có lỗi
-                    $('#videoCallContainer').removeClass('show').css('display', 'none');
-                    
-                    let errorMessage = 'Không thể truy cập camera/microphone';
-                    if (error.name === 'NotAllowedError') {
-                        errorMessage = 'Vui lòng cho phép truy cập camera và microphone';
-                    } else if (error.name === 'NotFoundError') {
-                        errorMessage = 'Không tìm thấy camera/microphone';
-                    } else if (error.name === 'NotReadableError') {
-                        errorMessage = 'Camera/microphone đang được sử dụng bởi ứng dụng khác';
-                    }
-                    alert(errorMessage);
-                });
+            // Function này giữ lại để tương thích, nhưng logic đã được chuyển sang joinLiveKitRoom
+            console.log('📹 startVideoCall called - logic handled in joinLiveKitRoom');
         }
         
-        // Start voice call
+        // Bắt đầu cuộc gọi thoại (đã được xử lý trong joinLiveKitRoom)
         function startVoiceCall() {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                alert('Trình duyệt của bạn không hỗ trợ voice call. Vui lòng sử dụng trình duyệt khác.');
-                return;
-            }
-            
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    localStream = stream;
-                    console.log('📞 Local stream obtained:', stream);
-                    console.log('📞 Local audio tracks:', stream.getAudioTracks());
-                    
-                    // Kiểm tra local audio tracks
-                    const localAudioTracks = stream.getAudioTracks();
-                    if (localAudioTracks.length === 0) {
-                        console.warn('⚠️ Local stream không có audio track!');
-                    } else {
-                        console.log('✅ Local stream có', localAudioTracks.length, 'audio track(s)');
-                        localAudioTracks.forEach((track, index) => {
-                            console.log(`  Local audio track ${index}:`, {
-                                enabled: track.enabled,
-                                kind: track.kind,
-                                label: track.label,
-                                muted: track.muted,
-                                readyState: track.readyState
-                            });
-                        });
-                    }
-                    
-                    initializePeerConnection();
-                    
-                    // Show voice call UI with end call button
-                    showVoiceCallUI();
-                    
-                    // Show voice call indicator
-                    showNotification('Cuộc gọi thoại đã bắt đầu', 'success');
-                })
-                .catch(error => {
-                    console.error('Error accessing microphone:', error);
-                    let errorMessage = 'Không thể truy cập microphone';
-                    if (error.name === 'NotAllowedError') {
-                        errorMessage = 'Vui lòng cho phép truy cập microphone';
-                    } else if (error.name === 'NotFoundError') {
-                        errorMessage = 'Không tìm thấy microphone';
-                    }
-                    alert(errorMessage);
-                });
+            // Function này giữ lại để tương thích, nhưng logic đã được chuyển sang joinLiveKitRoom
+            console.log('📞 startVoiceCall called - logic handled in joinLiveKitRoom');
         }
         
-        // Show voice call UI
+        // Hiển thị UI cuộc gọi thoại
         function showVoiceCallUI() {
             console.log('📞 showVoiceCallUI called');
             
-            // Get caller/receiver name
+            // Lấy tên người gọi/người nhận
             const conversation = conversations.find(c => c.id == currentConversationId);
             const otherUserName = conversation ? conversation.other_user_name : 'Người gọi';
             
             console.log('📞 Other user name:', otherUserName);
             
-            // Update call modal to show active call state
+            // Cập nhật call modal để hiển thị trạng thái cuộc gọi đang hoạt động
             $('#callerName').text(otherUserName);
             $('#callType').text('Cuộc gọi thoại');
             $('#callStatus').text('Đang gọi...');
             
-            // Clear existing buttons first
+            // Xóa các nút hiện có trước
             $('#callControls').empty();
-            // Show end call button only - Đồng nhất với admin/chat.php
+            // Chỉ hiển thị nút kết thúc cuộc gọi - Đồng nhất với admin/chat.php
             $('#callControls').html(`
                 <button class="btn btn-danger btn-lg" id="endCallBtn" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; z-index: 10001;">
                     <i class="fas fa-phone-slash"></i>
                 </button>
             `);
             
-            // Also attach event listener as backup
+            // Cũng attach event listener như backup
             $('#endCallBtn').off('click').on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -3988,7 +4448,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             
             console.log('✅ Voice call UI shown with end call button');
             
-            // Debug: Check if button is in DOM after a short delay
+            // Debug: Kiểm tra nút có trong DOM sau một khoảng delay ngắn
             setTimeout(() => {
                 const endBtn = $('#callControls .call-btn.end');
                 const modalVisible = $('#callModal').hasClass('show');
@@ -4001,7 +4461,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     callControlsHTML: $('#callControls').html()
                 });
                 
-                // Force show if not visible - Đảm bảo căn giữa
+                // Force show nếu không hiển thị - Đảm bảo căn giữa
                 if (!modalVisible || modalDisplay === 'none') {
                     console.warn('⚠️ Modal not visible, forcing show');
                     $('#callModal').addClass('show').css({
@@ -4019,7 +4479,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     });
                 }
                 
-                // Force button visibility if not visible
+                // Force button visibility nếu không hiển thị
                 if (endBtn.length > 0 && !endBtn.is(':visible')) {
                     console.warn('⚠️ End button not visible, forcing display');
                     endBtn.css({
@@ -4031,456 +4491,48 @@ if (!in_array($userRole, [1, 3, 5])) {
             }, 100);
         }
         
-        // Initialize WebRTC peer connection
+        // Khởi tạo WebRTC peer connection (DEPRECATED - đã thay bằng LiveKit)
+        // Function này giữ lại để tương thích nhưng không còn được sử dụng
         function initializePeerConnection() {
-            // Close existing peer connection if any
-            if (peerConnection) {
-                try {
-                    peerConnection.close();
-                } catch (e) {
-                    console.warn('Error closing existing peer connection:', e);
-                }
-            }
-            
-            // QUAN TRỌNG: Cấu hình WebRTC với STUN và TURN servers
-            // STUN: Để tìm public IP/port
-            // TURN: Để relay traffic khi P2P không thể kết nối (NAT/firewall)
-            const configuration = {
-                iceServers: [
-                    // STUN servers (miễn phí từ Google)
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' },
-                    // TURN servers (miễn phí - cần thay bằng TURN server riêng nếu có)
-                    // Option 1: Dùng free TURN server (có thể không ổn định)
-                    { 
-                        urls: 'turn:openrelay.metered.ca:80',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    },
-                    { 
-                        urls: 'turn:openrelay.metered.ca:443',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    },
-                    { 
-                        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    },
-                    // Option 2: Dùng TURN server khác (nếu có)
-                    // { 
-                    //     urls: 'turn:your-turn-server.com:3478',
-                    //     username: 'your-username',
-                    //     credential: 'your-password'
-                    // }
-                ],
-                iceCandidatePoolSize: 10 // Tăng pool size để có nhiều candidates hơn
-            };
-            
-            peerConnection = new RTCPeerConnection(configuration);
-            console.log('✅ Peer connection created');
-            
-            // Add local stream to peer connection
-            if (localStream) {
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                    console.log('✅ Added local track:', track.kind, track.label);
-                });
-            } else {
-                console.warn('⚠️ No local stream available when initializing peer connection');
-            }
-            
-            // Handle remote stream
-            // Best practice từ WebRTC: ontrack có thể được gọi nhiều lần, mỗi lần cho 1 track
-            peerConnection.ontrack = event => {
-                console.log('📞 ontrack event fired:', event);
-                console.log('📞 Event streams:', event.streams);
-                console.log('📞 Event track:', event.track);
-                console.log('📞 Event track kind:', event.track ? event.track.kind : 'N/A');
-                console.log('📞 Event track id:', event.track ? event.track.id : 'N/A');
-                console.log('📞 Event track readyState:', event.track ? event.track.readyState : 'N/A');
-                
-                // QUAN TRỌNG: Lấy stream từ event
-                // Best practice: Sử dụng event.streams[0] nếu có, nếu không thì tạo stream mới từ track
-                if (event.streams && event.streams.length > 0) {
-                    remoteStream = event.streams[0];
-                    console.log('📞 Using stream from event.streams[0]');
-                } else if (event.track) {
-                    // Nếu không có stream, tạo stream mới từ track
-                    // Nếu đã có remoteStream, thêm track vào stream đó
-                    if (remoteStream) {
-                        // Kiểm tra xem track đã có trong stream chưa
-                        const existingTrack = remoteStream.getTracks().find(t => t.id === event.track.id);
-                        if (!existingTrack) {
-                            remoteStream.addTrack(event.track);
-                            console.log('📞 Added track to existing remote stream');
-                        } else {
-                            console.log('📞 Track already in remote stream, skipping');
-                        }
-                    } else {
-                        remoteStream = new MediaStream([event.track]);
-                        console.log('📞 Created new MediaStream from track');
-                    }
-                } else {
-                    console.error('❌ No stream or track in ontrack event!');
-                    return;
-                }
-                
-                console.log('📞 Remote stream received:', remoteStream);
-                console.log('📞 Remote stream ID:', remoteStream.id);
-                console.log('📞 Remote stream tracks:', remoteStream.getTracks());
-                console.log('📞 Remote stream active:', remoteStream.active);
-                
-                // QUAN TRỌNG: Đảm bảo stream được cập nhật khi có track mới
-                event.track.onended = () => {
-                    console.log('📞 Remote track ended:', event.track.kind, event.track.id);
-                };
-                
-                event.track.onmute = () => {
-                    console.log('📞 Remote track muted:', event.track.kind, event.track.id);
-                };
-                
-                event.track.onunmute = () => {
-                    console.log('📞 Remote track unmuted:', event.track.kind, event.track.id);
-                };
-                
-                // Kiểm tra video tracks trong remote stream
-                const videoTracks = remoteStream.getVideoTracks();
-                console.log('📞 Remote video tracks:', videoTracks);
-                if (videoTracks.length === 0) {
-                    console.warn('⚠️ Remote stream không có video track!');
-                } else {
-                    console.log('✅ Remote stream có', videoTracks.length, 'video track(s)');
-                    videoTracks.forEach((track, index) => {
-                        console.log(`  Video track ${index}:`, {
-                            enabled: track.enabled,
-                            kind: track.kind,
-                            label: track.label,
-                            muted: track.muted,
-                            readyState: track.readyState
-                        });
-                    });
-                }
-                
-                // Kiểm tra audio tracks trong remote stream
-                const audioTracks = remoteStream.getAudioTracks();
-                console.log('📞 Remote audio tracks:', audioTracks);
-                if (audioTracks.length === 0) {
-                    console.warn('⚠️ Remote stream không có audio track!');
-                } else {
-                    console.log('✅ Remote stream có', audioTracks.length, 'audio track(s)');
-                    audioTracks.forEach((track, index) => {
-                        console.log(`  Audio track ${index}:`, {
-                            enabled: track.enabled,
-                            kind: track.kind,
-                            label: track.label,
-                            muted: track.muted,
-                            readyState: track.readyState
-                        });
-                    });
-                }
-                
-                // Cho video call: gán vào remoteVideo
-                const remoteVideo = document.getElementById('remoteVideo');
-                if (remoteVideo) {
-                    remoteVideo.srcObject = remoteStream;
-                    // Đảm bảo video element được hiển thị và phát
-                    remoteVideo.play().then(() => {
-                        console.log('✅ Remote video playing successfully');
-                        console.log('📹 Remote video element state:', {
-                            paused: remoteVideo.paused,
-                            currentTime: remoteVideo.currentTime,
-                            readyState: remoteVideo.readyState,
-                            videoWidth: remoteVideo.videoWidth,
-                            videoHeight: remoteVideo.videoHeight
-                        });
-                    }).catch(err => {
-                        console.error('❌ Error playing remote video:', err);
-                        console.error('Error details:', {
-                            name: err.name,
-                            message: err.message
-                        });
-                    });
-                    console.log('✅ Remote video assigned to video element');
-                } else {
-                    console.error('❌ Remote video element not found!');
-                }
-                
-                // QUAN TRỌNG: Cho CẢ voice call VÀ video call - đều cần audio
-                // Gán remote stream vào remoteAudio để phát âm thanh
-                const remoteAudio = document.getElementById('remoteAudio');
-                if (remoteAudio) {
-                    // Setup audio element
-                    remoteAudio.srcObject = remoteStream;
-                    remoteAudio.volume = 1.0; // Đảm bảo volume = 100%
-                    remoteAudio.muted = false; // Đảm bảo không bị mute
-                    
-                    console.log('📞 Remote audio setup:', {
-                        srcObject: remoteAudio.srcObject ? 'set' : 'null',
-                        volume: remoteAudio.volume,
-                        muted: remoteAudio.muted,
-                        paused: remoteAudio.paused,
-                        readyState: remoteAudio.readyState
-                    });
-                    
-                    // QUAN TRỌNG: Luôn thử play audio ngay khi có stream
-                    const playAudio = () => {
-                        const playPromise = remoteAudio.play();
-                        if (playPromise !== undefined) {
-                            playPromise.then(() => {
-                                console.log('✅ Remote audio playing successfully');
-                                console.log('📞 Audio element state:', {
-                                    volume: remoteAudio.volume,
-                                    muted: remoteAudio.muted,
-                                    paused: remoteAudio.paused,
-                                    currentTime: remoteAudio.currentTime,
-                                    readyState: remoteAudio.readyState,
-                                    srcObject: remoteAudio.srcObject ? 'set' : 'null'
-                                });
-                            }).catch(err => {
-                                console.error('❌ Error playing remote audio:', err);
-                                console.error('❌ Error details:', {
-                                    name: err.name,
-                                    message: err.message,
-                                    code: err.code
-                                });
-                                
-                                // Nếu bị chặn bởi autoplay policy, thử play khi user click
-                                if (err.name === 'NotAllowedError' || err.name === 'NotSupportedError' || err.name === 'AbortError') {
-                                    console.warn('⚠️ Browser autoplay policy blocked audio. Audio sẽ phát khi user tương tác.');
-                                    
-                                    // Thêm event listener để play khi user click vào modal hoặc bất kỳ đâu
-                                    const playOnInteraction = (event) => {
-                                        console.log('📞 User interaction detected, attempting to play audio...');
-                                        remoteAudio.play().then(() => {
-                                            console.log('✅ Audio played after user interaction');
-                                            document.removeEventListener('click', playOnInteraction);
-                                            document.removeEventListener('touchstart', playOnInteraction);
-                                            document.removeEventListener('keydown', playOnInteraction);
-                                        }).catch(e => {
-                                            console.error('❌ Still error after interaction:', e);
-                                        });
-                                    };
-                                    
-                                    // Thêm nhiều event listeners để đảm bảo bắt được user interaction
-                                    document.addEventListener('click', playOnInteraction, { once: true });
-                                    document.addEventListener('touchstart', playOnInteraction, { once: true });
-                                    document.addEventListener('keydown', playOnInteraction, { once: true });
-                                    
-                                    // Đặc biệt: thêm listener vào call modal
-                                    const callModal = document.getElementById('callModal');
-                                    if (callModal) {
-                                        callModal.addEventListener('click', playOnInteraction, { once: true });
-                                    }
-                                }
-                            });
-                        }
-                    };
-                    
-                    // Thử play ngay lập tức
-                    playAudio();
-                    
-                    // Thử lại sau 100ms để đảm bảo stream đã sẵn sàng
-                    setTimeout(() => {
-                        if (remoteAudio.paused) {
-                            console.log('📞 Audio still paused, retrying play...');
-                            playAudio();
-                        }
-                    }, 100);
-                    
-                    // Thử lại sau 500ms nếu vẫn chưa play được
-                    setTimeout(() => {
-                        if (remoteAudio.paused && remoteAudio.srcObject) {
-                            console.log('📞 Audio still paused after 500ms, retrying play...');
-                            playAudio();
-                        }
-                    }, 500);
-                    
-                    console.log('✅ Remote audio assigned to audio element');
-                } else {
-                    console.error('❌ Remote audio element not found!');
-                }
-            };
-            
-            // Handle ICE candidates
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    console.log('📞 ICE candidate generated:', event.candidate);
-                    console.log('📞 Candidate type:', event.candidate.type);
-                    console.log('📞 Candidate protocol:', event.candidate.protocol);
-                    console.log('📞 Candidate priority:', event.candidate.priority);
-                    console.log('📞 Candidate foundation:', event.candidate.foundation);
-                    
-                    // Send ICE candidate to remote peer via socket
-                    if (isConnected && socket && currentCall) {
-                        socket.emit('ice_candidate', {
-                            call_id: currentCall.id,
-                            candidate: event.candidate
-                        });
-                        console.log('✅ ICE candidate sent via socket');
-                    } else {
-                        console.warn('⚠️ Cannot send ICE candidate:', {
-                            isConnected,
-                            hasSocket: !!socket,
-                            hasCurrentCall: !!currentCall
-                        });
-                    }
-                } else {
-                    console.log('📞 ICE gathering complete');
-                    const sdp = peerConnection.localDescription ? peerConnection.localDescription.sdp : '';
-                    const candidateCount = (sdp.match(/a=candidate:/g) || []).length;
-                    console.log('📞 Total ICE candidates:', candidateCount);
-                }
-            };
-            
-            // Handle connection state changes
-            peerConnection.onconnectionstatechange = () => {
-                console.log('📞 Peer connection state:', peerConnection.connectionState);
-                console.log('📞 ICE connection state:', peerConnection.iceConnectionState);
-                console.log('📞 ICE gathering state:', peerConnection.iceGatheringState);
-                console.log('📞 Signaling state:', peerConnection.signalingState);
-                
-                if (peerConnection.connectionState === 'connected') {
-                    console.log('✅ Peer connection established successfully!');
-                } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
-                    console.warn('⚠️ Peer connection failed or disconnected');
-                    console.warn('⚠️ ICE connection state:', peerConnection.iceConnectionState);
-                    
-                    // Thử restart ICE nếu failed
-                    if (peerConnection.connectionState === 'failed' && peerConnection.iceConnectionState === 'failed') {
-                        console.log('🔄 Attempting to restart ICE...');
-                        peerConnection.restartIce();
-                    }
-                }
-            };
-            
-            // Handle ICE connection state changes
-            peerConnection.oniceconnectionstatechange = () => {
-                console.log('📞 ICE connection state changed:', peerConnection.iceConnectionState);
-                if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
-                    console.log('✅ ICE connection established!');
-                } else if (peerConnection.iceConnectionState === 'failed') {
-                    console.error('❌ ICE connection failed - may need TURN server');
-                } else if (peerConnection.iceConnectionState === 'disconnected') {
-                    console.warn('⚠️ ICE connection disconnected');
-                }
-            };
-            
-            // Handle ICE gathering state changes
-            peerConnection.onicegatheringstatechange = () => {
-                console.log('📞 ICE gathering state:', peerConnection.iceGatheringState);
-                if (peerConnection.iceGatheringState === 'complete') {
-                    console.log('✅ ICE gathering complete');
-                }
-            };
-            
-            // QUAN TRỌNG: Tạo offer nếu là caller, hoặc chờ answer nếu là receiver
-            // Best practice từ WebRTC: Đợi ICE gathering hoàn tất trước khi tạo offer
-            if (currentCall && currentCall.caller_id == currentUserId) {
-                // Caller: Đợi ICE gathering hoàn tất rồi mới tạo offer
-                console.log('📞 Caller: Waiting for ICE gathering before creating offer...');
-                
-                const createOfferWhenReady = () => {
-                    // Kiểm tra nếu đã có local description thì không tạo lại
-                    if (peerConnection.localDescription) {
-                        console.log('📞 Local description already set, skipping offer creation');
-                        return;
-                    }
-                    
-                    console.log('📞 Caller: Creating offer...');
-                    peerConnection.createOffer({
-                        offerToReceiveAudio: true,
-                        offerToReceiveVideo: currentCall.type === 'video'
-                    })
-                        .then(offer => {
-                            console.log('✅ Offer created:', offer);
-                            console.log('📞 Offer type:', offer.type);
-                            console.log('📞 Offer SDP:', offer.sdp.substring(0, 200) + '...');
-                            return peerConnection.setLocalDescription(offer);
-                        })
-                        .then(() => {
-                            console.log('✅ Local description set');
-                            console.log('📞 Local description:', peerConnection.localDescription);
-                            
-                            // Gửi offer qua socket
-                            if (isConnected && socket && currentCall) {
-                                socket.emit('webrtc_offer', {
-                                    call_id: currentCall.id,
-                                    offer: peerConnection.localDescription
-                                });
-                                console.log('✅ Offer sent via socket');
-                            } else {
-                                console.error('❌ Cannot send offer: socket not connected or currentCall missing');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('❌ Error creating offer:', error);
-                            console.error('Error stack:', error.stack);
-                        });
-                };
-                
-                // Nếu ICE gathering đã hoàn tất, tạo offer ngay
-                if (peerConnection.iceGatheringState === 'complete') {
-                    createOfferWhenReady();
-                } else {
-                    // Đợi ICE gathering hoàn tất
-                    peerConnection.addEventListener('icegatheringstatechange', function onIceGatheringStateChange() {
-                        if (peerConnection.iceGatheringState === 'complete') {
-                            console.log('📞 ICE gathering complete, creating offer...');
-                            peerConnection.removeEventListener('icegatheringstatechange', onIceGatheringStateChange);
-                            createOfferWhenReady();
-                        }
-                    });
-                    
-                    // Timeout sau 3 giây nếu ICE gathering chưa hoàn tất
-                    setTimeout(() => {
-                        if (!peerConnection.localDescription) {
-                            console.warn('⚠️ ICE gathering timeout, creating offer anyway...');
-                            createOfferWhenReady();
-                        }
-                    }, 3000);
-                }
-            } else if (currentCall && currentCall.receiver_id == currentUserId) {
-                // Receiver: Chờ offer từ caller (sẽ được xử lý trong socket event)
-                console.log('📞 Receiver: Waiting for offer...');
-            }
+            console.warn('⚠️ initializePeerConnection is deprecated. Using LiveKit instead.');
         }
         
-        // Toggle mute
+        // Toggle mute với LiveKit
         function toggleMute() {
-            if (localStream) {
-                const audioTrack = localStream.getAudioTracks()[0];
-                if (audioTrack) {
-                    audioTrack.enabled = !audioTrack.enabled;
-                    isMuted = !audioTrack.enabled;
-                    
-                    const icon = $('#muteBtn i');
-                    if (isMuted) {
-                        icon.removeClass('fa-microphone').addClass('fa-microphone-slash');
-                    } else {
-                        icon.removeClass('fa-microphone-slash').addClass('fa-microphone');
-                    }
+            if (localAudioTrack) {
+                if (localAudioTrack.isMuted) {
+                    localAudioTrack.setMuted(false);
+                    isMuted = false;
+                } else {
+                    localAudioTrack.setMuted(true);
+                    isMuted = true;
+                }
+                
+                const icon = $('#muteBtn i');
+                if (isMuted) {
+                    icon.removeClass('fa-microphone').addClass('fa-microphone-slash');
+                } else {
+                    icon.removeClass('fa-microphone-slash').addClass('fa-microphone');
                 }
             }
         }
         
-        // Toggle camera
+        // Toggle camera với LiveKit
         function toggleCamera() {
-            if (localStream) {
-                const videoTrack = localStream.getVideoTracks()[0];
-                if (videoTrack) {
-                    videoTrack.enabled = !videoTrack.enabled;
-                    isCameraOff = !videoTrack.enabled;
-                    
-                    const icon = $('#cameraBtn i');
-                    if (isCameraOff) {
-                        icon.removeClass('fa-video').addClass('fa-video-slash');
-                    } else {
-                        icon.removeClass('fa-video-slash').addClass('fa-video');
-                    }
+            if (localVideoTrack) {
+                if (localVideoTrack.isMuted) {
+                    localVideoTrack.setMuted(false);
+                    isCameraOff = false;
+                } else {
+                    localVideoTrack.setMuted(true);
+                    isCameraOff = true;
+                }
+                
+                const icon = $('#cameraBtn i');
+                if (isCameraOff) {
+                    icon.removeClass('fa-video').addClass('fa-video-slash');
+                } else {
+                    icon.removeClass('fa-video-slash').addClass('fa-video');
                 }
             }
         }
@@ -4490,7 +4542,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             endCall();
         }
         
-        // Socket events for calls
+        // Socket events for calls (LiveKit - chỉ cần xử lý call signaling, không cần WebRTC signaling)
         function setupCallSocketEvents() {
             // Prevent duplicate event listeners
             if (socket._callEventsSetup) {
@@ -4501,6 +4553,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             if (socket && typeof socket.on === 'function') {
                 // Mark as setup to prevent duplicates
                 socket._callEventsSetup = true;
+                
                 // Incoming call
                 socket.on('call_initiated', data => {
                     console.log('Received call_initiated event:', data);
@@ -4564,195 +4617,10 @@ if (!in_array($userRole, [1, 3, 5])) {
                     }
                 });
                 
-                // Call accepted
+                // Call accepted - LiveKit sẽ tự động kết nối khi cả 2 bên join room
                 socket.on('call_accepted', data => {
                     console.log('📞 Received call_accepted event:', data);
-                    if (data.caller_id === currentUserId && currentCall) {
-                        $('#callModal').removeClass('show').css('display', 'none');
-                        
-                        if (currentCall.type === 'video') {
-                            startVideoCall();
-                        } else {
-                            startVoiceCall();
-                        }
-                        
-                        // QUAN TRỌNG: Đảm bảo remote audio được play sau khi caller nhận được accept
-                        setTimeout(() => {
-                            const remoteAudio = document.getElementById('remoteAudio');
-                            if (remoteAudio && remoteAudio.srcObject) {
-                                remoteAudio.play().then(() => {
-                                    console.log('✅ Remote audio played after call accepted (caller side)');
-                                }).catch(err => {
-                                    console.warn('⚠️ Could not play audio on caller side:', err);
-                                });
-                            }
-                        }, 500);
-                    } else if (data.receiver_id === currentUserId && currentCall) {
-                        // Receiver đã accept, tạo answer
-                        console.log('📞 Receiver accepted, creating answer...');
-                        if (peerConnection && peerConnection.signalingState !== 'stable') {
-                            // Đã có offer, tạo answer
-                            peerConnection.createAnswer()
-                                .then(answer => {
-                                    console.log('✅ Answer created:', answer);
-                                    return peerConnection.setLocalDescription(answer);
-                                })
-                                .then(() => {
-                                    console.log('✅ Local description (answer) set');
-                                    // Gửi answer qua socket
-                                    if (isConnected && socket && currentCall) {
-                                        socket.emit('webrtc_answer', {
-                                            call_id: currentCall.id,
-                                            answer: peerConnection.localDescription
-                                        });
-                                        console.log('✅ Answer sent via socket');
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('❌ Error creating answer:', error);
-                                });
-                        }
-                    }
-                });
-                
-                // WebRTC Offer received (receiver nhận offer từ caller)
-                socket.on('webrtc_offer', data => {
-                    console.log('📞 Received WebRTC offer:', data);
-                    if (currentCall && data.call_id == currentCall.id && currentCall.receiver_id == currentUserId) {
-                        if (peerConnection) {
-                            // Best practice: Kiểm tra signaling state trước khi set remote description
-                            if (peerConnection.signalingState !== 'stable' && peerConnection.signalingState !== 'have-local-offer') {
-                                console.warn('⚠️ Signaling state is not stable:', peerConnection.signalingState);
-                            }
-                            
-                            peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer))
-                                .then(() => {
-                                    console.log('✅ Remote description (offer) set');
-                                    console.log('📞 Remote description:', peerConnection.remoteDescription);
-                                    console.log('📞 Signaling state after setRemoteDescription:', peerConnection.signalingState);
-                                    
-                                    // Tạo answer với options
-                                    return peerConnection.createAnswer({
-                                        voiceActivityDetection: true
-                                    });
-                                })
-                                .then(answer => {
-                                    console.log('✅ Answer created:', answer);
-                                    console.log('📞 Answer type:', answer.type);
-                                    console.log('📞 Answer SDP:', answer.sdp.substring(0, 200) + '...');
-                                    return peerConnection.setLocalDescription(answer);
-                                })
-                                .then(() => {
-                                    console.log('✅ Local description (answer) set');
-                                    console.log('📞 Local description:', peerConnection.localDescription);
-                                    console.log('📞 Signaling state after setLocalDescription:', peerConnection.signalingState);
-                                    
-                                    // Gửi answer qua socket
-                                    if (isConnected && socket && currentCall) {
-                                        socket.emit('webrtc_answer', {
-                                            call_id: currentCall.id,
-                                            answer: peerConnection.localDescription
-                                        });
-                                        console.log('✅ Answer sent via socket');
-                                    } else {
-                                        console.error('❌ Cannot send answer: socket not connected or currentCall missing');
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('❌ Error handling offer:', error);
-                                    console.error('Error stack:', error.stack);
-                                });
-                        } else {
-                            console.error('❌ Peer connection not initialized when receiving offer');
-                        }
-                    } else {
-                        console.warn('⚠️ Offer received but conditions not met:', {
-                            hasCurrentCall: !!currentCall,
-                            callIdMatch: currentCall && data.call_id == currentCall.id,
-                            isReceiver: currentCall && currentCall.receiver_id == currentUserId
-                        });
-                    }
-                });
-                
-                // WebRTC Answer received (caller nhận answer từ receiver)
-                socket.on('webrtc_answer', data => {
-                    console.log('📞 Received WebRTC answer:', data);
-                    if (currentCall && data.call_id == currentCall.id && currentCall.caller_id == currentUserId) {
-                        if (peerConnection) {
-                            // Best practice: Kiểm tra signaling state
-                            if (peerConnection.signalingState !== 'have-local-offer') {
-                                console.warn('⚠️ Signaling state is not have-local-offer:', peerConnection.signalingState);
-                            }
-                            
-                            peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer))
-                                .then(() => {
-                                    console.log('✅ Remote description (answer) set');
-                                    console.log('📞 Remote description:', peerConnection.remoteDescription);
-                                    console.log('📞 Signaling state after setRemoteDescription:', peerConnection.signalingState);
-                                })
-                                .catch(error => {
-                                    console.error('❌ Error setting remote description:', error);
-                                    console.error('Error stack:', error.stack);
-                                });
-                        } else {
-                            console.error('❌ Peer connection not initialized when receiving answer');
-                        }
-                    } else {
-                        console.warn('⚠️ Answer received but conditions not met:', {
-                            hasCurrentCall: !!currentCall,
-                            callIdMatch: currentCall && data.call_id == currentCall.id,
-                            isCaller: currentCall && currentCall.caller_id == currentUserId
-                        });
-                    }
-                });
-                
-                // ICE Candidate received
-                socket.on('ice_candidate', data => {
-                    console.log('📞 Received ICE candidate:', data);
-                    if (currentCall && data.call_id == currentCall.id && peerConnection) {
-                        // Best practice: Kiểm tra remote description đã được set chưa
-                        if (!peerConnection.remoteDescription) {
-                            console.warn('⚠️ Remote description not set yet, storing candidate for later');
-                            // Lưu candidate để add sau
-                            if (!peerConnection._pendingCandidates) {
-                                peerConnection._pendingCandidates = [];
-                            }
-                            peerConnection._pendingCandidates.push(data.candidate);
-                            return;
-                        }
-                        
-                        // Nếu có pending candidates, add chúng trước
-                        if (peerConnection._pendingCandidates && peerConnection._pendingCandidates.length > 0) {
-                            console.log('📞 Adding', peerConnection._pendingCandidates.length, 'pending candidates first');
-                            const pending = peerConnection._pendingCandidates;
-                            peerConnection._pendingCandidates = [];
-                            
-                            pending.forEach(candidate => {
-                                peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
-                                    .then(() => console.log('✅ Pending ICE candidate added'))
-                                    .catch(err => console.error('❌ Error adding pending candidate:', err));
-                            });
-                        }
-                        
-                        peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate))
-                            .then(() => {
-                                console.log('✅ ICE candidate added');
-                            })
-                            .catch(error => {
-                                console.error('❌ Error adding ICE candidate:', error);
-                                console.error('Error details:', {
-                                    name: error.name,
-                                    message: error.message,
-                                    candidate: data.candidate
-                                });
-                            });
-                    } else {
-                        console.warn('⚠️ ICE candidate received but conditions not met:', {
-                            hasCurrentCall: !!currentCall,
-                            callIdMatch: currentCall && data.call_id == currentCall.id,
-                            hasPeerConnection: !!peerConnection
-                        });
-                    }
+                    // Logic đã được xử lý trong acceptCall()
                 });
                 
                 // Call rejected
@@ -4760,6 +4628,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     console.log('Received call_rejected event:', data);
                     if (data.caller_id === currentUserId) {
                         $('#callModal').removeClass('show');
+                        cleanupLiveKit();
                         currentCall = null;
                         showNotification(data.message || 'Cuộc gọi bị từ chối', 'warning', 'fa-times-circle');
                     }
@@ -4778,52 +4647,8 @@ if (!in_array($userRole, [1, 3, 5])) {
                         'opacity': '0'
                     });
                     
-                    // Dừng remote audio nếu đang phát
-                    const remoteAudio = document.getElementById('remoteAudio');
-                    if (remoteAudio) {
-                        remoteAudio.pause();
-                        remoteAudio.srcObject = null;
-                        console.log('✅ Remote audio stopped');
-                    }
-                    
-                    // Dừng remote video nếu đang phát
-                    const remoteVideo = document.getElementById('remoteVideo');
-                    if (remoteVideo) {
-                        remoteVideo.pause();
-                        remoteVideo.srcObject = null;
-                        console.log('✅ Remote video stopped');
-                    }
-                    
-                    // Stop local stream
-                    if (localStream) {
-                        localStream.getTracks().forEach(track => {
-                            track.stop();
-                            console.log('📞 Stopped local track:', track.kind);
-                        });
-                        localStream = null;
-                        console.log('✅ Local stream stopped');
-                    }
-                    
-                    // Stop remote stream
-                    if (remoteStream) {
-                        remoteStream.getTracks().forEach(track => {
-                            track.stop();
-                            console.log('📞 Stopped remote track:', track.kind);
-                        });
-                        remoteStream = null;
-                        console.log('✅ Remote stream stopped');
-                    }
-                    
-                    // Close peer connection
-                    if (peerConnection) {
-                        try {
-                            peerConnection.close();
-                            peerConnection = null;
-                            console.log('✅ Peer connection closed');
-                        } catch (e) {
-                            console.error('Error closing peer connection:', e);
-                        }
-                    }
+                    // Cleanup LiveKit
+                    cleanupLiveKit();
                     
                     // ✅ Hiển thị thông báo
                     if (data.message) {

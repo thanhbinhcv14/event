@@ -2,7 +2,7 @@
 session_start();
 require_once '../config/database.php';
 
-// Check if user is logged in
+// Kiểm tra người dùng đã đăng nhập chưa
 if (!isset($_SESSION['user'])) {
     header('Location: ../login.php');
     exit();
@@ -10,7 +10,7 @@ if (!isset($_SESSION['user'])) {
 
 $pdo = getDBConnection();
 $eventId = $_GET['event_id'] ?? null;
-$paymentTypeParam = $_GET['payment_type'] ?? 'deposit'; // 'deposit' or 'full'
+$paymentTypeParam = $_GET['payment_type'] ?? 'deposit'; // 'deposit' hoặc 'full'
 
 if (!$eventId) {
     header('Location: ../events/my-events.php');
@@ -19,7 +19,7 @@ if (!$eventId) {
 
 $userId = $_SESSION['user']['ID_User'];
 
-// Get event details with all necessary information (similar to get_my_events)
+// Lấy chi tiết sự kiện với tất cả thông tin cần thiết (tương tự get_my_events)
 try {
 $stmt = $pdo->prepare("
         SELECT dl.*, d.TenDiaDiem, d.DiaChi, d.SucChua, d.GiaThueGio, d.GiaThueNgay, d.LoaiThue, d.LoaiDiaDiem,
@@ -58,11 +58,11 @@ if (!$event) {
     exit();
 }
 
-    // Calculate price breakdown
+    // Tính toán phân tích giá
     $eventTypePrice = floatval($event['GiaCoBan'] ?? 0);
     $equipmentPrice = floatval($event['TongGiaThietBi'] ?? 0);
     
-    // Calculate location price
+    // Tính giá địa điểm
     $locationPrice = 0;
     if (!empty($event['NgayBatDau']) && !empty($event['NgayKetThuc'])) {
         $startDate = new DateTime($event['NgayBatDau']);
@@ -70,12 +70,12 @@ if (!$event) {
         $durationHours = ceil(($endDate->getTimestamp() - $startDate->getTimestamp()) / 3600);
         $durationDays = ceil(($endDate->getTimestamp() - $startDate->getTimestamp()) / 86400);
         
-        // Check if indoor with room
+        // Kiểm tra địa điểm trong nhà có phòng không
         $isIndoor = ($event['LoaiDiaDiem'] === 'Trong nhà' || $event['LoaiDiaDiem'] === 'Trong nha');
         $hasRoom = !empty($event['TenPhong']) && !empty($event['ID_Phong']);
         
         if ($isIndoor && $hasRoom) {
-            // Use room price
+            // Sử dụng giá phòng
             if ($event['LoaiThueApDung'] === 'Theo giờ' && !empty($event['PhongGiaThueGio'])) {
                 $locationPrice = $durationHours * floatval($event['PhongGiaThueGio']);
             } else if ($event['LoaiThueApDung'] === 'Theo ngày' && !empty($event['PhongGiaThueNgay'])) {
@@ -90,7 +90,7 @@ if (!$event) {
                 $locationPrice = ($hourlyPrice > 0 && $dailyPrice > 0) ? min($hourlyPrice, $dailyPrice) : max($hourlyPrice, $dailyPrice);
             }
         } else if ($event['LoaiThueApDung']) {
-            // Use applied rental type
+            // Sử dụng loại thuê đã áp dụng
             if ($event['LoaiThueApDung'] === 'Theo giờ' && !empty($event['GiaThueGio'])) {
                 $locationPrice = $durationHours * floatval($event['GiaThueGio']);
             } else if ($event['LoaiThueApDung'] === 'Theo ngày' && !empty($event['GiaThueNgay'])) {
@@ -107,19 +107,19 @@ if (!$event) {
         }
     }
     
-    // Use TongTien if available, otherwise calculate
+    // Sử dụng TongTien nếu có, nếu không thì tính toán
     $totalAmount = !empty($event['TongTien']) && $event['TongTien'] > 0 
         ? floatval($event['TongTien']) 
         : ($locationPrice + $eventTypePrice + $equipmentPrice);
     
-    // Calculate deposit amount
+    // Tính số tiền đặt cọc
     $depositAmount = !empty($event['TienCocYeuCau']) && $event['TienCocYeuCau'] > 0 
         ? floatval($event['TienCocYeuCau']) 
         : round($totalAmount * 0.3);
     
 $remainingAmount = $totalAmount - $depositAmount;
     
-    // Calculate days from registration to event
+    // Tính số ngày từ đăng ký đến sự kiện
     $daysFromRegistrationToEvent = 0;
     if (!empty($event['NgayTao']) && !empty($event['NgayBatDau'])) {
         $registrationDate = new DateTime($event['NgayTao']);
@@ -128,7 +128,7 @@ $remainingAmount = $totalAmount - $depositAmount;
     }
     $requiresFullPayment = ($daysFromRegistrationToEvent > 0 && $daysFromRegistrationToEvent < 7);
     
-    // Get payment deadline if deposit exists
+    // Lấy hạn thanh toán nếu đã có đặt cọc
     $paymentDeadline = null;
     if ($event['TrangThaiThanhToan'] === 'Đã đặt cọc' && !empty($event['NgayBatDau'])) {
         $stmtDeposit = $pdo->prepare("
@@ -173,6 +173,7 @@ $remainingAmount = $totalAmount - $depositAmount;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Thanh toán sự kiện - <?= htmlspecialchars($event['TenSuKien']) ?></title>
+    <link rel="icon" href="../img/logo/logo.jpg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -288,6 +289,115 @@ $remainingAmount = $totalAmount - $depositAmount;
         .alert {
             border-radius: 12px;
         }
+        
+        /* ✅ SePay QR Code Template Styling */
+        .sepay-qr-wrapper {
+            background: white;
+            border: 3px solid #1e3a8a;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 400px;
+            margin: 0 auto;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .sepay-qr-header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .sepay-logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            color: #1e40af;
+            font-weight: 700;
+            font-size: 24px;
+        }
+        
+        .sepay-logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .sepay-qr-code {
+            border: 2px solid #1e3a8a;
+            border-radius: 8px;
+            padding: 15px;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 15px 0;
+        }
+        
+        .sepay-qr-code img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+        
+        .sepay-qr-footer {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px 0;
+            border-top: 1px solid #e5e7eb;
+            margin-top: 15px;
+        }
+        
+        .sepay-partner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            flex: 1;
+        }
+        
+        .sepay-partner-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #1e40af;
+        }
+        
+        .sepay-partner-logo {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .napas-logo {
+            background: #1e40af;
+            color: white;
+        }
+        
+        .vietinbank-logo {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+        }
+        
+        .vietqr-logo {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .sepay-divider {
+            width: 1px;
+            height: 30px;
+            background: #e5e7eb;
+        }
     </style>
 </head>
 <body>
@@ -341,8 +451,8 @@ $remainingAmount = $totalAmount - $depositAmount;
                                         <i class="fas fa-university fa-3x text-primary mb-3"></i>
                                         <h6>SePay Banking</h6>
                                         <small class="text-muted">Thanh toán qua ngân hàng</small>
-                                    </div>
                                         </div>
+                                    </div>
                             <div class="col-md-6">
                                     <div class="payment-method-card" data-method="cash" id="cashCard">
                                         <i class="fas fa-money-bill-wave fa-3x text-success mb-3"></i>
@@ -358,8 +468,8 @@ $remainingAmount = $totalAmount - $depositAmount;
                                     <div class="alert alert-info mb-0">
                                         <i class="fas fa-info-circle"></i>
                                         Sau khi nhấn "Xác nhận thanh toán", hệ thống sẽ hiển thị QR và thông tin ngân hàng.
-                                    </div>
                                         </div>
+                                    </div>
                                 <div id="cashDetails" class="payment-details" style="display: none;">
                                     <div class="alert alert-success">
                                         <h6><i class="fas fa-money-bill-wave"></i> Thanh toán tiền mặt</h6>
@@ -369,8 +479,8 @@ $remainingAmount = $totalAmount - $depositAmount;
                                             <li><strong>Điện thoại:</strong> 0123456789</li>
                                             <li><strong>Thời gian:</strong> 8:00 - 17:00 (Thứ 2 - Thứ 6)</li>
                                         </ul>
-                                        </div>
-                                    </div>
+                                </div>
+                            </div>
                                 </div>
                             </div>
 
@@ -394,8 +504,8 @@ $remainingAmount = $totalAmount - $depositAmount;
                                                 <br><small class="text-danger"><i class="fas fa-ban"></i> Sự kiện diễn ra trong vòng 7 ngày, không thể đặt cọc</small>
                                                 <?php endif; ?>
                                             </label>
+                                        </div>
                                     </div>
-                                </div>
                             </div>
                             <div class="col-md-6">
                                     <div class="payment-type-card" data-type="full" id="fullCard">
@@ -531,13 +641,13 @@ $remainingAmount = $totalAmount - $depositAmount;
         let selectedPaymentType = '<?= $paymentTypeParam ?>';
         let selectedPaymentMethod = null;
         
-        // Update amount display
+        // Cập nhật hiển thị số tiền
         function updateAmountDisplay() {
             const amount = selectedPaymentType === 'deposit' ? depositAmount : totalAmount;
             $('#amountDisplay').val(new Intl.NumberFormat('vi-VN').format(amount));
         }
         
-        // Update payment type card selection
+        // Cập nhật lựa chọn thẻ loại thanh toán
         function updatePaymentTypeSelection() {
             $('.payment-type-card').removeClass('selected');
             if (selectedPaymentType === 'deposit') {
@@ -547,7 +657,7 @@ $remainingAmount = $totalAmount - $depositAmount;
             }
         }
         
-        // Payment type selection
+        // Lựa chọn loại thanh toán
         $('input[name="paymentType"]').on('change', function() {
             selectedPaymentType = $(this).val();
             updateAmountDisplay();
@@ -555,21 +665,21 @@ $remainingAmount = $totalAmount - $depositAmount;
             checkProceedButton();
         });
 
-        // Payment method selection
+        // Lựa chọn phương thức thanh toán
         $('.payment-method-card').on('click', function() {
             $('.payment-method-card').removeClass('selected');
             $(this).addClass('selected');
             selectedPaymentMethod = $(this).data('method');
             
-            // Show payment type section
+            // Hiển thị phần loại thanh toán
             $('#paymentTypeSection').slideDown(300);
             
-            // Show/hide payment details
+            // Hiển thị/ẩn chi tiết thanh toán
             $('.payment-details').hide();
             $('#paymentDetails').show();
             if (selectedPaymentMethod === 'sepay') {
                 $('#sepayDetails').show();
-                // SePay: restore payment type logic
+                // SePay: khôi phục logic loại thanh toán
                 if (requiresFullPayment || hasDeposit) {
                     $('#depositPayment').prop('disabled', true);
                     $('#fullPayment').prop('checked', true).prop('disabled', false);
@@ -584,7 +694,7 @@ $remainingAmount = $totalAmount - $depositAmount;
                 updatePaymentTypeSelection();
             } else if (selectedPaymentMethod === 'cash') {
                 $('#cashDetails').show();
-                    // Cash must be full payment
+                    // Tiền mặt phải là thanh toán đủ
                 $('#depositPayment').prop('disabled', true);
                 $('#fullPayment').prop('checked', true).prop('disabled', false);
                 selectedPaymentType = 'full';
@@ -595,7 +705,7 @@ $remainingAmount = $totalAmount - $depositAmount;
             checkProceedButton();
         });
         
-        // Check if proceed button should be enabled
+        // Kiểm tra nút xác nhận có nên được bật không
         function checkProceedButton() {
             const invoiceName = $('#invoiceName').val().trim();
             const invoicePhone = $('#invoicePhone').val().trim();
@@ -607,14 +717,14 @@ $remainingAmount = $totalAmount - $depositAmount;
             }
         }
         
-        // Validate contact info
+        // Xác thực thông tin liên lạc
         $('#invoiceName, #invoicePhone').on('input', checkProceedButton);
         
-        // Initialize
+        // Khởi tạo
         updateAmountDisplay();
         updatePaymentTypeSelection();
 
-        // Proceed payment
+        // Tiến hành thanh toán
         $('#proceedPayment').on('click', function() {
             if (!selectedPaymentMethod) {
                 alert('Vui lòng chọn phương thức thanh toán');
@@ -637,10 +747,10 @@ $remainingAmount = $totalAmount - $depositAmount;
             };
             
             if (confirm(`Xác nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(amount)} VNĐ qua ${selectedPaymentMethod === 'sepay' ? 'SePay Banking' : 'Tiền mặt'}?`)) {
-                // Show loading
+                // Hiển thị loading
                 $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang xử lý...');
                 
-                // Prepare API data
+                // Chuẩn bị dữ liệu API
             let apiAction, apiData;
             
             if (selectedPaymentMethod === 'sepay') {
@@ -675,7 +785,7 @@ $remainingAmount = $totalAmount - $depositAmount;
                             apiData.csrf_token = csrfToken;
                         }
                         
-                        // Process payment
+                        // Xử lý thanh toán
                         $.ajax({
                             url: '../src/controllers/payment.php',
                 method: 'POST',
@@ -693,6 +803,38 @@ $remainingAmount = $totalAmount - $depositAmount;
                                     if (selectedPaymentMethod === 'cash') {
                         alert('Yêu cầu thanh toán tiền mặt đã được tạo. Trạng thái: Đang xử lý.');
                                         window.location.href = '../events/my-events.php';
+                                    } else if (response.sepay_checkout_url || response.form_html) {
+                                        // ✅ Ưu tiên: Submit POST form đến SePay Checkout Gateway
+                                        // SePay yêu cầu POST form, không phải GET redirect
+                                        console.log('Submitting SePay Checkout form');
+                                        
+                                        if (response.form_html) {
+                                            // Render và tự động submit form
+                                            $('body').append(response.form_html);
+                                            $('#sepay-checkout-form').submit();
+                                        } else if (response.sepay_checkout_url && response.form_fields) {
+                                            // Tạo form động từ form_fields
+                                            const form = $('<form>', {
+                                                method: 'POST',
+                                                action: response.sepay_checkout_url,
+                                                style: 'display: none;'
+                                            });
+                                            
+                                            $.each(response.form_fields, function(key, value) {
+                                                form.append($('<input>', {
+                                                    type: 'hidden',
+                                                    name: key,
+                                                    value: value
+                                                }));
+                                            });
+                                            
+                                            $('body').append(form);
+                                            form.submit();
+                    } else {
+                                            // Fallback: redirect (có thể không hoạt động)
+                                            console.log('Redirecting to SePay Checkout:', response.sepay_checkout_url);
+                                            window.location.href = response.sepay_checkout_url;
+                                        }
                                     } else if (response.bank_info || response.qr_code || response.qr_string) {
                                         // Hiển thị QR code và thông tin ngân hàng ngay trên trang
                                         console.log('Calling showSePayQRCode with:', response);
@@ -752,7 +894,7 @@ $remainingAmount = $totalAmount - $depositAmount;
             console.log('showSePayQRCode called with:', paymentData);
             
             try {
-                // Tạo HTML hiển thị QR code và thông tin ngân hàng
+                // Tạo HTML để hiển thị QR code và thông tin ngân hàng
                 const qrCodeHtml = `
                 <div class="row justify-content-center">
                     <div class="col-lg-10">
@@ -760,13 +902,20 @@ $remainingAmount = $totalAmount - $depositAmount;
                             <h5 class="mb-4"><i class="fas fa-qrcode text-primary"></i> Quét mã QR để thanh toán</h5>
                             
                             <div class="mb-4">
-                                <div id="qrcodeContainer" class="d-flex justify-content-center mb-3">
+                                <!-- ✅ QR Code với design giống SePay template -->
+                                <div id="qrcodeContainer" class="sepay-qr-wrapper">
                                     <div class="spinner-border text-primary" role="status">
                                         <span class="visually-hidden">Đang tạo QR code...</span>
-                                    </div>
-                                </div>
-                                <p class="text-muted small">Vui lòng đợi QR code được tạo...</p>
                             </div>
+                                </div>
+                                <p class="text-muted small mt-2" id="qrStatusMessage">
+                                    <i class="fas fa-spinner fa-spin"></i> Đang tạo QR code...
+                                </p>
+                                ${paymentData.sepay_qr_id ? 
+                                    '<div class="alert alert-success alert-sm mt-2"><i class="fas fa-check-circle"></i> QR Code từ SePay - Đảm bảo webhook hoạt động</div>' : 
+                                    '<div class="alert alert-warning alert-sm mt-2"><i class="fas fa-info-circle"></i> QR Code từ VietQR - SePay webhook vẫn hoạt động dựa trên nội dung chuyển khoản</div>'
+                                }
+                                        </div>
                             
                             <div class="row mt-4">
                                 <div class="col-md-6 mb-3">
@@ -777,8 +926,8 @@ $remainingAmount = $totalAmount - $depositAmount;
                                             <tr><td class="text-muted">Số tiền:</td><td><strong class="text-primary">${new Intl.NumberFormat('vi-VN').format(paymentData.amount)} VNĐ</strong></td></tr>
                                             <tr><td class="text-muted">Mã giao dịch:</td><td><code>${paymentData.transaction_code || paymentData.transaction_id || 'N/A'}</code></td></tr>
                                         </table>
+                                    </div>
                                 </div>
-                                        </div>
                                 <div class="col-md-6 mb-3">
                                     <div class="info-card">
                                         <h6 class="text-primary mb-3"><i class="fas fa-university"></i> Thông tin ngân hàng</h6>
@@ -788,7 +937,7 @@ $remainingAmount = $totalAmount - $depositAmount;
                                             <tr><td class="text-muted">Chủ tài khoản:</td><td>${paymentData.bank_info?.account_name || 'N/A'}</td></tr>
                                             <tr><td class="text-muted">Nội dung:</td><td><code class="text-break">${paymentData.bank_info?.content || 'N/A'}</code></td></tr>
                                         </table>
-                                    </div>
+                            </div>
                                 </div>
                             </div>
                             
@@ -815,7 +964,7 @@ $remainingAmount = $totalAmount - $depositAmount;
                 
                 $paymentContent.html(qrCodeHtml);
                 
-                // Generate QR Code sau khi HTML đã được thêm
+                // Tạo QR Code sau khi HTML đã được thêm
                 setTimeout(function() {
                     generateQRCodeWithFallback(paymentData);
                 }, 100);
@@ -825,11 +974,24 @@ $remainingAmount = $totalAmount - $depositAmount;
             }
         }
         
-        // Generate QR Code with fallback
+        // Tạo QR Code với fallback
         function generateQRCodeWithFallback(paymentData) {
             try {
+                // ✅ QUAN TRỌNG: Kiểm tra xem QR code có từ SePay không
+                const isSePayQR = paymentData.sepay_qr_id !== null && paymentData.sepay_qr_id !== undefined;
                 let qrUrl = paymentData.qr_code || paymentData.qr_string || '';
                 const fallbackQr = paymentData.fallback_qr || '';
+                
+                // ✅ Nếu có SePay QR ID, ưu tiên sử dụng QR từ SePay
+                if (isSePayQR && qrUrl) {
+                    console.log('Using SePay QR Code (ID: ' + paymentData.sepay_qr_id + ')');
+                    // Cập nhật thông báo
+                    $('.text-muted.small').html('<i class="fas fa-check-circle text-success"></i> QR Code từ SePay - Đã sẵn sàng để quét');
+                } else if (qrUrl && qrUrl.includes('vietqr.io')) {
+                    console.log('Using VietQR fallback (SePay API failed)');
+                    // Cập nhật thông báo
+                    $('.text-muted.small').html('<i class="fas fa-info-circle text-warning"></i> QR Code từ VietQR - SePay webhook vẫn hoạt động dựa trên nội dung chuyển khoản');
+                }
                 
                 if (!qrUrl && paymentData.bank_info) {
                     // Tạo QR từ thông tin ngân hàng
@@ -837,34 +999,38 @@ $remainingAmount = $totalAmount - $depositAmount;
                     qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`;
                 }
                 
-                // Danh sách QR services để thử
+                // Danh sách dịch vụ QR để thử (ưu tiên SePay QR nếu có)
                 const qrServices = [];
                 
-                // Nếu có VietQR URL, thêm với proxy
+                // ✅ Ưu tiên 1: QR code từ SePay (nếu có)
+                if (isSePayQR && qrUrl && !qrUrl.includes('vietqr.io')) {
+                    qrServices.push(qrUrl);
+                }
+                
+                // ✅ Ưu tiên 2: VietQR URL (nếu có) với proxy
                 if (qrUrl && qrUrl.includes('vietqr.io')) {
                     const withoutProtocol = qrUrl.replace(/^https?:\/\//, '');
                     qrServices.push(`https://images.weserv.nl/?url=${encodeURIComponent(withoutProtocol)}`);
                     qrServices.push(`https://wsrv.nl/?url=${encodeURIComponent(withoutProtocol)}`);
-                }
-                
-                // Thêm QR URL gốc
-                if (qrUrl) {
+                    qrServices.push(qrUrl); // Thêm URL gốc
+                } else if (qrUrl) {
+                    // QR URL khác (không phải VietQR)
                     qrServices.push(qrUrl);
                 }
                 
-                // Thêm fallback QR
+                // ✅ Ưu tiên 3: QR dự phòng
                 if (fallbackQr) {
                     qrServices.push(fallbackQr);
                 }
                 
-                // Thêm các QR services khác
+                // ✅ Ưu tiên 4: Tạo QR từ thông tin ngân hàng
                 if (paymentData.bank_info) {
                     const qrData = `Bank: ${paymentData.bank_info.bank_name}\nAccount: ${paymentData.bank_info.account_number}\nAmount: ${paymentData.amount}\nContent: ${paymentData.bank_info.content}`;
                     qrServices.push(`https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=${encodeURIComponent(qrData)}`);
                     qrServices.push(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}&format=png`);
                 }
                 
-                // Thử từng service
+                // Thử từng dịch vụ
                 let currentService = 0;
                 const qrContainer = $('#qrcodeContainer');
                 
@@ -888,8 +1054,44 @@ $remainingAmount = $totalAmount - $depositAmount;
                     
                     const img = new Image();
                     img.onload = function() {
+                        // ✅ Cập nhật thông báo trạng thái
+                        const isSePayQR = paymentData.sepay_qr_id !== null && paymentData.sepay_qr_id !== undefined;
+                        const qrSource = isSePayQR ? 'SePay' : (qrServices[currentService].includes('vietqr.io') ? 'VietQR' : 'Fallback');
+                        
+                        // ✅ Hiển thị QR code với design giống SePay template
                         qrContainer.html(`
-                            <img src="${qrServices[currentService]}" alt="QR Code" class="img-fluid border rounded" style="max-width: 300px; max-height: 300px;">
+                            <div class="sepay-qr-header">
+                                <div class="sepay-logo">
+                                    <div class="sepay-logo-icon">SP</div>
+                                    <span>SePay</span>
+                                </div>
+                            </div>
+                            <div class="sepay-qr-code">
+                                <img src="${qrServices[currentService]}" alt="QR Code" style="max-width: 280px; max-height: 280px;">
+                            </div>
+                            <div class="sepay-qr-footer">
+                                <div class="sepay-partner">
+                                    <div class="sepay-partner-name">napas</div>
+                                    <div class="sepay-partner-name" style="font-size: 14px; font-weight: 700;">247</div>
+                                </div>
+                                <div class="sepay-divider"></div>
+                                <div class="sepay-partner">
+                                    <div class="sepay-partner-logo vietinbank-logo">V</div>
+                                    <div class="sepay-partner-name">VietinBank</div>
+                                </div>
+                                <div class="sepay-divider"></div>
+                                <div class="sepay-partner">
+                                    <div class="sepay-partner-name" style="color: #dc2626; font-weight: 700;">VIETQR</div>
+                                    <div style="font-size: 10px; color: #dc2626;">™</div>
+                                </div>
+                            </div>
+                            ${isSePayQR ? '<div class="text-center mt-2"><span class="badge bg-success">QR từ SePay</span></div>' : ''}
+                        `);
+                        
+                        // Cập nhật thông báo
+                        $('#qrStatusMessage').html(`
+                            <i class="fas fa-check-circle text-success"></i> 
+                            QR Code đã sẵn sàng (${qrSource})
                         `);
                     };
                     img.onerror = function() {
@@ -915,7 +1117,7 @@ $remainingAmount = $totalAmount - $depositAmount;
             }
         }
         
-        // Verify payment status - tự động kiểm tra trạng thái khi xác nhận
+        // Xác minh trạng thái thanh toán - tự động kiểm tra trạng thái khi xác nhận
         function verifyPaymentStatus(paymentId, transactionCode) {
             if (!confirm('Bạn đã hoàn tất chuyển khoản? Hệ thống sẽ kiểm tra và xác nhận thanh toán.')) {
                 return;
@@ -927,7 +1129,7 @@ $remainingAmount = $totalAmount - $depositAmount;
             verifyBtn.disabled = true;
             verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra...';
             
-            // Gọi API verify payment (tự động kiểm tra trạng thái)
+            // Gọi API xác minh thanh toán (tự động kiểm tra trạng thái)
             $.ajax({
                 url: '../src/controllers/payment.php',
                 method: 'POST',
@@ -967,7 +1169,7 @@ $remainingAmount = $totalAmount - $depositAmount;
             });
         }
         
-        // Auto-polling để tự động kiểm tra payment status sau khi user chuyển khoản
+        // Tự động polling để kiểm tra trạng thái thanh toán sau khi người dùng chuyển khoản
         let pollingInterval = null;
         let pollingAttempts = 0;
         const MAX_POLLING_ATTEMPTS = 60; // Tối đa 60 lần (5 phút nếu mỗi 5 giây)
@@ -1013,7 +1215,7 @@ $remainingAmount = $totalAmount - $depositAmount;
                     return;
                 }
                 
-                // Gọi API kiểm tra payment status
+                // Gọi API kiểm tra trạng thái thanh toán
                 $.ajax({
                     url: '../src/controllers/payment.php',
                     method: 'POST',
@@ -1047,7 +1249,7 @@ $remainingAmount = $totalAmount - $depositAmount;
             }, 5000); // Mỗi 5 giây
         }
         
-        // Dừng polling khi user rời trang
+        // Dừng polling khi người dùng rời trang
         $(window).on('beforeunload', function() {
             if (pollingInterval) {
                 clearInterval(pollingInterval);

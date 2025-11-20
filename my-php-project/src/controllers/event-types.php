@@ -9,7 +9,7 @@ header('Content-Type: application/json');
 $pdo = getDBConnection();
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
-// Public actions that don't require authentication
+// Các action công khai không yêu cầu xác thực
 $publicActions = ['get_public', 'get_all_public'];
 
 try {
@@ -20,7 +20,7 @@ try {
             break;
             
         case 'get_all':
-            // Check admin privileges for admin actions
+            // Kiểm tra quyền admin cho các action admin
             if (!checkAdminAccess()) {
                 echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
                 exit();

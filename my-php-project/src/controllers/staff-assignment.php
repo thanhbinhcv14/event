@@ -2,10 +2,10 @@
 require_once __DIR__ . '/../../config/database.php';
 require_once '../../src/auth/auth.php';
 
-// Start session
+// Bắt đầu session
 session_start();
 
-// Check if user is logged in and has role 2
+// Kiểm tra người dùng đã đăng nhập và có role 2 không
 if (!isLoggedIn()) {
     http_response_code(401);
     echo json_encode(['success' => false, 'error' => 'Chưa đăng nhập']);
@@ -66,7 +66,7 @@ try {
 
 function getAssignments($pdo) {
     try {
-        // Get all staff assignments with event and staff information
+        // Lấy tất cả phân công nhân viên với thông tin sự kiện và nhân viên
         $sql = "
             SELECT 
                 llv.ID_LLV,
@@ -119,7 +119,7 @@ function getAssignments($pdo) {
 
 function getEvents($pdo) {
     try {
-        // Get all approved events that can be assigned
+        // Lấy tất cả sự kiện đã được duyệt có thể phân công
         $sql = "
             SELECT 
                 dl.ID_DatLich,
@@ -159,7 +159,7 @@ function getEvents($pdo) {
 
 function getStaff($pdo) {
     try {
-        // Get all active staff members
+        // Lấy tất cả nhân viên đang hoạt động
         $sql = "
             SELECT 
                 nv.ID_NhanVien,
@@ -210,7 +210,7 @@ function createAssignment($pdo) {
             return;
         }
         
-        // Check if event exists and is approved
+        // Kiểm tra sự kiện có tồn tại và đã được duyệt không
         $checkEventSql = "SELECT ID_DatLich FROM datlichsukien WHERE ID_DatLich = ? AND TrangThaiDuyet = 'Đã duyệt'";
         $checkEventStmt = $pdo->prepare($checkEventSql);
         $checkEventStmt->execute([$eventId]);
@@ -223,7 +223,7 @@ function createAssignment($pdo) {
             return;
         }
         
-        // Check if staff exists and is active
+        // Kiểm tra nhân viên có tồn tại và đang hoạt động không
         $checkStaffSql = "SELECT ID_NhanVien FROM nhanvieninfo WHERE ID_NhanVien = ? AND TrangThai = 'Hoạt động'";
         $checkStaffStmt = $pdo->prepare($checkStaffSql);
         $checkStaffStmt->execute([$staffId]);
@@ -236,7 +236,7 @@ function createAssignment($pdo) {
             return;
         }
         
-        // Check if staff is already assigned to this event
+        // Kiểm tra nhân viên đã được phân công cho sự kiện này chưa
         $existingSql = "SELECT ID_LLV FROM lichlamviec WHERE ID_DatLich = ? AND ID_NhanVien = ?";
         $existingStmt = $pdo->prepare($existingSql);
         $existingStmt->execute([$eventId, $staffId]);
@@ -249,7 +249,7 @@ function createAssignment($pdo) {
             return;
         }
         
-        // Create new assignment
+        // Tạo phân công mới
         $insertSql = "
             INSERT INTO lichlamviec (ID_DatLich, ID_NhanVien, NgayBatDau, NgayKetThuc, NhiemVu, GhiChu, TrangThai, NgayTao)
             VALUES (?, ?, ?, ?, ?, ?, 'Đã phân công', NOW())

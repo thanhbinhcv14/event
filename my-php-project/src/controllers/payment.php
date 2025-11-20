@@ -7,8 +7,13 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/sepay.php';
-require_once __DIR__ . '/../../vendor/sepay/autoload.php';
+require_once __DIR__ . '/../../vendor/autoload.php'; // Composer autoload (bao gồm SePay SDK) - đã có comment tiếng Việt
 require_once __DIR__ . '/../auth/csrf.php';
+
+// ✅ Sử dụng SePay PHP SDK chính thức từ sepay/sepay-pg
+use SePay\SePayClient;
+use SePay\Builders\CheckoutBuilder;
+use SePay\Exceptions\SePayException;
 
 header('Content-Type: application/json');
 
@@ -21,10 +26,10 @@ if (!isset($_SESSION['user'])) {
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 // Các action không yêu cầu CSRF (chỉ đọc)
-$readOnlyActions = ['get_payment_history', 'check_payment_status', 'get_payment_config', 'get_payment_status', 'get_payment_list', 'get_payment_stats', 'get_sepay_form', 'verify_payment'];
+$readOnlyActions = ['get_payment_history', 'check_payment_status', 'get_payment_config', 'get_payment_status', 'get_payment_list', 'get_payment_stats', 'get_sepay_form', 'verify_payment', 'get_sepay_order_detail'];
 
 // Các action yêu cầu bảo vệ CSRF (thay đổi dữ liệu)
-$modifyActions = ['create_payment', 'update_payment_status', 'generate_qr', 'create_sepay_payment', 'confirm_cash_payment', 'confirm_banking_payment', 'cancel_payment'];
+$modifyActions = ['create_payment', 'update_payment_status', 'generate_qr', 'create_sepay_payment', 'confirm_cash_payment', 'confirm_banking_payment', 'cancel_payment', 'delete_and_recreate_payment'];
 
 // Xác minh CSRF cho các action thay đổi dữ liệu
 if (in_array($action, $modifyActions)) {
@@ -106,6 +111,18 @@ try {
             
         case 'get_invoice':
             getInvoice();
+            break;
+            
+        case 'get_sepay_order_detail':
+            getSePayOrderDetail();
+            break;
+            
+        case 'delete_and_recreate_payment':
+            deleteAndRecreatePayment();
+            break;
+            
+        case 'auto_cancel_expired_payments':
+            autoCancelExpiredPendingPayments();
             break;
             
         default:
@@ -497,28 +514,170 @@ function generateQRData($paymentMethod, $amount, $eventId, $transactionCode) {
 }
 
 /**
+ * ✅ Tạo SePay Checkout URL sử dụng SePay PHP SDK chính thức
+ * Tài liệu: https://developer.sepay.vn/vi/cong-thanh-toan/sdk/php
+ * SDK: sepay/sepay-pg
+ */
+function createSePayCheckoutURL($amount, $orderDescription, $orderInvoice, $customerName = null, $customerEmail = null, $customerPhone = null) {
+    try {
+        $partnerCode = defined('SEPAY_PARTNER_CODE') ? SEPAY_PARTNER_CODE : '';
+        $secretKey = defined('SEPAY_SECRET_KEY') ? SEPAY_SECRET_KEY : '';
+        $environment = defined('SEPAY_ENVIRONMENT') && SEPAY_ENVIRONMENT === 'sandbox' 
+            ? SePayClient::ENVIRONMENT_SANDBOX 
+            : SePayClient::ENVIRONMENT_PRODUCTION;
+        $callbackUrl = defined('SEPAY_CALLBACK_URL') ? SEPAY_CALLBACK_URL : '';
+        
+        // ✅ Khởi tạo SePay Client với SDK chính thức
+        $sepay = new SePayClient(
+            $partnerCode, // SP-LIVE-BT953B7A
+            $secretKey,   // spsk_live_...
+            $environment, // ENVIRONMENT_PRODUCTION hoặc ENVIRONMENT_SANDBOX
+            [
+                'timeout' => 60,
+                'retry_attempts' => 3,
+                'retry_delay' => 2000,
+                'debug' => false
+            ]
+        );
+        
+        // ✅ Sử dụng CheckoutBuilder để tạo checkout data
+        $checkoutBuilder = CheckoutBuilder::make()
+            ->currency('VND')
+            ->orderAmount(intval($amount)) // SDK yêu cầu int, không phải float
+            ->operation('PURCHASE')
+            ->orderDescription($orderDescription)
+            ->orderInvoiceNumber($orderInvoice); // Định dạng: INV-{timestamp}-{paymentId}
+        
+        // Thêm thông tin khách hàng nếu có (SDK không có customerName/Email/Phone, chỉ có customerId)
+        // Có thể thêm vào order_description hoặc dùng customerId
+        if ($customerName) {
+            // SDK không có customerName, có thể thêm vào description hoặc dùng customerId
+            // $checkoutBuilder->customerId($customerName); // Nếu muốn dùng customerId
+        }
+        
+        // Thêm callback URLs
+        if ($callbackUrl) {
+            $baseUrl = str_replace('/hooks/sepay-payment.php', '', $callbackUrl);
+            $checkoutBuilder->successUrl($baseUrl . '/payment/success.php');
+            $checkoutBuilder->errorUrl($baseUrl . '/payment/error.php');
+            $checkoutBuilder->cancelUrl($baseUrl . '/payment/failure.php');
+        }
+        
+        // Xây dựng checkout data
+        $checkoutData = $checkoutBuilder->build();
+        
+        // ✅ Generate form fields với signature (SDK tự động tạo signature)
+        $formFields = $sepay->checkout()->generateFormFields($checkoutData);
+        
+        // ✅ Lấy checkout URL từ SDK (POST endpoint)
+        $checkoutUrl = $sepay->checkout()->getCheckoutUrl($environment);
+        
+        // ✅ Tạo HTML form để submit (POST method, không phải GET redirect)
+        // SDK yêu cầu POST form, không phải GET query string
+        $formHtml = $sepay->checkout()->generateFormHtml(
+            $checkoutData,
+            $environment,
+            [
+                'id' => 'sepay-checkout-form',
+                'style' => 'display: none;' // Ẩn form, sẽ auto-submit bằng JS
+            ]
+        );
+        
+        // Log chi tiết để debug
+        error_log("SePay Checkout URL created using official SDK for merchant: {$partnerCode}");
+        error_log("SePay Checkout URL (POST): " . $checkoutUrl);
+        error_log("SePay Form Fields: " . json_encode($formFields, JSON_UNESCAPED_UNICODE));
+        
+        return [
+            'checkout_url' => $checkoutUrl, // URL để POST form
+            'checkout_data' => $checkoutData,
+            'form_fields' => $formFields,
+            'form_html' => $formHtml // HTML form để render và auto-submit
+        ];
+    } catch (SePayException $e) {
+        error_log("SePay Checkout URL SePayException: " . $e->getMessage());
+        error_log("SePay Checkout URL Exception Code: " . $e->getCode());
+        return null;
+    } catch (Exception $e) {
+        error_log("SePay Checkout URL Exception: " . $e->getMessage());
+        error_log("SePay Checkout URL Exception Trace: " . $e->getTraceAsString());
+        return null;
+    }
+}
+
+/**
  * Tạo hàm gọi SePay API để tạo QR code
  */
 function createSePayQRCode($amount, $content, $accountNumber = null) {
     try {
-        $baseUrl = SEPAY_BASE_URL;
         $apiToken = SEPAY_API_TOKEN;
         
-        // Gọi SePay API để tạo QR code
-        // API endpoint: /v1/qr/create hoặc /createqr
-        $url = $baseUrl . '/createqr';
+        // ✅ QUAN TRỌNG: SePay API endpoint để tạo QR code
+        // URL: https://my.sepay.vn/createqr
+        $url = 'https://my.sepay.vn/createqr';
         
-        $data = [
-            'amount' => $amount,
+        // ✅ Định dạng request theo SePay API
+        // SePay có thể yêu cầu các thông tin:
+        // - amount: Số tiền
+        // - content/description: Nội dung chuyển khoản (phải khớp với pattern đã cấu hình)
+        // - accountNumber: Số tài khoản (có thể không cần nếu đã cấu hình trong SePay)
+        // - callbackUrl: URL webhook (có thể không cần nếu đã cấu hình trong Dashboard)
+        
+        // ✅ Thử nhiều định dạng request khác nhau vì SePay API có thể yêu cầu định dạng khác
+        // Định dạng 1: Với partner_code và secret_key (nếu cần)
+        $partnerCode = defined('SEPAY_PARTNER_CODE') ? SEPAY_PARTNER_CODE : '';
+        $secretKey = defined('SEPAY_SECRET_KEY') ? SEPAY_SECRET_KEY : '';
+        
+        // Thử các định dạng request khác nhau
+        $requestFormats = [
+            // Định dạng 1: Đơn giản với amount và content
+            [
+                'amount' => floatval($amount),
             'content' => $content,
-            'accountNumber' => $accountNumber
+                'description' => $content,
+            ],
+            // Định dạng 2: Với accountNumber
+            [
+                'amount' => floatval($amount),
+                'content' => $content,
+                'description' => $content,
+                'accountNumber' => $accountNumber,
+            ],
+            // Định dạng 3: Với partner_code và secret_key
+            [
+                'partner_code' => $partnerCode,
+                'secret_key' => $secretKey,
+                'amount' => floatval($amount),
+                'content' => $content,
+                'description' => $content,
+            ],
+            // Định dạng 4: Với tất cả thông tin
+            [
+                'partner_code' => $partnerCode,
+                'amount' => floatval($amount),
+                'content' => $content,
+                'description' => $content,
+                'accountNumber' => $accountNumber,
+                'callbackUrl' => defined('SEPAY_CALLBACK_URL') ? SEPAY_CALLBACK_URL : '',
+            ],
         ];
+        
+        // Thử từng định dạng cho đến khi thành công
+        foreach ($requestFormats as $index => $data) {
+            // Bỏ qua định dạng không có accountNumber nếu accountNumber là bắt buộc
+            if ($index > 0 && !$accountNumber) {
+                continue;
+            }
         
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // ✅ Theo dõi redirects
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 5); // Tối đa 5 redirects
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             'Accept: application/json',
@@ -528,22 +687,116 @@ function createSePayQRCode($amount, $content, $accountNumber = null) {
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
+        $finalUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+        $redirectUrl = curl_getinfo($ch, CURLINFO_REDIRECT_URL);
         curl_close($ch);
+            
+            // Ghi log chi tiết để debug
+            error_log("SePay QR API Request Format " . ($index + 1) . ": " . json_encode($data));
+            error_log("SePay QR API Response Code: " . $httpCode);
+            if ($finalUrl !== $url) {
+                error_log("SePay QR API: Redirected from {$url} to {$finalUrl}");
+            }
+            if ($redirectUrl) {
+                error_log("SePay QR API: Redirect URL: {$redirectUrl}");
+            }
+            error_log("SePay QR API Response: " . substr($response, 0, 500));
         
         if ($curlError) {
-            error_log("SePay QR API Error: " . $curlError);
-            return null;
+                error_log("SePay QR API cURL Error (Format " . ($index + 1) . "): " . $curlError);
+                continue; // Thử định dạng tiếp theo
+            }
+            
+            // ✅ Xử lý redirect (302/301) - SePay redirect đến trang login
+            if ($httpCode === 302 || $httpCode === 301) {
+                error_log("SePay QR API: Redirect (HTTP {$httpCode})");
+                if ($finalUrl && (strpos($finalUrl, '/login') !== false || strpos($finalUrl, 'login') !== false)) {
+                    // ✅ SePay redirect đến trang login = API không công khai, cần đăng nhập
+                    error_log("SePay QR API: Redirected to login page - API endpoint is not public. SePay may not have public QR creation API.");
+                    // Dừng ngay, không thử định dạng tiếp theo
+                    break;
+                }
+                if ($redirectUrl) {
+                    // Nếu redirect đến URL có chứa QR code, có thể là thành công
+                    if (strpos($redirectUrl, 'qr') !== false || strpos($redirectUrl, 'qr.sepay.vn') !== false) {
+                        error_log("SePay QR API: Redirect URL may contain QR code: {$redirectUrl}");
+                        return [
+                            'qr_code' => $redirectUrl,
+                            'id' => null,
+                            'raw_response' => ['redirect_url' => $redirectUrl, 'http_code' => $httpCode]
+                        ];
+                    }
+                }
+                // Tiếp tục thử định dạng tiếp theo
+                continue;
+            }
+            
+            // ✅ Kiểm tra nếu response là HTML (trang login)
+            if ($httpCode === 200 && (strpos($response, '<html') !== false || strpos($response, 'login') !== false || strpos($response, 'Đăng nhập') !== false)) {
+                error_log("SePay QR API: Response is HTML login page - API endpoint is not public.");
+                // Dừng ngay, không thử định dạng tiếp theo
+                break;
+            }
+            
+            if ($httpCode === 200 || $httpCode === 201) {
+                $result = json_decode($response, true);
+                
+                if ($result) {
+                    // SePay có thể trả về định dạng khác nhau, kiểm tra các trường có thể có
+                    $qrCodeUrl = $result['qr_code'] ?? $result['qrCode'] ?? $result['qr_url'] ?? 
+                                (isset($result['data']) ? ($result['data']['qr_code'] ?? $result['data']['qrCode'] ?? null) : null) ??
+                                (isset($result['qr']) ? $result['qr'] : null);
+                    $qrId = $result['id'] ?? $result['qr_id'] ?? 
+                           (isset($result['data']) ? ($result['data']['id'] ?? $result['data']['qr_id'] ?? null) : null) ??
+                           (isset($result['qrId']) ? $result['qrId'] : null);
+                    
+                    // ✅ Kiểm tra nhiều trường có thể có trong response
+                    // SePay có thể trả về QR code URL hoặc QR ID
+                    if ($qrCodeUrl || $qrId) {
+                        error_log("SePay QR API Success (Format " . ($index + 1) . "): QR created - ID: " . ($qrId ?? 'N/A') . ", URL: " . ($qrCodeUrl ?? 'N/A'));
+                        
+                        // Nếu có QR ID nhưng chưa có URL, có thể cần tạo URL từ ID
+                        if ($qrId && !$qrCodeUrl) {
+                            // Thử tạo URL từ QR ID (nếu SePay có pattern URL)
+                            // Ví dụ: https://qr.sepay.vn/{qrId} hoặc https://my.sepay.vn/qr/{qrId}
+                            $possibleUrls = [
+                                "https://qr.sepay.vn/{$qrId}",
+                                "https://my.sepay.vn/qr/{$qrId}",
+                                "https://qr.sepay.vn/img?id={$qrId}",
+                            ];
+                            // Không tự tạo URL, để SePay trả về
+                            error_log("SePay QR API: Has QR ID but no URL. QR ID: {$qrId}");
+                        }
+                        
+                        return [
+                            'qr_code' => $qrCodeUrl,
+                            'id' => $qrId,
+                            'raw_response' => $result
+                        ];
+                    } else {
+                        // Nếu response không có qr_code nhưng có data, có thể là định dạng khác
+                        error_log("SePay QR API: Response received but no qr_code field (Format " . ($index + 1) . "). Full response: " . json_encode($result));
+                        // Tiếp tục thử định dạng tiếp theo
+                    }
+                } else {
+                    error_log("SePay QR API: Invalid JSON response (Format " . ($index + 1) . "): " . $response);
+                }
+            } else {
+                error_log("SePay QR API HTTP Error (Format " . ($index + 1) . "): " . $httpCode . " - " . substr($response, 0, 500));
+            }
         }
         
-        if ($httpCode === 200) {
-            $result = json_decode($response, true);
-            return $result;
-        } else {
-            error_log("SePay QR API HTTP Error: " . $httpCode . " - " . $response);
-            return null;
-        }
+        // ✅ Nếu tất cả định dạng đều thất bại hoặc redirect đến login
+        // SePay không có API tạo QR code công khai
+        error_log("SePay QR API: All request formats failed or redirected to login. SePay may not have public QR creation API.");
+        error_log("SePay QR API: Will use VietQR fallback. Webhook will still work based on transfer content.");
+        
+        // ✅ Không thử endpoint khác vì SePay không có API công khai
+        // Trả về null để sử dụng VietQR fallback
+        return null;
     } catch (Exception $e) {
         error_log("SePay QR API Exception: " . $e->getMessage());
+        error_log("SePay QR API Exception Trace: " . $e->getTraceAsString());
         return null;
     }
 }
@@ -725,7 +978,7 @@ function createSePayPayment() {
         $bankName = $bankConfigArray['bank_name'] ?? 'VietinBank';
         
         // Tạo nội dung chuyển khoản đúng với pattern SePay: SEPAY + số (3-10 ký tự)
-        // Format: SEPAY + eventId + ID_ThanhToan (chỉ số, tổng 3-10 ký tự sau "SEPAY")
+        // Định dạng: SEPAY + eventId + ID_ThanhToan (chỉ số, tổng 3-10 ký tự sau "SEPAY")
         // Ví dụ: SEPAY20123 (eventId=20, ID_ThanhToan=123) → SEPAY + 20123 (5 số)
         // Cấu hình SePay: Prefix "SEPAY" + Suffix số (3-10 ký tự)
         
@@ -761,22 +1014,50 @@ function createSePayPayment() {
             error_log("Warning: Could not update GhiChu with transferContent: " . $e->getMessage());
         }
         
-        // Log để debug
+        // Ghi log để debug
         error_log("SePay Transfer Content: {$transferContent} (eventId: {$eventId}, ID_ThanhToan: {$insertedId}, suffix length: " . strlen($suffix) . ")");
         
-        // Gọi SePay API để tạo QR code
+        // ✅ TẠO SEPAY CHECKOUT URL (Chuyển hướng đến trang thanh toán SePay)
+        $orderDescription = "Thanh toán {$paymentTypeDB} - " . $event['TenSuKien'];
+        $orderInvoice = 'INV-' . time() . '-' . $insertedId;
+        
+        // Lưu order_invoice vào database để webhook có thể khớp
+        try {
+            $stmt = $pdo->prepare("UPDATE thanhtoan SET GhiChu = CONCAT(IFNULL(GhiChu, ''), ' | OrderInvoice: ', ?) WHERE ID_ThanhToan = ?");
+            $stmt->execute([$orderInvoice, $insertedId]);
+        } catch (Exception $e) {
+            error_log("Warning: Could not update GhiChu with orderInvoice: " . $e->getMessage());
+        }
+        
+        $checkoutResult = createSePayCheckoutURL(
+            $amount,
+            $orderDescription,
+            $orderInvoice,
+            $event['HoTen'],
+            $event['UserEmail'] ?? null,
+            $event['SoDienThoai'] ?? null
+        );
+        
+        // ✅ QUAN TRỌNG: Gọi SePay API để tạo QR code từ https://my.sepay.vn/createqr (fallback)
+        // SePay sẽ tạo QR code và theo dõi giao dịch, đảm bảo webhook được gửi đúng
+        error_log("SePay: Creating QR code with content: {$transferContent}, amount: {$amount}");
         $sepayQRResult = createSePayQRCode($amount, $transferContent, $accountNumber);
         
         // Nếu API SePay thành công, sử dụng QR từ SePay
-        if ($sepayQRResult && isset($sepayQRResult['qr_code'])) {
-            $qrCodeUrl = $sepayQRResult['qr_code'];
-            $sepayQRId = $sepayQRResult['id'] ?? null;
+        if ($sepayQRResult) {
+            // Kiểm tra các định dạng response có thể có
+            $qrCodeUrl = $sepayQRResult['qr_code'] ?? $sepayQRResult['qrCode'] ?? $sepayQRResult['qr_url'] ?? 
+                        (isset($sepayQRResult['data']) ? ($sepayQRResult['data']['qr_code'] ?? $sepayQRResult['data']['qrCode'] ?? null) : null);
+            $sepayQRId = $sepayQRResult['id'] ?? $sepayQRResult['qr_id'] ?? 
+                        (isset($sepayQRResult['data']) ? ($sepayQRResult['data']['id'] ?? $sepayQRResult['data']['qr_id'] ?? null) : null);
             
-            // Lưu ID QR SePay vào database nếu có (lưu vào GhiChu nếu cột SePayQRId không tồn tại)
+            if ($qrCodeUrl) {
+                // Lưu ID QR SePay vào database nếu có
             if ($sepayQRId) {
                 try {
                     $stmt = $pdo->prepare("UPDATE thanhtoan SET SePayQRId = ? WHERE ID_ThanhToan = ?");
                     $stmt->execute([$sepayQRId, $insertedId]);
+                        error_log("SePay QR ID saved: {$sepayQRId} for payment ID: {$insertedId}");
                 } catch (Exception $e) {
                     // Nếu cột SePayQRId không tồn tại, lưu vào GhiChu
                     error_log("SePayQRId column not found, saving to GhiChu: " . $e->getMessage());
@@ -784,16 +1065,36 @@ function createSePayPayment() {
                     $stmt->execute([$sepayQRId, $insertedId]);
                 }
             }
+                
+                // Lưu transferContent vào GhiChu để webhook có thể tìm thấy
+                try {
+                    $stmt = $pdo->prepare("UPDATE thanhtoan SET GhiChu = CONCAT(IFNULL(GhiChu, ''), ' | TransferContent: ', ?) WHERE ID_ThanhToan = ?");
+                    $stmt->execute([$transferContent, $insertedId]);
+                } catch (Exception $e) {
+                    error_log("Warning: Could not update GhiChu with transferContent: " . $e->getMessage());
+                }
+                
+                error_log("SePay QR Code created successfully: {$qrCodeUrl}");
         } else {
-            // Dự phòng: Tạo mã QR cục bộ bằng VietQR
+                // Nếu response có nhưng không có qr_code, ghi log để debug
+                error_log("SePay QR API: Response received but no qr_code URL. Response: " . json_encode($sepayQRResult));
+            }
+        }
+        
+        // ✅ Dự phòng: Tạo mã QR cục bộ bằng VietQR nếu SePay API thất bại
+        // Lưu ý: Nếu dùng VietQR, SePay vẫn có thể gửi webhook dựa trên amount và thời gian
+        if (empty($qrCodeUrl)) {
             $qrCodeUrl = 'https://img.vietqr.io/image/' . $bankCode . '-' . $accountNumber . '-compact2.png?amount=' . $amount . '&addInfo=' . urlencode($transferContent);
+            error_log("SePay QR API failed, using VietQR fallback. Content: {$transferContent}");
+            error_log("Note: SePay webhook may still work based on amount and time matching");
         }
         
         // Tạo chuỗi QR dự phòng với thông tin ngân hàng
         $fallbackQrData = "Bank: {$bankName}\nAccount: {$accountNumber}\nAmount: {$amount}\nContent: {$transferContent}";
         $fallbackQrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($fallbackQrData);
         
-        echo json_encode([
+        // ✅ Trả về cả checkout URL và QR code (người dùng có thể chọn)
+        $response = [
             'success' => true,
             'payment_id' => $insertedId,
             'payment_code' => $paymentId,
@@ -820,7 +1121,29 @@ function createSePayPayment() {
             'sepay_qr_id' => $sepayQRResult['id'] ?? null,
             'auto_updated' => false,
             'waiting_payment' => true
-        ]);
+        ];
+        
+        // ✅ Thêm SePay Checkout URL nếu có (Ưu tiên chuyển hướng đến SePay Checkout Gateway)
+        if ($checkoutResult && isset($checkoutResult['checkout_url'])) {
+            $response['sepay_checkout_url'] = $checkoutResult['checkout_url'];
+            $response['checkout_invoice'] = $orderInvoice;
+            $response['checkout_merchant'] = SEPAY_PARTNER_CODE; // SP-LIVE-BT953B7A
+            
+            // ✅ Thêm form HTML và form fields để submit POST form
+            if (isset($checkoutResult['form_html'])) {
+                $response['form_html'] = $checkoutResult['form_html'];
+            }
+            if (isset($checkoutResult['form_fields'])) {
+                $response['form_fields'] = $checkoutResult['form_fields'];
+            }
+            
+            $response['message'] = 'Đang chuyển hướng đến trang thanh toán SePay...';
+            error_log("SePay Checkout URL ready for POST form submission: " . substr($checkoutResult['checkout_url'], 0, 150) . "...");
+        } else {
+            error_log("SePay Checkout URL creation failed, using QR code fallback");
+        }
+        
+        echo json_encode($response);
         
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
@@ -1556,6 +1879,193 @@ function confirmBankingPayment() {
     }
 }
 
+/**
+ * ✅ Truy vấn chi tiết đơn hàng từ SePay API sử dụng SDK
+ * API: $sepay->orders()->retrieve('ORDER_INVOICE_NUMBER')
+ * Tài liệu: https://developer.sepay.vn/vi/cong-thanh-toan/sdk/php
+ */
+function getSePayOrderDetail() {
+    $orderId = $_POST['order_id'] ?? $_GET['order_id'] ?? '';
+    
+    if (!$orderId) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu order_id']);
+        return;
+    }
+    
+    try {
+        $partnerCode = defined('SEPAY_PARTNER_CODE') ? SEPAY_PARTNER_CODE : '';
+        $secretKey = defined('SEPAY_SECRET_KEY') ? SEPAY_SECRET_KEY : '';
+        $environment = defined('SEPAY_ENVIRONMENT') && SEPAY_ENVIRONMENT === 'sandbox' 
+            ? SePayClient::ENVIRONMENT_SANDBOX 
+            : SePayClient::ENVIRONMENT_PRODUCTION;
+        
+        // ✅ Khởi tạo SePay Client với SDK
+        $sepay = new SePayClient(
+            $partnerCode,
+            $secretKey,
+            $environment
+        );
+        
+        // ✅ Sử dụng SDK để truy vấn đơn hàng
+        $order = $sepay->orders()->retrieve($orderId);
+        
+        echo json_encode([
+            'success' => true,
+            'data' => $order,
+            'order_status' => $order['order_status'] ?? null,
+            'order_amount' => $order['order_amount'] ?? null,
+            'transactions' => $order['transactions'] ?? []
+        ]);
+        
+    } catch (\SePay\Exceptions\NotFoundException $e) {
+        echo json_encode(['success' => false, 'error' => 'Không tìm thấy đơn hàng: ' . $e->getMessage()]);
+    } catch (\SePay\Exceptions\AuthenticationException $e) {
+        echo json_encode(['success' => false, 'error' => 'Lỗi xác thực: ' . $e->getMessage()]);
+    } catch (\SePay\Exceptions\ValidationException $e) {
+        echo json_encode(['success' => false, 'error' => 'Lỗi validation: ' . $e->getMessage()]);
+    } catch (SePayException $e) {
+        echo json_encode(['success' => false, 'error' => 'SePay Exception: ' . $e->getMessage()]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => 'Exception: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * ✅ Xóa thanh toán cũ và tạo lại thanh toán mới
+ */
+function deleteAndRecreatePayment() {
+    global $pdo;
+    
+    $paymentId = $_POST['payment_id'] ?? null;
+    $eventId = $_POST['event_id'] ?? null;
+    
+    if (!$paymentId && !$eventId) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu payment_id hoặc event_id']);
+        return;
+    }
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Tìm thanh toán cũ
+        if ($paymentId) {
+            $stmt = $pdo->prepare("
+                SELECT t.*, dl.TenSuKien, k.HoTen, k.SoDienThoai, k.DiaChi, k.ID_KhachHang, u.Email as UserEmail
+                FROM thanhtoan t
+                INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+                INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
+                LEFT JOIN users u ON k.ID_User = u.ID_User
+                WHERE t.ID_ThanhToan = ?
+            ");
+            $stmt->execute([$paymentId]);
+            $oldPayment = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$oldPayment) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'error' => 'Không tìm thấy thanh toán']);
+                return;
+            }
+            
+            $eventId = $oldPayment['ID_DatLich'];
+        } else {
+            // Lấy thông tin sự kiện
+            $stmt = $pdo->prepare("
+                SELECT dl.*, k.HoTen, k.SoDienThoai, k.DiaChi, k.ID_KhachHang, u.Email as UserEmail
+                FROM datlichsukien dl
+                INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
+                LEFT JOIN users u ON k.ID_User = u.ID_User
+                WHERE dl.ID_DatLich = ?
+            ");
+            $stmt->execute([$eventId]);
+            $event = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$event) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'error' => 'Không tìm thấy sự kiện']);
+                return;
+            }
+            
+            // Tìm thanh toán đang chờ xử lý
+            $stmt = $pdo->prepare("
+                SELECT * FROM thanhtoan 
+                WHERE ID_DatLich = ? AND TrangThai = 'Đang xử lý'
+                ORDER BY ID_ThanhToan DESC
+                LIMIT 1
+            ");
+            $stmt->execute([$eventId]);
+            $oldPayment = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+        
+        // Chỉ xóa nếu thanh toán đang chờ xử lý hoặc đã hủy
+        if ($oldPayment && in_array($oldPayment['TrangThai'], ['Đang xử lý', 'Hủy'])) {
+            // Xóa thanh toán cũ
+            $stmt = $pdo->prepare("DELETE FROM thanhtoan WHERE ID_ThanhToan = ?");
+            $stmt->execute([$oldPayment['ID_ThanhToan']]);
+            
+            // Xóa lịch sử thanh toán
+            try {
+                $stmt = $pdo->prepare("DELETE FROM payment_history WHERE payment_id = ?");
+                $stmt->execute([$oldPayment['ID_ThanhToan']]);
+            } catch (Exception $e) {
+                error_log("Warning: Could not delete payment_history: " . $e->getMessage());
+            }
+            
+            // Xóa hóa đơn nếu có
+            try {
+                $stmt = $pdo->prepare("DELETE FROM hoadon WHERE ID_ThanhToan = ?");
+                $stmt->execute([$oldPayment['ID_ThanhToan']]);
+            } catch (Exception $e) {
+                error_log("Warning: Could not delete hoadon: " . $e->getMessage());
+            }
+            
+            error_log("Deleted old payment ID: {$oldPayment['ID_ThanhToan']}");
+        }
+        
+        // Lấy thông tin sự kiện để tạo lại
+        if (!isset($event)) {
+            $stmt = $pdo->prepare("
+                SELECT dl.*, k.HoTen, k.SoDienThoai, k.DiaChi, k.ID_KhachHang, u.Email as UserEmail
+                FROM datlichsukien dl
+                INNER JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
+                LEFT JOIN users u ON k.ID_User = u.ID_User
+                WHERE dl.ID_DatLich = ?
+            ");
+            $stmt->execute([$eventId]);
+            $event = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+        
+        // Tính toán lại số tiền
+        $amount = $oldPayment ? $oldPayment['SoTien'] : ($_POST['amount'] ?? null);
+        $paymentType = $oldPayment ? $oldPayment['LoaiThanhToan'] : ($_POST['payment_type'] ?? 'deposit');
+        
+        if (!$amount) {
+            $pdo->rollBack();
+            echo json_encode(['success' => false, 'error' => 'Thiếu số tiền']);
+            return;
+        }
+        
+        // Tạo lại thanh toán mới (gọi lại createSePayPayment logic)
+        // Lưu các biến POST cần thiết
+        $_POST['event_id'] = $eventId;
+        $_POST['amount'] = $amount;
+        $_POST['payment_type'] = $paymentType === 'Đặt cọc' ? 'deposit' : 'full';
+        $_POST['invoice_data'] = json_encode([
+            'name' => $event['HoTen'],
+            'phone' => $event['SoDienThoai'],
+            'address' => $event['DiaChi']
+        ]);
+        
+        $pdo->commit();
+        
+        // Gọi lại createSePayPayment
+        createSePayPayment();
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        echo json_encode(['success' => false, 'error' => 'Lỗi xóa và tạo lại thanh toán: ' . $e->getMessage()]);
+    }
+}
+
 function cancelPayment() {
     global $pdo;
     
@@ -1656,6 +2166,123 @@ function cancelPayment() {
     } catch (Exception $e) {
         $pdo->rollBack();
         echo json_encode(['success' => false, 'error' => 'Lỗi hủy thanh toán: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * ✅ Tự động hủy các thanh toán "Đang xử lý" đã quá thời gian (mặc định: 15 phút)
+ * Nếu người dùng tạo thanh toán nhưng không chuyển khoản và thoát trang,
+ * thanh toán sẽ tự động bị hủy sau một khoảng thời gian và sự kiện quay lại trạng thái "Chưa thanh toán"
+ * 
+ * @param int $expirationMinutes Thời gian hết hạn tính bằng phút (mặc định: 15 phút)
+ * @return array Kết quả xử lý
+ */
+function autoCancelExpiredPendingPayments($expirationMinutes = 15) {
+    global $pdo;
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Tính thời gian hết hạn (mặc định: 15 phút trước)
+        $expirationTime = date('Y-m-d H:i:s', strtotime("-{$expirationMinutes} minutes"));
+        
+        // Tìm các thanh toán "Đang xử lý" đã tạo hơn X phút trước
+        $stmt = $pdo->prepare("
+            SELECT t.ID_ThanhToan, t.ID_DatLich, t.LoaiThanhToan, t.NgayTao, dl.TrangThaiThanhToan
+            FROM thanhtoan t
+            INNER JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+            WHERE t.TrangThai = 'Đang xử lý'
+            AND t.NgayTao < ?
+            AND t.PhuongThuc = 'Chuyển khoản' -- Chỉ hủy thanh toán chuyển khoản, không hủy tiền mặt
+        ");
+        $stmt->execute([$expirationTime]);
+        $expiredPayments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $cancelledCount = 0;
+        $eventsToReset = [];
+        
+        foreach ($expiredPayments as $payment) {
+            // Hủy thanh toán
+            $stmt = $pdo->prepare("
+                UPDATE thanhtoan 
+                SET TrangThai = 'Hủy', 
+                    GhiChu = CONCAT(IFNULL(GhiChu, ''), ' - Tự động hủy: Quá thời gian chờ thanh toán (', NOW(), ')')
+                WHERE ID_ThanhToan = ?
+            ");
+            $stmt->execute([$payment['ID_ThanhToan']]);
+            
+            // Thêm lịch sử thanh toán
+            try {
+                $stmt = $pdo->prepare("
+                    INSERT INTO payment_history (payment_id, action, old_status, new_status, description) 
+                    VALUES (?, 'auto_cancel_expired', 'Đang xử lý', 'Hủy', ?)
+                ");
+                $description = "Tự động hủy: Quá thời gian chờ thanh toán ({$expirationMinutes} phút)";
+                $stmt->execute([$payment['ID_ThanhToan'], $description]);
+            } catch (PDOException $e) {
+                // Bảng payment_history có thể không tồn tại, bỏ qua
+                error_log("Warning: Could not insert payment history: " . $e->getMessage());
+            }
+            
+            $cancelledCount++;
+            
+            // Lưu danh sách sự kiện cần đặt lại trạng thái
+            if (!in_array($payment['ID_DatLich'], $eventsToReset)) {
+                $eventsToReset[] = $payment['ID_DatLich'];
+            }
+        }
+        
+        // Đặt lại trạng thái sự kiện về "Chưa thanh toán" nếu không còn thanh toán "Đang xử lý" nào khác
+        foreach ($eventsToReset as $eventId) {
+            // Kiểm tra xem còn thanh toán "Đang xử lý" nào khác không
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) as count 
+                FROM thanhtoan 
+                WHERE ID_DatLich = ? AND TrangThai = 'Đang xử lý'
+            ");
+            $stmt->execute([$eventId]);
+            $remainingPending = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+            
+            // Nếu không còn thanh toán "Đang xử lý" nào và sự kiện đang ở trạng thái "Đã đặt cọc" (do thanh toán đặt cọc)
+            // thì chỉ đặt lại nếu không có thanh toán thành công nào
+            if ($remainingPending == 0) {
+                // Kiểm tra xem có thanh toán thành công nào không
+                $stmt = $pdo->prepare("
+                    SELECT COUNT(*) as count 
+                    FROM thanhtoan 
+                    WHERE ID_DatLich = ? AND TrangThai = 'Thành công'
+                ");
+                $stmt->execute([$eventId]);
+                $successfulCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+                
+                // Chỉ đặt lại trạng thái nếu không có thanh toán thành công nào
+                if ($successfulCount == 0) {
+                    $stmt = $pdo->prepare("
+                        UPDATE datlichsukien 
+                        SET TrangThaiThanhToan = 'Chưa thanh toán' 
+                        WHERE ID_DatLich = ?
+                    ");
+                    $stmt->execute([$eventId]);
+                }
+            }
+        }
+        
+        $pdo->commit();
+        
+        error_log("Auto-cancelled {$cancelledCount} expired pending payments (older than {$expirationMinutes} minutes)");
+        
+        return [
+            'success' => true,
+            'cancelled_count' => $cancelledCount,
+            'events_reset' => count($eventsToReset)
+        ];
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Error auto-cancelling expired pending payments: " . $e->getMessage());
+        return [
+            'success' => false,
+            'error' => $e->getMessage()
+        ];
     }
 }
 ?>

@@ -1,12 +1,12 @@
 <?php
 require_once __DIR__ . '/../../config/database.php';
 
-// Start session if not already started
+// Bắt đầu session nếu chưa bắt đầu
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// Set content type to JSON
+// Đặt content type là JSON
 header('Content-Type: application/json');
 
 try {

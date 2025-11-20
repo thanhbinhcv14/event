@@ -1,15 +1,15 @@
 <?php
 require_once __DIR__ . '/../../config/database.php';
 
-// Start session if not already started
+// Bắt đầu session nếu chưa bắt đầu
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// Set content type to JSON
+// Đặt content type là JSON
 header('Content-Type: application/json');
 
-// Check if user is logged in
+// Kiểm tra người dùng đã đăng nhập chưa
 if (!isset($_SESSION['user'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Bạn cần đăng nhập để đánh giá']);
@@ -36,7 +36,7 @@ try {
             break;
             
         default:
-            // Handle form submission without action parameter
+            // Xử lý form submission không có action parameter
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 submitReview($pdo, $user);
             } else {
@@ -54,7 +54,7 @@ try {
 
 function submitReview($pdo, $user) {
     try {
-        // Debug logging
+        // Ghi log debug
         error_log("Review submission - User ID: " . $user['ID_User']);
         error_log("Review submission - POST data: " . print_r($_POST, true));
         
@@ -71,7 +71,7 @@ function submitReview($pdo, $user) {
             throw new Exception('Thiếu thông tin bắt buộc: eventId=' . $eventId . ', rating=' . $overallRating);
         }
         
-        // Validate event exists and belongs to user
+        // Kiểm tra sự kiện tồn tại và thuộc về người dùng
         $stmt = $pdo->prepare("
             SELECT dl.ID_DatLich, dl.ID_KhachHang, dl.TrangThaiThanhToan, s.TrangThaiThucTe as TrangThaiSuKien
             FROM datlichsukien dl
@@ -86,17 +86,17 @@ function submitReview($pdo, $user) {
             throw new Exception('Sự kiện không tồn tại hoặc không thuộc về bạn');
         }
         
-        // Check if event is completed
+        // Kiểm tra sự kiện đã hoàn thành chưa
         if ($event['TrangThaiSuKien'] !== 'Hoàn thành') {
             throw new Exception('Chỉ có thể đánh giá sự kiện đã hoàn thành');
         }
         
-        // Check if payment is completed
+        // Kiểm tra thanh toán đã hoàn thành chưa
         if ($event['TrangThaiThanhToan'] !== 'Đã thanh toán đủ') {
             throw new Exception('Chỉ có thể đánh giá sự kiện đã thanh toán thành công');
         }
         
-        // Check if review already exists
+        // Kiểm tra đánh giá đã tồn tại chưa
         $stmt = $pdo->prepare("
             SELECT dg.ID_DanhGia FROM danhgia dg
             LEFT JOIN datlichsukien dl ON dg.ID_SuKien = dl.ID_DatLich

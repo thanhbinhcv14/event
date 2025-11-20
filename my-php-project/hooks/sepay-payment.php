@@ -5,31 +5,109 @@
  * Dựa trên tài liệu SePay Laravel Package: https://github.com/sepayvn/laravel-sepay
  */
 
-// ✅ Chỉ log POST requests (webhook thật từ SePay), bỏ qua GET requests (từ browser)
+// ✅ Log TẤT CẢ requests để debug (bao gồm cả GET từ browser)
 $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
 $isTestMode = isset($_GET['test']) && $_GET['test'] === '1';
 
-// Chỉ log POST requests hoặc GET với ?test=1
-if ($requestMethod === 'POST' || ($requestMethod === 'GET' && $isTestMode)) {
-// Ghi log debug - Ghi log JSON input ngay từ đầu
+// Đọc input ngay từ đầu (trước khi có bất kỳ xử lý nào)
 $rawInput = file_get_contents('php://input');
 $data = json_decode($rawInput, true);
+
+// ✅ Log TẤT CẢ requests (POST từ SePay và GET test) để debug
+// Chỉ bỏ qua GET requests thông thường (không phải test mode) để tránh spam log
+if ($requestMethod === 'POST' || ($requestMethod === 'GET' && $isTestMode)) {
+    // Ghi log debug chi tiết - Ghi log JSON input ngay từ đầu
 $logEntry = "\n" . str_repeat("=", 80) . "\n";
 $logEntry .= "SePay Webhook Received: " . date('Y-m-d H:i:s') . "\n";
     $logEntry .= "Request Method: " . $requestMethod . "\n";
 $logEntry .= "Request URI: " . ($_SERVER['REQUEST_URI'] ?? 'UNKNOWN') . "\n";
+    $logEntry .= "HTTP Host: " . ($_SERVER['HTTP_HOST'] ?? 'UNKNOWN') . "\n";
 $logEntry .= "Content Type: " . ($_SERVER['CONTENT_TYPE'] ?? 'UNKNOWN') . "\n";
-$logEntry .= "Authorization Header: " . (isset($_SERVER['HTTP_AUTHORIZATION']) ? substr($_SERVER['HTTP_AUTHORIZATION'], 0, 30) . '...' : 'NOT SET') . "\n";
+    
+    // ✅ Kiểm tra Authorization header từ NHIỀU nguồn (quan trọng cho webhook)
+    $authHeader = '';
+    $authSource = 'NONE';
+    
+    // Ưu tiên 1: getallheaders() - hoạt động tốt nhất
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        if (isset($headers['Authorization'])) {
+            $authHeader = $headers['Authorization'];
+            $authSource = 'getallheaders()[Authorization]';
+        } elseif (isset($headers['authorization'])) {
+            $authHeader = $headers['authorization'];
+            $authSource = 'getallheaders()[authorization]';
+        }
+    }
+    
+    // Ưu tiên 2: apache_request_headers()
+    if (empty($authHeader) && function_exists('apache_request_headers')) {
+        $headers = apache_request_headers();
+        if (isset($headers['Authorization'])) {
+            $authHeader = $headers['Authorization'];
+            $authSource = 'apache_request_headers()[Authorization]';
+        } elseif (isset($headers['authorization'])) {
+            $authHeader = $headers['authorization'];
+            $authSource = 'apache_request_headers()[authorization]';
+        }
+    }
+    
+    // Ưu tiên 3: $_SERVER['HTTP_AUTHORIZATION']
+    if (empty($authHeader) && !empty($_SERVER['HTTP_AUTHORIZATION'])) {
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+        $authSource = '$_SERVER[HTTP_AUTHORIZATION]';
+    }
+    
+    // Ưu tiên 4: $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] (Apache mod_rewrite)
+    if (empty($authHeader) && !empty($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+        $authHeader = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+        $authSource = '$_SERVER[REDIRECT_HTTP_AUTHORIZATION]';
+    }
+    
+    // Ưu tiên 5: Tìm trong tất cả $_SERVER keys có chứa AUTHORIZATION
+    if (empty($authHeader)) {
+        foreach ($_SERVER as $key => $value) {
+            if (stripos($key, 'AUTHORIZATION') !== false && !empty($value)) {
+                $authHeader = $value;
+                $authSource = '$_SERVER[' . $key . ']';
+                break;
+            }
+        }
+    }
+    
+    // ✅ QUAN TRỌNG: Nếu vẫn không có, thử lấy từ $_SERVER['HTTP_AUTHORIZATION'] (có thể bị strip bởi Apache)
+    // Một số server Apache có thể strip Authorization header nếu không có .htaccess rule
+    if (empty($authHeader)) {
+        // Log tất cả headers để debug
+        $allHeaders = [];
+        if (function_exists('getallheaders')) {
+            $allHeaders = getallheaders();
+        }
+        $logEntry .= "All Headers: " . json_encode($allHeaders, JSON_PRETTY_PRINT) . "\n";
+        $logEntry .= "All _SERVER keys with 'AUTH': " . print_r(array_filter(array_keys($_SERVER), function($k) { return stripos($k, 'AUTH') !== false; }), true) . "\n";
+    }
+    
+    $logEntry .= "Authorization Header: " . (!empty($authHeader) ? substr($authHeader, 0, 50) . '...' : 'NOT SET') . "\n";
+    $logEntry .= "Authorization Source: " . $authSource . "\n";
 $logEntry .= "Raw Input Length: " . strlen($rawInput) . " bytes\n";
-$logEntry .= "Raw Input (first 500 chars): " . substr($rawInput, 0, 500) . "\n";
-$logEntry .= "Decoded JSON: " . print_r($data, true) . "\n";
+    $logEntry .= "Raw Input (first 1000 chars): " . substr($rawInput, 0, 1000) . "\n";
+    if ($data) {
+        $logEntry .= "Decoded JSON: " . json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
+    } else {
+        $logEntry .= "JSON Decode Error: " . json_last_error_msg() . "\n";
+    }
 $logEntry .= str_repeat("=", 80) . "\n";
-file_put_contents(__DIR__ . '/hook_log.txt', $logEntry, FILE_APPEND);
+    
+    // Ghi log vào file
+    @file_put_contents(__DIR__ . '/hook_log.txt', $logEntry, FILE_APPEND);
 error_log("SePay Webhook - Raw input logged to hook_log.txt");
+    
+    // ✅ QUAN TRỌNG: Log vào error_log để có thể xem trong server logs
+    error_log("SePay Webhook POST received - Content: " . substr($rawInput, 0, 200));
 } else {
-    // GET request không phải test mode - không log để tránh spam
-    $rawInput = '';
-    $data = null;
+    // GET request không phải test mode - vẫn log nhưng ngắn gọn
+    $logEntry = "\n[GET Request - " . date('Y-m-d H:i:s') . "] " . ($_SERVER['REQUEST_URI'] ?? 'UNKNOWN') . "\n";
+    @file_put_contents(__DIR__ . '/hook_log.txt', $logEntry, FILE_APPEND);
 }
 
 // Đặt content type là JSON trước (trước khi có bất kỳ output nào)
@@ -56,36 +134,43 @@ error_log("SePay Webhook received at: " . date('Y-m-d H:i:s'));
 function verifyWebhookToken() {
     // ✅ Lấy Authorization header từ nhiều nguồn (tùy thuộc vào server config)
     $authHeader = '';
+    $authSource = 'NONE';
     $allHeaders = [];
     
     // ✅ Ưu tiên 1: getallheaders() - hoạt động tốt nhất trên hầu hết server
     if (function_exists('getallheaders')) {
         $allHeaders = getallheaders();
-        if (isset($allHeaders['Authorization'])) {
+        if (isset($allHeaders['Authorization']) && !empty($allHeaders['Authorization'])) {
             $authHeader = $allHeaders['Authorization'];
-        } elseif (isset($allHeaders['authorization'])) {
+            $authSource = 'getallheaders()[Authorization]';
+        } elseif (isset($allHeaders['authorization']) && !empty($allHeaders['authorization'])) {
             $authHeader = $allHeaders['authorization'];
+            $authSource = 'getallheaders()[authorization]';
         }
     }
     
     // ✅ Ưu tiên 2: apache_request_headers() - cho Apache
     if (empty($authHeader) && function_exists('apache_request_headers')) {
         $headers = apache_request_headers();
-        if (isset($headers['Authorization'])) {
+        if (isset($headers['Authorization']) && !empty($headers['Authorization'])) {
             $authHeader = $headers['Authorization'];
-        } elseif (isset($headers['authorization'])) {
+            $authSource = 'apache_request_headers()[Authorization]';
+        } elseif (isset($headers['authorization']) && !empty($headers['authorization'])) {
             $authHeader = $headers['authorization'];
+            $authSource = 'apache_request_headers()[authorization]';
         }
     }
     
     // ✅ Ưu tiên 3: $_SERVER['HTTP_AUTHORIZATION'] - standard PHP
-    if (empty($authHeader) && isset($_SERVER['HTTP_AUTHORIZATION'])) {
+    if (empty($authHeader) && !empty($_SERVER['HTTP_AUTHORIZATION'])) {
         $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+        $authSource = '$_SERVER[HTTP_AUTHORIZATION]';
     }
     
     // ✅ Ưu tiên 4: $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] - Apache với mod_rewrite
-    if (empty($authHeader) && isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+    if (empty($authHeader) && !empty($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
         $authHeader = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+        $authSource = '$_SERVER[REDIRECT_HTTP_AUTHORIZATION]';
     }
     
     // ✅ Ưu tiên 5: Kiểm tra tất cả $_SERVER keys có chứa AUTHORIZATION
@@ -93,10 +178,15 @@ function verifyWebhookToken() {
         foreach ($_SERVER as $key => $value) {
             if (stripos($key, 'AUTHORIZATION') !== false && !empty($value)) {
                 $authHeader = $value;
+                $authSource = '$_SERVER[' . $key . ']';
                 break;
             }
         }
     }
+    
+    // ✅ Log để debug
+    error_log("SePay Webhook: Authorization header source: " . $authSource);
+    error_log("SePay Webhook: Authorization header value: " . (!empty($authHeader) ? substr($authHeader, 0, 50) . '...' : 'EMPTY'));
     
     // Log chi tiết để debug
     $debugLog = "\n" . str_repeat("=", 80) . "\n";
@@ -222,14 +312,22 @@ try {
     
     // ✅ Xác thực token cho POST requests (từ SePay)
     if (!$isTestMode && !verifyWebhookToken()) {
-        // Log chi tiết để debug
+        // ✅ Log chi tiết để debug - Kiểm tra từ nhiều nguồn
+        $allHeaders = function_exists('getallheaders') ? getallheaders() : [];
+        $authFromGetallheaders = $allHeaders['Authorization'] ?? $allHeaders['authorization'] ?? '';
+        $authFromServer = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+        
         $debugInfo = [
             'request_method' => $requestMethod,
-            'has_authorization' => isset($_SERVER['HTTP_AUTHORIZATION']),
-            'authorization_preview' => isset($_SERVER['HTTP_AUTHORIZATION']) ? substr($_SERVER['HTTP_AUTHORIZATION'], 0, 30) . '...' : 'NOT SET',
-            'all_headers' => function_exists('getallheaders') ? getallheaders() : 'getallheaders() not available',
+            'has_authorization_in_server' => !empty($_SERVER['HTTP_AUTHORIZATION']) || !empty($_SERVER['REDIRECT_HTTP_AUTHORIZATION']),
+            'has_authorization_in_headers' => !empty($authFromGetallheaders),
+            'authorization_from_getallheaders' => !empty($authFromGetallheaders) ? substr($authFromGetallheaders, 0, 50) . '...' : 'NOT FOUND',
+            'authorization_from_server' => !empty($authFromServer) ? substr($authFromServer, 0, 50) . '...' : 'NOT FOUND',
+            'all_headers' => $allHeaders, // Hiển thị tất cả headers để debug
+            'server_auth_keys' => array_filter(array_keys($_SERVER), function($k) { return stripos($k, 'AUTH') !== false; }),
             'expected_token_length' => defined('SEPAY_WEBHOOK_TOKEN') ? strlen(SEPAY_WEBHOOK_TOKEN) : 0,
-            'expected_token_preview' => defined('SEPAY_WEBHOOK_TOKEN') ? substr(SEPAY_WEBHOOK_TOKEN, 0, 20) . '...' : 'NOT CONFIGURED'
+            'expected_token_preview' => defined('SEPAY_WEBHOOK_TOKEN') ? substr(SEPAY_WEBHOOK_TOKEN, 0, 20) . '...' : 'NOT CONFIGURED',
+            'ipn_secret_key_preview' => defined('SEPAY_IPN_SECRET_KEY') ? substr(SEPAY_IPN_SECRET_KEY, 0, 10) . '...' : 'NOT CONFIGURED'
         ];
         
         error_log("SePay Webhook Auth Failed - Debug Info: " . json_encode($debugInfo, JSON_PRETTY_PRINT));
@@ -356,9 +454,15 @@ try {
         ]);
         $transactionId = $pdo->lastInsertId();
         error_log("SePay transaction saved to tb_transactions with ID: " . $transactionId);
+        
+        // ✅ Log chi tiết vào file để debug
+        $txLog = "\n[Transaction Saved] ID: {$transactionId}, Content: {$content}, Amount: {$transferAmount}, Date: {$transactionDate}\n";
+        @file_put_contents(__DIR__ . '/hook_log.txt', $txLog, FILE_APPEND);
     } catch (Exception $e) {
         // Nếu bảng tb_transactions chưa tồn tại, chỉ log lỗi nhưng không dừng xử lý
         error_log("Warning: Could not save to tb_transactions: " . $e->getMessage());
+        $errorLog = "\n[ERROR Saving Transaction] " . $e->getMessage() . "\n";
+        @file_put_contents(__DIR__ . '/hook_log.txt', $errorLog, FILE_APPEND);
     }
     
     // Chỉ xử lý giao dịch tiền vào
@@ -547,7 +651,7 @@ try {
             WHERE ABS(t.SoTien - ?) <= 0.01
             AND t.PhuongThuc = 'Chuyển khoản'
             AND t.TrangThai IN ('Đang xử lý', 'Chờ xác nhận')
-            AND t.NgayTao >= DATE_SUB(NOW(), INTERVAL 48 HOUR)
+            AND t.NgayThanhToan >= DATE_SUB(NOW(), INTERVAL 48 HOUR)
             ORDER BY t.ID_ThanhToan DESC
             LIMIT 10
         ");
@@ -817,6 +921,10 @@ try {
         throw new Exception('Amount mismatch: expected ' . $expectedAmount . ', received ' . $receivedAmount);
     }
     
+    // ✅ Log trước khi xử lý payment
+    $processLog = "\n[Processing Payment] Payment ID: {$payment['ID_ThanhToan']}, Event ID: {$payment['ID_DatLich']}, Amount: {$transferAmount}\n";
+    @file_put_contents(__DIR__ . '/hook_log.txt', $processLog, FILE_APPEND);
+    
     // Bắt đầu transaction
     $pdo->beginTransaction();
     
@@ -904,7 +1012,9 @@ try {
         
         $pdo->commit();
         
-        // Ghi log xử lý thành công
+        // ✅ Ghi log thành công chi tiết
+        $successLog = "\n[SUCCESS] Payment ID: {$payment['ID_ThanhToan']}, Event ID: {$payment['ID_DatLich']}, Status: Thành công, Transaction ID: {$sepayTransactionId}, Amount: {$receivedAmount}\n";
+        @file_put_contents(__DIR__ . '/hook_log.txt', $successLog, FILE_APPEND);
         error_log("SePay Webhook processed successfully: Payment {$paymentId} (DB ID: {$payment['ID_ThanhToan']}), Amount {$receivedAmount}, Event {$eventStatus}");
         
         echo json_encode([
@@ -926,6 +1036,10 @@ try {
         
     } catch (Exception $e) {
         $pdo->rollBack();
+        
+        // ✅ Ghi log lỗi chi tiết
+        $errorLog = "\n[ERROR Processing Payment] Payment ID: {$payment['ID_ThanhToan']}, Error: " . $e->getMessage() . "\n";
+        @file_put_contents(__DIR__ . '/hook_log.txt', $errorLog, FILE_APPEND);
         
         // Cập nhật log webhook với lỗi (nếu có)
         if ($webhookLogId) {

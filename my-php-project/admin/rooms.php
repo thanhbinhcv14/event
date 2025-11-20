@@ -1,5 +1,5 @@
 <?php
-// Include admin header
+// Bao gồm header admin
 include 'includes/admin-header.php';
 ?>
 
@@ -248,7 +248,7 @@ include 'includes/admin-header.php';
         let currentFilters = {};
         let allLocations = [];
 
-        // Initialize page
+        // Khởi tạo trang
         document.addEventListener('DOMContentLoaded', function() {
             loadLocations();
             initializeDataTable();

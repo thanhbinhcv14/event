@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/database.php';
 
-// Check if user is logged in and has appropriate role
+// Kiểm tra người dùng đã đăng nhập và có role phù hợp
 if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['ID_Role'], [1, 2, 3])) {
     echo json_encode(['success' => false, 'message' => 'Không có quyền truy cập']);
     exit;
@@ -35,27 +35,27 @@ function getDashboardStats() {
     try {
         $pdo = getDBConnection();
         
-        // Total events
+        // Tổng số sự kiện
         $stmt = $pdo->prepare("SELECT COUNT(*) as total_events FROM datlichsukien");
         $stmt->execute();
         $totalEvents = $stmt->fetch(PDO::FETCH_ASSOC)['total_events'];
         
-        // Approved events
+        // Sự kiện đã duyệt
         $stmt = $pdo->prepare("SELECT COUNT(*) as approved_events FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
         $stmt->execute();
         $approvedEvents = $stmt->fetch(PDO::FETCH_ASSOC)['approved_events'];
         
-        // Pending events
+        // Sự kiện chờ duyệt
         $stmt = $pdo->prepare("SELECT COUNT(*) as pending_events FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
         $stmt->execute();
         $pendingEvents = $stmt->fetch(PDO::FETCH_ASSOC)['pending_events'];
         
-        // Total customers
+        // Tổng số khách hàng
         $stmt = $pdo->prepare("SELECT COUNT(*) as total_customers FROM khachhanginfo");
         $stmt->execute();
         $totalCustomers = $stmt->fetch(PDO::FETCH_ASSOC)['total_customers'];
         
-        // Total staff
+        // Tổng số nhân viên
         $stmt = $pdo->prepare("SELECT COUNT(*) as total_staff FROM nhanvieninfo");
         $stmt->execute();
         $totalStaff = $stmt->fetch(PDO::FETCH_ASSOC)['total_staff'];
@@ -86,7 +86,7 @@ function getEventStats() {
     try {
         $pdo = getDBConnection();
         
-        // Events by month
+        // Sự kiện theo tháng
         $stmt = $pdo->prepare("
             SELECT 
                 DATE_FORMAT(NgayTao, '%Y-%m') as month,

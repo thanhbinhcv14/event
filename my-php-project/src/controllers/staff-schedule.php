@@ -1,15 +1,15 @@
 <?php
-// Set error reporting to catch all errors
+// Đặt error reporting để bắt tất cả lỗi
 error_reporting(E_ALL);
-ini_set('display_errors', 0); // Don't display errors in output
+ini_set('display_errors', 0); // Không hiển thị lỗi trong output
 ini_set('log_errors', 1);
 
-// Start output buffering to catch any unexpected output
+// Bắt đầu output buffering để bắt bất kỳ output không mong muốn nào
 ob_start();
 
 session_start();
 
-// Try to include database config
+// Thử include database config
 try {
     $dbPath = __DIR__ . '/../../config/database.php';
     if (!file_exists($dbPath)) {
@@ -23,9 +23,9 @@ try {
     exit;
 }
 
-// Check if user is logged in and has role 4 (Staff)
+// Kiểm tra người dùng đã đăng nhập và có role 4 (Nhân viên)
 if (!isset($_SESSION['user']) || $_SESSION['user']['ID_Role'] != 4) {
-    // Clear any output buffer
+    // Xóa bất kỳ output buffer nào
     ob_clean();
     header('Content-Type: application/json');
     echo json_encode(['success' => false, 'message' => 'Không có quyền truy cập']);
@@ -86,17 +86,17 @@ function getAssignments() {
         $staff = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$staff) {
-            error_log("ERROR: Staff not found for user ID: " . $userId);
+            error_log("LỖI: Không tìm thấy nhân viên cho user ID: " . $userId);
             echo json_encode(['success' => false, 'message' => 'Không tìm thấy thông tin nhân viên']);
             return;
         }
         
-        error_log("DEBUG: Staff found - ID: " . $staff['ID_NhanVien']);
+        error_log("DEBUG: Tìm thấy nhân viên - ID: " . $staff['ID_NhanVien']);
         
-        // Get assignments from both lichlamviec and chitietkehoach
+        // Lấy phân công từ cả lichlamviec và chitietkehoach
         $assignments = [];
         
-               // First, try to get from lichlamviec
+               // Đầu tiên, thử lấy từ lichlamviec
                $stmt = $pdo->prepare("
                    SELECT 
                        llv.ID_LLV,

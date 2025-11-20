@@ -83,6 +83,18 @@ class CheckoutBuilder
         return $this;
     }
 
+    public function successUrl($url)
+    {
+        $this->data['successUrl'] = $url;
+        return $this;
+    }
+
+    public function errorUrl($url)
+    {
+        $this->data['errorUrl'] = $url;
+        return $this;
+    }
+
     public function build()
     {
         return $this->data;

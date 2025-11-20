@@ -1,5 +1,5 @@
 <?php
-// Template Header Admin
+// Template Header Admin (đã được dịch)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }

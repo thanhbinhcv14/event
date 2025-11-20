@@ -19,15 +19,26 @@ Options -Indexes
 # Một số server (đặc biệt là Apache) có thể không pass Authorization header mặc định
 # Cần enable mod_rewrite và setenvif để pass header này
 
-# Set environment variable từ Authorization header (nếu mod_setenvif có sẵn)
+# Phương pháp 1: Set environment variable từ Authorization header (nếu mod_setenvif có sẵn)
 <IfModule mod_setenvif.c>
     SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+    SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
 </IfModule>
 
-# Hoặc dùng mod_rewrite để pass Authorization header (nếu mod_rewrite có sẵn)
+# Phương pháp 2: Dùng mod_rewrite để pass Authorization header (nếu mod_rewrite có sẵn)
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteCond %{HTTP:Authorization} ^(.*)
-    RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+    # Pass Authorization header từ HTTP header vào $_SERVER
+    RewriteCond %{HTTP:Authorization} ^(.+)$
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    # Hoặc dùng REDIRECT_HTTP_AUTHORIZATION
+    RewriteCond %{HTTP:Authorization} ^(.+)$
+    RewriteRule .* - [E=REDIRECT_HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+# Phương pháp 3: Cho phép Authorization header trong Apache
+<IfModule mod_headers.c>
+    # Đảm bảo Authorization header được giữ lại
+    RequestHeader set Authorization %{HTTP:Authorization}e env=HTTP_AUTHORIZATION
 </IfModule>
 

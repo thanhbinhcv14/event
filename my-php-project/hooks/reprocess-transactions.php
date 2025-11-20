@@ -48,7 +48,7 @@ try {
             $content = $tx['transaction_content'];
             $paymentId = null;
             
-            // Try multiple patterns
+            // Thử nhiều pattern
             if (preg_match('/SEPAY_(\d+_\d+)/', $content, $matches)) {
                 $paymentId = 'SEPAY_' . $matches[1];
             } elseif (preg_match('/SK(\d+)_(.+?)(?:\s|$)/', $content, $matches)) {
@@ -60,13 +60,13 @@ try {
             }
             
             if (empty($paymentId)) {
-                throw new Exception('Could not extract payment ID from content: ' . $content);
+                throw new Exception('Không thể trích xuất payment ID từ content: ' . $content);
             }
             
             // Tìm payment
             $payment = null;
             
-            // Try 1: Exact match
+            // Thử 1: Khớp chính xác
             $stmt = $pdo->prepare("
                 SELECT t.*, dl.TongTien, dl.TenSuKien, kh.HoTen
                 FROM thanhtoan t
@@ -78,7 +78,7 @@ try {
             $stmt->execute([$paymentId]);
             $payment = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            // Try 2: Match với content
+            // Thử 2: Khớp với content
             if (!$payment) {
                 $stmt = $pdo->prepare("
                     SELECT t.*, dl.TongTien, dl.TenSuKien, kh.HoTen
@@ -95,7 +95,7 @@ try {
                 $payment = $stmt->fetch(PDO::FETCH_ASSOC);
             }
             
-            // Try 3: Extract SEPAY_xxx và match
+            // Thử 3: Trích xuất SEPAY_xxx và khớp
             if (!$payment && preg_match('/SEPAY_(\d+_\d+)/', $content, $sepayMatches)) {
                 $sepayId = 'SEPAY_' . $sepayMatches[1];
                 $stmt = $pdo->prepare("
@@ -114,7 +114,7 @@ try {
             }
             
             if (!$payment) {
-                throw new Exception('Payment not found for ID: ' . $paymentId);
+                throw new Exception('Không tìm thấy payment cho ID: ' . $paymentId);
             }
             
             // Kiểm tra payment đã được xử lý chưa
@@ -125,7 +125,7 @@ try {
                 
                 $result['status'] = 'already_processed';
                 $result['payment_id'] = $payment['ID_ThanhToan'];
-                $result['message'] = 'Payment already processed';
+                $result['message'] = 'Payment đã được xử lý';
             } else {
                 // Xử lý payment
                 $pdo->beginTransaction();
@@ -138,7 +138,7 @@ try {
                 $amountTolerance = 1000; // Cho phép sai lệch 1000 VNĐ
                 
                 if ($amountDiff > $amountTolerance) {
-                    throw new Exception("Amount mismatch: Expected {$expectedAmount}, Received {$receivedAmount}");
+                    throw new Exception("Số tiền không khớp: Mong đợi {$expectedAmount}, Nhận được {$receivedAmount}");
                 }
                 
                 // Cập nhật payment
@@ -172,7 +172,7 @@ try {
                 
                 $result['status'] = 'success';
                 $result['payment_id'] = $payment['ID_ThanhToan'];
-                $result['message'] = 'Payment processed successfully';
+                $result['message'] = 'Xử lý payment thành công';
                 $successCount++;
             }
             
@@ -187,7 +187,7 @@ try {
     
     echo json_encode([
         'success' => true,
-        'message' => "Processed {$successCount} transactions successfully, {$errorCount} errors",
+        'message' => "Đã xử lý {$successCount} giao dịch thành công, {$errorCount} lỗi",
         'total' => count($unprocessed),
         'success_count' => $successCount,
         'error_count' => $errorCount,

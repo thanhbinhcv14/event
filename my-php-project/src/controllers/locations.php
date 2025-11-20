@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../config/database.php';
 
 header('Content-Type: application/json');
 
-// Check if user is logged in
+// Kiểm tra người dùng đã đăng nhập chưa
 if (!isset($_SESSION['user'])) {
     echo json_encode(['success' => false, 'error' => 'Bạn cần đăng nhập']);
     exit();
@@ -14,10 +14,10 @@ if (!isset($_SESSION['user'])) {
 $pdo = getDBConnection();
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
-// Actions that require admin privileges
+// Các action yêu cầu quyền admin
 $adminOnlyActions = ['add_location', 'update_location', 'delete_location', 'get_locations'];
 
-// Check admin privileges for admin-only actions
+// Kiểm tra quyền admin cho các action chỉ dành cho admin
 $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? null;
 if (in_array($action, $adminOnlyActions) && !in_array($userRole, [1, 2, 3, 4])) {
     echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
@@ -41,7 +41,7 @@ try {
             $type = $_GET['type'] ?? '';
             $sortBy = $_GET['sort_by'] ?? 'TenDiaDiem';
             
-            // Ensure table and column exist
+            // Đảm bảo bảng và cột tồn tại
             $checkTable = $pdo->query("SHOW TABLES LIKE 'diadiem'");
             if ($checkTable->rowCount() == 0) {
                 echo json_encode(['success' => false, 'error' => 'Bảng diadiem không tồn tại']);
@@ -53,11 +53,11 @@ try {
                 $pdo->exec("ALTER TABLE diadiem ADD COLUMN TrangThaiHoatDong VARCHAR(50) DEFAULT 'Hoạt động'");
             }
             
-            // Xây dựng query với filters
+            // Xây dựng query với bộ lọc
             $whereConditions = [];
             $params = [];
             
-            // Search filter
+            // Bộ lọc tìm kiếm
             if (!empty($search)) {
                 $whereConditions[] = "(TenDiaDiem LIKE ? OR DiaChi LIKE ? OR MoTa LIKE ?)";
                 $searchParam = "%{$search}%";
@@ -66,31 +66,31 @@ try {
                 $params[] = $searchParam;
             }
             
-            // Status filter
+            // Bộ lọc trạng thái
             if (!empty($status)) {
                 $whereConditions[] = "TrangThaiHoatDong = ?";
                 $params[] = $status;
             }
             
-            // Type filter
+            // Bộ lọc loại
             if (!empty($type)) {
                 $whereConditions[] = "LoaiDiaDiem = ?";
                 $params[] = $type;
             }
             
-            // Build WHERE clause
+            // Xây dựng mệnh đề WHERE
             $whereClause = '';
             if (!empty($whereConditions)) {
                 $whereClause = 'WHERE ' . implode(' AND ', $whereConditions);
             }
             
-            // Validate sort column
+            // Xác thực cột sắp xếp
             $allowedSortColumns = ['TenDiaDiem', 'DiaChi', 'SucChua', 'NgayTao', 'GiaThueGio', 'GiaThueNgay'];
             if (!in_array($sortBy, $allowedSortColumns)) {
                 $sortBy = 'TenDiaDiem';
             }
             
-            // Build query
+            // Xây dựng query
             $query = "SELECT * FROM diadiem {$whereClause} ORDER BY {$sortBy} LIMIT {$limit}";
             
             $stmt = $pdo->prepare($query);
@@ -190,7 +190,7 @@ try {
             // Thêm địa điểm mới
             $input = $_POST;
             
-            // Debug: Log received data
+            // Debug: Ghi log dữ liệu nhận được
             error_log("Add location - Received data: " . json_encode($input));
             error_log("Add location - FILES data: " . json_encode($_FILES));
             
@@ -203,20 +203,20 @@ try {
                 }
             }
             
-            // Validate LoaiDiaDiem
+            // Xác thực LoaiDiaDiem
             $allowedTypes = ['Trong nhà', 'Ngoài trời'];
             if (!in_array($input['LoaiDiaDiem'], $allowedTypes)) {
                 echo json_encode(['success' => false, 'error' => 'Loại địa điểm không hợp lệ']);
                 break;
             }
             
-            // Validate capacity
+            // Xác thực sức chứa
             if (!is_numeric($input['SucChua']) || $input['SucChua'] <= 0) {
                 echo json_encode(['success' => false, 'error' => 'Sức chứa phải là số dương']);
                 break;
             }
             
-            // Check if location name already exists
+            // Kiểm tra tên địa điểm đã tồn tại chưa
             $stmt = $pdo->prepare("SELECT ID_DD FROM diadiem WHERE TenDiaDiem = ?");
             $stmt->execute([$input['TenDiaDiem']]);
             if ($stmt->fetch()) {
@@ -238,20 +238,20 @@ try {
                 $imageName = uniqid() . '_' . time() . '.' . $fileInfo['extension'];
                 $uploadPath = $uploadDir . $imageName;
                 
-                // Validate file type
+                // Xác thực loại file
                 $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
                 if (!in_array(strtolower($fileInfo['extension']), $allowedTypes)) {
                     echo json_encode(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
                     break;
                 }
                 
-                // Validate file size (max 5MB)
+                // Xác thực kích thước file (tối đa 5MB)
                 if ($_FILES['HinhAnh']['size'] > 5 * 1024 * 1024) {
                     echo json_encode(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
                     break;
                 }
                 
-                // Move uploaded file
+                // Di chuyển file đã upload
                 if (!move_uploaded_file($_FILES['HinhAnh']['tmp_name'], $uploadPath)) {
                     echo json_encode(['success' => false, 'error' => 'Không thể upload file']);
                     break;
@@ -300,7 +300,7 @@ try {
             // Cập nhật địa điểm
             $input = $_POST;
             
-            // Debug: Log received data
+            // Debug: Ghi log dữ liệu nhận được
             error_log("Update location - Received data: " . json_encode($input));
             
             $locationId = $input['id'] ?? null;
@@ -318,7 +318,7 @@ try {
                 }
             }
             
-            // Validate LoaiDiaDiem
+            // Xác thực LoaiDiaDiem
             $allowedTypes = ['Trong nhà', 'Ngoài trời'];
             if (!in_array($input['LoaiDiaDiem'], $allowedTypes)) {
                 echo json_encode(['success' => false, 'error' => 'Loại địa điểm không hợp lệ']);
@@ -331,7 +331,7 @@ try {
                 break;
             }
             
-            // Validate LoaiThue (nếu có)
+            // Xác thực LoaiThue (nếu có)
             if (!empty($input['LoaiThue'])) {
                 $allowedRentTypes = ['Theo giờ', 'Theo ngày', 'Cả hai'];
                 if (!in_array($input['LoaiThue'], $allowedRentTypes)) {
@@ -340,13 +340,13 @@ try {
                 }
             }
             
-            // Validate capacity
+            // Xác thực sức chứa
             if (!is_numeric($input['SucChua']) || $input['SucChua'] <= 0) {
                 echo json_encode(['success' => false, 'error' => 'Sức chứa phải là số dương']);
                 break;
             }
             
-            // Check if location exists
+            // Kiểm tra địa điểm có tồn tại không
             $stmt = $pdo->prepare("SELECT TenDiaDiem FROM diadiem WHERE ID_DD = ?");
             $stmt->execute([$locationId]);
             $existingLocation = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -356,7 +356,7 @@ try {
                 break;
             }
             
-            // Check if new name conflicts with other locations
+            // Kiểm tra tên mới có trùng với địa điểm khác không
             if ($input['TenDiaDiem'] !== $existingLocation['TenDiaDiem']) {
                 $stmt = $pdo->prepare("SELECT ID_DD FROM diadiem WHERE TenDiaDiem = ? AND ID_DD != ?");
                 $stmt->execute([$input['TenDiaDiem'], $locationId]);
@@ -380,20 +380,20 @@ try {
                 $imageName = uniqid() . '_' . time() . '.' . $fileInfo['extension'];
                 $uploadPath = $uploadDir . $imageName;
                 
-                // Validate file type
+                // Xác thực loại file
                 $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
                 if (!in_array(strtolower($fileInfo['extension']), $allowedTypes)) {
                     echo json_encode(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
                     break;
                 }
                 
-                // Validate file size (max 5MB)
+                // Xác thực kích thước file (tối đa 5MB)
                 if ($_FILES['HinhAnh']['size'] > 5 * 1024 * 1024) {
                     echo json_encode(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
                     break;
                 }
                 
-                // Move uploaded file
+                // Di chuyển file đã upload
                 if (!move_uploaded_file($_FILES['HinhAnh']['tmp_name'], $uploadPath)) {
                     echo json_encode(['success' => false, 'error' => 'Không thể upload file']);
                     break;
@@ -617,7 +617,7 @@ try {
                 break;
             }
             
-            // Ensure TrangThaiHoatDong column exists
+            // Đảm bảo cột TrangThaiHoatDong tồn tại
             $columns = $pdo->query("SHOW COLUMNS FROM diadiem LIKE 'TrangThaiHoatDong'")->fetchAll();
             if (count($columns) == 0) {
                 $pdo->exec("ALTER TABLE diadiem ADD COLUMN TrangThaiHoatDong VARCHAR(50) DEFAULT 'Hoạt động'");
@@ -636,7 +636,7 @@ try {
             break;
             
         case 'toggle_status':
-            // Toggle location status
+            // Chuyển đổi trạng thái địa điểm
             $locationId = $_POST['id'] ?? null;
             $newStatus = $_POST['status'] ?? null;
             
@@ -645,7 +645,7 @@ try {
                 break;
             }
             
-            // Check if location exists
+            // Kiểm tra địa điểm có tồn tại không
             $stmt = $pdo->prepare("SELECT TenDiaDiem FROM diadiem WHERE ID_DD = ?");
             $stmt->execute([$locationId]);
             $location = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -655,13 +655,13 @@ try {
                 break;
             }
             
-            // Ensure column exists
+            // Đảm bảo cột tồn tại
             $columns = $pdo->query("SHOW COLUMNS FROM diadiem LIKE 'TrangThaiHoatDong'")->fetchAll();
             if (count($columns) == 0) {
                 $pdo->exec("ALTER TABLE diadiem ADD COLUMN TrangThaiHoatDong VARCHAR(50) DEFAULT 'Hoạt động'");
             }
             
-            // Validate status
+            // Xác thực trạng thái
             $allowedStatuses = ['Hoạt động', 'Bảo trì', 'Ngừng hoạt động'];
             if (!in_array($newStatus, $allowedStatuses, true)) {
                 $newStatus = 'Hoạt động';

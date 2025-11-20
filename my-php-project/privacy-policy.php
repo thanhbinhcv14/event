@@ -16,7 +16,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
     <meta name="keywords" content="chính sách bảo mật, event management, bảo vệ dữ liệu, quyền riêng tư, sự kiện, dịch vụ tổ chức sự kiện">
     <meta name="robots" content="index, follow">
     <title>Chính Sách Bảo Mật | Event Management</title>
-    <link rel="icon" href="Hinh/logo/logo.png" type="image/png">
+    <link rel="icon" href="img/logo/logo.jpg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>

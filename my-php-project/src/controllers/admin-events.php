@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../config/database.php';
 error_log("Admin Events Controller - Session data: " . print_r($_SESSION, true));
 error_log("Admin Events Controller - Action: " . ($_GET['action'] ?? $_POST['action'] ?? 'none'));
 
-// Check if user is logged in and has appropriate role
+// Kiểm tra người dùng đã đăng nhập và có role phù hợp
 if (!isset($_SESSION['user'])) {
     echo json_encode(['success' => false, 'message' => 'Chưa đăng nhập', 'debug' => 'No session user']);
     exit;

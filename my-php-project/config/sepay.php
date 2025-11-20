@@ -20,8 +20,12 @@ define('SEPAY_CALLBACK_URL', 'https://sukien.info.vn/hooks/sepay-payment.php');
 // SePay API URLs
 if (SEPAY_ENVIRONMENT === 'sandbox') {
     define('SEPAY_BASE_URL', 'https://my.sepay.vn/userapi'); // Môi trường test
+    define('SEPAY_CHECKOUT_URL', 'https://pay-sandbox.sepay.vn/v1/checkout'); // Checkout page sandbox
+    define('SEPAY_PGAPI_URL', 'https://pgapi-sandbox.sepay.vn/v1'); // Payment Gateway API sandbox
 } else {
     // URL chính xác theo tài liệu SePay
     define('SEPAY_BASE_URL', 'https://my.sepay.vn/userapi'); // Môi trường production
+    define('SEPAY_CHECKOUT_URL', 'https://pay.sepay.vn/v1/checkout'); // Checkout page production
+    define('SEPAY_PGAPI_URL', 'https://pgapi.sepay.vn/v1'); // Payment Gateway API production
 }
 ?>

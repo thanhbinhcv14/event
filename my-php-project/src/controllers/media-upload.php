@@ -4,12 +4,12 @@
  * Xử lý upload hình ảnh và file cho chat
  */
 
-// Enable error logging for debugging (but don't display to user)
+// Bật error logging để debug (nhưng không hiển thị cho người dùng)
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
-// Set error handler to catch all errors
+// Thiết lập error handler để bắt tất cả lỗi
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     error_log("Media upload PHP error [$errno]: $errstr in $errfile on line $errline");
     if (!headers_sent()) {
@@ -24,7 +24,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
     exit;
 }, E_ALL);
 
-// Set exception handler
+// Thiết lập exception handler
 set_exception_handler(function($exception) {
     error_log("Media upload uncaught exception: " . $exception->getMessage());
     error_log("Stack trace: " . $exception->getTraceAsString());
@@ -40,17 +40,17 @@ set_exception_handler(function($exception) {
     exit;
 });
 
-// Set JSON header first
+// Thiết lập JSON header trước
 header('Content-Type: application/json; charset=utf-8');
 
-// Start output buffering to catch any unexpected output
+// Bắt đầu output buffering để bắt bất kỳ output không mong muốn nào
 ob_start();
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Use same path pattern as other controllers
+// Sử dụng cùng pattern đường dẫn như các controller khác
 try {
     require_once __DIR__ . '/../../config/database.php';
     require_once __DIR__ . '/../auth/auth.php';
@@ -70,7 +70,7 @@ try {
     exit;
 }
 
-// Wrap everything in try-catch to catch all errors
+// Bọc tất cả trong try-catch để bắt tất cả lỗi
 try {
     if (!isLoggedIn()) {
         ob_clean();
@@ -101,10 +101,10 @@ try {
 }
 
 // Tạo thư mục uploads nếu chưa có
-// From src/controllers/ -> uploads/chat/ (go up 1 level to src/, then up 1 level to my-php-project/)
+// Từ src/controllers/ -> uploads/chat/ (lên 1 cấp đến src/, sau đó lên 1 cấp đến my-php-project/)
 $uploadDir = dirname(dirname(__DIR__)) . '/uploads/chat/';
 if (!file_exists($uploadDir)) {
-    // Create directory structure if it doesn't exist
+    // Tạo cấu trúc thư mục nếu chưa tồn tại
     $parentDir = dirname($uploadDir);
     if (!file_exists($parentDir)) {
         mkdir($parentDir, 0755, true);
@@ -136,13 +136,18 @@ if (!file_exists($fullUploadDir)) {
 
 // Cấu hình upload
 $allowedTypes = [
+    // Hình ảnh
     'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+    // Video
+    'video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska',
+    // Tài liệu
     'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'text/plain', 'application/zip', 'application/x-rar-compressed'
 ];
 
-$maxFileSize = 10 * 1024 * 1024; // 10MB
-$maxImageSize = 5 * 1024 * 1024; // 5MB for images
+$maxFileSize = 10 * 1024 * 1024; // 10MB cho tài liệu
+$maxImageSize = 10 * 1024 * 1024; // 10MB cho hình ảnh
+$maxVideoSize = 50 * 1024 * 1024; // 50MB cho video
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     ob_clean();
@@ -193,11 +198,11 @@ try {
     exit;
 }
 
-// Validate file
+// Xác thực file
 $fileInfo = pathinfo($file['name']);
 $extension = isset($fileInfo['extension']) ? strtolower($fileInfo['extension']) : '';
 
-// Get MIME type safely
+// Lấy MIME type an toàn
 $mimeType = '';
 if (function_exists('mime_content_type')) {
     $mimeType = mime_content_type($file['tmp_name']);
@@ -206,18 +211,28 @@ if (function_exists('mime_content_type')) {
     $mimeType = finfo_file($finfo, $file['tmp_name']);
     finfo_close($finfo);
 } else {
-    // Fallback to uploaded file type
+    // Fallback về loại file đã upload
     $mimeType = $file['type'] ?? '';
 }
 
-// If still empty, try to determine from extension
+// Nếu vẫn rỗng, thử xác định từ extension
 if (empty($mimeType) && !empty($extension)) {
     $mimeTypes = [
+        // Hình ảnh
         'jpg' => 'image/jpeg',
         'jpeg' => 'image/jpeg',
         'png' => 'image/png',
         'gif' => 'image/gif',
         'webp' => 'image/webp',
+        // Video
+        'mp4' => 'video/mp4',
+        'mpeg' => 'video/mpeg',
+        'mpg' => 'video/mpeg',
+        'mov' => 'video/quicktime',
+        'avi' => 'video/x-msvideo',
+        'webm' => 'video/webm',
+        'mkv' => 'video/x-matroska',
+        // Tài liệu
         'pdf' => 'application/pdf',
         'doc' => 'application/msword',
         'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -228,7 +243,7 @@ if (empty($mimeType) && !empty($extension)) {
     $mimeType = $mimeTypes[$extension] ?? '';
 }
 
-// Validate extension
+// Xác thực extension
 if (empty($extension)) {
     ob_clean();
     echo json_encode(['success' => false, 'error' => 'File không có phần mở rộng']);
@@ -242,17 +257,21 @@ if (empty($mimeType) || !in_array($mimeType, $allowedTypes)) {
     exit;
 }
 
-// Kiểm tra kích thước file
-if ($file['size'] > $maxFileSize) {
+// Kiểm tra kích thước file dựa trên loại
+$isVideo = strpos($mimeType, 'video/') === 0;
+$isImage = strpos($mimeType, 'image/') === 0;
+
+if ($isVideo && $file['size'] > $maxVideoSize) {
+    ob_clean();
+    echo json_encode(['success' => false, 'error' => 'Video quá lớn. Tối đa 50MB'], JSON_UNESCAPED_UNICODE);
+    exit;
+} elseif ($isImage && $file['size'] > $maxImageSize) {
+    ob_clean();
+    echo json_encode(['success' => false, 'error' => 'Hình ảnh quá lớn. Tối đa 10MB'], JSON_UNESCAPED_UNICODE);
+    exit;
+} elseif (!$isVideo && !$isImage && $file['size'] > $maxFileSize) {
     ob_clean();
     echo json_encode(['success' => false, 'error' => 'File quá lớn. Tối đa 10MB'], JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
-// Kiểm tra kích thước hình ảnh
-if (strpos($mimeType, 'image/') === 0 && $file['size'] > $maxImageSize) {
-    ob_clean();
-    echo json_encode(['success' => false, 'error' => 'Hình ảnh quá lớn. Tối đa 5MB'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -283,7 +302,7 @@ $thumbnailPath = null;
 $relativeThumbnailPath = null;
 if (strpos($mimeType, 'image/') === 0) {
     try {
-        // Check if GD extension is available
+        // Kiểm tra GD extension có sẵn không
         if (!function_exists('imagecreatefromjpeg')) {
             error_log('GD extension not available, skipping thumbnail creation');
         } else {
@@ -296,12 +315,12 @@ if (strpos($mimeType, 'image/') === 0) {
         }
     } catch (Exception $e) {
         error_log('Thumbnail creation error (non-fatal): ' . $e->getMessage());
-        // Continue without thumbnail
+        // Tiếp tục không có thumbnail
         $thumbnailPath = null;
         $relativeThumbnailPath = null;
     } catch (Error $e) {
         error_log('Thumbnail creation fatal error (non-fatal): ' . $e->getMessage());
-        // Continue without thumbnail
+        // Tiếp tục không có thumbnail
         $thumbnailPath = null;
         $relativeThumbnailPath = null;
     }
@@ -323,6 +342,9 @@ try {
     if (strpos($mimeType, 'image/') === 0) {
         $messageText = '[Hình ảnh]';
         $messageType = 'image';
+    } elseif (strpos($mimeType, 'video/') === 0) {
+        $messageText = '[Video]';
+        $messageType = 'video';
     } else {
         $messageText = '[File: ' . $file['name'] . ']';
         $messageType = 'file';

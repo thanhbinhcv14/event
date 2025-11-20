@@ -1,5 +1,5 @@
 <?php
-// Include admin header
+// Bao gồm header admin
 include 'includes/admin-header.php';
 ?>
 
@@ -220,9 +220,9 @@ include 'includes/admin-header.php';
         let currentFilters = {};
         let userRole = <?php echo json_encode($_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? null); ?>;
 
-        // Initialize page
+        // Khởi tạo trang
         document.addEventListener('DOMContentLoaded', function() {
-            // Test AJAX call first
+            // Kiểm tra AJAX call trước
             testAjaxCall();
             initializeDataTable();
             loadStatistics();
@@ -255,7 +255,7 @@ include 'includes/admin-header.php';
         }
 
         function initializeDataTable() {
-            // Check if DataTables is available
+            // Kiểm tra DataTables có sẵn không
             if (typeof $.fn.DataTable === 'undefined') {
                 console.error('DataTables not available');
                 alert('DataTables không khả dụng - sử dụng bảng đơn giản');
@@ -294,7 +294,7 @@ include 'includes/admin-header.php';
                                 console.error('Registrations:', json ? json.registrations : 'undefined');
                                 console.error('Message:', json ? json.message : 'undefined');
                                 
-                                // Try to show error message to user
+                                // Thử hiển thị thông báo lỗi cho người dùng
                                 if (json && json.message) {
                                     alert('Lỗi: ' + json.message);
                                 }
@@ -367,7 +367,7 @@ include 'includes/admin-header.php';
                                 </button>
                             `;
                             
-                            // Only show approve/reject buttons for role 1 and 2
+                            // Chỉ hiển thị nút duyệt/từ chối cho role 1 và 2
                             if (row.TrangThaiDuyet === 'Chờ duyệt' && (userRole == 1 || userRole == 2)) {
                                 actions += `
                                     <button class="btn btn-success btn-sm" onclick="showActionModal(${row.ID_DatLich}, 'approve')" title="Duyệt">
@@ -400,7 +400,7 @@ include 'includes/admin-header.php';
         }
 
         function loadStatistics() {
-            // Use simple jQuery AJAX instead of AdminPanel
+            // Sử dụng jQuery AJAX đơn giản thay vì AdminPanel
             $.ajax({
                 url: '../src/controllers/admin-events.php',
                 type: 'GET',
@@ -423,12 +423,12 @@ include 'includes/admin-header.php';
         }
 
         function setupEventListeners() {
-            // Filter change events
+            // Sự kiện thay đổi bộ lọc
             $('#statusFilter, #dateFrom, #dateTo').on('change', function() {
                 applyFilters();
             });
 
-            // Action modal confirm button
+            // Nút xác nhận modal hành động
             $('#confirmActionBtn').on('click', function() {
                 const action = $('#actionType').val();
                 const id = $('#registrationId').val();
@@ -449,31 +449,31 @@ include 'includes/admin-header.php';
             
             console.log('Applying filters:', { statusFilter, dateFrom, dateTo });
             
-            // Clear all existing filters first
+            // Xóa tất cả bộ lọc hiện có trước
             registrationsTable.columns().search('');
             
-            // Apply status filter (column 7 - TrangThaiDuyet, shifted due to new TongTien column)
+            // Áp dụng bộ lọc trạng thái (cột 7 - TrangThaiDuyet, đã dịch chuyển do cột TongTien mới)
             if (statusFilter) {
                 registrationsTable.column(7).search(statusFilter);
             }
             
-            // Apply date filters (custom logic for date range)
+            // Áp dụng bộ lọc ngày (logic tùy chỉnh cho khoảng ngày)
             if (dateFrom || dateTo) {
-                // Remove any existing date filter first
+                // Xóa bộ lọc ngày hiện có trước
                 $.fn.dataTable.ext.search = $.fn.dataTable.ext.search.filter(function(fn) {
                     return fn.toString().indexOf('dateFrom') === -1 && fn.toString().indexOf('dateTo') === -1;
                 });
                 
-                // Add new date filter
+                // Thêm bộ lọc ngày mới
                 $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
                     if (settings.nTable.id !== 'registrationsTable') return true;
                     
-                    // Get the date from column 5 (NgayBatDau, shifted due to new TongTien column)
+                    // Lấy ngày từ cột 5 (NgayBatDau, đã dịch chuyển do cột TongTien mới)
                     const rowDateStr = data[5];
                     if (!rowDateStr) return true;
                     
                     try {
-                        // Parse the date (format: dd/mm/yyyy hh:mm)
+                        // Parse ngày (định dạng: dd/mm/yyyy hh:mm)
                         const dateParts = rowDateStr.split(' ')[0].split('/');
                         if (dateParts.length !== 3) return true;
                         
@@ -481,7 +481,7 @@ include 'includes/admin-header.php';
                         const fromDate = dateFrom ? new Date(dateFrom) : null;
                         const toDate = dateTo ? new Date(dateTo) : null;
                         
-                        // Set time to start/end of day for comparison
+                        // Đặt thời gian về đầu/cuối ngày để so sánh
                         if (fromDate) fromDate.setHours(0, 0, 0, 0);
                         if (toDate) toDate.setHours(23, 59, 59, 999);
                         rowDate.setHours(0, 0, 0, 0);
@@ -497,7 +497,7 @@ include 'includes/admin-header.php';
                 });
             }
             
-            // Redraw table
+            // Vẽ lại bảng
             registrationsTable.draw();
         }
 
@@ -506,11 +506,11 @@ include 'includes/admin-header.php';
             $('#dateFrom').val('');
             $('#dateTo').val('');
             
-            // Clear all DataTable filters
+            // Xóa tất cả bộ lọc DataTable
             registrationsTable.columns().search('');
             registrationsTable.order([0, 'desc']).draw();
             
-            // Remove all custom date filters
+            // Xóa tất cả bộ lọc ngày tùy chỉnh
             $.fn.dataTable.ext.search = $.fn.dataTable.ext.search.filter(function(fn) {
                 return fn.toString().indexOf('dateFrom') === -1 && fn.toString().indexOf('dateTo') === -1;
             });
@@ -635,7 +635,7 @@ include 'includes/admin-header.php';
             }
         }
 
-        // Simple table fallback
+        // Bảng đơn giản dự phòng
         function loadSimpleTable() {
             console.log('Loading simple table fallback');
             $.ajax({
@@ -701,7 +701,7 @@ include 'includes/admin-header.php';
             });
         }
 
-        // Auto refresh every 30 seconds
+        // Tự động làm mới mỗi 30 giây
         setInterval(() => {
             loadStatistics();
         }, 30000);
