@@ -1,13 +1,13 @@
 <?php
-// Bao gồm header admin
+// Include admin header
 include 'includes/admin-header.php';
 
-// Lấy dữ liệu dashboard dựa trên role người dùng
+// Get dashboard data based on user role
 $dashboardData = [];
 $userRole = $user['ID_Role'];
 
 try {
-    // Bao gồm kết nối database
+    // Include database connection
     require_once __DIR__ . '/../config/database.php';
     $pdo = getDBConnection();
     
@@ -15,39 +15,39 @@ try {
     // ROLE 1: ADMIN - Tất cả thống kê
     // ============================================
     if ($userRole == 1) {
-        // Tổng số đăng ký sự kiện
+        // Total event registrations
         $stmt = $pdo->query("SELECT COUNT(*) AS total_registrations FROM datlichsukien");
         $dashboardData['total_registrations'] = $stmt->fetchColumn();
         
-        // Đăng ký đang chờ duyệt
+        // Pending registrations
         $stmt = $pdo->query("SELECT COUNT(*) AS pending_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
         $dashboardData['pending_registrations'] = $stmt->fetchColumn();
         
-        // Đăng ký đã được duyệt
+        // Approved registrations
         $stmt = $pdo->query("SELECT COUNT(*) AS approved_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
         $dashboardData['approved_registrations'] = $stmt->fetchColumn();
         
-        // Đăng ký bị từ chối
+        // Rejected registrations
         $stmt = $pdo->query("SELECT COUNT(*) AS rejected_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Từ chối'");
         $dashboardData['rejected_registrations'] = $stmt->fetchColumn();
         
-        // Tổng số địa điểm
+        // Total locations
         $stmt = $pdo->query("SELECT COUNT(*) AS total_locations FROM diadiem");
         $dashboardData['total_locations'] = $stmt->fetchColumn();
         
-        // Tổng số thiết bị
+        // Total equipment
         $stmt = $pdo->query("SELECT COUNT(*) AS total_equipment FROM thietbi");
         $dashboardData['total_equipment'] = $stmt->fetchColumn();
         
-        // Tổng số nhân viên
+        // Total staff
         $stmt = $pdo->query("SELECT COUNT(*) AS total_staff FROM nhanvieninfo");
         $dashboardData['total_staff'] = $stmt->fetchColumn();
         
-        // Tổng số khách hàng
+        // Total customers
         $stmt = $pdo->query("SELECT COUNT(*) AS total_customers FROM users WHERE ID_Role = 5");
         $dashboardData['total_customers'] = $stmt->fetchColumn();
         
-        // Đăng ký gần đây
+        // Recent registrations
         $stmt = $pdo->query("
             SELECT dl.*, kh.HoTen AS TenKhachHang, dd.TenDiaDiem, lsk.TenLoai
             FROM datlichsukien dl
@@ -66,43 +66,43 @@ try {
     // ROLE 2: QUẢN LÝ TỔ CHỨC - Quản lý và duyệt
     // ============================================
     elseif ($userRole == 2) {
-        // Đăng ký đang chờ duyệt (cần duyệt)
+        // Pending registrations (cần duyệt)
         $stmt = $pdo->query("SELECT COUNT(*) AS pending_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
         $dashboardData['pending_registrations'] = $stmt->fetchColumn();
         
-        // Đăng ký đã được duyệt
+        // Approved registrations
         $stmt = $pdo->query("SELECT COUNT(*) AS approved_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
         $dashboardData['approved_registrations'] = $stmt->fetchColumn();
         
-        // Tổng số địa điểm (quản lý)
+        // Total locations (quản lý)
         $stmt = $pdo->query("SELECT COUNT(*) AS total_locations FROM diadiem");
         $dashboardData['total_locations'] = $stmt->fetchColumn();
         
-        // Địa điểm đang hoạt động
+        // Active locations
         $stmt = $pdo->query("SELECT COUNT(*) AS active_locations FROM diadiem WHERE TrangThaiHoatDong = 'Hoạt động'");
         $dashboardData['active_locations'] = $stmt->fetchColumn();
         
-        // Tổng số phòng
+        // Total rooms
         $stmt = $pdo->query("SELECT COUNT(*) AS total_rooms FROM phong WHERE TrangThai = 'Sẵn sàng'");
         $dashboardData['total_rooms'] = $stmt->fetchColumn();
         
-        // Tổng số nhân viên
+        // Total staff
         $stmt = $pdo->query("SELECT COUNT(*) AS total_staff FROM nhanvieninfo");
         $dashboardData['total_staff'] = $stmt->fetchColumn();
         
-        // Tổng số thiết bị
+        // Total equipment
         $stmt = $pdo->query("SELECT COUNT(*) AS total_equipment FROM thietbi WHERE TrangThai = 'Sẵn sàng'");
         $dashboardData['total_equipment'] = $stmt->fetchColumn();
         
-        // Tổng số khách hàng
+        // Total customers
         $stmt = $pdo->query("SELECT COUNT(*) AS total_customers FROM users WHERE ID_Role = 5");
         $dashboardData['total_customers'] = $stmt->fetchColumn();
         
-        // Thanh toán đang chờ
+        // Pending payments
         $stmt = $pdo->query("SELECT COUNT(*) AS pending_payments FROM thanhtoan WHERE TrangThai = 'Chờ thanh toán'");
         $dashboardData['pending_payments'] = $stmt->fetchColumn();
         
-        // Đăng ký đang chờ duyệt gần đây
+        // Recent pending registrations
         $stmt = $pdo->query("
             SELECT dl.*, kh.HoTen AS TenKhachHang, dd.TenDiaDiem, lsk.TenLoai
             FROM datlichsukien dl
@@ -130,11 +130,11 @@ try {
         $stmt = $pdo->query("SELECT COUNT(*) AS pending_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
         $dashboardData['pending_registrations'] = $stmt->fetchColumn();
         
-        // Đăng ký đã được duyệt
+        // Approved registrations
         $stmt = $pdo->query("SELECT COUNT(*) AS approved_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
         $dashboardData['approved_registrations'] = $stmt->fetchColumn();
         
-        // Sự kiện sắp diễn ra
+        // Upcoming events (sắp diễn ra)
         $stmt = $pdo->query("
             SELECT COUNT(*) AS upcoming_events 
             FROM datlichsukien 
@@ -143,7 +143,7 @@ try {
         ");
         $dashboardData['upcoming_events'] = $stmt->fetchColumn();
         
-        // Sự kiện hôm nay
+        // Today's events
         $stmt = $pdo->query("
             SELECT COUNT(*) AS today_events 
             FROM datlichsukien 
@@ -152,11 +152,11 @@ try {
         ");
         $dashboardData['today_events'] = $stmt->fetchColumn();
         
-        // Tổng số khách hàng
+        // Total customers
         $stmt = $pdo->query("SELECT COUNT(*) AS total_customers FROM users WHERE ID_Role = 5");
         $dashboardData['total_customers'] = $stmt->fetchColumn();
         
-        // Đăng ký gần đây
+        // Recent registrations
         $stmt = $pdo->query("
             SELECT dl.*, kh.HoTen AS TenKhachHang, dd.TenDiaDiem, lsk.TenLoai
             FROM datlichsukien dl
@@ -175,7 +175,7 @@ try {
     // ROLE 4: NHÂN VIÊN - Lịch làm việc và nhiệm vụ
     // ============================================
     elseif ($userRole == 4) {
-        // Lấy ID nhân viên
+        // Get staff ID
         $userId = $_SESSION['user']['ID_User'];
         $stmt = $pdo->prepare("SELECT ID_NhanVien FROM nhanvieninfo WHERE ID_User = ? LIMIT 1");
         $stmt->execute([$userId]);
@@ -183,7 +183,7 @@ try {
         $staffId = $staffInfo ? $staffInfo['ID_NhanVien'] : null;
         
         if ($staffId) {
-            // Tổng nhiệm vụ
+            // Total assignments (tổng nhiệm vụ)
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) AS total_assignments 
                 FROM lichlamviec 
@@ -192,7 +192,7 @@ try {
             $stmt->execute([$staffId]);
             $dashboardData['total_assignments'] = $stmt->fetchColumn();
             
-            // Nhiệm vụ chưa hoàn thành
+            // Pending tasks (nhiệm vụ chưa hoàn thành)
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) AS pending_tasks 
                 FROM lichlamviec 
@@ -202,7 +202,7 @@ try {
             $stmt->execute([$staffId]);
             $dashboardData['pending_tasks'] = $stmt->fetchColumn();
             
-            // Nhiệm vụ đã hoàn thành
+            // Completed tasks (nhiệm vụ đã hoàn thành)
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) AS completed_tasks 
                 FROM lichlamviec 
@@ -212,7 +212,7 @@ try {
             $stmt->execute([$staffId]);
             $dashboardData['completed_tasks'] = $stmt->fetchColumn();
             
-            // Nhiệm vụ hôm nay
+            // Today's tasks (nhiệm vụ hôm nay)
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) AS today_tasks 
                 FROM lichlamviec 
@@ -223,7 +223,7 @@ try {
             $stmt->execute([$staffId]);
             $dashboardData['today_tasks'] = $stmt->fetchColumn();
             
-            // Nhiệm vụ sắp tới (7 ngày)
+            // Upcoming tasks (nhiệm vụ sắp tới - 7 ngày)
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) AS upcoming_tasks 
                 FROM lichlamviec 
@@ -234,7 +234,7 @@ try {
             $stmt->execute([$staffId]);
             $dashboardData['upcoming_tasks'] = $stmt->fetchColumn();
             
-            // Phân công gần đây
+            // Recent assignments
             $stmt = $pdo->prepare("
                 SELECT llv.*, dl.TenSuKien, dd.TenDiaDiem
                 FROM lichlamviec llv
@@ -247,7 +247,7 @@ try {
             $stmt->execute([$staffId]);
             $dashboardData['recent_assignments'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
-            // Không tìm thấy thông tin nhân viên
+            // No staff info found
             $dashboardData = [
                 'total_assignments' => 0,
                 'pending_tasks' => 0,
@@ -263,7 +263,7 @@ try {
     
 } catch (Exception $e) {
     error_log("Dashboard data error: " . $e->getMessage());
-    // Đặt dữ liệu mặc định rỗng dựa trên role
+    // Set default empty data based on role
     if ($userRole == 1) {
         $dashboardData = [
             'total_registrations' => 0,
@@ -702,13 +702,13 @@ try {
         </div>
 
 <script>
-        // Hành động đăng ký
+        // Registration actions
         function viewRegistrationDetails(id) {
-            // Hiển thị modal
+            // Show modal
             const modal = new bootstrap.Modal(document.getElementById('registrationDetailModal'));
             modal.show();
             
-            // Đặt lại nội dung
+            // Reset content
             document.getElementById('registrationDetailContent').innerHTML = `
                 <div class="text-center">
                     <div class="spinner-border text-primary" role="status">
@@ -718,10 +718,10 @@ try {
                 </div>
             `;
             
-            // Đặt link đến trang chi tiết đầy đủ
+            // Set link to full details page
             document.getElementById('viewFullDetailsLink').href = `event-registrations.php?view=${id}`;
             
-            // Lấy chi tiết đăng ký
+            // Fetch registration details
             fetch(`../src/controllers/admin-events.php?action=get_registration_details&id=${id}`)
                 .then(response => response.json())
                 .then(data => {
@@ -748,7 +748,7 @@ try {
                 });
         }
 
-        // Tự động làm mới dữ liệu mỗi 30 giây
+        // Auto refresh data every 30 seconds
         setInterval(() => {
             location.reload();
         }, 30000);

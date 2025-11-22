@@ -926,8 +926,108 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- WebRTC Adapter.js - Tương thích cross-browser -->
-<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+<!-- Stringee SDK - Load từ LOCAL trước, sau đó fallback về CDN -->
+<script>
+(function() {
+    // ✅ Đường dẫn local SDK (ưu tiên cao nhất)
+    // Từ admin/chat.php, file SDK nằm ở ../assets/Stringee/... (relative path từ admin/)
+    // Hoặc dùng absolute path từ root
+    const localSDKPath = '<?php 
+        // Lấy path từ root của project
+        $scriptPath = $_SERVER["SCRIPT_NAME"] ?? "";
+        $pathParts = explode("/", trim($scriptPath, "/"));
+        
+        // Tìm vị trí của "admin" trong path
+        $adminIndex = array_search("admin", $pathParts);
+        
+        if ($adminIndex !== false) {
+            // Nếu có "admin" trong path, dùng relative path
+            echo "../assets/Stringee/StringeeWebSDK_2.9.0/latest.sdk.bundle.min.js";
+        } else {
+            // Nếu không có "admin", dùng BASE_PATH
+            $basePath = defined("BASE_PATH") ? BASE_PATH : "";
+            $basePath = rtrim($basePath, "/");
+            echo ($basePath ? $basePath . "/" : "") . "assets/Stringee/StringeeWebSDK_2.9.0/latest.sdk.bundle.min.js";
+        }
+    ?>';
+    
+    // ✅ Danh sách URL để thử (theo thứ tự ưu tiên: Local → CDN)
+    const stringeeUrls = [
+        localSDKPath,                                                      // ✅ LOCAL SDK (ưu tiên nhất)
+        'https://cdn.stringee.com/sdk/web/latest/stringee-web-sdk.min.js', // CDN URL mới
+        'https://cdn.stringee.com/sdk/web/stringee-web-sdk.min.js',        // CDN URL không có /latest/
+        'https://cdn.stringee.com/sdk/web/latest/stringee.js',              // CDN URL cũ
+        'https://cdn.stringee.com/sdk/web/stringee.js'                     // CDN URL cũ không có /latest/
+    ];
+    
+    // ✅ Hàm load SDK với URL cụ thể
+    function loadStringeeSDK(urlIndex) {
+        if (urlIndex >= stringeeUrls.length) {
+            console.error('❌ Tất cả URL Stringee SDK đều fail (bao gồm cả local)');
+            alert('Không thể tải Stringee SDK. Vui lòng:\n' +
+                  '1. Kiểm tra file SDK local có tồn tại không\n' +
+                  '2. Kiểm tra kết nối mạng\n' +
+                  '3. Liên hệ admin để được hỗ trợ');
+            return;
+        }
+        
+        const url = stringeeUrls[urlIndex];
+        const isLocal = urlIndex === 0; // URL đầu tiên là local
+        console.log(`🔄 ${isLocal ? '📁 LOCAL' : '🌐 CDN'}: Attempting to load Stringee SDK from: ${url} (attempt ${urlIndex + 1}/${stringeeUrls.length})`);
+        
+        const script = document.createElement('script');
+        script.src = url;
+        script.async = true;
+        script.defer = false;
+        
+        script.onload = function() {
+            // Đợi một chút để SDK khởi tạo xong
+            setTimeout(() => {
+                if (typeof StringeeClient !== 'undefined') {
+                    window.stringeeSDKLoaded = true;
+                    console.log(`✅ Stringee SDK loaded successfully from: ${isLocal ? '📁 LOCAL' : '🌐 CDN'} ${url}`);
+                    console.log('✅ StringeeClient is now available:', typeof StringeeClient);
+                } else {
+                    console.error(`❌ SDK loaded from ${url} but StringeeClient is undefined`);
+                    // Thử URL tiếp theo
+                    loadStringeeSDK(urlIndex + 1);
+                }
+            }, 500); // Đợi 500ms để SDK khởi tạo
+        };
+        
+        script.onerror = function() {
+            console.error(`❌ Failed to load Stringee SDK from: ${url}`);
+            // Thử URL tiếp theo
+            loadStringeeSDK(urlIndex + 1);
+        };
+        
+        // Thêm vào head
+        document.head.appendChild(script);
+    }
+    
+    // ✅ Bắt đầu load từ LOCAL SDK (ưu tiên nhất)
+    loadStringeeSDK(0);
+})();
+</script>
+<!-- Stringee Helper Functions -->
+<script src="<?php 
+    // Lấy path từ root của project
+    $scriptPath = $_SERVER["SCRIPT_NAME"] ?? "";
+    $pathParts = explode("/", trim($scriptPath, "/"));
+    
+    // Tìm vị trí của "admin" trong path
+    $adminIndex = array_search("admin", $pathParts);
+    
+    if ($adminIndex !== false) {
+        // Nếu có "admin" trong path, dùng relative path
+        echo "../assets/js/stringee-helper.js";
+    } else {
+        // Nếu không có "admin", dùng BASE_PATH
+        $basePath = defined("BASE_PATH") ? BASE_PATH : "";
+        $basePath = rtrim($basePath, "/");
+        echo ($basePath ? $basePath . "/" : "") . "assets/js/stringee-helper.js";
+    }
+?>"></script>
 <!-- Socket.IO - Dùng CDN cho production, local server cho development -->
 <script>
     // Tải Socket.IO client
@@ -979,11 +1079,8 @@ let isConnected = false;
 let currentUserId = <?php echo $currentUserId; ?>;
 let currentUserName = '<?php echo htmlspecialchars($currentUserName); ?>';
 
-// Biến cho Media và Call
+// Biến cho Media và Call (Stringee)
 let currentCall = null;
-let localStream = null;
-let remoteStream = null;
-let peerConnection = null;
 let isMuted = false;
 let isCameraOff = false;
 
@@ -1085,12 +1182,18 @@ function initializeSocket() {
     // Phát hiện môi trường và thiết lập URL server Socket.IO
     // ✅ FIX: Dùng base URL với mount point, path là relative
     const getSocketServerURL = function() {
-        const protocol = window.location.protocol;
-        
         // Hybrid: WebSocket chạy trên VPS riêng (ws.sukien.info.vn)
         // PHP chạy trên shared hosting (sukien.info.vn)
         if (window.location.hostname.includes('sukien.info.vn')) {
-            return protocol + '//ws.sukien.info.vn';  // VPS WebSocket server
+            // ✅ QUAN TRỌNG: Dùng wss:// (secure WebSocket) cho production
+            // Nếu server Socket.IO hỗ trợ HTTPS, dùng wss://, nếu không dùng ws://
+            const protocol = window.location.protocol;
+            // Nếu trang web dùng HTTPS, dùng wss:// cho WebSocket
+            if (protocol === 'https:') {
+                return 'wss://ws.sukien.info.vn';  // Secure WebSocket
+            } else {
+                return 'ws://ws.sukien.info.vn';   // Non-secure WebSocket (chỉ cho development)
+            }
         }
         
         // Localhost development
@@ -1399,14 +1502,10 @@ function initializeSocket() {
     
     chatSocket.on('call_accepted', function(data) {
         console.log('Received call_accepted event:', data);
+        // ✅ Stringee: Logic đã được xử lý trong acceptCallInternal, không cần làm gì thêm
         if (data.caller_id === currentUserId && currentCall) {
-            $('#callModal').modal('hide');
-            
-            if (currentCall.type === 'video') {
-                startVideoCall();
-            } else {
-                startVoiceCall();
-            }
+            // Stringee call đã được join trong acceptCallInternal
+            console.log('✅ Call accepted, Stringee call should be connected');
         }
     });
     
@@ -1447,35 +1546,9 @@ function initializeSocket() {
             console.log('✅ Remote video stopped');
         }
         
-        // Stop local stream
-        if (localStream) {
-            localStream.getTracks().forEach(track => {
-                track.stop();
-                console.log('📞 Stopped local track:', track.kind);
-            });
-            localStream = null;
-            console.log('✅ Local stream stopped');
-        }
-        
-        // Stop remote stream
-        if (remoteStream) {
-            remoteStream.getTracks().forEach(track => {
-                track.stop();
-                console.log('📞 Stopped remote track:', track.kind);
-            });
-            remoteStream = null;
-            console.log('✅ Remote stream stopped');
-        }
-        
-        // Close peer connection
-        if (peerConnection) {
-            try {
-                peerConnection.close();
-                peerConnection = null;
-                console.log('✅ Peer connection closed');
-            } catch (e) {
-                console.error('Error closing peer connection:', e);
-            }
+        // ✅ Cleanup Stringee call
+        if (window.StringeeHelper) {
+            window.StringeeHelper.cleanup();
         }
         
         // Hiển thị thông báo
@@ -1547,147 +1620,10 @@ function initializeSocket() {
         showNotification(data.message || 'Thông báo cuộc gọi', notificationType, icon);
     });
     
-    // ==================== WebRTC Signaling Events ====================
-    
-    // WebRTC Offer received (receiver nhận offer từ caller)
-    chatSocket.on('webrtc_offer', function(data) {
-        console.log('📞 Admin received WebRTC offer:', data);
-        if (currentCall && data.call_id == currentCall.id && currentCall.receiver_id == currentUserId) {
-            if (peerConnection) {
-                // Best practice: Kiểm tra signaling state trước khi set remote description
-                if (peerConnection.signalingState !== 'stable' && peerConnection.signalingState !== 'have-local-offer') {
-                    console.warn('⚠️ Signaling state is not stable:', peerConnection.signalingState);
-                }
-                
-                peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer))
-                    .then(() => {
-                        console.log('✅ Remote description (offer) set');
-                        console.log('📞 Remote description:', peerConnection.remoteDescription);
-                        console.log('📞 Signaling state after setRemoteDescription:', peerConnection.signalingState);
-                        
-                        // Tạo answer với options
-                        return peerConnection.createAnswer({
-                            voiceActivityDetection: true
-                        });
-                    })
-                    .then(answer => {
-                        console.log('✅ Answer created:', answer);
-                        console.log('📞 Answer type:', answer.type);
-                        console.log('📞 Answer SDP:', answer.sdp.substring(0, 200) + '...');
-                        return peerConnection.setLocalDescription(answer);
-                    })
-                    .then(() => {
-                        console.log('✅ Local description (answer) set');
-                        console.log('📞 Local description:', peerConnection.localDescription);
-                        console.log('📞 Signaling state after setLocalDescription:', peerConnection.signalingState);
-                        
-                        // Gửi answer qua socket
-                        if (isConnected && chatSocket && currentCall) {
-                            chatSocket.emit('webrtc_answer', {
-                                call_id: currentCall.id,
-                                answer: peerConnection.localDescription
-                            });
-                            console.log('✅ Answer sent via socket');
-                        } else {
-                            console.error('❌ Cannot send answer: socket not connected or currentCall missing');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('❌ Error handling offer:', error);
-                        console.error('Error stack:', error.stack);
-                    });
-            } else {
-                console.error('❌ Peer connection not initialized when receiving offer');
-            }
-        } else {
-            console.warn('⚠️ Offer received but conditions not met:', {
-                hasCurrentCall: !!currentCall,
-                callIdMatch: currentCall && data.call_id == currentCall.id,
-                isReceiver: currentCall && currentCall.receiver_id == currentUserId
-            });
-        }
-    });
-    
-    // WebRTC Answer received (caller nhận answer từ receiver)
-    chatSocket.on('webrtc_answer', function(data) {
-        console.log('📞 Admin received WebRTC answer:', data);
-        if (currentCall && data.call_id == currentCall.id && currentCall.caller_id == currentUserId) {
-            if (peerConnection) {
-                // Best practice: Kiểm tra signaling state
-                if (peerConnection.signalingState !== 'have-local-offer') {
-                    console.warn('⚠️ Signaling state is not have-local-offer:', peerConnection.signalingState);
-                }
-                
-                peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer))
-                    .then(() => {
-                        console.log('✅ Remote description (answer) set');
-                        console.log('📞 Remote description:', peerConnection.remoteDescription);
-                        console.log('📞 Signaling state after setRemoteDescription:', peerConnection.signalingState);
-                    })
-                    .catch(error => {
-                        console.error('❌ Error setting remote description:', error);
-                        console.error('Error stack:', error.stack);
-                    });
-            } else {
-                console.error('❌ Peer connection not initialized when receiving answer');
-            }
-        } else {
-            console.warn('⚠️ Answer received but conditions not met:', {
-                hasCurrentCall: !!currentCall,
-                callIdMatch: currentCall && data.call_id == currentCall.id,
-                isCaller: currentCall && currentCall.caller_id == currentUserId
-            });
-        }
-    });
-    
-    // ICE Candidate received
-    chatSocket.on('ice_candidate', function(data) {
-        console.log('📞 Admin received ICE candidate:', data);
-        if (currentCall && data.call_id == currentCall.id && peerConnection) {
-            // Best practice: Kiểm tra remote description đã được set chưa
-            if (!peerConnection.remoteDescription) {
-                console.warn('⚠️ Remote description not set yet, storing candidate for later');
-                // Lưu candidate để add sau
-                if (!peerConnection._pendingCandidates) {
-                    peerConnection._pendingCandidates = [];
-                }
-                peerConnection._pendingCandidates.push(data.candidate);
-                return;
-            }
-            
-            // Nếu có pending candidates, add chúng trước
-            if (peerConnection._pendingCandidates && peerConnection._pendingCandidates.length > 0) {
-                console.log('📞 Adding', peerConnection._pendingCandidates.length, 'pending candidates first');
-                const pending = peerConnection._pendingCandidates;
-                peerConnection._pendingCandidates = [];
-                
-                pending.forEach(candidate => {
-                    peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
-                        .then(() => console.log('✅ Pending ICE candidate added'))
-                        .catch(err => console.error('❌ Error adding pending candidate:', err));
-                });
-            }
-            
-            peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate))
-                .then(() => {
-                    console.log('✅ ICE candidate added');
-                })
-                .catch(error => {
-                    console.error('❌ Error adding ICE candidate:', error);
-                    console.error('Error details:', {
-                        name: error.name,
-                        message: error.message,
-                        candidate: data.candidate
-                    });
-                });
-        } else {
-            console.warn('⚠️ ICE candidate received but conditions not met:', {
-                hasCurrentCall: !!currentCall,
-                callIdMatch: currentCall && data.call_id == currentCall.id,
-                hasPeerConnection: !!peerConnection
-            });
-        }
-    });
+    // ==================== Stringee Call Events ====================
+    // ✅ Lưu ý: WebRTC signaling events (webrtc_offer, webrtc_answer, ice_candidate) 
+    // đã được loại bỏ vì chúng ta đang sử dụng Stringee thay vì WebRTC trực tiếp.
+    // Stringee xử lý tất cả signaling và media routing tự động.
 }
 
 // Tải danh sách cuộc trò chuyện
@@ -3095,18 +3031,35 @@ $(document).on('click', '.template-item', function() {
 
 // ==================== CALL FUNCTIONS ====================
 
-// Initiate call
-function initiateCall(callType) {
+// ==================== CÁC HÀM CALL (Stringee SDK) ====================
+
+/**
+ * Khởi tạo cuộc gọi (Voice hoặc Video) sử dụng Stringee SDK
+ */
+async function initiateCall(callType) {
     if (!currentConversationId) {
         alert('Vui lòng chọn cuộc trò chuyện trước khi gọi');
         return;
     }
     
-    $.post('../src/controllers/call-controller.php?action=initiate_call', {
+    if (!window.StringeeHelper) {
+        alert('Stringee SDK chưa được load. Vui lòng refresh trang.');
+        return;
+    }
+    
+    try {
+        // Tạo call session trên server
+        const response = await $.post('../src/controllers/call-controller.php?action=initiate_call', {
         conversation_id: currentConversationId,
         call_type: callType
-    }, function(response) {
-        if (response.success) {
+        });
+        
+        if (!response.success) {
+            alert('Lỗi khởi tạo cuộc gọi: ' + (response.error || 'Unknown error'));
+            return;
+        }
+        
+        // Lưu thông tin call
             currentCall = {
                 id: response.call_id,
                 type: response.call_type,
@@ -3115,30 +3068,130 @@ function initiateCall(callType) {
                 status: response.status
             };
             
+        // Hiển thị modal
             showCallModal('outgoing', response.receiver_name, callType);
             
-            // Emit call event via socket
+        // Lấy token và join call với Stringee
+        await window.StringeeHelper.getTokenAndJoin(response.call_id, callType, true);
+            
+            // Phát sự kiện call qua socket
             if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
-                const callData = {
+            chatSocket.emit('call_initiated', {
                     call_id: response.call_id,
                     caller_id: currentUserId,
                     receiver_id: response.receiver_id,
                     call_type: callType,
                     conversation_id: currentConversationId
-                };
-                console.log('📞 Admin emitting call_initiated event:', callData);
-                chatSocket.emit('call_initiated', callData);
-            } else {
-                console.warn('⚠️ Socket not connected, cannot emit call event');
-            }
-        } else {
-            alert('Lỗi khởi tạo cuộc gọi: ' + response.error);
+            });
         }
-    }, 'json').fail(function(xhr, status, error) {
-        console.error('Call initiation error:', error);
-        alert('Lỗi kết nối khi khởi tạo cuộc gọi: ' + error);
-    });
+    } catch (error) {
+        console.error('❌ Error initiating call:', error);
+        alert('Lỗi khởi tạo cuộc gọi: ' + error.message);
+        $('#callModal').modal('hide');
+        currentCall = null;
+    }
 }
+
+// Setup Stringee event handlers
+function setupStringeeEventHandlers() {
+    if (!window.StringeeHelper) {
+        console.warn('⚠️ StringeeHelper chưa được load');
+    return;
+    }
+    
+    // Setup incoming call handler
+    window.onStringeeIncomingCall = function(incomingCall) {
+        console.log('📞 Incoming call received via Stringee:', incomingCall);
+    };
+    
+    // Setup local stream handler
+    window.onStringeeLocalStreamAdded = function(stream) {
+        console.log('✅ Local stream added:', stream);
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo && stream.getVideoTracks().length > 0) {
+            localVideo.srcObject = stream;
+            localVideo.play().catch(err => console.error('Error playing local video:', err));
+        }
+    };
+    
+    // Setup remote stream handler
+    window.onStringeeRemoteStreamAdded = function(stream) {
+        console.log('✅ Remote stream added:', stream);
+        
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (remoteVideo && stream.getVideoTracks().length > 0) {
+            remoteVideo.srcObject = stream;
+            remoteVideo.play().catch(err => console.error('Error playing remote video:', err));
+            
+            $('#videoCallContainer').addClass('show').css({
+                'display': 'block',
+                'visibility': 'visible',
+                'opacity': '1',
+                'z-index': '10000'
+            });
+        }
+        
+        const remoteAudio = document.getElementById('remoteAudio');
+        if (remoteAudio && stream.getAudioTracks().length > 0) {
+            remoteAudio.srcObject = stream;
+            remoteAudio.play().catch(err => console.error('Error playing remote audio:', err));
+        }
+    };
+    
+    // Setup call answered handler
+    window.onCallAnswered = function() {
+        console.log('✅ Call answered');
+        if (currentCall && currentCall.type === 'video') {
+            $('#callModal').modal('hide');
+            $('#videoCallContainer').addClass('show').css({
+                'display': 'block',
+                'visibility': 'visible',
+                'opacity': '1',
+                'z-index': '10000'
+            });
+        } else {
+            showVoiceCallUI();
+        }
+    };
+    
+    // Setup call ended handler
+    window.onCallEnded = function() {
+        console.log('📞 Call ended');
+        cleanupCall();
+    };
+    
+    // Setup call rejected handler
+    window.onCallRejected = function() {
+        console.log('❌ Call rejected');
+        cleanupCall();
+    };
+    
+    // Setup call busy handler
+    window.onCallBusy = function() {
+        console.log('📞 Call busy');
+        cleanupCall();
+    };
+    
+    // Setup call error handler
+    window.onCallError = function(error) {
+        console.error('❌ Call error:', error);
+        alert('Lỗi cuộc gọi: ' + (error.message || error));
+        cleanupCall();
+    };
+}
+
+// Cleanup call
+function cleanupCall() {
+    $('#callModal').modal('hide');
+    $('#videoCallContainer').hide();
+    currentCall = null;
+    
+    if (window.StringeeHelper) {
+        window.StringeeHelper.cleanup();
+    }
+}
+
+
 
 // Show call modal
 function showCallModal(type, name, callType) {
@@ -3186,26 +3239,66 @@ function showCallModal(type, name, callType) {
     // Show modal using Bootstrap
     const modalElement = document.getElementById('callModal');
     if (modalElement) {
+        // ✅ FIX: Đảm bảo modal có z-index cao và hiển thị đúng
+        $(modalElement).css({
+            'z-index': '10050',
+            'display': 'block'
+        });
+        
+        // ✅ FIX: Đảm bảo backdrop có z-index phù hợp
+        if ($('.modal-backdrop').length === 0) {
+            $('body').append('<div class="modal-backdrop fade show" style="z-index: 10040;"></div>');
+        } else {
+            $('.modal-backdrop').css('z-index', '10040').addClass('show');
+        }
+        
         // Try to get existing modal instance
         let modal = bootstrap.Modal.getInstance(modalElement);
         
         // If no instance exists, create new one
         if (!modal) {
-            modal = new bootstrap.Modal(modalElement);
+            modal = new bootstrap.Modal(modalElement, {
+                backdrop: true,
+                keyboard: false,
+                focus: true
+            });
         }
         
         // Show modal
         modal.show();
         console.log('✅ Admin call modal shown with type:', type);
         
-        // Ensure modal is visible
+        // ✅ FIX: Force show modal với nhiều cách để đảm bảo hiển thị
         setTimeout(() => {
-            if (!$(modalElement).hasClass('show')) {
-                console.warn('⚠️ Modal not visible, forcing show');
-                $(modalElement).addClass('show').css('display', 'block');
-                $('.modal-backdrop').addClass('show');
+            $(modalElement).addClass('show').css({
+                'display': 'block',
+                'visibility': 'visible',
+                'opacity': '1',
+                'z-index': '10050'
+            });
+            
+            // Đảm bảo backdrop hiển thị
+            $('.modal-backdrop').addClass('show').css({
+                'z-index': '10040',
+                'display': 'block'
+            });
+            
+            // Scroll to top để đảm bảo modal trong viewport
+            $('html, body').animate({ scrollTop: 0 }, 0);
+        }, 100);
+        
+        // ✅ FIX: Double check sau 300ms
+        setTimeout(() => {
+            if (!$(modalElement).hasClass('show') || $(modalElement).css('display') === 'none') {
+                console.warn('⚠️ Modal still not visible, forcing show again');
+                $(modalElement).removeClass('fade').addClass('show').css({
+                    'display': 'block !important',
+                    'visibility': 'visible !important',
+                    'opacity': '1 !important',
+                    'z-index': '10050 !important'
+                });
             }
-        }, 50);
+        }, 300);
     } else {
         console.error('❌ Call modal element not found!');
     }
@@ -3239,36 +3332,37 @@ function showCallModal(type, name, callType) {
     }, 100);
 }
 
-// Accept call
-function acceptCall() {
+/**
+ * ✅ Chấp nhận cuộc gọi với Stringee
+ * Viết lại theo stringee-helper.js
+ */
+/**
+ * Chấp nhận cuộc gọi với Stringee SDK
+ */
+async function acceptCall() {
     if (!currentCall) {
         console.error('No current call to accept');
         return;
     }
     
-    $.post('../src/controllers/call-controller.php?action=accept_call', {
+    if (!window.StringeeHelper) {
+        alert('Stringee SDK chưa được load. Vui lòng refresh trang.');
+        return;
+    }
+    
+    try {
+        // Accept call trên server
+        const response = await $.post('../src/controllers/call-controller.php?action=accept_call', {
         call_id: currentCall.id
-    }, function(response) {
-        if (response.success) {
-            if (currentCall.type === 'video') {
-                $('#callModal').modal('hide');
-                startVideoCall();
-            } else {
-                // For voice call, don't hide modal yet - show active call UI
-                startVoiceCall();
-                
-                // QUAN TRỌNG: Đảm bảo remote audio được play sau khi accept (user interaction)
-                setTimeout(() => {
-                    const remoteAudio = document.getElementById('remoteAudio');
-                    if (remoteAudio && remoteAudio.srcObject) {
-                        remoteAudio.play().then(() => {
-                            console.log('✅ Remote audio played after accepting call');
-                        }).catch(err => {
-                            console.warn('⚠️ Could not play audio immediately:', err);
-                        });
-                    }
-                }, 500);
-            }
+        });
+        
+        if (!response.success) {
+            alert('Lỗi chấp nhận cuộc gọi: ' + (response.error || 'Unknown error'));
+            return;
+        }
+        
+        // Lấy token và join call với Stringee
+        await window.StringeeHelper.getTokenAndJoin(currentCall.id, currentCall.type, false);
             
             // Emit accept event
             if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
@@ -3278,16 +3372,15 @@ function acceptCall() {
                     receiver_id: currentUserId
                 });
             }
-        } else {
-            alert('Lỗi chấp nhận cuộc gọi: ' + response.error);
+    } catch (error) {
+        console.error('❌ Error accepting call:', error);
+        alert('Lỗi: ' + error.message);
         }
-    }, 'json').fail(function(xhr, status, error) {
-        console.error('Accept call error:', error);
-        alert('Lỗi khi chấp nhận cuộc gọi: ' + error);
-    });
 }
 
-// Reject call
+/**
+ * Từ chối cuộc gọi
+ */
 function rejectCall() {
     if (!currentCall) {
         $('#callModal').modal('hide');
@@ -3297,11 +3390,16 @@ function rejectCall() {
     const callId = currentCall.id;
     const callerId = currentCall.caller_id || currentCall.receiver_id;
     
+    // Cleanup Stringee call
+    if (window.StringeeHelper) {
+        window.StringeeHelper.cleanup();
+    }
+    
+    // Gọi backend để reject
     $.post('../src/controllers/call-controller.php?action=reject_call', {
         call_id: callId
     }, function(response) {
-        $('#callModal').modal('hide');
-        currentCall = null;
+        cleanupCall();
         
         // Emit reject event
         if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
@@ -3311,203 +3409,52 @@ function rejectCall() {
                 receiver_id: currentUserId
             });
         }
-    }, 'json').fail(function(xhr, status, error) {
-        console.error('Reject call error:', error);
-        $('#callModal').modal('hide');
-        currentCall = null;
+    }, 'json').fail(function() {
+        cleanupCall();
     });
 }
 
-// End call
+/**
+ * Kết thúc cuộc gọi với Stringee SDK
+ */
 function endCall() {
-    console.log('📞 End call function called');
-    console.log('📞 Current call:', currentCall);
-    console.log('📞 Local stream:', localStream);
-    console.log('📞 Remote stream:', remoteStream);
-    console.log('📞 Peer connection:', peerConnection);
-    
-    // QUAN TRỌNG: Ẩn modal ngay lập tức để người dùng thấy phản hồi
-    $('#callModal').modal('hide');
-    $('#videoCallContainer').hide();
-    
-    // Dừng remote audio nếu đang phát
-    const remoteAudio = document.getElementById('remoteAudio');
-    if (remoteAudio) {
-        remoteAudio.pause();
-        remoteAudio.srcObject = null;
-        console.log('✅ Remote audio stopped');
-    }
-    
-    // Stop local stream ngay lập tức
-    if (localStream) {
-        try {
-            localStream.getTracks().forEach(track => {
-                track.stop();
-                console.log('📞 Stopped local track:', track.kind);
-            });
-            localStream = null;
-            console.log('✅ Local stream stopped');
-        } catch (e) {
-            console.error('Error stopping local stream:', e);
-        }
-    }
-    
-    // Stop remote stream ngay lập tức
-    if (remoteStream) {
-        try {
-            remoteStream.getTracks().forEach(track => {
-                track.stop();
-                console.log('📞 Stopped remote track:', track.kind);
-            });
-            remoteStream = null;
-            console.log('✅ Remote stream stopped');
-        } catch (e) {
-            console.error('Error stopping remote stream:', e);
-        }
-    }
-    
-    // Close peer connection ngay lập tức
-    if (peerConnection) {
-        try {
-            peerConnection.close();
-            peerConnection = null;
-            console.log('✅ Peer connection closed');
-        } catch (e) {
-            console.error('Error closing peer connection:', e);
-        }
-    }
-    
-    // Lấy callId trước khi clear currentCall
     const callId = currentCall ? currentCall.id : null;
     
-    // Clear currentCall ngay lập tức để tránh gọi lại
-    currentCall = null;
-    
-    // Nếu không có callId, chỉ cleanup và return
-    if (!callId) {
-        console.log('⚠️ No callId, cleanup done');
-        return;
+    // Cleanup Stringee call ngay lập tức
+    if (window.StringeeHelper) {
+        window.StringeeHelper.endCall();
+        window.StringeeHelper.cleanup();
     }
     
-    console.log('📞 Ending call with ID:', callId);
+    // Cleanup UI
+    cleanupCall();
     
-    // Call backend to end call (async, không chặn UI)
+    // Gọi backend để kết thúc cuộc gọi (async)
+    if (callId) {
     $.post('../src/controllers/call-controller.php?action=end_call', {
         call_id: callId
     }, function(response) {
-        console.log('📞 End call response:', response);
-        
         // Emit end event via socket
         if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
             chatSocket.emit('call_ended', {
                 call_id: callId,
                 caller_id: currentUserId
             });
-            console.log('✅ Call ended event emitted');
-        }
-        
-        console.log('✅ Call ended successfully');
-    }, 'json').fail(function(xhr, status, error) {
-        console.error('❌ End call backend error:', error);
-        console.error('Response:', xhr.responseText);
-        
+            }
+        }, 'json').fail(function() {
         // Vẫn emit end event ngay cả khi backend fail
         if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
             chatSocket.emit('call_ended', {
                 call_id: callId,
                 caller_id: currentUserId
             });
-            console.log('✅ Call ended event emitted (despite backend error)');
         }
-        
-        console.log('✅ Cleanup done despite backend error');
     });
+    }
 }
 
 // Make endCall globally accessible
 window.endCall = endCall;
-
-// Start video call
-function startVideoCall() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('Trình duyệt của bạn không hỗ trợ video call. Vui lòng sử dụng trình duyệt khác.');
-        return;
-    }
-    
-    // Hide call modal first
-    $('#callModal').modal('hide');
-    
-    // Show video call container
-    $('#videoCallContainer').show();
-    
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(stream => {
-            localStream = stream;
-            const localVideo = document.getElementById('localVideo');
-            if (localVideo) {
-                localVideo.srcObject = stream;
-            }
-            initializePeerConnection();
-        })
-        .catch(error => {
-            console.error('Error accessing media devices:', error);
-            $('#videoCallContainer').hide();
-            let errorMessage = 'Không thể truy cập camera/microphone';
-            if (error.name === 'NotAllowedError') {
-                errorMessage = 'Vui lòng cho phép truy cập camera và microphone';
-            } else if (error.name === 'NotFoundError') {
-                errorMessage = 'Không tìm thấy camera/microphone';
-            }
-            alert(errorMessage);
-        });
-}
-
-// Start voice call
-function startVoiceCall() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('Trình duyệt của bạn không hỗ trợ voice call. Vui lòng sử dụng trình duyệt khác.');
-        return;
-    }
-    
-    navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-            localStream = stream;
-            console.log('📞 Local stream obtained:', stream);
-            console.log('📞 Local audio tracks:', stream.getAudioTracks());
-            
-            // Kiểm tra local audio tracks
-            const localAudioTracks = stream.getAudioTracks();
-            if (localAudioTracks.length === 0) {
-                console.warn('⚠️ Local stream không có audio track!');
-            } else {
-                console.log('✅ Local stream có', localAudioTracks.length, 'audio track(s)');
-                localAudioTracks.forEach((track, index) => {
-                    console.log(`  Local audio track ${index}:`, {
-                        enabled: track.enabled,
-                        kind: track.kind,
-                        label: track.label,
-                        muted: track.muted,
-                        readyState: track.readyState
-                    });
-                });
-            }
-            
-            initializePeerConnection();
-            
-            // Show voice call UI with end call button
-            showVoiceCallUI();
-        })
-        .catch(error => {
-            console.error('Error accessing microphone:', error);
-            let errorMessage = 'Không thể truy cập microphone';
-            if (error.name === 'NotAllowedError') {
-                errorMessage = 'Vui lòng cho phép truy cập microphone';
-            } else if (error.name === 'NotFoundError') {
-                errorMessage = 'Không tìm thấy microphone';
-            }
-            alert(errorMessage);
-        });
-}
 
 // Show voice call UI
 function showVoiceCallUI() {
@@ -3561,441 +3508,46 @@ function showVoiceCallUI() {
     console.log('✅ Admin voice call UI shown with end call button');
 }
 
-// Initialize WebRTC peer connection
-function initializePeerConnection() {
-    // QUAN TRỌNG: Cấu hình WebRTC với STUN và TURN servers
-    // STUN: Để tìm public IP/port
-    // TURN: Để relay traffic khi P2P không thể kết nối (NAT/firewall)
-    const configuration = {
-        iceServers: [
-            // STUN servers (miễn phí từ Google)
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' },
-            // TURN servers (miễn phí - cần thay bằng TURN server riêng nếu có)
-            // Option 1: Dùng free TURN server (có thể không ổn định)
-            { 
-                urls: 'turn:openrelay.metered.ca:80',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            { 
-                urls: 'turn:openrelay.metered.ca:443',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            { 
-                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            // Option 2: Dùng TURN server khác (nếu có)
-            // { 
-            //     urls: 'turn:your-turn-server.com:3478',
-            //     username: 'your-username',
-            //     credential: 'your-password'
-            // }
-        ],
-        iceCandidatePoolSize: 10 // Tăng pool size để có nhiều candidates hơn
-    };
+// Setup Stringee event handlers khi page load
+$(document).ready(function() {
+    const checkStringeeHelper = setInterval(function() {
+        if (window.StringeeHelper) {
+            clearInterval(checkStringeeHelper);
+            setupStringeeEventHandlers();
+            console.log('✅ Stringee event handlers setup completed');
+        }
+    }, 100);
     
-    peerConnection = new RTCPeerConnection(configuration);
-    
-    // Add local stream to peer connection
-    if (localStream) {
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
-    }
-    
-    // Handle remote stream
-    // Best practice từ WebRTC: ontrack có thể được gọi nhiều lần, mỗi lần cho 1 track
-    peerConnection.ontrack = event => {
-        console.log('📞 ontrack event fired:', event);
-        console.log('📞 Event streams:', event.streams);
-        console.log('📞 Event track:', event.track);
-        console.log('📞 Event track kind:', event.track ? event.track.kind : 'N/A');
-        console.log('📞 Event track id:', event.track ? event.track.id : 'N/A');
-        console.log('📞 Event track readyState:', event.track ? event.track.readyState : 'N/A');
-        
-        // QUAN TRỌNG: Lấy stream từ event
-        // Best practice: Sử dụng event.streams[0] nếu có, nếu không thì tạo stream mới từ track
-        if (event.streams && event.streams.length > 0) {
-            remoteStream = event.streams[0];
-            console.log('📞 Using stream from event.streams[0]');
-        } else if (event.track) {
-            // Nếu không có stream, tạo stream mới từ track
-            // Nếu đã có remoteStream, thêm track vào stream đó
-            if (remoteStream) {
-                // Kiểm tra xem track đã có trong stream chưa
-                const existingTrack = remoteStream.getTracks().find(t => t.id === event.track.id);
-                if (!existingTrack) {
-                    remoteStream.addTrack(event.track);
-                    console.log('📞 Added track to existing remote stream');
-                } else {
-                    console.log('📞 Track already in remote stream, skipping');
-                }
-            } else {
-                remoteStream = new MediaStream([event.track]);
-                console.log('📞 Created new MediaStream from track');
-            }
-        } else {
-            console.error('❌ No stream or track in ontrack event!');
-            return;
+    setTimeout(function() {
+        clearInterval(checkStringeeHelper);
+        if (!window.StringeeHelper) {
+            console.warn('⚠️ StringeeHelper chưa được load sau 5 giây');
         }
-        
-        console.log('📞 Remote stream received:', remoteStream);
-        console.log('📞 Remote stream ID:', remoteStream.id);
-        console.log('📞 Remote stream tracks:', remoteStream.getTracks());
-        console.log('📞 Remote stream active:', remoteStream.active);
-        
-        // QUAN TRỌNG: Đảm bảo stream được cập nhật khi có track mới
-        event.track.onended = () => {
-            console.log('📞 Remote track ended:', event.track.kind, event.track.id);
-        };
-        
-        event.track.onmute = () => {
-            console.log('📞 Remote track muted:', event.track.kind, event.track.id);
-        };
-        
-        event.track.onunmute = () => {
-            console.log('📞 Remote track unmuted:', event.track.kind, event.track.id);
-        };
-        
-        // Kiểm tra video tracks trong remote stream
-        const videoTracks = remoteStream.getVideoTracks();
-        console.log('📞 Remote video tracks:', videoTracks);
-        if (videoTracks.length === 0) {
-            console.warn('⚠️ Remote stream không có video track!');
-        } else {
-            console.log('✅ Remote stream có', videoTracks.length, 'video track(s)');
-            videoTracks.forEach((track, index) => {
-                console.log(`  Video track ${index}:`, {
-                    enabled: track.enabled,
-                    kind: track.kind,
-                    label: track.label,
-                    muted: track.muted,
-                    readyState: track.readyState
-                });
-            });
-        }
-        
-        // Kiểm tra audio tracks trong remote stream
-        const audioTracks = remoteStream.getAudioTracks();
-        console.log('📞 Remote audio tracks:', audioTracks);
-        if (audioTracks.length === 0) {
-            console.warn('⚠️ Remote stream không có audio track!');
-        } else {
-            console.log('✅ Remote stream có', audioTracks.length, 'audio track(s)');
-            audioTracks.forEach((track, index) => {
-                console.log(`  Audio track ${index}:`, {
-                    enabled: track.enabled,
-                    kind: track.kind,
-                    label: track.label,
-                    muted: track.muted,
-                    readyState: track.readyState
-                });
-            });
-        }
-        
-        // Cho video call: gán vào remoteVideo
-        const remoteVideo = document.getElementById('remoteVideo');
-        if (remoteVideo) {
-            // QUAN TRỌNG: Nếu có video track, đảm bảo video container được hiển thị
-            if (videoTracks.length > 0) {
-                const videoContainer = document.getElementById('videoCallContainer');
-                if (videoContainer) {
-                    videoContainer.style.display = 'block';
-                    videoContainer.style.visibility = 'visible';
-                    videoContainer.style.opacity = '1';
-                    videoContainer.style.zIndex = '10000';
-                    console.log('✅ Video container shown for video call');
-                }
-            }
-            
-            remoteVideo.srcObject = remoteStream;
-            // QUAN TRỌNG: Đảm bảo video element được hiển thị và phát
-            remoteVideo.play().then(() => {
-                console.log('✅ Remote video playing successfully');
-                console.log('📹 Remote video element state:', {
-                    paused: remoteVideo.paused,
-                    currentTime: remoteVideo.currentTime,
-                    readyState: remoteVideo.readyState,
-                    videoWidth: remoteVideo.videoWidth,
-                    videoHeight: remoteVideo.videoHeight
-                });
-            }).catch(err => {
-                console.error('❌ Error playing remote video:', err);
-                console.error('Error details:', {
-                    name: err.name,
-                    message: err.message
-                });
-                
-                // Nếu bị chặn bởi autoplay policy, thử play khi user click
-                if (err.name === 'NotAllowedError' || err.name === 'NotSupportedError' || err.name === 'AbortError') {
-                    console.warn('⚠️ Browser autoplay policy blocked video. Video sẽ phát khi user tương tác.');
-                    
-                    // Thêm event listener để play khi user click vào video container hoặc bất kỳ đâu
-                    const playOnInteraction = (event) => {
-                        console.log('📞 User interaction detected, attempting to play video...');
-                        remoteVideo.play().then(() => {
-                            console.log('✅ Video played after user interaction');
-                            document.removeEventListener('click', playOnInteraction);
-                            document.removeEventListener('touchstart', playOnInteraction);
-                            document.removeEventListener('keydown', playOnInteraction);
-                        }).catch(e => {
-                            console.error('❌ Still error after interaction:', e);
-                        });
-                    };
-                    
-                    // Thêm nhiều event listeners để đảm bảo bắt được user interaction
-                    document.addEventListener('click', playOnInteraction, { once: true });
-                    document.addEventListener('touchstart', playOnInteraction, { once: true });
-                    document.addEventListener('keydown', playOnInteraction, { once: true });
-                    
-                    // Đặc biệt: thêm listener vào video container
-                    const videoContainer = document.getElementById('videoCallContainer');
-                    if (videoContainer) {
-                        videoContainer.addEventListener('click', playOnInteraction, { once: true });
-                    }
-                }
-            });
-            console.log('✅ Remote video assigned to video element');
-        } else {
-            console.error('❌ Remote video element not found!');
-        }
-        
-        // Cho voice call: gán vào remoteAudio để phát âm thanh
-        const remoteAudio = document.getElementById('remoteAudio');
-        if (remoteAudio) {
-            // Setup audio element
-            remoteAudio.srcObject = remoteStream;
-            remoteAudio.volume = 1.0; // Đảm bảo volume = 100%
-            remoteAudio.muted = false; // Đảm bảo không bị mute
-            
-            // Thử play audio
-            const playPromise = remoteAudio.play();
-            if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    console.log('✅ Remote audio playing successfully');
-                    console.log('📞 Audio element state:', {
-                        volume: remoteAudio.volume,
-                        muted: remoteAudio.muted,
-                        paused: remoteAudio.paused,
-                        currentTime: remoteAudio.currentTime,
-                        readyState: remoteAudio.readyState
-                    });
-                }).catch(err => {
-                    console.error('❌ Error playing remote audio:', err);
-                    console.error('❌ Error details:', {
-                        name: err.name,
-                        message: err.message
-                    });
-                    
-                    // Nếu bị chặn bởi autoplay policy, thử play khi user click
-                    if (err.name === 'NotAllowedError' || err.name === 'NotSupportedError') {
-                        console.warn('⚠️ Browser autoplay policy blocked audio. Audio sẽ phát khi user tương tác.');
-                        
-                        // Thêm event listener để play khi user click vào modal
-                        const playOnInteraction = () => {
-                            remoteAudio.play().then(() => {
-                                console.log('✅ Audio played after user interaction');
-                                document.removeEventListener('click', playOnInteraction);
-                                document.removeEventListener('touchstart', playOnInteraction);
-                            }).catch(e => {
-                                console.error('Still error after interaction:', e);
-                            });
-                        };
-                        
-                        document.addEventListener('click', playOnInteraction, { once: true });
-                        document.addEventListener('touchstart', playOnInteraction, { once: true });
-                    }
-                });
-            }
-            
-            console.log('✅ Remote audio assigned to audio element');
-        } else {
-            console.error('❌ Remote audio element not found!');
-        }
-    };
-    
-    // Handle ICE candidates
-    peerConnection.onicecandidate = event => {
-        if (event.candidate) {
-            console.log('📞 ICE candidate generated:', event.candidate);
-            console.log('📞 Candidate type:', event.candidate.type);
-            console.log('📞 Candidate protocol:', event.candidate.protocol);
-            console.log('📞 Candidate priority:', event.candidate.priority);
-            console.log('📞 Candidate foundation:', event.candidate.foundation);
-            
-            // Send ICE candidate to remote peer via socket
-            if (isConnected && chatSocket && typeof chatSocket.emit === 'function' && currentCall) {
-                chatSocket.emit('ice_candidate', {
-                    call_id: currentCall.id,
-                    candidate: event.candidate
-                });
-                console.log('✅ ICE candidate sent via socket');
-            } else {
-                console.warn('⚠️ Cannot send ICE candidate:', {
-                    isConnected,
-                    hasChatSocket: !!chatSocket,
-                    hasCurrentCall: !!currentCall
-                });
-            }
-        } else {
-            console.log('📞 ICE gathering complete');
-            console.log('📞 Total ICE candidates:', peerConnection.localDescription ? peerConnection.localDescription.sdp.match(/a=candidate:/g)?.length || 0 : 0);
-        }
-    };
-    
-    // Handle connection state changes
-    peerConnection.onconnectionstatechange = () => {
-        console.log('📞 Peer connection state:', peerConnection.connectionState);
-        console.log('📞 ICE connection state:', peerConnection.iceConnectionState);
-        console.log('📞 ICE gathering state:', peerConnection.iceGatheringState);
-        console.log('📞 Signaling state:', peerConnection.signalingState);
-        
-        if (peerConnection.connectionState === 'connected') {
-            console.log('✅ Peer connection established successfully!');
-        } else if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
-            console.warn('⚠️ Peer connection failed or disconnected');
-            console.warn('⚠️ ICE connection state:', peerConnection.iceConnectionState);
-            
-            // Thử restart ICE nếu failed
-            if (peerConnection.connectionState === 'failed' && peerConnection.iceConnectionState === 'failed') {
-                console.log('🔄 Attempting to restart ICE...');
-                peerConnection.restartIce();
-            }
-        }
-    };
-    
-    // Handle ICE connection state changes
-    peerConnection.oniceconnectionstatechange = () => {
-        console.log('📞 ICE connection state changed:', peerConnection.iceConnectionState);
-        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
-            console.log('✅ ICE connection established!');
-        } else if (peerConnection.iceConnectionState === 'failed') {
-            console.error('❌ ICE connection failed - may need TURN server');
-        } else if (peerConnection.iceConnectionState === 'disconnected') {
-            console.warn('⚠️ ICE connection disconnected');
-        }
-    };
-    
-    // Handle ICE gathering state changes
-    peerConnection.onicegatheringstatechange = () => {
-        console.log('📞 ICE gathering state:', peerConnection.iceGatheringState);
-        if (peerConnection.iceGatheringState === 'complete') {
-            console.log('✅ ICE gathering complete');
-        }
-    };
-    
-    // QUAN TRỌNG: Tạo offer nếu là caller, hoặc chờ answer nếu là receiver
-    // Best practice từ WebRTC: Đợi ICE gathering hoàn tất trước khi tạo offer
-    // QUAN TRỌNG: addTrack phải được gọi TRƯỚC khi tạo offer
-    if (currentCall && currentCall.caller_id == currentUserId) {
-        // Caller: Đợi ICE gathering hoàn tất rồi mới tạo offer
-        console.log('📞 Admin Caller: Waiting for ICE gathering before creating offer...');
-        
-        const createOfferWhenReady = () => {
-            // Kiểm tra nếu đã có local description thì không tạo lại
-            if (peerConnection.localDescription) {
-                console.log('📞 Local description already set, skipping offer creation');
-                return;
-            }
-            
-            console.log('📞 Admin Caller: Creating offer...');
-            peerConnection.createOffer({
-                offerToReceiveAudio: true,
-                offerToReceiveVideo: currentCall.type === 'video'
-            })
-                .then(offer => {
-                    console.log('✅ Offer created:', offer);
-                    console.log('📞 Offer type:', offer.type);
-                    console.log('📞 Offer SDP:', offer.sdp.substring(0, 200) + '...');
-                    return peerConnection.setLocalDescription(offer);
-                })
-                .then(() => {
-                    console.log('✅ Local description set');
-                    console.log('📞 Local description:', peerConnection.localDescription);
-                    
-                    // Gửi offer qua socket
-                    if (isConnected && chatSocket && currentCall) {
-                        chatSocket.emit('webrtc_offer', {
-                            call_id: currentCall.id,
-                            offer: peerConnection.localDescription
-                        });
-                        console.log('✅ Offer sent via socket');
-                    } else {
-                        console.error('❌ Cannot send offer: socket not connected or currentCall missing');
-                    }
-                })
-                .catch(error => {
-                    console.error('❌ Error creating offer:', error);
-                    console.error('Error stack:', error.stack);
-                });
-        };
-        
-        // Nếu ICE gathering đã hoàn tất, tạo offer ngay
-        if (peerConnection.iceGatheringState === 'complete') {
-            createOfferWhenReady();
-        } else {
-            // Đợi ICE gathering hoàn tất
-            peerConnection.addEventListener('icegatheringstatechange', function onIceGatheringStateChange() {
-                if (peerConnection.iceGatheringState === 'complete') {
-                    console.log('📞 ICE gathering complete, creating offer...');
-                    peerConnection.removeEventListener('icegatheringstatechange', onIceGatheringStateChange);
-                    createOfferWhenReady();
-                }
-            });
-            
-            // Timeout sau 3 giây nếu ICE gathering chưa hoàn tất
-            setTimeout(() => {
-                if (!peerConnection.localDescription) {
-                    console.warn('⚠️ ICE gathering timeout, creating offer anyway...');
-                    createOfferWhenReady();
-                }
-            }, 3000);
-        }
-    } else if (currentCall && currentCall.receiver_id == currentUserId) {
-        // Receiver: Chờ offer từ caller (sẽ được xử lý trong socket event)
-        console.log('📞 Admin Receiver: Waiting for offer...');
-    }
-}
+    }, 5000);
+});
 
-// Toggle mute
+// Toggle mute với Stringee SDK
 function toggleMute() {
-    if (localStream) {
-        const audioTrack = localStream.getAudioTracks()[0];
-        if (audioTrack) {
-            audioTrack.enabled = !audioTrack.enabled;
-            isMuted = !audioTrack.enabled;
-            
-            const icon = $('#muteBtn i');
-            if (isMuted) {
-                icon.removeClass('fa-microphone').addClass('fa-microphone-slash');
-            } else {
-                icon.removeClass('fa-microphone-slash').addClass('fa-microphone');
-            }
+    if (window.StringeeHelper) {
+        isMuted = window.StringeeHelper.toggleMute();
+        const icon = $('#muteBtn i');
+        if (isMuted) {
+            icon.removeClass('fa-microphone').addClass('fa-microphone-slash');
+        } else {
+            icon.removeClass('fa-microphone-slash').addClass('fa-microphone');
         }
     }
 }
 
-// Toggle camera
+// Toggle camera với Stringee SDK
 function toggleCamera() {
-    if (localStream) {
-        const videoTrack = localStream.getVideoTracks()[0];
-        if (videoTrack) {
-            videoTrack.enabled = !videoTrack.enabled;
-            isCameraOff = !videoTrack.enabled;
-            
-            const icon = $('#cameraBtn i');
-            if (isCameraOff) {
-                icon.removeClass('fa-video').addClass('fa-video-slash');
-            } else {
-                icon.removeClass('fa-video-slash').addClass('fa-video');
-            }
+    if (window.StringeeHelper) {
+        isCameraOff = window.StringeeHelper.toggleCamera();
+        const icon = $('#cameraBtn i');
+        if (isCameraOff) {
+            icon.removeClass('fa-video').addClass('fa-video-slash');
+        } else {
+            icon.removeClass('fa-video-slash').addClass('fa-video');
         }
     }
 }
@@ -4141,3 +3693,4 @@ function uploadFile(file) {
 </script>
 
 <?php include 'includes/admin-footer.php'; ?>
+

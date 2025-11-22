@@ -1,15 +1,15 @@
 <?php
-// Đặt error reporting để bắt tất cả lỗi
+// Set error reporting to catch all errors
 error_reporting(E_ALL);
-ini_set('display_errors', 0); // Không hiển thị lỗi trong output
+ini_set('display_errors', 0); // Don't display errors in output
 ini_set('log_errors', 1);
 
-// Bắt đầu output buffering để bắt bất kỳ output không mong muốn nào
+// Start output buffering to catch any unexpected output
 ob_start();
 
 session_start();
 
-// Thử include database config
+// Try to include database config
 try {
     $dbPath = __DIR__ . '/../../config/database.php';
     if (!file_exists($dbPath)) {
@@ -23,9 +23,9 @@ try {
     exit;
 }
 
-// Kiểm tra người dùng đã đăng nhập và có role 4 (Nhân viên)
+// Check if user is logged in and has role 4 (Staff)
 if (!isset($_SESSION['user']) || $_SESSION['user']['ID_Role'] != 4) {
-    // Xóa bất kỳ output buffer nào
+    // Clear any output buffer
     ob_clean();
     header('Content-Type: application/json');
     echo json_encode(['success' => false, 'message' => 'Không có quyền truy cập']);
@@ -86,17 +86,17 @@ function getAssignments() {
         $staff = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$staff) {
-            error_log("LỖI: Không tìm thấy nhân viên cho user ID: " . $userId);
+            error_log("ERROR: Staff not found for user ID: " . $userId);
             echo json_encode(['success' => false, 'message' => 'Không tìm thấy thông tin nhân viên']);
             return;
         }
         
-        error_log("DEBUG: Tìm thấy nhân viên - ID: " . $staff['ID_NhanVien']);
+        error_log("DEBUG: Staff found - ID: " . $staff['ID_NhanVien']);
         
-        // Lấy phân công từ cả lichlamviec và chitietkehoach
+        // Get assignments from both lichlamviec and chitietkehoach
         $assignments = [];
         
-               // Đầu tiên, thử lấy từ lichlamviec
+               // First, try to get from lichlamviec
                $stmt = $pdo->prepare("
                    SELECT 
                        llv.ID_LLV,
@@ -212,6 +212,13 @@ function updateAssignmentStatus() {
             return;
         }
         
+        // Validate status values
+        $validStatuses = ['Chưa làm', 'Đang làm', 'Hoàn thành', 'Báo sự cố'];
+        if (!in_array($newStatus, $validStatuses)) {
+            echo json_encode(['success' => false, 'message' => 'Trạng thái không hợp lệ']);
+            return;
+        }
+        
         if ($sourceTable === 'chitietkehoach') {
             // Update chitietkehoach table
             $stmt = $pdo->prepare("
@@ -219,7 +226,29 @@ function updateAssignmentStatus() {
                 SET TrangThai = ?
                 WHERE ID_ChiTiet = ?
             ");
-            $stmt->execute([$newStatus, $assignmentId]);
+            $result = $stmt->execute([$newStatus, $assignmentId]);
+            
+            // Sync status with lichlamviec if exists
+            if ($result) {
+                try {
+                    $scheduleSql = "UPDATE lichlamviec SET TrangThai = ? WHERE ID_ChiTiet = ?";
+                    $scheduleStmt = $pdo->prepare($scheduleSql);
+                    $scheduleStmt->execute([$newStatus, $assignmentId]);
+                    
+                    // Update ThoiGianHoanThanh based on status
+                    if ($newStatus === 'Đang làm') {
+                        $timeSql = "UPDATE lichlamviec SET ThoiGianHoanThanh = NULL WHERE ID_ChiTiet = ?";
+                        $timeStmt = $pdo->prepare($timeSql);
+                        $timeStmt->execute([$assignmentId]);
+                    } elseif ($newStatus === 'Hoàn thành') {
+                        $timeSql = "UPDATE lichlamviec SET ThoiGianHoanThanh = NOW() WHERE ID_ChiTiet = ?";
+                        $timeStmt = $pdo->prepare($timeSql);
+                        $timeStmt->execute([$assignmentId]);
+                    }
+                } catch (Exception $e) {
+                    error_log("ERROR: updateAssignmentStatus - Failed to sync lichlamviec: " . $e->getMessage());
+                }
+            }
         } else {
             // Update lichlamviec table
             $stmt = $pdo->prepare("
@@ -227,12 +256,41 @@ function updateAssignmentStatus() {
                 SET TrangThai = ?, Tiendo = ?, GhiChu = ?, NgayCapNhat = NOW()
                 WHERE ID_LLV = ?
             ");
-            $stmt->execute([$newStatus, $progress, $note, $assignmentId]);
+            $result = $stmt->execute([$newStatus, $progress, $note, $assignmentId]);
+            
+            // Update ThoiGianHoanThanh based on status
+            if ($result) {
+                if ($newStatus === 'Đang làm') {
+                    $timeSql = "UPDATE lichlamviec SET ThoiGianHoanThanh = NULL WHERE ID_LLV = ?";
+                    $timeStmt = $pdo->prepare($timeSql);
+                    $timeStmt->execute([$assignmentId]);
+                } elseif ($newStatus === 'Hoàn thành') {
+                    $timeSql = "UPDATE lichlamviec SET ThoiGianHoanThanh = NOW() WHERE ID_LLV = ?";
+                    $timeStmt = $pdo->prepare($timeSql);
+                    $timeStmt->execute([$assignmentId]);
+                }
+                
+                // Sync status with chitietkehoach if exists
+                try {
+                    $stmt = $pdo->prepare("SELECT ID_ChiTiet FROM lichlamviec WHERE ID_LLV = ?");
+                    $stmt->execute([$assignmentId]);
+                    $chitietId = $stmt->fetchColumn();
+                    
+                    if ($chitietId) {
+                        $chitietSql = "UPDATE chitietkehoach SET TrangThai = ? WHERE ID_ChiTiet = ?";
+                        $chitietStmt = $pdo->prepare($chitietSql);
+                        $chitietStmt->execute([$newStatus, $chitietId]);
+                    }
+                } catch (Exception $e) {
+                    error_log("ERROR: updateAssignmentStatus - Failed to sync chitietkehoach: " . $e->getMessage());
+                }
+            }
         }
         
         echo json_encode(['success' => true, 'message' => 'Cập nhật trạng thái thành công']);
         
     } catch (Exception $e) {
+        error_log("ERROR: updateAssignmentStatus - " . $e->getMessage());
         echo json_encode(['success' => false, 'message' => 'Lỗi khi cập nhật trạng thái: ' . $e->getMessage()]);
     }
 }
@@ -262,30 +320,223 @@ function updateProgress() {
             return;
         }
         
+        // Validate progress value (0-100)
+        $progressInt = intval($progress);
+        if ($progressInt < 0 || $progressInt > 100) {
+            echo json_encode(['success' => false, 'message' => 'Tiến độ phải từ 0 đến 100']);
+            return;
+        }
+        
         if ($sourceTable === 'chitietkehoach') {
-            // chitietkehoach only has basic columns, so we can only update TrangThai
+            // chitietkehoach only has basic columns, so we update TrangThai based on progress
+            // If progress > 0, set status to 'Đang làm'
+            $newStatus = ($progressInt > 0 && $progressInt < 100) ? 'Đang làm' : 
+                        ($progressInt >= 100 ? 'Hoàn thành' : 'Chưa làm');
+            
             $sql = "
                 UPDATE chitietkehoach 
-                SET TrangThai = 'Đang làm'
+                SET TrangThai = ?
                 WHERE ID_ChiTiet = ?
             ";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$assignmentId]);
+            $result = $stmt->execute([$newStatus, $assignmentId]);
+            
+            // Sync status with lichlamviec if exists
+            if ($result) {
+                try {
+                    $scheduleSql = "UPDATE lichlamviec SET TrangThai = ? WHERE ID_ChiTiet = ?";
+                    $scheduleStmt = $pdo->prepare($scheduleSql);
+                    $scheduleStmt->execute([$newStatus, $assignmentId]);
+                    
+                    // Also update progress in lichlamviec if exists
+                    $progressSql = "UPDATE lichlamviec SET TienDo = ?, GhiChu = ?, NgayCapNhat = NOW() WHERE ID_ChiTiet = ?";
+                    $progressStmt = $pdo->prepare($progressSql);
+                    $progressStmt->execute([$progress . '%', $note, $assignmentId]);
+                } catch (Exception $e) {
+                    error_log("ERROR: updateProgress - Failed to sync lichlamviec: " . $e->getMessage());
+                }
+            }
         } else {
             // lichlamviec has columns: TienDo (varchar), GhiChu (text), NgayCapNhat (auto-update)
+            // Update progress and status based on progress value
+            $newStatus = ($progressInt > 0 && $progressInt < 100) ? 'Đang làm' : 
+                        ($progressInt >= 100 ? 'Hoàn thành' : 'Chưa làm');
+            
             $sql = "
                 UPDATE lichlamviec 
-                SET TienDo = ?, GhiChu = ?
+                SET TienDo = ?, 
+                    GhiChu = ?, 
+                    TrangThai = ?,
+                    NgayCapNhat = NOW()
                 WHERE ID_LLV = ?
             ";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$progress . '%', $note, $assignmentId]);
+            $result = $stmt->execute([$progress . '%', $note, $newStatus, $assignmentId]);
+            
+            // Update ThoiGianHoanThanh based on status
+            if ($result) {
+                if ($newStatus === 'Đang làm') {
+                    $timeSql = "UPDATE lichlamviec SET ThoiGianHoanThanh = NULL WHERE ID_LLV = ?";
+                    $timeStmt = $pdo->prepare($timeSql);
+                    $timeStmt->execute([$assignmentId]);
+                } elseif ($newStatus === 'Hoàn thành') {
+                    $timeSql = "UPDATE lichlamviec SET ThoiGianHoanThanh = NOW() WHERE ID_LLV = ?";
+                    $timeStmt = $pdo->prepare($timeSql);
+                    $timeStmt->execute([$assignmentId]);
+                }
+                
+                // Sync status with chitietkehoach if exists
+                try {
+                    $stmt = $pdo->prepare("SELECT ID_ChiTiet FROM lichlamviec WHERE ID_LLV = ?");
+                    $stmt->execute([$assignmentId]);
+                    $chitietId = $stmt->fetchColumn();
+                    
+                    if ($chitietId) {
+                        $chitietSql = "UPDATE chitietkehoach SET TrangThai = ? WHERE ID_ChiTiet = ?";
+                        $chitietStmt = $pdo->prepare($chitietSql);
+                        $chitietStmt->execute([$newStatus, $chitietId]);
+                    }
+                } catch (Exception $e) {
+                    error_log("ERROR: updateProgress - Failed to sync chitietkehoach: " . $e->getMessage());
+                }
+            }
+        }
+        
+        // Auto-update plan status based on step statuses
+        if ($result) {
+            try {
+                updatePlanStatusFromSteps($pdo, $assignmentId, $sourceTable);
+            } catch (Exception $e) {
+                error_log("ERROR: updateProgress - Failed to update plan status: " . $e->getMessage());
+            }
+        }
+        
+        // Send progress report to manager (Role 2) whenever progress is updated
+        if ($result) {
+            try {
+                // Get staff ID
+                $userId = $_SESSION['user']['ID_User'];
+                $stmt = $pdo->prepare("SELECT ID_NhanVien FROM nhanvieninfo WHERE ID_User = ?");
+                $stmt->execute([$userId]);
+                $staffId = $stmt->fetchColumn();
+                
+                if ($staffId) {
+                    // Get manager ID (Role 2) - get the first available manager
+                    $stmt = $pdo->prepare("
+                        SELECT nv.ID_NhanVien 
+                        FROM nhanvieninfo nv 
+                        JOIN users u ON nv.ID_User = u.ID_User 
+                        WHERE u.ID_Role = 2 
+                        LIMIT 1
+                    ");
+                    $stmt->execute();
+                    $managerId = $stmt->fetchColumn();
+                    
+                    if ($managerId) {
+                        // Create baocaotiendo table if not exists (match database structure)
+                        try {
+                            $pdo->exec("
+                                CREATE TABLE IF NOT EXISTS baocaotiendo (
+                                    ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
+                                    ID_NhanVien INT NOT NULL,
+                                    ID_QuanLy INT NOT NULL,
+                                    ID_Task INT NOT NULL,
+                                    LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
+                                    TienDo INT DEFAULT 0,
+                                    GhiChu TEXT DEFAULT NULL,
+                                    TrangThai VARCHAR(50) DEFAULT NULL,
+                                    NgayBaoCao DATETIME DEFAULT CURRENT_TIMESTAMP
+                                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+                            ");
+                        } catch (Exception $e) {
+                            // Table might already exist, continue
+                            error_log("DEBUG: updateProgress - Table creation: " . $e->getMessage());
+                        }
+                        
+                        // Prepare progress report note
+                        $reportNote = $note ? $note : "Cập nhật tiến độ: {$progressInt}%";
+                        if ($progressInt >= 100) {
+                            $reportNote .= " - Công việc đã hoàn thành";
+                        } elseif ($progressInt == 0) {
+                            $reportNote .= " - Công việc chưa bắt đầu";
+                        }
+                        
+                        // Set report status based on progress
+                        if ($progressInt >= 100) {
+                            $reportStatus = 'Hoàn thành';
+                        } elseif ($progressInt > 0) {
+                            $reportStatus = 'Đang xử lý';
+                        } else {
+                            $reportStatus = 'Chưa bắt đầu';
+                        }
+                        
+                        // Insert or update progress report
+                        // Check if report already exists for this task
+                        $checkStmt = $pdo->prepare("
+                            SELECT ID_BaoCao FROM baocaotiendo 
+                            WHERE ID_NhanVien = ? AND ID_Task = ? AND LoaiTask = ?
+                            ORDER BY NgayBaoCao DESC LIMIT 1
+                        ");
+                        $checkStmt->execute([$staffId, $assignmentId, $sourceTable]);
+                        $existingReport = $checkStmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($existingReport) {
+                            // Update existing report
+                            $updateStmt = $pdo->prepare("
+                                UPDATE baocaotiendo 
+                                SET TienDo = ?, 
+                                    GhiChu = ?, 
+                                    TrangThai = ?,
+                                    NgayBaoCao = NOW()
+                                WHERE ID_BaoCao = ?
+                            ");
+                            $updateStmt->execute([
+                                $progressInt, 
+                                $reportNote, 
+                                $reportStatus,
+                                $existingReport['ID_BaoCao']
+                            ]);
+                            error_log("DEBUG: updateProgress - Updated existing progress report ID: " . $existingReport['ID_BaoCao']);
+                        } else {
+                            // Insert new report
+                            $insertStmt = $pdo->prepare("
+                                INSERT INTO baocaotiendo (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, TienDo, GhiChu, TrangThai, NgayBaoCao)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                            ");
+                            $insertStmt->execute([
+                                $staffId, 
+                                $managerId, 
+                                $assignmentId, 
+                                $sourceTable, 
+                                $progressInt, 
+                                $reportNote, 
+                                $reportStatus
+                            ]);
+                            error_log("DEBUG: updateProgress - Created new progress report ID: " . $pdo->lastInsertId());
+                        }
+                        
+                        error_log("DEBUG: updateProgress - Progress report sent to manager ID: " . $managerId . " (Staff ID: " . $staffId . ", Task ID: " . $assignmentId . ", Progress: " . $progressInt . "%)");
+                    } else {
+                        error_log("WARNING: updateProgress - No manager (Role 2) found to send progress report");
+                    }
+                }
+            } catch (Exception $e) {
+                error_log("ERROR: updateProgress - Failed to send progress report: " . $e->getMessage());
+                error_log("ERROR: updateProgress - Stack trace: " . $e->getTraceAsString());
+                // Don't fail the whole operation if report sending fails
+            }
         }
         
         header('Content-Type: application/json');
-        echo json_encode(['success' => true, 'message' => 'Cập nhật tiến độ thành công']);
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Cập nhật tiến độ thành công' . ($progressInt >= 100 ? ' và đã gửi báo cáo cho quản lý' : ''),
+            'progress' => $progressInt,
+            'status' => $newStatus ?? ''
+        ]);
         
     } catch (Exception $e) {
+        error_log("ERROR: updateProgress - " . $e->getMessage());
         ob_clean();
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'message' => 'Lỗi khi cập nhật tiến độ: ' . $e->getMessage()]);
@@ -347,7 +598,8 @@ function reportIssue() {
             throw new Exception("Manager not found");
         }
         
-        // Create baocaosuco table if not exists
+        // Create baocaosuco table if not exists (match database structure)
+        try {
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS baocaosuco (
                 ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
@@ -356,15 +608,16 @@ function reportIssue() {
                 ID_Task INT NOT NULL,
                 LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
                 TieuDe VARCHAR(255) NOT NULL,
-                MoTa TEXT,
+                    MoTa TEXT DEFAULT NULL,
                 MucDo ENUM('Thấp', 'Trung bình', 'Cao', 'Khẩn cấp') DEFAULT 'Trung bình',
                 TrangThai ENUM('Mới', 'Đang xử lý', 'Đã xử lý', 'Đã đóng') DEFAULT 'Mới',
-                NgayBaoCao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                NgayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (ID_NhanVien) REFERENCES nhanvieninfo(ID_NhanVien),
-                FOREIGN KEY (ID_QuanLy) REFERENCES nhanvieninfo(ID_NhanVien)
-            )
-        ");
+                    NgayBaoCao TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+            ");
+        } catch (Exception $e) {
+            // Table might already exist, continue
+            error_log("DEBUG: reportIssue - Table creation: " . $e->getMessage());
+        }
         
         // Get task title
         $taskTitle = '';
@@ -380,8 +633,8 @@ function reportIssue() {
         
         // Insert issue report
         $stmt = $pdo->prepare("
-            INSERT INTO baocaosuco (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, TieuDe, MoTa, MucDo, TrangThai)
-            VALUES (?, ?, ?, ?, ?, ?, 'Trung bình', 'Mới')
+            INSERT INTO baocaosuco (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, TieuDe, MoTa, MucDo, TrangThai, NgayBaoCao)
+            VALUES (?, ?, ?, ?, ?, ?, 'Trung bình', 'Mới', NOW())
         ");
         $result = $stmt->execute([
             $staffId,
@@ -393,8 +646,14 @@ function reportIssue() {
         ]);
         
         if (!$result) {
-            throw new Exception("Không thể lưu báo cáo sự cố");
+            $errorInfo = $stmt->errorInfo();
+            error_log("ERROR: reportIssue - SQL Error: " . json_encode($errorInfo));
+            throw new Exception("Không thể lưu báo cáo sự cố: " . ($errorInfo[2] ?? 'Unknown error'));
         }
+        
+        $reportId = $pdo->lastInsertId();
+        error_log("DEBUG: reportIssue - Issue report created with ID: " . $reportId);
+        error_log("DEBUG: reportIssue - Staff ID: " . $staffId . ", Manager ID: " . $managerId);
         
         // Update task status
         if ($sourceTable === 'chitietkehoach') {
@@ -639,6 +898,13 @@ function completeWork() {
             }
         }
         
+        // Auto-update plan status based on step statuses
+        try {
+            updatePlanStatusFromSteps($pdo, $assignmentId, $sourceTable);
+        } catch (Exception $e) {
+            error_log("ERROR: completeWork - Failed to update plan status: " . $e->getMessage());
+        }
+        
         // Send progress report to manager
         try {
             // Get staff ID
@@ -648,13 +914,20 @@ function completeWork() {
             $staffId = $stmt->fetchColumn();
             
             if ($staffId) {
-                // Get manager ID (Role 2)
-                $stmt = $pdo->prepare("SELECT nv.ID_NhanVien FROM nhanvieninfo nv JOIN users u ON nv.ID_User = u.ID_User WHERE u.ID_Role = 2 LIMIT 1");
+                // Get manager ID (Role 2) - get the first available manager
+                $stmt = $pdo->prepare("
+                    SELECT nv.ID_NhanVien 
+                    FROM nhanvieninfo nv 
+                    JOIN users u ON nv.ID_User = u.ID_User 
+                    WHERE u.ID_Role = 2 
+                    LIMIT 1
+                ");
                 $stmt->execute();
                 $managerId = $stmt->fetchColumn();
                 
                 if ($managerId) {
-                    // Create baocaotiendo table if not exists
+                    // Create baocaotiendo table if not exists (match database structure)
+                    try {
                     $pdo->exec("
                         CREATE TABLE IF NOT EXISTS baocaotiendo (
                             ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
@@ -662,28 +935,72 @@ function completeWork() {
                             ID_QuanLy INT NOT NULL,
                             ID_Task INT NOT NULL,
                             LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
-                            TienDo INT NOT NULL DEFAULT 0,
-                            GhiChu TEXT,
-                            TrangThai ENUM('Đang xử lý', 'Hoàn thành') DEFAULT 'Hoàn thành',
-                            NgayBaoCao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            NgayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                            FOREIGN KEY (ID_NhanVien) REFERENCES nhanvieninfo(ID_NhanVien),
-                            FOREIGN KEY (ID_QuanLy) REFERENCES nhanvieninfo(ID_NhanVien)
-                        )
-                    ");
+                                TienDo INT DEFAULT 0,
+                                GhiChu TEXT DEFAULT NULL,
+                                TrangThai VARCHAR(50) DEFAULT NULL,
+                                NgayBaoCao DATETIME DEFAULT CURRENT_TIMESTAMP
+                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+                        ");
+                    } catch (Exception $e) {
+                        // Table might already exist, continue
+                        error_log("DEBUG: completeWork - Table creation: " . $e->getMessage());
+                    }
                     
-                    // Insert progress report
-                    $stmt = $pdo->prepare("
-                        INSERT INTO baocaotiendo (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, TienDo, GhiChu, TrangThai)
-                        VALUES (?, ?, ?, ?, ?, ?, 'Hoàn thành')
-                    ");
-                    $stmt->execute([$staffId, $managerId, $assignmentId, $sourceTable, $progress, $note]);
+                    // Prepare report note
+                    $reportNote = $note ? $note : "Hoàn thành công việc - Tiến độ: 100%";
                     
-                    error_log("DEBUG: completeWork - Progress report sent to manager");
+                    // Check if report already exists for this task
+                    $checkStmt = $pdo->prepare("
+                        SELECT ID_BaoCao FROM baocaotiendo 
+                        WHERE ID_NhanVien = ? AND ID_Task = ? AND LoaiTask = ?
+                        ORDER BY NgayBaoCao DESC LIMIT 1
+                    ");
+                    $checkStmt->execute([$staffId, $assignmentId, $sourceTable]);
+                    $existingReport = $checkStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($existingReport) {
+                        // Update existing report
+                        $updateStmt = $pdo->prepare("
+                            UPDATE baocaotiendo 
+                            SET TienDo = ?, 
+                                GhiChu = ?, 
+                                TrangThai = 'Hoàn thành',
+                                NgayBaoCao = NOW()
+                            WHERE ID_BaoCao = ?
+                        ");
+                        $updateStmt->execute([
+                            100, 
+                            $reportNote, 
+                            $existingReport['ID_BaoCao']
+                        ]);
+                        error_log("DEBUG: completeWork - Updated existing progress report ID: " . $existingReport['ID_BaoCao']);
+                    } else {
+                        // Insert new report
+                        $insertStmt = $pdo->prepare("
+                            INSERT INTO baocaotiendo (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, TienDo, GhiChu, TrangThai, NgayBaoCao)
+                            VALUES (?, ?, ?, ?, ?, ?, 'Hoàn thành', NOW())
+                        ");
+                        $insertStmt->execute([
+                            $staffId, 
+                            $managerId, 
+                            $assignmentId, 
+                            $sourceTable, 
+                            100, 
+                            $reportNote
+                        ]);
+                        error_log("DEBUG: completeWork - Created new progress report ID: " . $pdo->lastInsertId());
+                    }
+                    
+                    error_log("DEBUG: completeWork - Progress report sent to manager ID: " . $managerId);
+                } else {
+                    error_log("WARNING: completeWork - No manager (Role 2) found to send progress report");
                 }
             }
         } catch (Exception $e) {
             error_log("ERROR: completeWork - Failed to send progress report: " . $e->getMessage());
+            error_log("ERROR: completeWork - Stack trace: " . $e->getTraceAsString());
+            // Don't fail the whole operation if report sending fails
+            // But log the error for debugging
         }
         
         $message = 'Hoàn thành công việc thành công';
@@ -694,8 +1011,13 @@ function completeWork() {
         error_log("DEBUG: completeWork - Success: " . $message);
         
         // Check and update event status if all steps are completed
+        try {
         checkAndUpdateEventStatus($pdo, $assignmentId, $sourceTable);
+        } catch (Exception $e) {
+            error_log("ERROR: completeWork - Failed to check event status: " . $e->getMessage());
+        }
         
+        header('Content-Type: application/json');
         echo json_encode(['success' => true, 'message' => $message, 'isLate' => $isLate]);
         
     } catch (Exception $e) {
@@ -1012,16 +1334,7 @@ function checkAndUpdateEventStatus($pdo, $assignmentId, $sourceTable) {
             error_log("DEBUG: checkAndUpdateEventStatus - All steps completed, updating event status");
             
             // Update event status to completed
-            $stmt = $pdo->prepare("UPDATE sukien SET TrangThai = 'Hoàn thành' WHERE ID_SuKien = ?");
-            $stmt->execute([$eventId]);
-            
-            // Also update datlichsukien status if exists
-            $stmt = $pdo->prepare("
-                UPDATE datlichsukien dl
-                JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
-                SET dl.TrangThai = 'Hoàn thành'
-                WHERE s.ID_SuKien = ?
-            ");
+            $stmt = $pdo->prepare("UPDATE sukien SET TrangThaiThucTe = 'Hoàn thành' WHERE ID_SuKien = ?");
             $stmt->execute([$eventId]);
             
             error_log("DEBUG: checkAndUpdateEventStatus - Event status updated to 'Hoàn thành'");
@@ -1031,6 +1344,127 @@ function checkAndUpdateEventStatus($pdo, $assignmentId, $sourceTable) {
         
     } catch (Exception $e) {
         error_log("ERROR: checkAndUpdateEventStatus - Exception: " . $e->getMessage());
+    }
+}
+
+/**
+ * Auto-update plan status (kehoachthuchien) based on step statuses (chitietkehoach)
+ */
+function updatePlanStatusFromSteps($pdo, $assignmentId, $sourceTable) {
+    try {
+        // Get plan ID from assignment
+        $planId = null;
+        
+        if ($sourceTable === 'chitietkehoach') {
+            // Get plan ID directly from chitietkehoach
+            $stmt = $pdo->prepare("SELECT ID_KeHoach FROM chitietkehoach WHERE ID_ChiTiet = ?");
+            $stmt->execute([$assignmentId]);
+            $planId = $stmt->fetchColumn();
+        } else if ($sourceTable === 'lichlamviec') {
+            // Get plan ID from lichlamviec -> chitietkehoach -> kehoachthuchien
+            $stmt = $pdo->prepare("
+                SELECT kht.ID_KeHoach 
+                FROM lichlamviec llv
+                JOIN chitietkehoach ctk ON llv.ID_ChiTiet = ctk.ID_ChiTiet
+                JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+                WHERE llv.ID_LLV = ?
+            ");
+            $stmt->execute([$assignmentId]);
+            $planId = $stmt->fetchColumn();
+        }
+        
+        if (!$planId) {
+            error_log("DEBUG: updatePlanStatusFromSteps - No plan ID found for assignment: " . $assignmentId);
+            return;
+        }
+        
+        error_log("DEBUG: updatePlanStatusFromSteps - Plan ID: " . $planId);
+        
+        // Get all steps for this plan with their actual status from lichlamviec
+        // A step is considered "Hoàn thành" only if ALL assigned staff have completed it
+        // A step is considered "Đang làm" if at least one staff is working on it
+        $stmt = $pdo->prepare("
+            SELECT 
+                ck.ID_ChiTiet,
+                ck.TrangThai as chitiet_status,
+                COUNT(llv.ID_LLV) as total_assignments,
+                SUM(CASE WHEN llv.TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_assignments,
+                SUM(CASE WHEN llv.TrangThai = 'Đang làm' THEN 1 ELSE 0 END) as inprogress_assignments,
+                SUM(CASE WHEN llv.TrangThai = 'Chưa làm' THEN 1 ELSE 0 END) as notstarted_assignments
+            FROM chitietkehoach ck
+            LEFT JOIN lichlamviec llv ON ck.ID_ChiTiet = llv.ID_ChiTiet
+            WHERE ck.ID_KeHoach = ?
+            GROUP BY ck.ID_ChiTiet, ck.TrangThai
+        ");
+        $stmt->execute([$planId]);
+        $steps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (empty($steps)) {
+            error_log("DEBUG: updatePlanStatusFromSteps - No steps found for plan: " . $planId);
+            return;
+        }
+        
+        $totalSteps = count($steps);
+        $completedSteps = 0;
+        $inProgressSteps = 0;
+        
+        foreach ($steps as $step) {
+            $totalAssignments = (int)$step['total_assignments'];
+            $completedAssignments = (int)$step['completed_assignments'];
+            $inProgressAssignments = (int)$step['inprogress_assignments'];
+            
+            // If step has assignments in lichlamviec, use those to determine status
+            if ($totalAssignments > 0) {
+                // Step is completed only if ALL assignments are completed
+                if ($completedAssignments === $totalAssignments && $totalAssignments > 0) {
+                    $completedSteps++;
+                } 
+                // Step is in progress if at least one assignment is in progress or completed (but not all)
+                else if ($inProgressAssignments > 0 || $completedAssignments > 0) {
+                    $inProgressSteps++;
+                }
+            } else {
+                // No assignments in lichlamviec, use chitietkehoach status
+                if ($step['chitiet_status'] === 'Hoàn thành') {
+                    $completedSteps++;
+                } else if ($step['chitiet_status'] === 'Đang làm') {
+                    $inProgressSteps++;
+                }
+            }
+        }
+        
+        error_log("DEBUG: updatePlanStatusFromSteps - Total: $totalSteps, Completed: $completedSteps, In Progress: $inProgressSteps");
+        
+        // Determine new plan status
+        $newPlanStatus = null;
+        if ($completedSteps === $totalSteps && $totalSteps > 0) {
+            // All steps completed
+            $newPlanStatus = 'Hoàn thành';
+        } else if ($inProgressSteps > 0 || $completedSteps > 0) {
+            // At least one step is in progress or completed
+            $newPlanStatus = 'Đang thực hiện';
+        } else {
+            // All steps are "Chưa làm"
+            $newPlanStatus = 'Chưa bắt đầu';
+        }
+        
+        // Update plan status
+        if ($newPlanStatus) {
+            $updateStmt = $pdo->prepare("
+                UPDATE kehoachthuchien 
+                SET TrangThai = ? 
+                WHERE ID_KeHoach = ?
+            ");
+            $updateResult = $updateStmt->execute([$newPlanStatus, $planId]);
+            
+            if ($updateResult) {
+                error_log("DEBUG: updatePlanStatusFromSteps - Plan status updated to: " . $newPlanStatus);
+            } else {
+                error_log("ERROR: updatePlanStatusFromSteps - Failed to update plan status");
+            }
+        }
+    } catch (Exception $e) {
+        error_log("ERROR: updatePlanStatusFromSteps - " . $e->getMessage());
     }
 }
 ?>

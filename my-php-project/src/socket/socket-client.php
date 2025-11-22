@@ -30,8 +30,14 @@ class SocketClient {
         if (strpos($hostname, 'sukien.info.vn') !== false || strpos($hostname, 'sukien') !== false) {
             // Hybrid: WebSocket chạy trên VPS riêng (ws.sukien.info.vn)
             // PHP chạy trên shared hosting (sukien.info.vn)
-            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-            $this->socketUrl = $protocol . '://ws.sukien.info.vn';  // VPS WebSocket server
+            // ✅ QUAN TRỌNG: Dùng wss:// (secure WebSocket) cho production
+            $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+            // Nếu trang web dùng HTTPS, dùng wss:// cho WebSocket
+            if ($isHttps) {
+                $this->socketUrl = 'wss://ws.sukien.info.vn';  // Secure WebSocket
+            } else {
+                $this->socketUrl = 'ws://ws.sukien.info.vn';   // Non-secure WebSocket (chỉ cho development)
+            }
             $this->socketPort = null; // No port for HTTPS/HTTP
             $this->socketPath = ''; // No base path for Hybrid setup
         } else {

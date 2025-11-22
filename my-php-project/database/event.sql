@@ -416,7 +416,9 @@ CREATE TABLE `datlichsukien` (
   `NgayTao` timestamp NOT NULL DEFAULT current_timestamp() COMMENT 'Thời gian tạo đặt lịch',
   `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp() COMMENT 'Thời gian cập nhật gần nhất',
   `LoaiThueApDung` enum('Theo giờ','Theo ngày') DEFAULT NULL COMMENT 'Loại thuê địa điểm được áp dụng (Theo giờ hoặc Theo ngày)',
-  `ID_Phong` int(11) DEFAULT NULL COMMENT 'ID phòng (chỉ dùng cho địa điểm trong nhà, Foreign Key -> phong.ID_Phong)'
+  `ID_Phong` int(11) DEFAULT NULL COMMENT 'ID phòng (chỉ dùng cho địa điểm trong nhà, Foreign Key -> phong.ID_Phong)',
+  `ID_MaGiamGia` int(11) DEFAULT NULL COMMENT 'ID mã giảm giá được áp dụng (Foreign Key -> magiamgia.ID_MaGiamGia)',
+  `SoTienGiamGia` decimal(15,2) DEFAULT 0.00 COMMENT 'Số tiền được giảm từ mã giảm giá'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Bảng lưu thông tin đặt lịch sự kiện';
 
 --
@@ -698,6 +700,55 @@ CREATE TABLE `lichlamviec` (
 
 INSERT INTO `lichlamviec` (`ID_LLV`, `ID_DatLich`, `ID_NhanVien`, `NhiemVu`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `GhiChu`, `NgayTao`, `NgayCapNhat`, `ID_KeHoach`, `ID_ChiTiet`, `CongViec`, `ThoiGianHoanThanh`, `TienDo`) VALUES
 (3, 20, 4, 'Gỡ rạp ', '2025-10-29 23:00:00', '2025-10-30 12:00:00', 'Hoàn thành', '', '2025-10-28 18:15:43', '2025-10-28 18:29:35', 1, 2, '', '2025-10-28 19:29:35', '100');
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `magiamgia`
+--
+
+CREATE TABLE `magiamgia` (
+  `ID_MaGiamGia` int(11) NOT NULL,
+  `MaCode` varchar(50) NOT NULL COMMENT 'Mã giảm giá (ví dụ: landausudung)',
+  `TenMa` varchar(255) NOT NULL COMMENT 'Tên mã giảm giá',
+  `MoTa` text DEFAULT NULL COMMENT 'Mô tả mã giảm giá',
+  `LoaiGiamGia` enum('Phần trăm','Số tiền') NOT NULL DEFAULT 'Phần trăm' COMMENT 'Loại giảm giá: Phần trăm hoặc Số tiền cố định',
+  `GiaTriGiamGia` decimal(15,2) NOT NULL COMMENT 'Giá trị giảm giá (phần trăm hoặc số tiền)',
+  `SoTienToiThieu` decimal(15,2) DEFAULT 0.00 COMMENT 'Số tiền đơn hàng tối thiểu để áp dụng mã',
+  `SoLanSuDungToiDa` int(11) DEFAULT NULL COMMENT 'Số lần sử dụng tối đa cho mỗi tài khoản (NULL = không giới hạn)',
+  `SoLanSuDungTongCong` int(11) DEFAULT NULL COMMENT 'Số lần sử dụng tổng cộng tối đa (NULL = không giới hạn)',
+  `SoLanDaSuDung` int(11) DEFAULT 0 COMMENT 'Số lần đã sử dụng',
+  `NgayBatDau` datetime NOT NULL COMMENT 'Ngày bắt đầu áp dụng',
+  `NgayKetThuc` datetime NOT NULL COMMENT 'Ngày kết thúc áp dụng',
+  `TrangThai` enum('Hoạt động','Ngừng','Hết hạn') DEFAULT 'Hoạt động' COMMENT 'Trạng thái mã giảm giá',
+  `NgayTao` timestamp NOT NULL DEFAULT current_timestamp(),
+  `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Bảng quản lý mã giảm giá';
+
+--
+-- Đang đổ dữ liệu cho bảng `magiamgia`
+--
+
+INSERT INTO `magiamgia` (`ID_MaGiamGia`, `MaCode`, `TenMa`, `MoTa`, `LoaiGiamGia`, `GiaTriGiamGia`, `SoTienToiThieu`, `SoLanSuDungToiDa`, `SoLanSuDungTongCong`, `SoLanDaSuDung`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `NgayTao`, `NgayCapNhat`) VALUES
+(1, 'landausudung', 'Lần đầu sử dụng', 'Giảm 10% cho lần đầu sử dụng dịch vụ', 'Phần trăm', 10.00, 0.00, 1, NULL, 0, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 'Hoạt động', NOW(), NOW()),
+(2, 'KHUYENMAI10', 'Khuyến mãi 10%', 'Giảm 10% cho đơn hàng từ 10 triệu', 'Phần trăm', 10.00, 10000000.00, 10, 100, 0, '2025-01-01 00:00:00', '2025-12-31 23:59:59', 'Hoạt động', NOW(), NOW());
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `magiamgia_sudung`
+--
+
+CREATE TABLE `magiamgia_sudung` (
+  `id` int(11) NOT NULL,
+  `ID_MaGiamGia` int(11) NOT NULL,
+  `ID_User` int(11) NOT NULL COMMENT 'ID người dùng sử dụng mã',
+  `ID_DatLich` int(11) NOT NULL COMMENT 'ID đặt lịch sử dụng mã',
+  `SoTienGiamGia` decimal(15,2) NOT NULL COMMENT 'Số tiền đã giảm',
+  `SoTienTruocGiam` decimal(15,2) NOT NULL COMMENT 'Số tiền trước khi giảm',
+  `SoTienSauGiam` decimal(15,2) NOT NULL COMMENT 'Số tiền sau khi giảm',
+  `NgaySuDung` timestamp NOT NULL DEFAULT current_timestamp() COMMENT 'Thời gian sử dụng mã'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Bảng lưu lịch sử sử dụng mã giảm giá';
 
 -- --------------------------------------------------------
 
@@ -1228,7 +1279,8 @@ ALTER TABLE `datlichsukien`
   ADD KEY `idx_autocancel` (`TrangThaiDuyet`,`TrangThaiThanhToan`,`NgayTao`),
   ADD KEY `idx_khachhang_ngaybatdau` (`ID_KhachHang`,`NgayBatDau`),
   ADD KEY `idx_trangthai_ngaytao` (`TrangThaiDuyet`,`NgayTao`),
-  ADD KEY `fk_datlich_phong` (`ID_Phong`);
+  ADD KEY `fk_datlich_phong` (`ID_Phong`),
+  ADD KEY `fk_datlich_magiamgia` (`ID_MaGiamGia`);
 
 --
 -- Chỉ mục cho bảng `diadiem`
@@ -1292,6 +1344,28 @@ ALTER TABLE `lichlamviec`
   ADD KEY `idx_ngayketthuc` (`NgayKetThuc`),
   ADD KEY `idx_nhanvien_ngaybatdau` (`ID_NhanVien`,`NgayBatDau`),
   ADD KEY `idx_datlich_trangthai` (`ID_DatLich`,`TrangThai`);
+
+--
+-- Chỉ mục cho bảng `magiamgia`
+--
+ALTER TABLE `magiamgia`
+  ADD PRIMARY KEY (`ID_MaGiamGia`),
+  ADD UNIQUE KEY `MaCode` (`MaCode`),
+  ADD KEY `idx_trangthai` (`TrangThai`),
+  ADD KEY `idx_ngaybatdau` (`NgayBatDau`),
+  ADD KEY `idx_ngayketthuc` (`NgayKetThuc`),
+  ADD KEY `idx_trangthai_ngay` (`TrangThai`,`NgayBatDau`,`NgayKetThuc`);
+
+--
+-- Chỉ mục cho bảng `magiamgia_sudung`
+--
+ALTER TABLE `magiamgia_sudung`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_mgg_sudung_magiamgia` (`ID_MaGiamGia`),
+  ADD KEY `fk_mgg_sudung_user` (`ID_User`),
+  ADD KEY `fk_mgg_sudung_datlich` (`ID_DatLich`),
+  ADD KEY `idx_ngaysudung` (`NgaySuDung`),
+  ADD KEY `idx_user_magiamgia` (`ID_User`,`ID_MaGiamGia`);
 
 --
 -- Chỉ mục cho bảng `loaisukien`
@@ -1522,6 +1596,18 @@ ALTER TABLE `lichlamviec`
   MODIFY `ID_LLV` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
+-- AUTO_INCREMENT cho bảng `magiamgia`
+--
+ALTER TABLE `magiamgia`
+  MODIFY `ID_MaGiamGia` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT cho bảng `magiamgia_sudung`
+--
+ALTER TABLE `magiamgia_sudung`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT cho bảng `loaisukien`
 --
 ALTER TABLE `loaisukien`
@@ -1682,7 +1768,8 @@ ALTER TABLE `datlichsukien`
   ADD CONSTRAINT `fk_datlich_diadiem` FOREIGN KEY (`ID_DD`) REFERENCES `diadiem` (`ID_DD`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_datlich_khachhang` FOREIGN KEY (`ID_KhachHang`) REFERENCES `khachhanginfo` (`ID_KhachHang`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_datlich_loaisk` FOREIGN KEY (`ID_LoaiSK`) REFERENCES `loaisukien` (`ID_LoaiSK`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_datlich_phong` FOREIGN KEY (`ID_Phong`) REFERENCES `phong` (`ID_Phong`) ON DELETE SET NULL ON UPDATE CASCADE;
+  ADD CONSTRAINT `fk_datlich_phong` FOREIGN KEY (`ID_Phong`) REFERENCES `phong` (`ID_Phong`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_datlich_magiamgia` FOREIGN KEY (`ID_MaGiamGia`) REFERENCES `magiamgia` (`ID_MaGiamGia`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `hoadon`
@@ -1713,6 +1800,14 @@ ALTER TABLE `lichlamviec`
   ADD CONSTRAINT `fk_llv_datlich` FOREIGN KEY (`ID_DatLich`) REFERENCES `datlichsukien` (`ID_DatLich`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_llv_nhanvien` FOREIGN KEY (`ID_NhanVien`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `lichlamviec_ibfk_1` FOREIGN KEY (`ID_KeHoach`) REFERENCES `kehoachthuchien` (`ID_KeHoach`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
+-- Các ràng buộc cho bảng `magiamgia_sudung`
+--
+ALTER TABLE `magiamgia_sudung`
+  ADD CONSTRAINT `fk_mgg_sudung_datlich` FOREIGN KEY (`ID_DatLich`) REFERENCES `datlichsukien` (`ID_DatLich`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_mgg_sudung_magiamgia` FOREIGN KEY (`ID_MaGiamGia`) REFERENCES `magiamgia` (`ID_MaGiamGia`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_mgg_sudung_user` FOREIGN KEY (`ID_User`) REFERENCES `users` (`ID_User`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `messages`

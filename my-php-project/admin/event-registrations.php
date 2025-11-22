@@ -379,6 +379,28 @@ include 'includes/admin-header.php';
                                 `;
                             }
                             
+                            // Hiển thị nút Sửa và Xóa cho role 3 (Quản lý sự kiện)
+                            // Chỉ cho phép sửa/xóa các sự kiện đã đăng ký bởi role 3 (có trong GhiChu)
+                            if (userRole == 3) {
+                                // Kiểm tra xem sự kiện có được đăng ký bởi quản lý sự kiện không
+                                const isEventManagerEvent = row.GhiChu && (
+                                    row.GhiChu.includes('Đăng ký bởi quản lý sự kiện') || 
+                                    row.GhiChu.includes('Đăng ký bởi') ||
+                                    row.GhiChu.includes('quản lý sự kiện')
+                                );
+                                
+                                if (isEventManagerEvent) {
+                                    actions += `
+                                        <button class="btn btn-warning btn-sm" onclick="editRegistration(${row.ID_DatLich})" title="Sửa sự kiện">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" onclick="deleteRegistration(${row.ID_DatLich})" title="Xóa sự kiện">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    `;
+                                }
+                            }
+                            
                             return `<div class="action-buttons">${actions}</div>`;
                         }
                     }
@@ -623,6 +645,43 @@ include 'includes/admin-header.php';
                 error: function(xhr, status, error) {
                     console.error('Reject error:', xhr, status, error);
                     alert('Có lỗi xảy ra khi từ chối đăng ký');
+                }
+            });
+        }
+
+        // Hàm sửa sự kiện (chỉ cho role 3)
+        function editRegistration(id) {
+            // Chuyển đến trang đăng ký với tham số edit
+            window.location.href = `event-registration.php?edit=${id}`;
+        }
+
+        // Hàm xóa sự kiện (chỉ cho role 3)
+        function deleteRegistration(id) {
+            if (!confirm('Bạn có chắc chắn muốn xóa sự kiện này? Hành động này không thể hoàn tác.')) {
+                return;
+            }
+
+            $.ajax({
+                url: '../src/controllers/admin-event-register.php',
+                type: 'POST',
+                data: {
+                    action: 'delete_registration',
+                    registration_id: id
+                },
+                dataType: 'json',
+                success: function(response) {
+                    console.log('Delete response:', response);
+                    if (response.success) {
+                        alert('Đã xóa sự kiện thành công');
+                        registrationsTable.ajax.reload();
+                        loadStatistics();
+                    } else {
+                        alert('Lỗi: ' + (response.message || 'Có lỗi xảy ra khi xóa sự kiện'));
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Delete error:', xhr, status, error);
+                    alert('Có lỗi xảy ra khi xóa sự kiện');
                 }
             });
         }

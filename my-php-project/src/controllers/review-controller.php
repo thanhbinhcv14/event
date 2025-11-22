@@ -73,7 +73,7 @@ function submitReview($pdo, $user) {
         
         // Kiểm tra sự kiện tồn tại và thuộc về người dùng
         $stmt = $pdo->prepare("
-            SELECT dl.ID_DatLich, dl.ID_KhachHang, dl.TrangThaiThanhToan, s.TrangThaiThucTe as TrangThaiSuKien
+            SELECT dl.ID_DatLich, dl.ID_KhachHang, dl.TrangThaiThanhToan, dl.TrangThaiDuyet, s.TrangThaiThucTe as TrangThaiSuKien, s.ID_SuKien
             FROM datlichsukien dl
             LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
             LEFT JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
@@ -86,14 +86,57 @@ function submitReview($pdo, $user) {
             throw new Exception('Sự kiện không tồn tại hoặc không thuộc về bạn');
         }
         
-        // Kiểm tra sự kiện đã hoàn thành chưa
-        if ($event['TrangThaiSuKien'] !== 'Hoàn thành') {
-            throw new Exception('Chỉ có thể đánh giá sự kiện đã hoàn thành');
-        }
-        
         // Kiểm tra thanh toán đã hoàn thành chưa
         if ($event['TrangThaiThanhToan'] !== 'Đã thanh toán đủ') {
             throw new Exception('Chỉ có thể đánh giá sự kiện đã thanh toán thành công');
+        }
+        
+        // Kiểm tra sự kiện đã được duyệt chưa
+        if ($event['TrangThaiDuyet'] !== 'Đã duyệt') {
+            throw new Exception('Chỉ có thể đánh giá sự kiện đã được duyệt');
+        }
+        
+        // Kiểm tra tất cả các bước đã hoàn thành chưa (thay vì chỉ kiểm tra TrangThaiSuKien)
+        $allStepsCompleted = false;
+        if ($event['ID_SuKien']) {
+            // Check if all steps are completed
+            $stmtSteps = $pdo->prepare("
+                SELECT 
+                    COUNT(*) as total_steps,
+                    SUM(CASE WHEN TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_steps
+                FROM (
+                    SELECT ctk.TrangThai FROM chitietkehoach ctk
+                    JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+                    WHERE kht.ID_SuKien = ?
+                    
+                    UNION ALL
+                    
+                    SELECT llv.TrangThai FROM lichlamviec llv
+                    JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
+                    JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+                    WHERE s.ID_SuKien = ?
+                ) as all_steps
+            ");
+            $stmtSteps->execute([$event['ID_SuKien'], $event['ID_SuKien']]);
+            $stepsResult = $stmtSteps->fetch(PDO::FETCH_ASSOC);
+            
+            $totalSteps = (int)($stepsResult['total_steps'] ?? 0);
+            $completedSteps = (int)($stepsResult['completed_steps'] ?? 0);
+            
+            // All steps completed if total > 0 and all are completed
+            $allStepsCompleted = ($totalSteps > 0 && $totalSteps === $completedSteps);
+            
+            // Also check TrangThaiSuKien as fallback
+            if (!$allStepsCompleted && $event['TrangThaiSuKien'] === 'Hoàn thành') {
+                $allStepsCompleted = true;
+            }
+        } else {
+            // If no sukien exists, check TrangThaiSuKien only
+            $allStepsCompleted = ($event['TrangThaiSuKien'] === 'Hoàn thành');
+        }
+        
+        if (!$allStepsCompleted) {
+            throw new Exception('Chỉ có thể đánh giá sự kiện đã hoàn thành (tất cả các bước đã hoàn thành)');
         }
         
         // Kiểm tra đánh giá đã tồn tại chưa
@@ -213,7 +256,7 @@ function getUserReview($pdo, $user) {
         
         // Validate event exists, belongs to user, is completed and paid
         $stmt = $pdo->prepare("
-            SELECT dl.ID_DatLich, dl.TrangThaiThanhToan, s.TrangThaiThucTe as TrangThaiSuKien
+            SELECT dl.ID_DatLich, dl.TrangThaiThanhToan, dl.TrangThaiDuyet, s.TrangThaiThucTe as TrangThaiSuKien, s.ID_SuKien
             FROM datlichsukien dl
             LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
             LEFT JOIN khachhanginfo k ON dl.ID_KhachHang = k.ID_KhachHang
@@ -226,12 +269,55 @@ function getUserReview($pdo, $user) {
             throw new Exception('Sự kiện không tồn tại hoặc không thuộc về bạn');
         }
         
-        if ($event['TrangThaiSuKien'] !== 'Hoàn thành') {
-            throw new Exception('Chỉ có thể đánh giá sự kiện đã hoàn thành');
-        }
-        
         if ($event['TrangThaiThanhToan'] !== 'Đã thanh toán đủ') {
             throw new Exception('Chỉ có thể đánh giá sự kiện đã thanh toán thành công');
+        }
+        
+        if ($event['TrangThaiDuyet'] !== 'Đã duyệt') {
+            throw new Exception('Chỉ có thể đánh giá sự kiện đã được duyệt');
+        }
+        
+        // Kiểm tra tất cả các bước đã hoàn thành chưa (thay vì chỉ kiểm tra TrangThaiSuKien)
+        $allStepsCompleted = false;
+        if ($event['ID_SuKien']) {
+            // Check if all steps are completed
+            $stmtSteps = $pdo->prepare("
+                SELECT 
+                    COUNT(*) as total_steps,
+                    SUM(CASE WHEN TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_steps
+                FROM (
+                    SELECT ctk.TrangThai FROM chitietkehoach ctk
+                    JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+                    WHERE kht.ID_SuKien = ?
+                    
+                    UNION ALL
+                    
+                    SELECT llv.TrangThai FROM lichlamviec llv
+                    JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
+                    JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+                    WHERE s.ID_SuKien = ?
+                ) as all_steps
+            ");
+            $stmtSteps->execute([$event['ID_SuKien'], $event['ID_SuKien']]);
+            $stepsResult = $stmtSteps->fetch(PDO::FETCH_ASSOC);
+            
+            $totalSteps = (int)($stepsResult['total_steps'] ?? 0);
+            $completedSteps = (int)($stepsResult['completed_steps'] ?? 0);
+            
+            // All steps completed if total > 0 and all are completed
+            $allStepsCompleted = ($totalSteps > 0 && $totalSteps === $completedSteps);
+            
+            // Also check TrangThaiSuKien as fallback
+            if (!$allStepsCompleted && $event['TrangThaiSuKien'] === 'Hoàn thành') {
+                $allStepsCompleted = true;
+            }
+        } else {
+            // If no sukien exists, check TrangThaiSuKien only
+            $allStepsCompleted = ($event['TrangThaiSuKien'] === 'Hoàn thành');
+        }
+        
+        if (!$allStepsCompleted) {
+            throw new Exception('Chỉ có thể đánh giá sự kiện đã hoàn thành (tất cả các bước đã hoàn thành)');
         }
         
         $stmt = $pdo->prepare("

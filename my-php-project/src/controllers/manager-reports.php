@@ -94,6 +94,21 @@ function getProgressReports($pdo) {
             throw new Exception("Manager not found");
         }
         
+        // Allow all managers (role 2) to see all progress reports
+        // Check if user has role 2
+        $stmt = $pdo->prepare("
+            SELECT u.ID_Role 
+            FROM users u 
+            WHERE u.ID_User = ?
+        ");
+        $stmt->execute([$userId]);
+        $userRole = $stmt->fetchColumn();
+        
+        if ($userRole != 2) {
+            throw new Exception("Unauthorized: Only managers can view reports");
+        }
+        
+        // Use subquery to get only the latest report for each task (ID_Task + LoaiTask combination)
         $stmt = $pdo->prepare("
             SELECT 
                 bct.ID_BaoCao,
@@ -107,20 +122,29 @@ function getProgressReports($pdo) {
                     WHEN bct.LoaiTask = 'lichlamviec' THEN llv.NhiemVu
                     WHEN bct.LoaiTask = 'chitietkehoach' THEN ctk.TenBuoc
                 END as TenCongViec,
-                dl.TenSuKien,
-                dl.NgayBatDau,
-                dl.NgayKetThuc
+                COALESCE(dl1.TenSuKien, dl2.TenSuKien) as TenSuKien,
+                COALESCE(dl1.NgayBatDau, dl2.NgayBatDau) as NgayBatDau,
+                COALESCE(dl1.NgayKetThuc, dl2.NgayKetThuc) as NgayKetThuc
             FROM baocaotiendo bct
+            INNER JOIN (
+                SELECT ID_NhanVien, ID_Task, LoaiTask, MAX(ID_BaoCao) as MaxID_BaoCao
+                FROM baocaotiendo
+                GROUP BY ID_NhanVien, ID_Task, LoaiTask
+            ) latest ON bct.ID_NhanVien = latest.ID_NhanVien
+                AND bct.ID_Task = latest.ID_Task 
+                AND bct.LoaiTask = latest.LoaiTask 
+                AND bct.ID_BaoCao = latest.MaxID_BaoCao
             LEFT JOIN nhanvieninfo nv ON bct.ID_NhanVien = nv.ID_NhanVien
             LEFT JOIN lichlamviec llv ON bct.ID_Task = llv.ID_LLV AND bct.LoaiTask = 'lichlamviec'
+            LEFT JOIN datlichsukien dl1 ON llv.ID_DatLich = dl1.ID_DatLich
             LEFT JOIN chitietkehoach ctk ON bct.ID_Task = ctk.ID_ChiTiet AND bct.LoaiTask = 'chitietkehoach'
             LEFT JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
-            LEFT JOIN datlichsukien dl ON COALESCE(llv.ID_DatLich, kht.ID_DatLich) = dl.ID_DatLich
-            WHERE bct.ID_QuanLy = ?
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            LEFT JOIN datlichsukien dl2 ON s.ID_DatLich = dl2.ID_DatLich
             ORDER BY bct.NgayBaoCao DESC
             LIMIT 50
         ");
-        $stmt->execute([$managerId]);
+        $stmt->execute();
         $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         echo json_encode(['success' => true, 'data' => $reports]);
@@ -144,24 +168,26 @@ function getIssueReports($pdo) {
             throw new Exception("Manager not found");
         }
         
-        // Create table if not exists
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS baocaosuco (
-                ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
-                ID_NhanVien INT NOT NULL,
-                ID_QuanLy INT NOT NULL,
-                ID_Task INT NOT NULL,
-                LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
-                TieuDe VARCHAR(255) NOT NULL,
-                MoTa TEXT,
-                MucDo ENUM('Thấp', 'Trung bình', 'Cao', 'Khẩn cấp') DEFAULT 'Trung bình',
-                TrangThai ENUM('Mới', 'Đang xử lý', 'Đã xử lý', 'Đã đóng') DEFAULT 'Mới',
-                NgayBaoCao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                NgayCapNhat TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (ID_NhanVien) REFERENCES nhanvieninfo(ID_NhanVien),
-                FOREIGN KEY (ID_QuanLy) REFERENCES nhanvieninfo(ID_NhanVien)
-            )
-        ");
+        // Create table if not exists (match database structure)
+        try {
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS baocaosuco (
+                    ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
+                    ID_NhanVien INT NOT NULL,
+                    ID_QuanLy INT NOT NULL,
+                    ID_Task INT NOT NULL,
+                    LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
+                    TieuDe VARCHAR(255) NOT NULL,
+                    MoTa TEXT DEFAULT NULL,
+                    MucDo ENUM('Thấp', 'Trung bình', 'Cao', 'Khẩn cấp') DEFAULT 'Trung bình',
+                    TrangThai ENUM('Mới', 'Đang xử lý', 'Đã xử lý', 'Đã đóng') DEFAULT 'Mới',
+                    NgayBaoCao TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+            ");
+        } catch (Exception $e) {
+            // Table might already exist, continue
+            error_log("DEBUG: getIssueReports - Table creation: " . $e->getMessage());
+        }
         
         $stmt = $pdo->prepare("
             SELECT 
@@ -171,22 +197,24 @@ function getIssueReports($pdo) {
                 bs.MucDo,
                 bs.TrangThai,
                 bs.NgayBaoCao,
-                bs.NgayCapNhat,
+                bs.NgayBaoCao as NgayCapNhat,
                 nv.HoTen as TenNhanVien,
                 nv.ChucVu as ChucVuNhanVien,
                 CASE 
                     WHEN bs.LoaiTask = 'lichlamviec' THEN llv.NhiemVu
                     WHEN bs.LoaiTask = 'chitietkehoach' THEN ctk.TenBuoc
                 END as TenCongViec,
-                dl.TenSuKien,
-                dl.NgayBatDau,
-                dl.NgayKetThuc
+                COALESCE(dl1.TenSuKien, dl2.TenSuKien) as TenSuKien,
+                COALESCE(dl1.NgayBatDau, dl2.NgayBatDau) as NgayBatDau,
+                COALESCE(dl1.NgayKetThuc, dl2.NgayKetThuc) as NgayKetThuc
             FROM baocaosuco bs
             LEFT JOIN nhanvieninfo nv ON bs.ID_NhanVien = nv.ID_NhanVien
             LEFT JOIN lichlamviec llv ON bs.ID_Task = llv.ID_LLV AND bs.LoaiTask = 'lichlamviec'
+            LEFT JOIN datlichsukien dl1 ON llv.ID_DatLich = dl1.ID_DatLich
             LEFT JOIN chitietkehoach ctk ON bs.ID_Task = ctk.ID_ChiTiet AND bs.LoaiTask = 'chitietkehoach'
             LEFT JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
-            LEFT JOIN datlichsukien dl ON COALESCE(llv.ID_DatLich, kht.ID_DatLich) = dl.ID_DatLich
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            LEFT JOIN datlichsukien dl2 ON s.ID_DatLich = dl2.ID_DatLich
             WHERE bs.ID_QuanLy = ?
             ORDER BY bs.NgayBaoCao DESC
             LIMIT 50
@@ -277,16 +305,71 @@ function updateReportStatus($pdo) {
         }
         
         if ($reportType === 'issue') {
+            // Debug logging
+            error_log("DEBUG: updateReportStatus - reportId: " . $reportId . ", status: " . $status . ", managerId: " . $managerId);
+            
+            // First, get the task information from the report
+            // Allow any manager with role 2 to handle any issue report
+            $getReportStmt = $pdo->prepare("
+                SELECT ID_Task, LoaiTask, ID_QuanLy 
+                FROM baocaosuco 
+                WHERE ID_BaoCao = ?
+            ");
+            $getReportStmt->execute([$reportId]);
+            $reportInfo = $getReportStmt->fetch(PDO::FETCH_ASSOC);
+            
+            error_log("DEBUG: updateReportStatus - Report info: " . json_encode($reportInfo));
+            
+            if (!$reportInfo) {
+                error_log("ERROR: updateReportStatus - Report not found for ID: " . $reportId);
+                throw new Exception("Report not found");
+            }
+            
+            // Allow any manager with role 2 to update any issue report
+            // Update the report status (remove ID_QuanLy check to allow any manager role 2)
             $stmt = $pdo->prepare("
                 UPDATE baocaosuco 
-                SET TrangThai = ?, NgayCapNhat = NOW()
-                WHERE ID_BaoCao = ? AND ID_QuanLy = ?
+                SET TrangThai = ?
+                WHERE ID_BaoCao = ?
             ");
-            $stmt->execute([$status, $reportId, $managerId]);
+            $stmt->execute([$status, $reportId]);
+            
+            error_log("DEBUG: updateReportStatus - Update query executed. Rows affected: " . $stmt->rowCount());
+            
+            // If status is "Đã xử lý" or "Đã đóng", update the task status back to "Đang làm"
+            if ($status === 'Đã xử lý' || $status === 'Đã đóng') {
+                if ($reportInfo['LoaiTask'] === 'chitietkehoach') {
+                    // Update chitietkehoach status
+                    $updateTaskStmt = $pdo->prepare("
+                        UPDATE chitietkehoach 
+                        SET TrangThai = 'Đang làm' 
+                        WHERE ID_ChiTiet = ?
+                    ");
+                    $updateTaskStmt->execute([$reportInfo['ID_Task']]);
+                    
+                    // Also update lichlamviec if exists
+                    $updateLichStmt = $pdo->prepare("
+                        UPDATE lichlamviec 
+                        SET TrangThai = 'Đang làm' 
+                        WHERE ID_ChiTiet = ?
+                    ");
+                    $updateLichStmt->execute([$reportInfo['ID_Task']]);
+                } else {
+                    // Update lichlamviec status
+                    $updateTaskStmt = $pdo->prepare("
+                        UPDATE lichlamviec 
+                        SET TrangThai = 'Đang làm' 
+                        WHERE ID_LLV = ?
+                    ");
+                    $updateTaskStmt->execute([$reportInfo['ID_Task']]);
+                }
+                
+                error_log("DEBUG: updateReportStatus - Task status updated to 'Đang làm' for task ID: " . $reportInfo['ID_Task'] . ", type: " . $reportInfo['LoaiTask']);
+            }
         } else {
             $stmt = $pdo->prepare("
                 UPDATE baocaotiendo 
-                SET TrangThai = ?, NgayCapNhat = NOW()
+                SET TrangThai = ?, NgayBaoCao = NOW()
                 WHERE ID_BaoCao = ? AND ID_QuanLy = ?
             ");
             $stmt->execute([$status, $reportId, $managerId]);

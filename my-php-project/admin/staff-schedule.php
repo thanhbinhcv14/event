@@ -98,10 +98,19 @@ try {
                 NULL as ChamTienDo,
                 NULL as GhiChuTienDo,
             COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+            COALESCE(dl.MoTa, '') as SuKienMoTa,
             COALESCE(dl.NgayBatDau, llv.NgayBatDau) as EventStartDate,
             COALESCE(dl.NgayKetThuc, llv.NgayKetThuc) as EventEndDate,
+            COALESCE(dl.SoNguoiDuKien, 0) as SoNguoiDuKien,
+            COALESCE(dl.NganSach, 0) as NganSach,
+            COALESCE(dl.GhiChu, '') as SuKienGhiChu,
             COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
             COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
+            COALESCE(ls.TenLoai, 'Không xác định') as TenLoaiSK,
+            COALESCE(ls.MoTa, '') as LoaiSKMoTa,
+            COALESCE(kh.HoTen, 'Không xác định') as TenKhachHang,
+            COALESCE(kh.SoDienThoai, 'Không xác định') as SoDienThoai,
+            COALESCE(kh.DiaChi, '') as KhachHangDiaChi,
                 COALESCE(kht.TenKeHoach, llv.NhiemVu) as ten_kehoach,
                 COALESCE(kht.NoiDung, llv.GhiChu) as kehoach_noidung,
                 COALESCE(kht.TrangThai, llv.TrangThai) as kehoach_trangthai,
@@ -109,9 +118,11 @@ try {
         FROM lichlamviec llv
         LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
         LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+        LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+        LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
             LEFT JOIN kehoachthuchien kht ON llv.ID_KeHoach = kht.ID_KeHoach
         WHERE llv.ID_NhanVien = ?
-        ORDER BY llv.NgayBatDau ASC
+        ORDER BY (llv.TrangThai = 'Hoàn thành') ASC, llv.NgayBatDau ASC
     ");
     $stmt->execute([$staffInfo['ID_NhanVien']]);
     $lichlamviec_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -127,29 +138,43 @@ try {
                 ck.MoTa as GhiChu,
             ck.TenBuoc as CongViec,
             ck.NgayKetThuc as HanHoanThanh,
-            '0' as Tiendo,
+            COALESCE(llv.Tiendo, '0') as Tiendo,
                 NULL as ThoiGianBatDauThucTe,
                 NULL as ThoiGianKetThucThucTe,
                 NULL as TienDoPhanTram,
                 NULL as ThoiGianLamViec,
                 NULL as ChamTienDo,
-                NULL as GhiChuTienDo,
+                COALESCE(llv.GhiChu, NULL) as GhiChuTienDo,
             COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+            COALESCE(dl.MoTa, '') as SuKienMoTa,
             COALESCE(dl.NgayBatDau, ck.NgayBatDau) as EventStartDate,
             COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
+            COALESCE(dl.SoNguoiDuKien, 0) as SoNguoiDuKien,
+            COALESCE(dl.NganSach, 0) as NganSach,
+            COALESCE(dl.GhiChu, '') as SuKienGhiChu,
             COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
             COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
+            COALESCE(ls.TenLoai, 'Không xác định') as TenLoaiSK,
+            COALESCE(ls.MoTa, '') as LoaiSKMoTa,
+            COALESCE(kh.HoTen, 'Không xác định') as TenKhachHang,
+            COALESCE(kh.SoDienThoai, 'Không xác định') as SoDienThoai,
+            COALESCE(kh.DiaChi, '') as KhachHangDiaChi,
                 COALESCE(kht.TenKeHoach, ck.TenBuoc) as ten_kehoach,
                 COALESCE(kht.NoiDung, ck.MoTa) as kehoach_noidung,
                 COALESCE(kht.TrangThai, ck.TrangThai) as kehoach_trangthai,
+            COALESCE(bs.TrangThai, NULL) as IssueStatus,
             'chitietkehoach' as source_table
         FROM chitietkehoach ck
+            LEFT JOIN lichlamviec llv ON llv.ID_ChiTiet = ck.ID_ChiTiet
             LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
             LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
         LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
         LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+        LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+        LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+        LEFT JOIN baocaosuco bs ON bs.ID_Task = ck.ID_ChiTiet AND bs.LoaiTask = 'chitietkehoach' AND bs.ID_NhanVien = ck.ID_NhanVien
         WHERE ck.ID_NhanVien = ?
-        ORDER BY ck.NgayBatDau ASC
+        ORDER BY (ck.TrangThai = 'Hoàn thành') ASC, ck.NgayBatDau ASC
     ");
     $stmt->execute([$staffInfo['ID_NhanVien']]);
     $chitietkehoach_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -174,6 +199,23 @@ try {
             $assignments[] = $chitiet;
         }
     }
+    
+    // Sort assignments: non-completed tasks first, then completed tasks
+    // Within each group, sort by start date
+    usort($assignments, function($a, $b) {
+        $aCompleted = ($a['TrangThai'] == 'Hoàn thành') ? 1 : 0;
+        $bCompleted = ($b['TrangThai'] == 'Hoàn thành') ? 1 : 0;
+        
+        // First sort by completion status (0 = not completed, 1 = completed)
+        if ($aCompleted != $bCompleted) {
+            return $aCompleted - $bCompleted;
+        }
+        
+        // If same status, sort by start date
+        $aDate = strtotime($a['NgayBatDau'] ?? '1970-01-01');
+        $bDate = strtotime($b['NgayBatDau'] ?? '1970-01-01');
+        return $aDate - $bDate;
+    });
         
         error_log("DEBUG: Found " . count($lichlamviec_assignments) . " lichlamviec assignments");
         error_log("DEBUG: Found " . count($chitietkehoach_assignments) . " chitietkehoach assignments");
@@ -221,7 +263,7 @@ try {
                 SELECT nv.ID_NhanVien FROM nhanvieninfo nv JOIN users u ON nv.ID_User = u.ID_User
                 WHERE u.ID_User = ? OR u.Email = ?
             )
-            ORDER BY llv.NgayBatDau ASC
+            ORDER BY (llv.TrangThai = 'Hoàn thành') ASC, llv.NgayBatDau ASC
         ");
         $stmt->execute([$userId, $userEmail]);
         $lichlamviec_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -237,13 +279,13 @@ try {
                 ck.MoTa as GhiChu,
                 ck.TenBuoc as CongViec,
                 ck.NgayKetThuc as HanHoanThanh,
-                '0' as Tiendo,
+                COALESCE(llv.Tiendo, '0') as Tiendo,
                 NULL as ThoiGianBatDauThucTe,
                 NULL as ThoiGianKetThucThucTe,
                 NULL as TienDoPhanTram,
                 NULL as ThoiGianLamViec,
                 NULL as ChamTienDo,
-                NULL as GhiChuTienDo,
+                COALESCE(llv.GhiChu, NULL) as GhiChuTienDo,
                 COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
                 COALESCE(dl.NgayBatDau, ck.NgayBatDau) as EventStartDate,
                 COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
@@ -256,17 +298,35 @@ try {
             FROM chitietkehoach ck
             JOIN nhanvieninfo nv ON ck.ID_NhanVien = nv.ID_NhanVien
             JOIN users u ON nv.ID_User = u.ID_User
+            LEFT JOIN lichlamviec llv ON llv.ID_ChiTiet = ck.ID_ChiTiet
             LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
             LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
             LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
             LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
             WHERE u.ID_User = ? OR u.Email = ?
-            ORDER BY ck.NgayBatDau ASC
+            ORDER BY (ck.TrangThai = 'Hoàn thành') ASC, ck.NgayBatDau ASC
         ");
         $stmt->execute([$userId, $userEmail]);
         $chitietkehoach_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $assignments = array_merge($lichlamviec_assignments, $chitietkehoach_assignments);
+        
+        // Sort assignments: non-completed tasks first, then completed tasks
+        // Within each group, sort by start date
+        usort($assignments, function($a, $b) {
+            $aCompleted = ($a['TrangThai'] == 'Hoàn thành') ? 1 : 0;
+            $bCompleted = ($b['TrangThai'] == 'Hoàn thành') ? 1 : 0;
+            
+            // First sort by completion status (0 = not completed, 1 = completed)
+            if ($aCompleted != $bCompleted) {
+                return $aCompleted - $bCompleted;
+            }
+            
+            // If same status, sort by start date
+            $aDate = strtotime($a['NgayBatDau'] ?? '1970-01-01');
+            $bDate = strtotime($b['NgayBatDau'] ?? '1970-01-01');
+            return $aDate - $bDate;
+        });
     }
     
     // Debug: Log assignments query
@@ -781,6 +841,74 @@ try {
             </div>
         </div>
 
+        <!-- Search and Filter Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-3">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-4">
+                                <label for="searchInput" class="form-label small text-muted mb-1">
+                                    <i class="fas fa-search"></i> Tìm kiếm
+                                </label>
+                                <input type="text" 
+                                       id="searchInput" 
+                                       class="form-control" 
+                                       placeholder="Tìm theo tên công việc, sự kiện, địa điểm..."
+                                       onkeyup="filterAssignments()">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="statusFilter" class="form-label small text-muted mb-1">
+                                    <i class="fas fa-filter"></i> Lọc theo trạng thái
+                                </label>
+                                <select id="statusFilter" class="form-select" onchange="filterAssignments()">
+                                    <option value="">Tất cả trạng thái</option>
+                                    <option value="Chưa bắt đầu">Chưa bắt đầu</option>
+                                    <option value="Đang thực hiện">Đang thực hiện</option>
+                                    <option value="Hoàn thành">Hoàn thành</option>
+                                    <option value="Báo sự cố">Báo sự cố</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="eventFilter" class="form-label small text-muted mb-1">
+                                    <i class="fas fa-calendar"></i> Lọc theo sự kiện
+                                </label>
+                                <select id="eventFilter" class="form-select" onchange="filterAssignments()">
+                                    <option value="">Tất cả sự kiện</option>
+                                    <?php
+                                    // Get unique event names
+                                    $uniqueEvents = [];
+                                    foreach ($assignments as $assignment) {
+                                        $eventName = $assignment['TenSuKien'] ?? 'Không xác định';
+                                        if (!in_array($eventName, $uniqueEvents)) {
+                                            $uniqueEvents[] = $eventName;
+                                        }
+                                    }
+                                    sort($uniqueEvents);
+                                    foreach ($uniqueEvents as $eventName):
+                                    ?>
+                                    <option value="<?= htmlspecialchars($eventName) ?>"><?= htmlspecialchars($eventName) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                                    <i class="fas fa-times"></i> Xóa bộ lọc
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <small class="text-muted" id="filterResultsCount">
+                                    Hiển thị <strong><?= count($assignments) ?></strong> công việc
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Assignments List -->
         <div class="row">
             <div class="col-12">
@@ -822,7 +950,13 @@ try {
                 <div class="timeline">
                     <?php foreach ($assignments as $assignment): ?>
                     <div class="timeline-item <?= strtolower(str_replace(' ', '-', $assignment['TrangThai'])) ?>">
-                        <div class="assignment-card">
+                        <div class="assignment-card" 
+                             data-assignment-id="<?= $assignment['ID_LLV'] ?>" 
+                             data-source-table="<?= $assignment['source_table'] ?? 'lichlamviec' ?>"
+                             data-event-name="<?= htmlspecialchars($assignment['TenSuKien'] ?? '') ?>"
+                             data-task-name="<?= htmlspecialchars($assignment['NhiemVu'] ?? '') ?>"
+                             data-location-name="<?= htmlspecialchars($assignment['TenDiaDiem'] ?? '') ?>"
+                             data-status="<?= htmlspecialchars($assignment['TrangThai'] ?? '') ?>">
                             <div class="assignment-header">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div class="flex-grow-1">
@@ -845,42 +979,46 @@ try {
                                 </div>
                                 
                                 <!-- Progress Bar -->
-                                <?php if ($assignment['Tiendo']): ?>
-                                <div class="mt-3">
+                                <?php 
+                                $tiendo = $assignment['Tiendo'] ?? '0';
+                                // Remove % if exists and convert to number
+                                $tiendoValue = intval(str_replace('%', '', $tiendo));
+                                // Always show progress bar if there's a value (including 100%)
+                                if ($tiendoValue >= 0): 
+                                ?>
+                                <div class="mt-3" id="progress-bar-<?= $assignment['ID_LLV'] ?>">
                                     <div class="d-flex justify-content-between align-items-center mb-1">
                                         <small class="text-muted">Tiến độ</small>
-                                        <small class="text-muted"><?= $assignment['Tiendo'] ?></small>
+                                        <small class="text-muted"><strong><?= $tiendoValue ?>%</strong></small>
                                     </div>
-                                    <div class="progress">
-                                        <div class="progress-bar bg-primary" style="width: <?= $assignment['Tiendo'] ?>"></div>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar <?= $tiendoValue >= 100 ? 'bg-success' : 'bg-primary' ?> progress-bar-striped <?= $tiendoValue < 100 ? 'progress-bar-animated' : '' ?>" 
+                                             role="progressbar" 
+                                             style="width: <?= $tiendoValue ?>%" 
+                                             aria-valuenow="<?= $tiendoValue ?>" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            <?= $tiendoValue ?>%
+                                        </div>
                                     </div>
                                 </div>
                                 <?php endif; ?>
                             </div>
                             
-                            <div class="card-body">
-                                <!-- Event Information -->
-                                <div class="event-info">
-                                    <h6 class="mb-2">
-                                        <i class="fas fa-calendar-check"></i>
-                                        Thông tin sự kiện
-                                    </h6>
-                                    <p class="mb-1">
-                                        <strong>Sự kiện:</strong> <?= htmlspecialchars($assignment['TenSuKien']) ?>
-                                    </p>
-                                    <p class="mb-1">
-                                        <strong>Địa điểm:</strong> <?= htmlspecialchars($assignment['TenDiaDiem']) ?>
-                                    </p>
-                                    <p class="mb-1">
-                                        <strong>Địa chỉ:</strong> <?= htmlspecialchars($assignment['DiaChi']) ?>
-                                    </p>
-                                    <p class="mb-0">
-                                        <strong>Thời gian sự kiện:</strong> 
-                                        <?= date('d/m/Y H:i', strtotime($assignment['EventStartDate'])) ?> - 
-                                        <?= date('d/m/Y H:i', strtotime($assignment['EventEndDate'])) ?>
-                                    </p>
-                                </div>
-                                
+                            <div class="card-body" 
+                                 data-customer-name="<?= htmlspecialchars($assignment['TenKhachHang']) ?>"
+                                 data-customer-phone="<?= htmlspecialchars($assignment['SoDienThoai']) ?>"
+                                 data-customer-address="<?= htmlspecialchars($assignment['KhachHangDiaChi'] ?? '') ?>"
+                                 data-event-name="<?= htmlspecialchars($assignment['TenSuKien']) ?>"
+                                 data-event-type="<?= htmlspecialchars($assignment['TenLoaiSK'] ?? '') ?>"
+                                 data-event-location="<?= htmlspecialchars($assignment['TenDiaDiem']) ?>"
+                                 data-event-address="<?= htmlspecialchars($assignment['DiaChi']) ?>"
+                                 data-event-start="<?= date('d/m/Y H:i', strtotime($assignment['EventStartDate'])) ?>"
+                                 data-event-end="<?= date('d/m/Y H:i', strtotime($assignment['EventEndDate'])) ?>"
+                                 data-event-attendees="<?= $assignment['SoNguoiDuKien'] ?? 0 ?>"
+                                 data-event-budget="<?= $assignment['NganSach'] ?? 0 ?>"
+                                 data-event-description="<?= htmlspecialchars($assignment['SuKienMoTa'] ?? '') ?>"
+                                 data-event-note="<?= htmlspecialchars($assignment['SuKienGhiChu'] ?? '') ?>">
                                 <!-- Assignment Details -->
                                 <?php if ($assignment['GhiChu']): ?>
                                 <div class="mb-3">
@@ -1088,6 +1226,34 @@ try {
                                 </div>
                                 <?php elseif ($assignment['TrangThai'] == 'Báo sự cố'): ?>
                                 <div class="mb-3">
+                                    <?php 
+                                    // Check if issue has been resolved
+                                    $issueStatus = $assignment['IssueStatus'] ?? null;
+                                    $isResolved = ($issueStatus === 'Đã xử lý' || $issueStatus === 'Đã đóng');
+                                    ?>
+                                    
+                                    <?php if ($isResolved): ?>
+                                    <!-- Issue has been resolved -->
+                                    <div class="alert alert-success border-success">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-check-circle text-success"></i>
+                                                <strong class="text-success">SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ</strong>
+                                                <span class="badge bg-success text-white ms-2">
+                                                    <i class="fas fa-check"></i> 
+                                                    <?= $issueStatus === 'Đã xử lý' ? 'Đã xử lý' : 'Đã đóng' ?>
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <button class="btn btn-outline-info btn-sm" onclick="viewTaskDetails(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
+                                                    <i class="fas fa-eye"></i>
+                                                    Xem chi tiết
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <?php else: ?>
+                                    <!-- Issue still pending -->
                                     <div class="alert alert-danger border-danger">
                                         <div class="d-flex justify-content-between align-items-center">
                                             <div>
@@ -1106,6 +1272,7 @@ try {
                                             </div>
                                         </div>
                                     </div>
+                                    <?php endif; ?>
                                     
                                     <!-- Thông tin sự cố -->
                                     <?php if (isset($assignment['GhiChuTienDo']) && $assignment['GhiChuTienDo']): ?>
@@ -1168,6 +1335,7 @@ try {
                 <?php endif; ?>
             </div>
         </div>
+        
     </div>
 
     <!-- Update Status Modal -->
@@ -1990,6 +2158,10 @@ try {
             const formData = new FormData(form);
             formData.append('action', 'update_progress');
             
+            const assignmentId = formData.get('assignmentId');
+            const sourceTable = formData.get('sourceTable');
+            const progress = formData.get('progress');
+            
             fetch('../src/controllers/staff-schedule.php', {
                 method: 'POST',
                 body: formData
@@ -1997,8 +2169,17 @@ try {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('updateProgressModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    // Update UI dynamically
+                    updateProgressDisplay(assignmentId, sourceTable, data.progress, data.status);
+                    
+                    // Show success message
                     alert('Cập nhật tiến độ thành công');
-                    location.reload();
                 } else {
                     alert('Lỗi: ' + data.message);
                 }
@@ -2007,6 +2188,147 @@ try {
                 console.error('Error:', error);
                 alert('Có lỗi xảy ra khi cập nhật tiến độ');
             });
+        }
+        
+        function updateProgressDisplay(assignmentId, sourceTable, progress, status) {
+            try {
+                console.log('=== UPDATE PROGRESS DISPLAY DEBUG ===');
+                console.log('assignmentId:', assignmentId);
+                console.log('sourceTable:', sourceTable);
+                console.log('progress:', progress);
+                console.log('status:', status);
+                
+                // Find the assignment card by data attribute
+                let card = document.querySelector(`.assignment-card[data-assignment-id="${assignmentId}"][data-source-table="${sourceTable}"]`);
+                
+                // Fallback: try to find by ID only
+                if (!card) {
+                    console.log('Card not found with both attributes, trying by ID only...');
+                    card = document.querySelector(`.assignment-card[data-assignment-id="${assignmentId}"]`);
+                }
+                
+                // Fallback: try to find by button onclick
+                if (!card) {
+                    console.log('Card not found by data attributes, trying by button onclick...');
+                    const buttons = document.querySelectorAll(`button[onclick*="${assignmentId}"]`);
+                    if (buttons.length > 0) {
+                        card = buttons[0].closest('.assignment-card');
+                    }
+                }
+                
+                if (!card) {
+                    console.error('Assignment card not found for ID:', assignmentId, 'Source:', sourceTable);
+                    console.log('Available cards:', document.querySelectorAll('.assignment-card').length);
+                    // Try reload after a short delay
+                    setTimeout(() => location.reload(), 500);
+                    return;
+                }
+                
+                console.log('Card found:', card);
+                
+                const progressValue = parseInt(progress) || 0;
+                const assignmentHeader = card.querySelector('.assignment-header');
+                
+                if (!assignmentHeader) {
+                    console.error('Assignment header not found');
+                    location.reload();
+                    return;
+                }
+                
+                // Find or create progress bar container
+                let progressContainer = assignmentHeader.querySelector(`#progress-bar-${assignmentId}`);
+                
+                console.log('Progress container found:', progressContainer ? 'Yes' : 'No');
+                
+                // Create progress bar HTML
+                const progressBarHtml = `
+                    <div class="mt-3" id="progress-bar-${assignmentId}">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted">Tiến độ</small>
+                            <small class="text-muted"><strong>${progressValue}%</strong></small>
+                        </div>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar ${progressValue >= 100 ? 'bg-success' : 'bg-primary'} progress-bar-striped ${progressValue < 100 ? 'progress-bar-animated' : ''}" 
+                                 role="progressbar" 
+                                 style="width: ${progressValue}%" 
+                                 aria-valuenow="${progressValue}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                ${progressValue}%
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                if (progressContainer) {
+                    // Update existing progress bar
+                    console.log('Updating existing progress bar');
+                    progressContainer.outerHTML = progressBarHtml;
+                } else {
+                    // Create progress bar - insert after deadline info or at the end of header
+                    console.log('Creating new progress bar');
+                    const deadlineInfo = assignmentHeader.querySelector('p:last-of-type');
+                    if (deadlineInfo) {
+                        deadlineInfo.insertAdjacentHTML('afterend', progressBarHtml);
+                        console.log('Inserted after deadline info');
+                    } else {
+                        // Fallback: insert at the end of header content (before closing div)
+                        const headerContent = assignmentHeader.querySelector('.d-flex');
+                        if (headerContent) {
+                            headerContent.insertAdjacentHTML('afterend', progressBarHtml);
+                            console.log('Inserted after header content');
+                        } else {
+                            assignmentHeader.insertAdjacentHTML('beforeend', progressBarHtml);
+                            console.log('Inserted at end of header');
+                        }
+                    }
+                }
+                
+                console.log('Progress bar updated successfully');
+                
+                // Update status badge and alert if status changed
+                if (status) {
+                    // Update status alert section
+                    const statusAlert = card.querySelector('.alert');
+                    if (statusAlert) {
+                        if (status === 'Đang làm' || status === 'Đang thực hiện') {
+                            statusAlert.className = 'alert alert-warning border-warning status-working';
+                            statusAlert.innerHTML = `
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-play-circle text-warning"></i>
+                                        <strong class="text-warning">ĐANG LÀM VIỆC</strong>
+                                        <span class="badge bg-warning text-dark ms-2">
+                                            <i class="fas fa-clock"></i> Đang làm việc
+                                        </span>
+                                    </div>
+                                </div>
+                            `;
+                        } else if (status === 'Hoàn thành') {
+                            statusAlert.className = 'alert alert-success border-success';
+                            statusAlert.innerHTML = `
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-check-circle text-success"></i>
+                                        <strong class="text-success">HOÀN THÀNH</strong>
+                                        <span class="badge bg-success text-white ms-2">
+                                            <i class="fas fa-check"></i> Hoàn thành
+                                        </span>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+                }
+                
+                // Update statistics
+                updateStatistics();
+                
+            } catch (error) {
+                console.error('Error updating progress display:', error);
+                // Fallback to reload if dynamic update fails
+                location.reload();
+            }
         }
 
         function saveCompleteWork() {
@@ -2154,12 +2476,21 @@ try {
                     const endTime = timeInfo[0] ? timeInfo[0].textContent.replace(/.*?(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})$/, '$1') : '';
                     const deadline = timeInfo[1] ? timeInfo[1].textContent.replace(/.*?(\d{2}\/\d{2}\/\d{4})$/, '$1') : '';
                     
-                    // Get event info
-                    const eventInfo = card.querySelector('.event-info');
-                    const eventName = eventInfo ? eventInfo.querySelector('p:nth-child(2)')?.textContent.replace('Sự kiện: ', '') : '';
-                    const location = eventInfo ? eventInfo.querySelector('p:nth-child(3)')?.textContent.replace('Địa điểm: ', '') : '';
-                    const address = eventInfo ? eventInfo.querySelector('p:nth-child(4)')?.textContent.replace('Địa chỉ: ', '') : '';
-                    const eventTime = eventInfo ? eventInfo.querySelector('p:nth-child(5)')?.textContent.replace('Thời gian sự kiện: ', '') : '';
+                    // Get data from data attributes
+                    const cardBody = card.querySelector('.card-body');
+                    const customerName = cardBody?.getAttribute('data-customer-name') || '';
+                    const customerPhone = cardBody?.getAttribute('data-customer-phone') || '';
+                    const customerAddress = cardBody?.getAttribute('data-customer-address') || '';
+                    const eventName = cardBody?.getAttribute('data-event-name') || '';
+                    const eventType = cardBody?.getAttribute('data-event-type') || '';
+                    const eventLocation = cardBody?.getAttribute('data-event-location') || '';
+                    const eventAddress = cardBody?.getAttribute('data-event-address') || '';
+                    const eventStart = cardBody?.getAttribute('data-event-start') || '';
+                    const eventEnd = cardBody?.getAttribute('data-event-end') || '';
+                    const eventAttendees = cardBody?.getAttribute('data-event-attendees') || '0';
+                    const eventBudget = cardBody?.getAttribute('data-event-budget') || '0';
+                    const eventDescription = cardBody?.getAttribute('data-event-description') || '';
+                    const eventNote = cardBody?.getAttribute('data-event-note') || '';
                     
                     // Get plan content
                     const planContent = card.querySelector('.card-body p')?.textContent || '';
@@ -2170,10 +2501,19 @@ try {
                         startTime: startTime,
                         endTime: endTime,
                         deadline: deadline,
+                        customerName: customerName,
+                        customerPhone: customerPhone,
+                        customerAddress: customerAddress,
                         eventName: eventName,
-                        location: location,
-                        address: address,
-                        eventTime: eventTime,
+                        eventType: eventType,
+                        eventLocation: eventLocation,
+                        eventAddress: eventAddress,
+                        eventStart: eventStart,
+                        eventEnd: eventEnd,
+                        eventAttendees: eventAttendees,
+                        eventBudget: eventBudget,
+                        eventDescription: eventDescription,
+                        eventNote: eventNote,
                         planContent: planContent,
                         sourceTable: sourceTable
                     };
@@ -2183,6 +2523,19 @@ try {
         }
         
         function displayTaskDetails(assignment) {
+            // Format budget
+            const formatBudget = (budget) => {
+                if (!budget || budget === '0') return '';
+                const num = parseInt(budget);
+                return num.toLocaleString('vi-VN') + ' VNĐ';
+            };
+            
+            // Format attendees
+            const formatAttendees = (attendees) => {
+                if (!attendees || attendees === '0') return '';
+                return parseInt(attendees).toLocaleString('vi-VN') + ' người';
+            };
+            
             const content = `
                 <div class="row">
                     <div class="col-md-6">
@@ -2197,19 +2550,78 @@ try {
                                 <p><strong>Tên công việc:</strong> ${assignment.title}</p>
                                 <p><strong>Thời gian bắt đầu:</strong> ${assignment.startTime}</p>
                                 <p><strong>Thời gian kết thúc:</strong> ${assignment.endTime}</p>
-                                <p><strong>Hạn hoàn thành:</strong> ${assignment.deadline}</p>
-                                <p><strong>Nguồn dữ liệu:</strong> 
-                                    <span class="badge bg-${assignment.sourceTable === 'chitietkehoach' ? 'info' : 'secondary'}">
-                                        ${assignment.sourceTable === 'chitietkehoach' ? 'Chi tiết kế hoạch' : 'Lịch làm việc'}
-                                    </span>
-                                </p>
+                                <p class="mb-0"><strong>Hạn hoàn thành:</strong> ${assignment.deadline}</p>
                             </div>
                         </div>
                     </div>
                     
+                    <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-header bg-info text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-user"></i>
+                                    Thông tin khách hàng
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Tên khách hàng:</strong> ${assignment.customerName || 'Không xác định'}</p>
+                                <p><strong>Số điện thoại:</strong> ${assignment.customerPhone || 'Không xác định'}</p>
+                                ${assignment.customerAddress ? `<p class="mb-0"><strong>Địa chỉ:</strong> ${assignment.customerAddress}</p>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card mb-3">
+                            <div class="card-header bg-warning text-dark">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-calendar-check"></i>
+                                    Thông tin sự kiện
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Sự kiện:</strong> ${assignment.eventName || 'Không xác định'}</p>
+                                ${assignment.eventType && assignment.eventType !== 'Không xác định' ? `
+                                    <p><strong>Loại sự kiện:</strong> 
+                                        <span class="badge bg-primary">${assignment.eventType}</span>
+                                    </p>
+                                ` : ''}
+                                <p><strong>Địa điểm:</strong> ${assignment.eventLocation || 'Không xác định'}</p>
+                                <p><strong>Địa chỉ:</strong> ${assignment.eventAddress || 'Không xác định'}</p>
+                                ${assignment.eventStart ? `
+                                    <p><strong>Thời gian sự kiện:</strong> ${assignment.eventStart} - ${assignment.eventEnd}</p>
+                                ` : ''}
+                                ${formatAttendees(assignment.eventAttendees) ? `
+                                    <p><strong>Số người dự kiến:</strong> ${formatAttendees(assignment.eventAttendees)}</p>
+                                ` : ''}
+                                ${formatBudget(assignment.eventBudget) ? `
+                                    <p><strong>Ngân sách:</strong> ${formatBudget(assignment.eventBudget)}</p>
+                                ` : ''}
+                                ${assignment.eventDescription ? `
+                                    <p><strong>Mô tả:</strong> ${assignment.eventDescription}</p>
+                                ` : ''}
+                                ${assignment.eventNote ? `
+                                    <p class="mb-0"><strong>Ghi chú:</strong> ${assignment.eventNote}</p>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 ${assignment.planContent ? `
+                <div class="card mb-3">
+                    <div class="card-header bg-secondary text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-clipboard-list"></i>
+                            Nội dung kế hoạch
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">${assignment.planContent}</p>
+                    </div>
+                </div>
                 ` : ''}
                 
                 <div class="card">
@@ -2791,6 +3203,91 @@ try {
             document.querySelector('.timeline').scrollIntoView({ 
                 behavior: 'smooth' 
             });
+        }
+        
+        // Filter assignments function
+        function filterAssignments() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const eventFilter = document.getElementById('eventFilter').value;
+            
+            const assignmentCards = document.querySelectorAll('.timeline-item');
+            let visibleCount = 0;
+            
+            assignmentCards.forEach(card => {
+                // Get assignment data from card
+                const assignmentCard = card.querySelector('.assignment-card');
+                if (!assignmentCard) {
+                    card.style.display = 'none';
+                    return;
+                }
+                
+                // Get data from attributes
+                const taskName = (assignmentCard.getAttribute('data-task-name') || '').toLowerCase();
+                const eventName = (assignmentCard.getAttribute('data-event-name') || '').toLowerCase();
+                const locationName = (assignmentCard.getAttribute('data-location-name') || '').toLowerCase();
+                const status = (assignmentCard.getAttribute('data-status') || '').trim();
+                
+                // Check search term match (search in task name, event name, location)
+                const matchesSearch = !searchTerm || 
+                    taskName.includes(searchTerm) ||
+                    eventName.includes(searchTerm) ||
+                    locationName.includes(searchTerm);
+                
+                // Check status filter match
+                const matchesStatus = !statusFilter || status === statusFilter;
+                
+                // Check event filter match
+                const matchesEvent = !eventFilter || 
+                    (assignmentCard.getAttribute('data-event-name') || '') === eventFilter;
+                
+                // Show/hide card based on filters
+                if (matchesSearch && matchesStatus && matchesEvent) {
+                    card.style.display = '';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // Update results count
+            const resultsCountElement = document.getElementById('filterResultsCount');
+            if (resultsCountElement) {
+                resultsCountElement.innerHTML = `Hiển thị <strong>${visibleCount}</strong> công việc`;
+            }
+            
+            // Show message if no results
+            const timeline = document.querySelector('.timeline');
+            if (visibleCount === 0 && assignmentCards.length > 0) {
+                let noResultsMsg = timeline.querySelector('.no-results-message');
+                if (!noResultsMsg) {
+                    noResultsMsg = document.createElement('div');
+                    noResultsMsg.className = 'no-results-message text-center py-5';
+                    noResultsMsg.innerHTML = `
+                        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Không tìm thấy công việc nào</h5>
+                        <p class="text-muted">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+                        <button class="btn btn-outline-primary btn-sm" onclick="clearFilters()">
+                            <i class="fas fa-times"></i> Xóa bộ lọc
+                        </button>
+                    `;
+                    timeline.appendChild(noResultsMsg);
+                }
+                noResultsMsg.style.display = 'block';
+            } else {
+                const noResultsMsg = timeline.querySelector('.no-results-message');
+                if (noResultsMsg) {
+                    noResultsMsg.style.display = 'none';
+                }
+            }
+        }
+        
+        // Clear all filters
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('eventFilter').value = '';
+            filterAssignments();
         }
 
         // Hide loading overlay when page is loaded

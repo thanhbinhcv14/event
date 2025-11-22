@@ -85,6 +85,34 @@ try {
 // Check if user is logged in
 $user = $_SESSION['user'] ?? null;
 $isGuest = !$user;
+
+// Check if logged in user is the owner of this event
+$isEventOwner = false;
+$isAdminOrManager = false;
+
+if ($user) {
+    try {
+        // Get user's role
+        $userRole = $user['ID_Role'] ?? 0;
+        $isAdminOrManager = in_array($userRole, [1, 2, 3]); // Admin, Organization Manager, Event Manager
+        
+        // Get customer ID of logged in user
+        $stmt = $pdo->prepare("SELECT ID_KhachHang FROM khachhanginfo WHERE ID_User = ?");
+        $stmt->execute([$user['ID_User']]);
+        $customerInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($customerInfo) {
+            $userCustomerId = $customerInfo['ID_KhachHang'];
+            // Check if user is the owner of this event
+            $isEventOwner = ($event['ID_KhachHang'] == $userCustomerId);
+        }
+    } catch (Exception $e) {
+        error_log("Error checking event ownership: " . $e->getMessage());
+    }
+}
+
+// Only show customer info and equipment if user is owner or admin/manager
+$canViewSensitiveInfo = $isEventOwner || $isAdminOrManager;
 ?>
 
 <!DOCTYPE html>
@@ -93,7 +121,6 @@ $isGuest = !$user;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($event['TenSuKien']) ?> - Chi tiết sự kiện</title>
-    <link rel="icon" href="img/logo/logo.jpg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -633,59 +660,6 @@ $isGuest = !$user;
                             Ghi chú
                         </div>
                         <p><?= htmlspecialchars($event['GhiChu']) ?></p>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <div class="info-section">
-                        <div class="info-title">
-                            <i class="fas fa-user"></i>
-                            Thông tin liên hệ
-                        </div>
-                        <div class="info-item">
-                            <i class="fas fa-user"></i>
-                            <div class="info-content">
-                                <div class="info-label">Người tổ chức</div>
-                                <div class="info-value"><?= htmlspecialchars($event['TenKhachHang'] ?? 'Chưa xác định') ?></div>
-                            </div>
-                        </div>
-                        <div class="info-item">
-                            <i class="fas fa-phone"></i>
-                            <div class="info-content">
-                                <div class="info-label">Số điện thoại</div>
-                                <div class="info-value"><?= htmlspecialchars($event['SoDienThoai'] ?? 'Chưa xác định') ?></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Equipment Section -->
-                    <?php if (!empty($equipment)): ?>
-                    <div class="equipment-section">
-                        <div class="info-title">
-                            <i class="fas fa-cogs"></i>
-                            Thiết bị đã đặt
-                        </div>
-                        <?php foreach ($equipment as $item): ?>
-                            <?php 
-                            $itemName = $item['TenThietBi'] ?? $item['TenCombo'] ?? 'Thiết bị';
-                            $itemImage = $item['ThietBiHinhAnh'];
-                            $imagePath = $itemImage ? "img/thietbi/{$itemImage}" : 'img/thietbi/default.jpg';
-                            $itemType = $item['TenThietBi'] ? 'Thiết bị' : 'Combo';
-                            ?>
-                            <div class="equipment-item">
-                                <img src="<?= $imagePath ?>" alt="<?= htmlspecialchars($itemName) ?>" 
-                                     class="equipment-image" onerror="this.src='img/thietbi/default.jpg'">
-                                <div class="equipment-info">
-                                    <div class="equipment-name"><?= htmlspecialchars($itemName) ?></div>
-                                    <div class="equipment-details">
-                                        <?= $itemType ?> • Số lượng: <?= $item['SoLuong'] ?>
-                                        <?php if ($item['LoaiThietBi']): ?>
-                                            • Loại: <?= htmlspecialchars($item['LoaiThietBi']) ?>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                <div class="equipment-price"><?= number_format($item['DonGia'], 0, ',', '.') ?> VNĐ</div>
-                            </div>
-                        <?php endforeach; ?>
                     </div>
                     <?php endif; ?>
                     

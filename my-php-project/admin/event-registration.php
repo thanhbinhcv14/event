@@ -220,12 +220,28 @@ include 'includes/admin-header.php';
                                 <div id="selectedLocationDetails"></div>
                             </div>
                         </div>
-                        
-                        <!-- Order Summary -->
-                        <div class="order-summary" id="orderSummary" style="display: none;">
-                            <div class="alert alert-info">
-                                <h5><i class="fas fa-calculator"></i> Tổng chi phí</h5>
-                                <div id="orderSummaryContent"></div>
+                    </div>
+                </div>
+                
+                <!-- Room Selection Modal -->
+                <div class="modal fade" id="roomSelectionModal" tabindex="-1" aria-labelledby="roomSelectionModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="roomSelectionModalLabel">
+                                    <i class="fas fa-door-open"></i> Chọn phòng
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="roomSelectionContent">
+                                    <div class="text-center py-3">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">Đang tải danh sách phòng...</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -245,33 +261,33 @@ include 'includes/admin-header.php';
                         <div class="equipment-tabs">
                             <ul class="nav nav-tabs" id="equipmentTabs" role="tablist">
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link active" id="individual-tab" data-bs-toggle="tab" data-bs-target="#individual" type="button" role="tab">
-                                        <i class="fas fa-cog"></i> Thiết bị riêng lẻ
+                                    <button class="nav-link active" id="combo-tab" data-bs-toggle="tab" data-bs-target="#combo" type="button" role="tab">
+                                        <i class="fas fa-box"></i> Combo thiết bị
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="combo-tab" data-bs-toggle="tab" data-bs-target="#combo" type="button" role="tab">
-                                        <i class="fas fa-box"></i> Combo thiết bị
+                                    <button class="nav-link" id="individual-tab" data-bs-toggle="tab" data-bs-target="#individual" type="button" role="tab">
+                                        <i class="fas fa-cog"></i> Thiết bị riêng lẻ
                                     </button>
                                 </li>
                             </ul>
                             
                             <div class="tab-content" id="equipmentTabContent">
-                                <div class="tab-pane fade show active" id="individual" role="tabpanel">
-                                    <div class="equipment-search mb-3">
-                                        <input type="text" class="form-control" id="equipmentSearch" placeholder="Tìm kiếm thiết bị...">
-                                    </div>
-                                    <div class="equipment-grid" id="individualEquipmentGrid">
-                                        <!-- Individual equipment will be loaded here -->
-                                    </div>
-                                </div>
-                                
-                                <div class="tab-pane fade" id="combo" role="tabpanel">
+                                <div class="tab-pane fade show active" id="combo" role="tabpanel">
                                     <div class="equipment-search mb-3">
                                         <input type="text" class="form-control" id="comboSearch" placeholder="Tìm kiếm combo...">
                                     </div>
                                     <div class="equipment-grid" id="comboEquipmentGrid">
                                         <!-- Combo equipment will be loaded here -->
+                                    </div>
+                                </div>
+                                
+                                <div class="tab-pane fade" id="individual" role="tabpanel">
+                                    <div class="equipment-search mb-3">
+                                        <input type="text" class="form-control" id="equipmentSearch" placeholder="Tìm kiếm thiết bị...">
+                                    </div>
+                                    <div class="equipment-grid" id="individualEquipmentGrid">
+                                        <!-- Individual equipment will be loaded here -->
                                     </div>
                                 </div>
                             </div>
@@ -636,6 +652,15 @@ include 'includes/admin-header.php';
         let individualEquipment = [];
         let comboEquipment = [];
 
+        // Check if in edit mode
+        let isEditMode = false;
+        let editRegistrationId = null;
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('edit')) {
+            isEditMode = true;
+            editRegistrationId = urlParams.get('edit');
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             loadCustomers();
@@ -644,6 +669,13 @@ include 'includes/admin-header.php';
             loadEquipment();
             setupEventListeners();
             updateStepDisplay();
+            
+            // If in edit mode, load event data
+            if (isEditMode && editRegistrationId) {
+                setTimeout(() => {
+                    loadEventForEdit(editRegistrationId);
+                }, 1500); // Wait for all data to load first
+            }
             
             // Additional setup after a delay to ensure all elements are loaded
             setTimeout(() => {
@@ -663,6 +695,166 @@ include 'includes/admin-header.php';
                 }
             }, 1000);
         });
+        
+        function loadEventForEdit(registrationId) {
+            console.log('Loading event for edit:', registrationId);
+            $.ajax({
+                url: '../src/controllers/admin-event-register.php',
+                type: 'GET',
+                data: {
+                    action: 'get_registration_for_edit',
+                    registration_id: registrationId
+                },
+                success: function(response) {
+                    console.log('Event data loaded:', response);
+                    if (response.success && response.registration) {
+                        const reg = response.registration;
+                        
+                        // 1. Load customer
+                        if (reg.customer) {
+                            const customer = customers.find(c => c.ID_KhachHang == reg.customer.ID_KhachHang);
+                            if (customer) {
+                                selectedCustomer = customer;
+                                displaySelectedCustomer(customer);
+                            }
+                        }
+                        
+                        // 2. Load event details
+                        if (reg.event) {
+                            document.getElementById('eventName').value = reg.event.TenSuKien || '';
+                            document.getElementById('eventType').value = reg.event.ID_LoaiSK || '';
+                            document.getElementById('eventDescription').value = reg.event.MoTa || '';
+                            
+                            // Parse datetime for datetime-local inputs
+                            function parseDateTimeForInput(dateTimeString) {
+                                if (!dateTimeString) return '';
+                                const date = new Date(dateTimeString);
+                                const year = date.getFullYear();
+                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                const day = String(date.getDate()).padStart(2, '0');
+                                const hours = String(date.getHours()).padStart(2, '0');
+                                const minutes = String(date.getMinutes()).padStart(2, '0');
+                                return `${year}-${month}-${day}T${hours}:${minutes}`;
+                            }
+                            
+                            document.getElementById('startDate').value = parseDateTimeForInput(reg.event.NgayBatDau);
+                            document.getElementById('endDate').value = parseDateTimeForInput(reg.event.NgayKetThuc);
+                            document.getElementById('expectedGuests').value = reg.event.SoNguoiDuKien || '';
+                            document.getElementById('budget').value = reg.event.NganSach || '';
+                        }
+                        
+                        // 3. Load location
+                        if (reg.location) {
+                            const location = locations.find(l => l.ID_DD == reg.location.ID_DD);
+                            if (location) {
+                                // Set rental type if available
+                                if (reg.rentalType) {
+                                    location.selectedRentalType = reg.rentalType;
+                                }
+                                
+                                // Load room if exists
+                                if (reg.room && reg.location.LoaiDiaDiem === 'Trong nhà') {
+                                    location.selectedRoomId = reg.room.ID_Phong;
+                                    location.selectedRoom = reg.room;
+                                    
+                                    // Determine rental type from room
+                                    if (reg.rentalType) {
+                                        location.selectedRoomRentalType = reg.rentalType;
+                                    } else if (reg.room.LoaiThue === 'Theo giờ') {
+                                        location.selectedRoomRentalType = 'hour';
+                                    } else if (reg.room.LoaiThue === 'Theo ngày') {
+                                        location.selectedRoomRentalType = 'day';
+                                    } else {
+                                        location.selectedRoomRentalType = 'day'; // Default
+                                    }
+                                }
+                                
+                                selectedLocation = location;
+                                displaySelectedLocation(location);
+                                
+                                // If indoor with room, load and display rooms
+                                if (reg.location.LoaiDiaDiem === 'Trong nhà' && reg.room) {
+                                    // Room information is already loaded in location.selectedRoom
+                                    // The room will be displayed when displaySelectedLocation is called
+                                    console.log('Room loaded for indoor location:', reg.room);
+                                }
+                            }
+                        }
+                        
+                        // 4. Load equipment
+                        if (reg.equipment && reg.equipment.length > 0) {
+                            selectedEquipment = reg.equipment.map(item => {
+                                // Get price - prioritize DonGia, then GiaThue/GiaCombo
+                                let price = 0;
+                                if (item.DonGia && parseFloat(item.DonGia) > 0) {
+                                    price = parseFloat(item.DonGia);
+                                } else if (item.GiaThue && parseFloat(item.GiaThue) > 0) {
+                                    price = parseFloat(item.GiaThue);
+                                } else if (item.GiaCombo && parseFloat(item.GiaCombo) > 0) {
+                                    price = parseFloat(item.GiaCombo);
+                                }
+                                
+                                return {
+                                    id: item.ID_TB || item.ID_Combo,
+                                    type: item.ID_TB ? 'equipment' : 'combo',
+                                    name: item.TenThietBi || item.TenCombo,
+                                    quantity: parseInt(item.SoLuong) || 1,
+                                    price: price,
+                                    unit: item.DonViTinh || 'combo'
+                                };
+                            });
+                            updateSelectedEquipment();
+                        } else {
+                            selectedEquipment = [];
+                            updateSelectedEquipment();
+                        }
+                        
+                        // 5. Load admin notes
+                        if (reg.adminNotes) {
+                            document.getElementById('adminNotes').value = reg.adminNotes;
+                        }
+                        
+                        // 6. Load discount code if exists
+                        if (reg.discountCode && reg.discountCode.MaCode) {
+                            const discountCode = reg.discountCode;
+                            console.log('Discount code loaded:', discountCode);
+                            
+                            // Display discount code information
+                            // Note: Admin form may not have discount code input field
+                            // But we can log it for debugging
+                            if (window.showNotification) {
+                                let discountText = '';
+                                if (discountCode.LoaiGiamGia === 'Phần trăm') {
+                                    discountText = `${discountCode.GiaTriGiamGia}%`;
+                                } else {
+                                    const formattedAmount = new Intl.NumberFormat('vi-VN').format(discountCode.GiaTriGiamGia);
+                                    discountText = `${formattedAmount} VNĐ`;
+                                }
+                                const formattedDiscountAmount = new Intl.NumberFormat('vi-VN').format(discountCode.SoTienGiamGia || 0);
+                                showNotification(
+                                    `Mã giảm giá đã sử dụng: ${discountCode.MaCode} (${discountCode.TenMa || ''}) - Giảm ${discountText} - Đã giảm: ${formattedDiscountAmount} VNĐ`,
+                                    'info'
+                                );
+                            }
+                        }
+                        
+                        // Update summaries
+                        updateOrderSummary();
+                        updateCostSummary();
+                        
+                        // Update page title if in edit mode
+                        if (isEditMode) {
+                            document.querySelector('.page-title').textContent = 'Sửa đăng ký sự kiện';
+                            document.querySelector('.page-subtitle').textContent = 'Chỉnh sửa thông tin đăng ký sự kiện';
+                        }
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading event:', error);
+                    alert('Lỗi khi tải dữ liệu sự kiện: ' + error);
+                }
+            });
+        }
 
         function setupEventListeners() {
             console.log('=== SETUP EVENT LISTENERS ===');
@@ -680,8 +872,16 @@ include 'includes/admin-header.php';
                 // Remove any existing listeners first
                 form.removeEventListener('submit', handleSubmit);
                 
-                // Add new listener
-                form.addEventListener('submit', handleSubmit);
+                // Add new listener with check to prevent submission from room selection buttons
+                form.addEventListener('submit', function(e) {
+                    // Don't submit if the event was triggered by a room selection button
+                    if (e.submitter && (e.submitter.classList.contains('btn-choose-room') || e.submitter.closest('.btn-choose-room'))) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                    handleSubmit(e);
+                });
                 console.log('Submit event listener added successfully');
                 
                 // Test if listener was added
@@ -807,6 +1007,44 @@ include 'includes/admin-header.php';
             });
         }
 
+        function displaySelectedCustomer(customer) {
+            if (!customer) return;
+            
+            selectedCustomer = customer;
+            
+            // Update UI - highlight the customer card if it exists
+            document.querySelectorAll('.customer-card').forEach(card => {
+                card.classList.remove('selected');
+                const cardCustomerId = card.dataset.customerId || card.getAttribute('data-customer-id');
+                if (cardCustomerId == customer.ID_KhachHang) {
+                    card.classList.add('selected');
+                }
+            });
+
+            // Show selected customer info
+            const infoDiv = document.getElementById('selectedCustomerInfo');
+            const detailsDiv = document.getElementById('selectedCustomerDetails');
+            
+            if (infoDiv && detailsDiv) {
+                detailsDiv.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h6>${customer.HoTen}</h6>
+                            <p class="mb-1"><i class="fas fa-phone"></i> ${customer.SoDienThoai}</p>
+                            ${customer.Email ? `<p class="mb-1"><i class="fas fa-envelope"></i> ${customer.Email}</p>` : ''}
+                            ${customer.DiaChi ? `<p class="mb-0"><i class="fas fa-map-marker-alt"></i> ${customer.DiaChi}</p>` : ''}
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <p class="mb-1"><span class="badge bg-info">${customer.event_count || 0} sự kiện</span></p>
+                            <p class="mb-0"><small class="text-muted">Cuối: ${customer.last_event_date ? new Date(customer.last_event_date).toLocaleDateString('vi-VN') : 'Chưa có'}</small></p>
+                        </div>
+                    </div>
+                `;
+                
+                infoDiv.style.display = 'block';
+            }
+        }
+
         function selectCustomer(customer) {
             selectedCustomer = customer;
             
@@ -814,28 +1052,12 @@ include 'includes/admin-header.php';
             document.querySelectorAll('.customer-card').forEach(card => {
                 card.classList.remove('selected');
             });
-            event.currentTarget.classList.add('selected');
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('selected');
+            }
 
             // Show selected customer info
-            const infoDiv = document.getElementById('selectedCustomerInfo');
-            const detailsDiv = document.getElementById('selectedCustomerDetails');
-            
-            detailsDiv.innerHTML = `
-                <div class="row">
-                    <div class="col-md-8">
-                        <h6>${customer.HoTen}</h6>
-                        <p class="mb-1"><i class="fas fa-phone"></i> ${customer.SoDienThoai}</p>
-                        ${customer.Email ? `<p class="mb-1"><i class="fas fa-envelope"></i> ${customer.Email}</p>` : ''}
-                        ${customer.DiaChi ? `<p class="mb-0"><i class="fas fa-map-marker-alt"></i> ${customer.DiaChi}</p>` : ''}
-                    </div>
-                    <div class="col-md-4 text-end">
-                        <p class="mb-1"><span class="badge bg-info">${customer.event_count || 0} sự kiện</span></p>
-                        <p class="mb-0"><small class="text-muted">Cuối: ${customer.last_event_date ? new Date(customer.last_event_date).toLocaleDateString('vi-VN') : 'Chưa có'}</small></p>
-                    </div>
-                </div>
-            `;
-            
-            infoDiv.style.display = 'block';
+            displaySelectedCustomer(customer);
         }
 
         function filterCustomers() {
@@ -984,10 +1206,68 @@ include 'includes/admin-header.php';
             locations.forEach(location => {
                 const card = document.createElement('div');
                 card.className = 'location-card';
-                card.onclick = () => selectLocation(location);
+                card.setAttribute('data-location-id', location.ID_DD);
+                
+                // For indoor locations, don't auto-select on card click, require room selection first
+                if (location.LoaiDiaDiem === 'Trong nhà') {
+                    card.onclick = (e) => {
+                        // Don't select if clicking on room button or any button
+                        if (e.target.closest('.btn-choose-room') || e.target.tagName === 'BUTTON') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            return false;
+                        }
+                        selectLocation(location);
+                    };
+                } else {
+                    card.onclick = (e) => {
+                        // Prevent form submission if clicking on select dropdown
+                        if (e.target.tagName === 'SELECT' || e.target.closest('select')) {
+                            e.stopPropagation();
+                        }
+                        selectLocation(location);
+                    };
+                }
 
                 const priceText = getLocationPriceText(location);
                 const imageUrl = location.HinhAnh ? `../img/diadiem/${location.HinhAnh}` : '../img/logo/logo.jpg';
+                
+                // Check if this is an indoor location
+                const isIndoor = location.LoaiDiaDiem === 'Trong nhà';
+                const hasSelectedRoom = location.selectedRoom && location.selectedRoomId;
+                
+                // Build room display text
+                let roomDisplay = '';
+                if (isIndoor) {
+                    if (hasSelectedRoom) {
+                        const room = location.selectedRoom;
+                        const rentalType = location.selectedRoomRentalType || 'day';
+                        const roomPrice = rentalType === 'hour' ? room.GiaThueGio : room.GiaThueNgay;
+                        roomDisplay = `
+                            <div class="mt-2">
+                                <p class="text-primary mb-1 small">
+                                    <i class="fas fa-door-open"></i> Phòng đã chọn: <strong>${room.TenPhong}</strong>
+                                </p>
+                                <p class="text-success mb-0 small">
+                                    ${new Intl.NumberFormat('vi-VN').format(roomPrice)} VNĐ/${rentalType === 'hour' ? 'giờ' : 'ngày'}
+                                </p>
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-1 btn-choose-room" 
+                                        onclick="event.stopPropagation(); event.preventDefault(); return showRoomSelection(${location.ID_DD}, event);">
+                                    <i class="fas fa-edit"></i> Đổi phòng
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        roomDisplay = `
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-primary btn-choose-room" 
+                                        onclick="event.stopPropagation(); event.preventDefault(); return showRoomSelection(${location.ID_DD}, event);">
+                                    <i class="fas fa-door-open"></i> Chọn phòng
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
 
                 card.innerHTML = `
                     <div class="d-flex align-items-start">
@@ -995,12 +1275,13 @@ include 'includes/admin-header.php';
                         <div class="flex-grow-1">
                             <h6 class="mb-1">${location.TenDiaDiem}</h6>
                             <p class="text-muted mb-1 small">${location.DiaChi}</p>
-                            <p class="text-success mb-0"><strong id="price-${location.ID_DD}">${priceText}</strong></p>
+                            ${!isIndoor || hasSelectedRoom ? `<p class="text-success mb-0"><strong id="price-${location.ID_DD}">${priceText}</strong></p>` : '<p class="text-muted mb-0 small">Vui lòng chọn phòng để xem giá</p>'}
                             <p class="text-muted mb-0 small">Sức chứa: ${location.SucChua || 'N/A'} người</p>
-                            ${location.LoaiThue === 'Cả hai' ? `
+                            ${!isIndoor && location.LoaiThue === 'Cả hai' ? `
                                 <div class="mt-2">
                                     <select class="form-select form-select-sm" 
                                             onchange="updateLocationRentalType(${location.ID_DD}, this.value)" 
+                                            onclick="event.stopPropagation()"
                                             style="min-width: 120px;">
                                         <option value="hour" ${location.selectedRentalType === 'hour' ? 'selected' : ''}>Theo giờ</option>
                                         <option value="day" ${location.selectedRentalType === 'day' ? 'selected' : ''}>Theo ngày</option>
@@ -1008,12 +1289,174 @@ include 'includes/admin-header.php';
                                     <small class="text-muted">Chọn loại thuê</small>
                                 </div>
                             ` : ''}
+                            ${roomDisplay}
                         </div>
                     </div>
                 `;
 
                 grid.appendChild(card);
             });
+        }
+
+        function showRoomSelection(locationId, event) {
+            // Prevent any form submission
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            const location = locations.find(loc => loc.ID_DD === locationId);
+            if (!location) {
+                alert('Không tìm thấy địa điểm');
+                return false;
+            }
+            
+            // Update modal title
+            document.getElementById('roomSelectionModalLabel').innerHTML = `
+                <i class="fas fa-door-open"></i> Chọn phòng - ${location.TenDiaDiem}
+            `;
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('roomSelectionModal'));
+            modal.show();
+            
+            // Load rooms
+            loadRoomsForLocation(locationId);
+            
+            return false;
+        }
+        
+        function loadRoomsForLocation(locationId) {
+            const contentDiv = document.getElementById('roomSelectionContent');
+            contentDiv.innerHTML = `
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Đang tải danh sách phòng...</p>
+                </div>
+            `;
+            
+            fetch(`../src/controllers/rooms.php?action=get_rooms&location_id=${locationId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        displayRooms(data.data, locationId);
+                    } else {
+                        contentDiv.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i> Không có phòng nào cho địa điểm này.
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading rooms:', error);
+                    contentDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-times-circle"></i> Lỗi khi tải danh sách phòng. Vui lòng thử lại.
+                        </div>
+                    `;
+                });
+        }
+        
+        function displayRooms(rooms, locationId) {
+            const contentDiv = document.getElementById('roomSelectionContent');
+            const location = locations.find(loc => loc.ID_DD === locationId);
+            const selectedRoomId = location?.selectedRoomId;
+            const selectedRentalType = location?.selectedRoomRentalType || 'day';
+            
+            let html = '<div class="row g-3">';
+            
+            rooms.forEach(room => {
+                const isSelected = selectedRoomId == room.ID_Phong;
+                const rentalType = room.LoaiThue === 'Theo giờ' ? 'hour' : 
+                                  room.LoaiThue === 'Theo ngày' ? 'day' : 
+                                  selectedRentalType;
+                
+                const price = rentalType === 'hour' ? room.GiaThueGio : room.GiaThueNgay;
+                const priceText = rentalType === 'hour' ? 
+                    `${new Intl.NumberFormat('vi-VN').format(price)} VNĐ/giờ` : 
+                    `${new Intl.NumberFormat('vi-VN').format(price)} VNĐ/ngày`;
+                
+                html += `
+                    <div class="col-md-6">
+                        <div class="card ${isSelected ? 'border-primary' : ''}" style="cursor: pointer;" 
+                             onclick="selectRoom(${locationId}, ${room.ID_Phong}, '${rentalType}')">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    ${room.TenPhong}
+                                    ${isSelected ? '<span class="badge bg-primary ms-2">Đã chọn</span>' : ''}
+                                </h6>
+                                <p class="text-muted small mb-2">${room.MoTa || 'Không có mô tả'}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="text-success mb-0"><strong>${priceText}</strong></p>
+                                        ${room.SucChua ? `<p class="text-muted small mb-0">Sức chứa: ${room.SucChua} người</p>` : ''}
+                                    </div>
+                                    ${room.LoaiThue === 'Cả hai' ? `
+                                        <div>
+                                            <select class="form-select form-select-sm" 
+                                                    onclick="event.stopPropagation()"
+                                                    onchange="selectRoom(${locationId}, ${room.ID_Phong}, this.value)">
+                                                <option value="hour" ${rentalType === 'hour' ? 'selected' : ''}>Theo giờ</option>
+                                                <option value="day" ${rentalType === 'day' ? 'selected' : ''}>Theo ngày</option>
+                                            </select>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            contentDiv.innerHTML = html;
+        }
+        
+        function selectRoom(locationId, roomId, rentalType = 'day') {
+            const location = locations.find(loc => loc.ID_DD === locationId);
+            if (!location) return;
+            
+            // Find room data
+            fetch(`../src/controllers/rooms.php?action=get_room&id=${roomId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        const room = data.data;
+                        
+                        // Update location with selected room
+                        location.selectedRoomId = roomId;
+                        location.selectedRoom = room;
+                        location.selectedRoomRentalType = rentalType;
+                        
+                        // If location is not selected yet, select it
+                        if (!selectedLocation || selectedLocation.ID_DD !== locationId) {
+                            selectedLocation = location;
+                        } else {
+                            // Update selectedLocation
+                            selectedLocation.selectedRoomId = roomId;
+                            selectedLocation.selectedRoom = room;
+                            selectedLocation.selectedRoomRentalType = rentalType;
+                        }
+                        
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('roomSelectionModal'));
+                        if (modal) {
+                            modal.hide();
+                        }
+                        
+                        // Refresh location display
+                        displayLocations();
+                        displaySelectedLocation(location);
+                        updateCostSummary();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading room:', error);
+                    alert('Lỗi khi tải thông tin phòng');
+                });
         }
 
         function updateLocationRentalType(locationId, rentalType) {
@@ -1043,7 +1486,7 @@ include 'includes/admin-header.php';
             }
             
             // Update dropdown selection in the card
-            const card = document.querySelector(`[onclick*="selectLocation(${locationId})"]`);
+            const card = document.querySelector(`[data-location-id="${locationId}"]`);
             if (card) {
                 const select = card.querySelector('select');
                 if (select) {
@@ -1069,6 +1512,67 @@ include 'includes/admin-header.php';
             return 'Liên hệ';
         }
 
+        function displaySelectedLocation(location) {
+            if (!location) return;
+            
+            selectedLocation = location;
+            
+            // If location has "Cả hai" rental type, use the user's selection or default to day
+            if (selectedLocation && selectedLocation.LoaiThue === 'Cả hai') {
+                // Use the user's selection from dropdown, or default to day if not set
+                selectedLocation.selectedRentalType = selectedLocation.selectedRentalType || 'day';
+                console.log('Using selectedRentalType for location:', selectedLocation.TenDiaDiem, 'Type:', selectedLocation.selectedRentalType);
+            }
+            
+            // Update UI - highlight the location card if it exists
+            document.querySelectorAll('.location-card').forEach(card => {
+                card.classList.remove('selected');
+                const cardLocationId = card.dataset.locationId || card.getAttribute('data-location-id');
+                if (cardLocationId == location.ID_DD) {
+                    card.classList.add('selected');
+                }
+            });
+
+            // Show selected location info
+            const infoDiv = document.getElementById('selectedLocationInfo');
+            const detailsDiv = document.getElementById('selectedLocationDetails');
+            
+            if (infoDiv && detailsDiv) {
+                // Build location price text
+                let priceText = getLocationPriceText(location);
+                if (location.selectedRoom) {
+                    const room = location.selectedRoom;
+                    const rentalType = location.selectedRoomRentalType || location.selectedRentalType || 'day';
+                    if (rentalType === 'hour' && room.GiaThueGio) {
+                        priceText = `${room.TenPhong}: ${new Intl.NumberFormat('vi-VN').format(room.GiaThueGio)} VNĐ/giờ`;
+                    } else if (rentalType === 'day' && room.GiaThueNgay) {
+                        priceText = `${room.TenPhong}: ${new Intl.NumberFormat('vi-VN').format(room.GiaThueNgay)} VNĐ/ngày`;
+                    }
+                }
+                
+                detailsDiv.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h6>${location.TenDiaDiem}${location.selectedRoom ? ` - ${location.selectedRoom.TenPhong}` : ''}</h6>
+                            <p class="mb-1">${location.DiaChi}</p>
+                            <p class="mb-0 text-success"><strong>${priceText}</strong></p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-outline-primary btn-sm" type="button" onclick="viewLocationDetails(${location.ID_DD})">
+                                <i class="fas fa-eye"></i> Xem chi tiết
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                infoDiv.style.display = 'block';
+            }
+            
+            // Update order summary and cost summary
+            updateOrderSummary();
+            updateCostSummary();
+        }
+
         function selectLocation(location) {
             selectedLocation = location;
             
@@ -1083,134 +1587,18 @@ include 'includes/admin-header.php';
             document.querySelectorAll('.location-card').forEach(card => {
                 card.classList.remove('selected');
             });
-            event.currentTarget.classList.add('selected');
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('selected');
+            }
 
             // Show selected location info
-            const infoDiv = document.getElementById('selectedLocationInfo');
-            const detailsDiv = document.getElementById('selectedLocationDetails');
-            
-            detailsDiv.innerHTML = `
-                <div class="row">
-                    <div class="col-md-8">
-                        <h6>${location.TenDiaDiem}</h6>
-                        <p class="mb-1">${location.DiaChi}</p>
-                        <p class="mb-0 text-success"><strong>${getLocationPriceText(location)}</strong></p>
-                    </div>
-                    <div class="col-md-4 text-end">
-                        <button class="btn btn-outline-primary btn-sm" onclick="viewLocationDetails(${location.ID_DD})">
-                            <i class="fas fa-eye"></i> Xem chi tiết
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            infoDiv.style.display = 'block';
-            
-            // Update order summary and cost summary
-            updateOrderSummary();
-            updateCostSummary();
+            displaySelectedLocation(location);
         }
 
         function updateOrderSummary() {
-            if (!selectedLocation) return;
-            
-            // Debug: Log selected location info
-            console.log('Selected Location:', selectedLocation);
-            console.log('Selected Rental Type:', selectedLocation.selectedRentalType);
-            console.log('LoaiThue:', selectedLocation.LoaiThue);
-            console.log('GiaThueGio:', selectedLocation.GiaThueGio);
-            console.log('GiaThueNgay:', selectedLocation.GiaThueNgay);
-            
-            // Get event duration from datetime-local inputs
-            const startDateTime = document.getElementById('startDate').value;
-            const endDateTime = document.getElementById('endDate').value;
-            
-            if (!startDateTime || !endDateTime) {
-                return; // Can't calculate without duration
-            }
-            
-            // Calculate duration
-            const start = new Date(startDateTime);
-            const end = new Date(endDateTime);
-            const durationMs = end - start;
-            const durationHours = Math.ceil(durationMs / (1000 * 60 * 60));
-            const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
-            
-            console.log('Duration Hours:', durationHours);
-            console.log('Duration Days:', durationDays);
-            
-            // Calculate location price based on rental type and duration
-            let locationPrice = 0;
-            let locationPriceText = 'Chưa có giá';
-            
-            // Priority: User's selection > Database default
-            if (selectedLocation.selectedRentalType) {
-                console.log('Using user selected rental type:', selectedLocation.selectedRentalType);
-                // User has explicitly chosen rental type
-                if (selectedLocation.selectedRentalType === 'hour' && selectedLocation.GiaThueGio) {
-                    locationPrice = durationHours * parseFloat(selectedLocation.GiaThueGio);
-                    locationPriceText = `${new Intl.NumberFormat('vi-VN').format(selectedLocation.GiaThueGio)} VNĐ/giờ × ${durationHours} giờ`;
-                    console.log('Calculated hourly price:', locationPrice);
-                } else if (selectedLocation.selectedRentalType === 'day' && selectedLocation.GiaThueNgay) {
-                    locationPrice = durationDays * parseFloat(selectedLocation.GiaThueNgay);
-                    locationPriceText = `${new Intl.NumberFormat('vi-VN').format(selectedLocation.GiaThueNgay)} VNĐ/ngày × ${durationDays} ngày`;
-                    console.log('Calculated daily price:', locationPrice);
-                }
-            } else if (selectedLocation.LoaiThue === 'Theo giờ' && selectedLocation.GiaThueGio) {
-                // Database says hourly only
-                locationPrice = durationHours * parseFloat(selectedLocation.GiaThueGio);
-                locationPriceText = `${new Intl.NumberFormat('vi-VN').format(selectedLocation.GiaThueGio)} VNĐ/giờ × ${durationHours} giờ`;
-            } else if (selectedLocation.LoaiThue === 'Theo ngày' && selectedLocation.GiaThueNgay) {
-                // Database says daily only
-                locationPrice = durationDays * parseFloat(selectedLocation.GiaThueNgay);
-                locationPriceText = `${new Intl.NumberFormat('vi-VN').format(selectedLocation.GiaThueNgay)} VNĐ/ngày × ${durationDays} ngày`;
-            } else if (selectedLocation.LoaiThue === 'Cả hai') {
-                // User hasn't chosen yet, show both options
-                const hourlyPrice = durationHours * parseFloat(selectedLocation.GiaThueGio || 0);
-                const dailyPrice = durationDays * parseFloat(selectedLocation.GiaThueNgay || 0);
-                locationPriceText = `Vui lòng chọn loại thuê: ${new Intl.NumberFormat('vi-VN').format(selectedLocation.GiaThueGio)} VNĐ/giờ × ${durationHours} giờ = ${new Intl.NumberFormat('vi-VN').format(hourlyPrice)} VNĐ hoặc ${new Intl.NumberFormat('vi-VN').format(selectedLocation.GiaThueNgay)} VNĐ/ngày × ${durationDays} ngày = ${new Intl.NumberFormat('vi-VN').format(dailyPrice)} VNĐ`;
-            }
-            
-            // Get event type price
-            const eventTypeSelect = document.getElementById('eventType');
-            const selectedEventType = eventTypeSelect.options[eventTypeSelect.selectedIndex];
-            const eventTypePrice = parseFloat(selectedEventType.dataset.price) || 0;
-            
-            // Calculate total
-            const totalPrice = locationPrice + eventTypePrice;
-            
-            // Update summary display (if exists)
-            const summaryElement = document.getElementById('orderSummary');
-            const summaryContentElement = document.getElementById('orderSummaryContent');
-            if (summaryElement && summaryContentElement) {
-                summaryContentElement.innerHTML = `
-                    <div class="summary-item">
-                        <span>Địa điểm:</span>
-                        <span>${selectedLocation.TenDiaDiem}</span>
-                    </div>
-                    <div class="summary-item">
-                        <span>Giá thuê địa điểm:</span>
-                        <span>${locationPriceText}</span>
-                    </div>
-                    <div class="summary-item">
-                        <span>Tổng giá địa điểm:</span>
-                        <span>${new Intl.NumberFormat('vi-VN').format(locationPrice)} VNĐ</span>
-                    </div>
-                    <div class="summary-item">
-                        <span>Loại sự kiện:</span>
-                        <span>${selectedEventType.textContent}</span>
-                    </div>
-                    <div class="summary-item">
-                        <span>Giá loại sự kiện:</span>
-                        <span>${new Intl.NumberFormat('vi-VN').format(eventTypePrice)} VNĐ</span>
-                    </div>
-                    <div class="summary-item">
-                        <span><strong>Tổng cộng:</strong></span>
-                        <span><strong>${new Intl.NumberFormat('vi-VN').format(totalPrice)} VNĐ</strong></span>
-                    </div>
-                `;
-                summaryElement.style.display = 'block';
-            }
+            // Function removed - order summary section has been removed from UI
+            // This function is kept for compatibility but does nothing
+            return;
         }
 
         function filterLocations() {
@@ -1543,15 +1931,15 @@ include 'includes/admin-header.php';
                     <td>${item.name}</td>
                     <td>
                         <div class="input-group input-group-sm">
-                            <button class="btn btn-outline-secondary" type="button" onclick="updateEquipmentQuantity(${index}, -1)">-</button>
-                            <input type="number" class="form-control text-center" value="${item.quantity}" min="1" max="100" style="width: 60px;">
-                            <button class="btn btn-outline-secondary" type="button" onclick="updateEquipmentQuantity(${index}, 1)">+</button>
+                            <button class="btn btn-outline-secondary" type="button" onclick="event.preventDefault(); event.stopPropagation(); updateEquipmentQuantity(${index}, -1); return false;">-</button>
+                            <input type="number" class="form-control text-center" value="${item.quantity}" min="1" max="100" style="width: 60px;" onchange="updateEquipmentQuantityFromInput(${index}, this.value)" oninput="event.preventDefault(); event.stopPropagation();">
+                            <button class="btn btn-outline-secondary" type="button" onclick="event.preventDefault(); event.stopPropagation(); updateEquipmentQuantity(${index}, 1); return false;">+</button>
                         </div>
                     </td>
                     <td>${new Intl.NumberFormat('vi-VN').format(item.price)} VNĐ</td>
                     <td><strong>${new Intl.NumberFormat('vi-VN').format(totalPrice)} VNĐ</strong></td>
                     <td>
-                        <button class="btn btn-danger btn-sm" onclick="removeEquipment(${index})">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="event.preventDefault(); event.stopPropagation(); removeEquipment(${index}); return false;">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -1562,16 +1950,63 @@ include 'includes/admin-header.php';
         }
 
         function updateEquipmentQuantity(index, delta) {
-            const newQuantity = selectedEquipment[index].quantity + delta;
-            if (newQuantity >= 1 && newQuantity <= 100) {
-                selectedEquipment[index].quantity = newQuantity;
-                updateSelectedEquipment();
+            // Prevent any form submission
+            if (typeof event !== 'undefined' && event) {
+                event.preventDefault();
+                event.stopPropagation();
             }
+            
+            if (index >= 0 && index < selectedEquipment.length) {
+                const newQuantity = selectedEquipment[index].quantity + delta;
+                if (newQuantity >= 1 && newQuantity <= 100) {
+                    selectedEquipment[index].quantity = newQuantity;
+                    updateSelectedEquipment();
+                    updateCostSummary();
+                }
+            }
+            
+            return false;
+        }
+        
+        function updateEquipmentQuantityFromInput(index, value) {
+            // Prevent any form submission
+            if (typeof event !== 'undefined' && event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            if (index >= 0 && index < selectedEquipment.length) {
+                const newQuantity = parseInt(value) || 1;
+                if (newQuantity >= 1 && newQuantity <= 100) {
+                    selectedEquipment[index].quantity = newQuantity;
+                    updateSelectedEquipment();
+                    updateCostSummary();
+                } else {
+                    // Reset to valid value
+                    const input = event ? event.target : null;
+                    if (input) {
+                        input.value = selectedEquipment[index].quantity;
+                    }
+                }
+            }
+            
+            return false;
         }
 
         function removeEquipment(index) {
-            selectedEquipment.splice(index, 1);
-            updateSelectedEquipment();
+            // Prevent any form submission
+            if (typeof event !== 'undefined' && event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            if (index >= 0 && index < selectedEquipment.length) {
+                selectedEquipment.splice(index, 1);
+                updateSelectedEquipment();
+                updateCostSummary();
+            }
+            
+            return false;
         }
 
         function validateDates() {
@@ -1833,18 +2268,25 @@ include 'includes/admin-header.php';
             let totalCost = 0;
             let breakdown = [];
 
-            // Event type cost
-            const eventTypeSelect = document.getElementById('eventType');
-            const selectedEventType = eventTypes.find(type => type.ID_LoaiSK == eventTypeSelect.value);
-            if (selectedEventType && selectedEventType.GiaCoBan) {
-                totalCost += parseFloat(selectedEventType.GiaCoBan);
-                breakdown.push({
-                    name: `Loại sự kiện: ${selectedEventType.TenLoai}`,
-                    amount: parseFloat(selectedEventType.GiaCoBan)
-                });
+            // Check if indoor location with room
+            const isIndoorWithRoom = selectedLocation && 
+                                   selectedLocation.LoaiDiaDiem === 'Trong nhà' && 
+                                   selectedLocation.selectedRoom;
+
+            // Event type cost (NOT added if indoor location with room)
+            if (!isIndoorWithRoom) {
+                const eventTypeSelect = document.getElementById('eventType');
+                const selectedEventType = eventTypes.find(type => type.ID_LoaiSK == eventTypeSelect.value);
+                if (selectedEventType && selectedEventType.GiaCoBan) {
+                    totalCost += parseFloat(selectedEventType.GiaCoBan);
+                    breakdown.push({
+                        name: `Loại sự kiện: ${selectedEventType.TenLoai}`,
+                        amount: parseFloat(selectedEventType.GiaCoBan)
+                    });
+                }
             }
 
-            // Location cost
+            // Location/Room cost
             if (selectedLocation) {
                 const startDate = new Date(document.getElementById('startDate').value);
                 const endDate = new Date(document.getElementById('endDate').value);
@@ -1852,28 +2294,54 @@ include 'includes/admin-header.php';
                 const durationDays = Math.ceil(durationHours / 24);
 
                 let locationCost = 0;
+                let locationName = selectedLocation.TenDiaDiem;
                 
-                // Priority: User's selection > Database default
-                if (selectedLocation.selectedRentalType) {
-                    // User has explicitly chosen rental type
-                    if (selectedLocation.selectedRentalType === 'hour' && selectedLocation.GiaThueGio) {
-                        locationCost = durationHours * parseFloat(selectedLocation.GiaThueGio);
-                    } else if (selectedLocation.selectedRentalType === 'day' && selectedLocation.GiaThueNgay) {
-                        locationCost = durationDays * parseFloat(selectedLocation.GiaThueNgay);
+                // Priority: Room price for indoor locations > Location price
+                if (isIndoorWithRoom && selectedLocation.selectedRoom) {
+                    const room = selectedLocation.selectedRoom;
+                    const rentalType = selectedLocation.selectedRoomRentalType || selectedLocation.selectedRentalType;
+                    
+                    if (rentalType === 'hour' && room.GiaThueGio) {
+                        locationCost = durationHours * parseFloat(room.GiaThueGio);
+                        locationName = `${selectedLocation.TenDiaDiem} - ${room.TenPhong} (Theo giờ)`;
+                    } else if (rentalType === 'day' && room.GiaThueNgay) {
+                        locationCost = durationDays * parseFloat(room.GiaThueNgay);
+                        locationName = `${selectedLocation.TenDiaDiem} - ${room.TenPhong} (Theo ngày)`;
+                    } else if (room.LoaiThue === 'Theo giờ' && room.GiaThueGio) {
+                        locationCost = durationHours * parseFloat(room.GiaThueGio);
+                        locationName = `${selectedLocation.TenDiaDiem} - ${room.TenPhong} (Theo giờ)`;
+                    } else if (room.LoaiThue === 'Theo ngày' && room.GiaThueNgay) {
+                        locationCost = durationDays * parseFloat(room.GiaThueNgay);
+                        locationName = `${selectedLocation.TenDiaDiem} - ${room.TenPhong} (Theo ngày)`;
+                    } else if (room.LoaiThue === 'Cả hai') {
+                        // Default to daily rental
+                        locationCost = durationDays * parseFloat(room.GiaThueNgay || 0);
+                        locationName = `${selectedLocation.TenDiaDiem} - ${room.TenPhong} (Theo ngày)`;
                     }
-                } else if (selectedLocation.LoaiThue === 'Theo giờ' && selectedLocation.GiaThueGio) {
-                    locationCost = durationHours * parseFloat(selectedLocation.GiaThueGio);
-                } else if (selectedLocation.LoaiThue === 'Theo ngày' && selectedLocation.GiaThueNgay) {
-                    locationCost = durationDays * parseFloat(selectedLocation.GiaThueNgay);
-                } else if (selectedLocation.LoaiThue === 'Cả hai') {
-                    // Default to daily rental for better UX
-                    locationCost = durationDays * parseFloat(selectedLocation.GiaThueNgay || 0);
+                } else {
+                    // Use location price (for outdoor locations or indoor without room)
+                    // Priority: User's selection > Database default
+                    if (selectedLocation.selectedRentalType) {
+                        // User has explicitly chosen rental type
+                        if (selectedLocation.selectedRentalType === 'hour' && selectedLocation.GiaThueGio) {
+                            locationCost = durationHours * parseFloat(selectedLocation.GiaThueGio);
+                        } else if (selectedLocation.selectedRentalType === 'day' && selectedLocation.GiaThueNgay) {
+                            locationCost = durationDays * parseFloat(selectedLocation.GiaThueNgay);
+                        }
+                    } else if (selectedLocation.LoaiThue === 'Theo giờ' && selectedLocation.GiaThueGio) {
+                        locationCost = durationHours * parseFloat(selectedLocation.GiaThueGio);
+                    } else if (selectedLocation.LoaiThue === 'Theo ngày' && selectedLocation.GiaThueNgay) {
+                        locationCost = durationDays * parseFloat(selectedLocation.GiaThueNgay);
+                    } else if (selectedLocation.LoaiThue === 'Cả hai') {
+                        // Default to daily rental for better UX
+                        locationCost = durationDays * parseFloat(selectedLocation.GiaThueNgay || 0);
+                    }
                 }
 
                 if (locationCost > 0) {
                     totalCost += locationCost;
                     breakdown.push({
-                        name: `Thuê địa điểm: ${selectedLocation.TenDiaDiem}`,
+                        name: `Thuê ${locationName}`,
                         amount: locationCost
                     });
                 }
@@ -1972,9 +2440,50 @@ include 'includes/admin-header.php';
             
             console.log('Button state changed to loading...');
 
-            // Prepare form data
+            // Prepare form data - ensure equipment has valid format
+            console.log('=== PREPARING FORM DATA ===');
+            console.log('selectedEquipment before format:', selectedEquipment);
+            console.log('selectedEquipment length:', selectedEquipment.length);
+            
+            const formattedEquipment = selectedEquipment.map(item => {
+                // Ensure price is a valid number, if 0 or invalid, try to get from item data
+                let price = parseFloat(item.price);
+                if (isNaN(price) || price <= 0) {
+                    // Try to get price from the original equipment/combo data if available
+                    if (item.type === 'equipment' && item.originalPrice) {
+                        price = parseFloat(item.originalPrice);
+                    } else if (item.type === 'combo' && item.originalPrice) {
+                        price = parseFloat(item.originalPrice);
+                    } else {
+                        price = 0; // Will be fetched from database on backend
+                    }
+                }
+                
+                const formatted = {
+                    type: item.type,
+                    id: parseInt(item.id),
+                    quantity: parseInt(item.quantity) || 1,
+                    price: price
+                };
+                console.log('Formatted item:', formatted);
+                return formatted;
+            }).filter(item => {
+                // Allow price = 0 as backend will fetch from database
+                // But ensure type, id, and quantity are valid
+                const isValid = item.type && (item.type === 'equipment' || item.type === 'combo') && 
+                               item.id > 0 && item.quantity > 0;
+                if (!isValid) {
+                    console.warn('Filtered out invalid item:', item);
+                }
+                return isValid;
+            });
+            
+            console.log('formattedEquipment after filter:', formattedEquipment);
+            console.log('formattedEquipment length:', formattedEquipment.length);
+            
             const formData = {
-                action: 'register_event_for_existing_customer',
+                action: isEditMode ? 'update_registration' : 'register_event_for_existing_customer',
+                registration_id: isEditMode ? editRegistrationId : null,
                 customer_id: selectedCustomer.ID_KhachHang,
                 event: {
                     name: document.getElementById('eventName').value,
@@ -1987,7 +2496,8 @@ include 'includes/admin-header.php';
                 },
                 location: selectedLocation ? selectedLocation.ID_DD : null,
                 location_rental_type: selectedLocation ? selectedLocation.selectedRentalType : null,
-                equipment: selectedEquipment,
+                room_id: selectedLocation && selectedLocation.selectedRoomId ? selectedLocation.selectedRoomId : null,
+                equipment: formattedEquipment,
                 adminNotes: document.getElementById('adminNotes').value
             };
 

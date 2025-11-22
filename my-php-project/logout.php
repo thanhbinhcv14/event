@@ -32,7 +32,9 @@ session_destroy();
         // Clear chat history from localStorage before redirect
         if (typeof localStorage !== 'undefined') {
             localStorage.removeItem('geminiChatHistory');
-            console.log('Chat history cleared: User logged out');
+            // Clear saved discount codes when user logs out
+            localStorage.removeItem('savedDiscountCodes');
+            console.log('Chat history and discount codes cleared: User logged out');
         }
         // Redirect to login page
         window.location.href = 'login.php';

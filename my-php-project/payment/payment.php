@@ -10,7 +10,7 @@ if (!isset($_SESSION['user'])) {
 
 $pdo = getDBConnection();
 $eventId = $_GET['event_id'] ?? null;
-$paymentTypeParam = $_GET['payment_type'] ?? 'deposit'; // 'deposit' hoặc 'full'
+$paymentTypeParam = $_GET['payment_type'] ?? 'deposit'; // 'deposit', 'full', hoặc 'remaining'
 
 if (!$eventId) {
     header('Location: ../events/my-events.php');
@@ -117,7 +117,22 @@ if (!$event) {
         ? floatval($event['TienCocYeuCau']) 
         : round($totalAmount * 0.3);
     
-$remainingAmount = $totalAmount - $depositAmount;
+    // Tính số tiền còn lại (nếu đã đặt cọc, tính từ tổng tiền trừ đi số tiền đã đặt cọc)
+    $remainingAmount = $totalAmount - $depositAmount;
+    
+    // Nếu đã đặt cọc, tính lại số tiền còn lại từ tổng tiền trừ đi số tiền đã thanh toán
+    if ($event['TrangThaiThanhToan'] === 'Đã đặt cọc') {
+        $stmtPaid = $pdo->prepare("
+            SELECT SUM(SoTien) as TotalPaid 
+            FROM thanhtoan 
+            WHERE ID_DatLich = ? 
+            AND TrangThai = 'Thành công'
+        ");
+        $stmtPaid->execute([$eventId]);
+        $paidResult = $stmtPaid->fetch(PDO::FETCH_ASSOC);
+        $totalPaid = floatval($paidResult['TotalPaid'] ?? 0);
+        $remainingAmount = $totalAmount - $totalPaid;
+    }
     
     // Tính số ngày từ đăng ký đến sự kiện
     $daysFromRegistrationToEvent = 0;
@@ -508,17 +523,17 @@ $remainingAmount = $totalAmount - $depositAmount;
                                     </div>
                             </div>
                             <div class="col-md-6">
-                                    <div class="payment-type-card" data-type="full" id="fullCard">
+                                    <div class="payment-type-card" data-type="<?= $event['TrangThaiThanhToan'] === 'Đã đặt cọc' ? 'remaining' : 'full' ?>" id="fullCard">
                                         <div class="form-check">
-                                            <input class="form-check-input" type="radio" name="paymentType" id="fullPayment" value="full"
-                                                   <?= ($paymentTypeParam === 'full' || $requiresFullPayment || $event['TrangThaiThanhToan'] === 'Đã đặt cọc') ? 'checked' : '' ?>
+                                            <input class="form-check-input" type="radio" name="paymentType" id="fullPayment" value="<?= $event['TrangThaiThanhToan'] === 'Đã đặt cọc' ? 'remaining' : 'full' ?>"
+                                                   <?= ($paymentTypeParam === 'full' || $paymentTypeParam === 'remaining' || $requiresFullPayment || $event['TrangThaiThanhToan'] === 'Đã đặt cọc') ? 'checked' : '' ?>
                                                    <?= (!$requiresFullPayment && $event['TrangThaiThanhToan'] !== 'Đã đặt cọc') ? 'disabled' : '' ?>>
                                             <label class="form-check-label w-100" for="fullPayment">
-                                                <strong>Thanh toán đủ</strong>
+                                                <strong><?= $event['TrangThaiThanhToan'] === 'Đã đặt cọc' ? 'Thanh toán phần còn lại' : 'Thanh toán đủ' ?></strong>
                                                 <br>
-                                                <span class="text-success fw-bold"><?= number_format($totalAmount, 0, ',', '.') ?> VNĐ</span>
+                                                <span class="text-success fw-bold"><?= number_format($event['TrangThaiThanhToan'] === 'Đã đặt cọc' ? $remainingAmount : $totalAmount, 0, ',', '.') ?> VNĐ</span>
                                                 <br>
-                                                <small class="text-muted">Thanh toán toàn bộ số tiền</small>
+                                                <small class="text-muted"><?= $event['TrangThaiThanhToan'] === 'Đã đặt cọc' ? 'Thanh toán số tiền còn lại' : 'Thanh toán toàn bộ số tiền' ?></small>
                                                 <?php if ($requiresFullPayment): ?>
                                                 <br><small class="text-warning"><i class="fas fa-exclamation-triangle"></i> Bắt buộc thanh toán đủ (sự kiện diễn ra trong vòng 7 ngày)</small>
                                                 <?php endif; ?>
@@ -635,6 +650,7 @@ $remainingAmount = $totalAmount - $depositAmount;
         const eventId = <?= $eventId ?>;
         const totalAmount = <?= $totalAmount ?>;
         const depositAmount = <?= $depositAmount ?>;
+        const remainingAmount = <?= $remainingAmount ?>;
         const requiresFullPayment = <?= $requiresFullPayment ? 'true' : 'false' ?>;
         const hasDeposit = <?= ($event['TrangThaiThanhToan'] === 'Đã đặt cọc') ? 'true' : 'false' ?>;
         
@@ -643,7 +659,14 @@ $remainingAmount = $totalAmount - $depositAmount;
         
         // Cập nhật hiển thị số tiền
         function updateAmountDisplay() {
-            const amount = selectedPaymentType === 'deposit' ? depositAmount : totalAmount;
+            let amount;
+            if (selectedPaymentType === 'deposit') {
+                amount = depositAmount;
+            } else if (selectedPaymentType === 'remaining' || hasDeposit) {
+                amount = remainingAmount;
+            } else {
+                amount = totalAmount;
+            }
             $('#amountDisplay').val(new Intl.NumberFormat('vi-VN').format(amount));
         }
         
@@ -654,6 +677,12 @@ $remainingAmount = $totalAmount - $depositAmount;
                 $('#depositCard').addClass('selected');
             } else {
                 $('#fullCard').addClass('selected');
+            }
+            // Cập nhật value của radio button nếu là remaining
+            if (selectedPaymentType === 'remaining') {
+                $('#fullPayment').val('remaining');
+            } else if (selectedPaymentType === 'full') {
+                $('#fullPayment').val('full');
             }
         }
         
@@ -680,13 +709,23 @@ $remainingAmount = $totalAmount - $depositAmount;
             if (selectedPaymentMethod === 'sepay') {
                 $('#sepayDetails').show();
                 // SePay: khôi phục logic loại thanh toán
-                if (requiresFullPayment || hasDeposit) {
+                if (requiresFullPayment) {
+                    // < 7 ngày: bắt buộc thanh toán đủ
                     $('#depositPayment').prop('disabled', true);
                     $('#fullPayment').prop('checked', true).prop('disabled', false);
                     selectedPaymentType = 'full';
+                } else if (hasDeposit) {
+                    // Đã đặt cọc: chỉ cho phép thanh toán phần còn lại
+                    $('#depositPayment').prop('disabled', true);
+                    $('#fullPayment').prop('checked', true).prop('disabled', false);
+                    // Cập nhật value của fullPayment thành 'remaining'
+                    $('#fullPayment').val('remaining');
+                    selectedPaymentType = 'remaining';
                 } else {
+                    // >= 7 ngày và chưa đặt cọc: cho phép cả deposit và full
                     $('#depositPayment').prop('disabled', false);
-                    $('#fullPayment').prop('disabled', true);
+                    $('#fullPayment').prop('disabled', false);
+                    $('#fullPayment').val('full');
                     selectedPaymentType = 'deposit';
                     $('#depositPayment').prop('checked', true);
                 }
@@ -694,10 +733,16 @@ $remainingAmount = $totalAmount - $depositAmount;
                 updatePaymentTypeSelection();
             } else if (selectedPaymentMethod === 'cash') {
                 $('#cashDetails').show();
-                    // Tiền mặt phải là thanh toán đủ
+                // Tiền mặt phải là thanh toán đủ hoặc phần còn lại
                 $('#depositPayment').prop('disabled', true);
                 $('#fullPayment').prop('checked', true).prop('disabled', false);
-                selectedPaymentType = 'full';
+                if (hasDeposit) {
+                    $('#fullPayment').val('remaining');
+                    selectedPaymentType = 'remaining';
+                } else {
+                    $('#fullPayment').val('full');
+                    selectedPaymentType = 'full';
+                }
                 updateAmountDisplay();
                 updatePaymentTypeSelection();
             }
@@ -739,7 +784,15 @@ $remainingAmount = $totalAmount - $depositAmount;
                 return;
             }
 
-            const amount = selectedPaymentType === 'deposit' ? depositAmount : totalAmount;
+            let amount;
+            if (selectedPaymentType === 'deposit') {
+                amount = depositAmount;
+            } else if (selectedPaymentType === 'remaining' || hasDeposit) {
+                amount = remainingAmount;
+            } else {
+                amount = totalAmount;
+            }
+            
             const invoiceData = {
                 name: invoiceName,
                 phone: invoicePhone,

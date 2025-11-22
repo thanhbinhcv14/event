@@ -69,28 +69,30 @@ function getDetailedStats() {
                 Tiendo,
                 NgayTao,
                 NgayCapNhat,
-                HanHoanThanh
+                NgayKetThuc as HanHoanThanh
             FROM lichlamviec 
             WHERE ID_NhanVien = ?
         ");
         $stmt->execute([$staffId]);
         $lichlamviecData = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // From chitietkehoach
+        // From chitietkehoach - get progress from lichlamviec if exists
+        // Note: chitietkehoach can have multiple staff assigned via lichlamviec
         $stmt = $pdo->prepare("
-            SELECT 
+            SELECT DISTINCT
                 'chitietkehoach' as source,
-                ID_ChiTiet as id,
-                TenBuoc as task,
-                TrangThai,
-                COALESCE(TienDoPhanTram, 0) as Tiendo,
-                NgayBatDau as NgayTao,
-                NgayKetThuc as NgayCapNhat,
-                NgayKetThuc as HanHoanThanh
-            FROM chitietkehoach 
-            WHERE ID_NhanVien = ?
+                ctk.ID_ChiTiet as id,
+                ctk.TenBuoc as task,
+                COALESCE(llv.TrangThai, ctk.TrangThai) as TrangThai,
+                COALESCE(llv.TienDo, '0%') as Tiendo,
+                ctk.NgayBatDau as NgayTao,
+                ctk.NgayKetThuc as NgayCapNhat,
+                ctk.NgayKetThuc as HanHoanThanh
+            FROM chitietkehoach ctk
+            LEFT JOIN lichlamviec llv ON ctk.ID_ChiTiet = llv.ID_ChiTiet AND llv.ID_NhanVien = ?
+            WHERE llv.ID_NhanVien = ?
         ");
-        $stmt->execute([$staffId]);
+        $stmt->execute([$staffId, $staffId]);
         $chitietkehoachData = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Combine data
@@ -120,12 +122,53 @@ function getDetailedStats() {
         }
         $avgCompletionTime = count($completedTasks) > 0 ? $totalHours / count($completedTasks) : 0;
         
+        // Calculate pending and issues
+        $pendingAssignments = count(array_filter($allAssignments, function($a) { 
+            return $a['TrangThai'] === 'Chưa làm' || $a['TrangThai'] === 'Chưa bắt đầu'; 
+        }));
+        $issueAssignments = count(array_filter($allAssignments, function($a) { 
+            return $a['TrangThai'] === 'Báo sự cố'; 
+        }));
+        
+        // Get current tasks (in progress or pending)
+        $currentTasks = $inProgressAssignments + $pendingAssignments;
+        
+        // Get event type stats
+        $eventTypeStats = [];
+        // Group by event type from lichlamviec
+        $stmt = $pdo->prepare("
+            SELECT 
+                COALESCE(ls.TenLoai, 'Chưa phân loại') as event_type,
+                COUNT(*) as assignments,
+                SUM(CASE WHEN llv.TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed
+            FROM lichlamviec llv
+            LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
+            LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+            WHERE llv.ID_NhanVien = ?
+            GROUP BY ls.TenLoai
+        ");
+        $stmt->execute([$staffId]);
+        $eventTypeData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($eventTypeData as $data) {
+            $completionRate = $data['assignments'] > 0 ? round(($data['completed'] / $data['assignments']) * 100, 2) : 0;
+            $eventTypeStats[] = [
+                'event_type' => $data['event_type'],
+                'assignments' => (int)$data['assignments'],
+                'completed' => (int)$data['completed'],
+                'completion_rate' => $completionRate
+            ];
+        }
+        
         $stats = [
             'total_assignments' => $totalAssignments,
-            'completed_assignments' => $completedAssignments,
-            'in_progress_assignments' => $inProgressAssignments,
-            'overdue_assignments' => $overdueAssignments,
+            'completed' => $completedAssignments,
+            'in_progress' => $inProgressAssignments,
+            'pending' => $pendingAssignments,
+            'issues' => $issueAssignments,
             'completion_rate' => $totalAssignments > 0 ? round(($completedAssignments / $totalAssignments) * 100, 2) : 0,
+            'current_tasks' => $currentTasks,
+            'overdue_tasks' => $overdueAssignments,
             'avg_completion_hours' => round($avgCompletionTime, 2),
             'source_breakdown' => [
                 'lichlamviec' => count($lichlamviecData),
@@ -133,7 +176,7 @@ function getDetailedStats() {
             ]
         ];
         
-        echo json_encode(['success' => true, 'stats' => $stats]);
+        echo json_encode(['success' => true, 'stats' => $stats, 'eventTypeStats' => $eventTypeStats]);
         
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy thống kê chi tiết: ' . $e->getMessage()]);
@@ -236,7 +279,74 @@ function getPerformanceReport() {
             return strcmp($a['month'], $b['month']);
         });
         
-        echo json_encode(['success' => true, 'performance_data' => $performanceData]);
+        // Get detailed reports for the date range
+        $reports = [];
+        
+        // From lichlamviec
+        $stmt = $pdo->prepare("
+            SELECT 
+                llv.NhiemVu,
+                llv.TrangThai,
+                llv.Tiendo,
+                llv.NgayBatDau,
+                llv.NgayKetThuc,
+                dl.TenSuKien,
+                COALESCE(dd.TenDiaDiem, 'N/A') as TenDiaDiem
+            FROM lichlamviec llv
+            LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            WHERE llv.ID_NhanVien = ? 
+            AND DATE(llv.NgayTao) BETWEEN ? AND ?
+            ORDER BY llv.NgayTao DESC
+        ");
+        $stmt->execute([$staffId, $startDate, $endDate]);
+        $lichlamviecReports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // From chitietkehoach
+        $stmt = $pdo->prepare("
+            SELECT 
+                ctk.TenBuoc as NhiemVu,
+                ctk.TrangThai,
+                COALESCE(llv.TienDo, '0%') as Tiendo,
+                ctk.NgayBatDau,
+                ctk.NgayKetThuc,
+                COALESCE(dl.TenSuKien, 'N/A') as TenSuKien,
+                COALESCE(dd.TenDiaDiem, 'N/A') as TenDiaDiem
+            FROM chitietkehoach ctk
+            LEFT JOIN lichlamviec llv ON ctk.ID_ChiTiet = llv.ID_ChiTiet AND llv.ID_NhanVien = ?
+            LEFT JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            WHERE ctk.ID_NhanVien = ? 
+            AND DATE(ctk.NgayBatDau) BETWEEN ? AND ?
+            ORDER BY ctk.NgayBatDau DESC
+        ");
+        $stmt->execute([$staffId, $staffId, $startDate, $endDate]);
+        $chitietkehoachReports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Combine reports
+        $reports = array_merge($lichlamviecReports, $chitietkehoachReports);
+        
+        // Calculate summary
+        $total = count($reports);
+        $completed = count(array_filter($reports, function($r) { return $r['TrangThai'] === 'Hoàn thành'; }));
+        $inProgress = count(array_filter($reports, function($r) { 
+            return $r['TrangThai'] === 'Đang làm' || $r['TrangThai'] === 'Đang thực hiện'; 
+        }));
+        $issues = count(array_filter($reports, function($r) { return $r['TrangThai'] === 'Báo sự cố'; }));
+        
+        echo json_encode([
+            'success' => true, 
+            'performance_data' => $performanceData,
+            'summary' => [
+                'total' => $total,
+                'completed' => $completed,
+                'in_progress' => $inProgress,
+                'issues' => $issues
+            ],
+            'reports' => $reports
+        ]);
         
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy báo cáo hiệu suất: ' . $e->getMessage()]);
@@ -271,7 +381,7 @@ function getWorkSummary() {
                 llv.CongViec,
                 llv.TrangThai,
                 llv.Tiendo,
-                llv.HanHoanThanh,
+                llv.NgayKetThuc as HanHoanThanh,
                 dl.TenSuKien,
                 dd.TenDiaDiem,
                 llv.NgayTao,
@@ -287,12 +397,12 @@ function getWorkSummary() {
         $stmt->execute([$staffId]);
         $lichlamviecData = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // From chitietkehoach
+        // From chitietkehoach - get progress from lichlamviec if exists
         $stmt = $pdo->prepare("
             SELECT 
                 ctk.TenBuoc as CongViec,
                 ctk.TrangThai,
-                COALESCE(ctk.TienDoPhanTram, 0) as Tiendo,
+                COALESCE(llv.TienDo, '0%') as Tiendo,
                 ctk.NgayKetThuc as HanHoanThanh,
                 dl.TenSuKien,
                 dd.TenDiaDiem,
@@ -300,6 +410,7 @@ function getWorkSummary() {
                 ctk.NgayKetThuc as NgayCapNhat,
                 'chitietkehoach' as source
             FROM chitietkehoach ctk
+            LEFT JOIN lichlamviec llv ON ctk.ID_ChiTiet = llv.ID_ChiTiet AND llv.ID_NhanVien = ?
             LEFT JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
             LEFT JOIN datlichsukien dl ON kht.ID_DatLich = dl.ID_DatLich
             LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
@@ -307,7 +418,7 @@ function getWorkSummary() {
             ORDER BY ctk.NgayBatDau DESC
             LIMIT 10
         ");
-        $stmt->execute([$staffId]);
+        $stmt->execute([$staffId, $staffId]);
         $chitietkehoachData = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Combine and sort by date
@@ -352,7 +463,7 @@ function exportReport() {
                 llv.CongViec,
                 llv.TrangThai,
                 llv.Tiendo,
-                llv.HanHoanThanh,
+                llv.NgayKetThuc as HanHoanThanh,
                 llv.GhiChu,
                 dl.TenSuKien,
                 dd.TenDiaDiem,
@@ -466,29 +577,56 @@ function submitProgressReport() {
         ";
         $pdo->exec($createTableSQL);
         
-        // Insert progress report
-        $stmt = $pdo->prepare("
-            INSERT INTO baocaotiendo (
-                ID_NhanVien, 
-                ID_QuanLy, 
-                ID_Task, 
-                LoaiTask, 
-                TienDo, 
-                GhiChu, 
-                TrangThai, 
-                NgayBaoCao
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+        // Check if report already exists for this task
+        $checkStmt = $pdo->prepare("
+            SELECT ID_BaoCao FROM baocaotiendo 
+            WHERE ID_NhanVien = ? AND ID_Task = ? AND LoaiTask = ?
+            ORDER BY NgayBaoCao DESC LIMIT 1
         ");
+        $checkStmt->execute([$staffId, $taskId, $taskType]);
+        $existingReport = $checkStmt->fetch(PDO::FETCH_ASSOC);
         
-        $result = $stmt->execute([
-            $staffId, 
-            $managerId, 
-            $taskId, 
-            $taskType, 
-            $progress, 
-            $notes, 
-            $status
-        ]);
+        if ($existingReport) {
+            // Update existing report
+            $stmt = $pdo->prepare("
+                UPDATE baocaotiendo 
+                SET TienDo = ?, 
+                    GhiChu = ?, 
+                    TrangThai = ?,
+                    NgayBaoCao = NOW()
+                WHERE ID_BaoCao = ?
+            ");
+            $result = $stmt->execute([
+                $progress, 
+                $notes, 
+                $status,
+                $existingReport['ID_BaoCao']
+            ]);
+        } else {
+            // Insert new progress report
+            $stmt = $pdo->prepare("
+                INSERT INTO baocaotiendo (
+                    ID_NhanVien, 
+                    ID_QuanLy, 
+                    ID_Task, 
+                    LoaiTask, 
+                    TienDo, 
+                    GhiChu, 
+                    TrangThai, 
+                    NgayBaoCao
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            
+            $result = $stmt->execute([
+                $staffId, 
+                $managerId, 
+                $taskId, 
+                $taskType, 
+                $progress, 
+                $notes, 
+                $status
+            ]);
+        }
         
         if ($result) {
             // Update the original task if status is provided
@@ -555,7 +693,8 @@ function getProgressReports() {
         ";
         $pdo->exec($createTableSQL);
         
-        // Get progress reports
+        // Get progress reports with event information
+        // Use subquery to get only the latest report for each task (ID_Task + LoaiTask combination)
         $stmt = $pdo->prepare("
             SELECT 
                 bct.ID_BaoCao,
@@ -563,21 +702,39 @@ function getProgressReports() {
                 bct.GhiChu,
                 bct.TrangThai,
                 bct.NgayBaoCao,
+                bct.LoaiTask,
                 nv.HoTen as TenNhanVien,
                 ql.HoTen as TenQuanLy,
+                ql.ChucVu as ChucVuQuanLy,
                 CASE 
-                    WHEN bct.LoaiTask = 'lichlamviec' THEN llv.NhiemVu
-                    WHEN bct.LoaiTask = 'chitietkehoach' THEN ctk.TenBuoc
-                END as TenCongViec
+                    WHEN bct.LoaiTask = 'lichlamviec' THEN COALESCE(llv.NhiemVu, llv.CongViec, 'Nhiệm vụ')
+                    WHEN bct.LoaiTask = 'chitietkehoach' THEN COALESCE(ctk.TenBuoc, 'Bước thực hiện')
+                END as TenCongViec,
+                COALESCE(dl1.TenSuKien, dl2.TenSuKien, 'N/A') as TenSuKien,
+                COALESCE(dd1.TenDiaDiem, dd2.TenDiaDiem, 'N/A') as TenDiaDiem
             FROM baocaotiendo bct
+            INNER JOIN (
+                SELECT ID_Task, LoaiTask, MAX(ID_BaoCao) as MaxID_BaoCao
+                FROM baocaotiendo
+                WHERE ID_NhanVien = ?
+                GROUP BY ID_Task, LoaiTask
+            ) latest ON bct.ID_Task = latest.ID_Task 
+                AND bct.LoaiTask = latest.LoaiTask 
+                AND bct.ID_BaoCao = latest.MaxID_BaoCao
             LEFT JOIN nhanvieninfo nv ON bct.ID_NhanVien = nv.ID_NhanVien
             LEFT JOIN nhanvieninfo ql ON bct.ID_QuanLy = ql.ID_NhanVien
             LEFT JOIN lichlamviec llv ON bct.ID_Task = llv.ID_LLV AND bct.LoaiTask = 'lichlamviec'
+            LEFT JOIN datlichsukien dl1 ON llv.ID_DatLich = dl1.ID_DatLich
+            LEFT JOIN diadiem dd1 ON dl1.ID_DD = dd1.ID_DD
             LEFT JOIN chitietkehoach ctk ON bct.ID_Task = ctk.ID_ChiTiet AND bct.LoaiTask = 'chitietkehoach'
+            LEFT JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            LEFT JOIN datlichsukien dl2 ON s.ID_DatLich = dl2.ID_DatLich
+            LEFT JOIN diadiem dd2 ON dl2.ID_DD = dd2.ID_DD
             WHERE bct.ID_NhanVien = ?
             ORDER BY bct.NgayBaoCao DESC
         ");
-        $stmt->execute([$staffId]);
+        $stmt->execute([$staffId, $staffId]);
         $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         echo json_encode(['success' => true, 'reports' => $reports]);

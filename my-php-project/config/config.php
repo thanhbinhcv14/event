@@ -49,3 +49,24 @@ define('BASE_URL', $protocol . '://' . $host . $basePath);
 
 // Base Path (for assets, relative paths)
 define('BASE_PATH', $basePath);
+
+// Session Security Configuration
+if (session_status() === PHP_SESSION_NONE) {
+    // Secure session configuration
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.use_strict_mode', 1);
+    ini_set('session.cookie_lifetime', 0); // Until browser close
+    ini_set('session.gc_maxlifetime', 3600); // 1 hour
+    
+    // Only set secure flag if using HTTPS
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+        ini_set('session.cookie_secure', 1);
+    }
+    
+    // SameSite cookie attribute (PHP 7.3+)
+    if (version_compare(PHP_VERSION, '7.3.0', '>=')) {
+        ini_set('session.cookie_samesite', 'Strict');
+    }
+    
+    session_start();
+}

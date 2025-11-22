@@ -18,6 +18,10 @@ class ComposerStaticInite6d3927c8e4a6f71d6259807b5eb008d
     );
 
     public static $prefixLengthsPsr4 = array (
+        'T' => 
+        array (
+            'Twirp\\' => 6,
+        ),
         'S' => 
         array (
             'Symfony\\Polyfill\\Php80\\' => 23,
@@ -28,14 +32,20 @@ class ComposerStaticInite6d3927c8e4a6f71d6259807b5eb008d
         'P' => 
         array (
             'Psr\\Log\\' => 8,
+            'Psr\\Http\\Server\\' => 16,
             'Psr\\Http\\Message\\' => 17,
             'Psr\\Http\\Client\\' => 16,
             'PhpParser\\' => 10,
             'PhpOption\\' => 10,
         ),
+        'L' => 
+        array (
+            'Livekit\\' => 8,
+        ),
         'H' => 
         array (
             'Hybridauth\\' => 11,
+            'Http\\Discovery\\' => 15,
         ),
         'G' => 
         array (
@@ -43,6 +53,9 @@ class ComposerStaticInite6d3927c8e4a6f71d6259807b5eb008d
             'GuzzleHttp\\Promise\\' => 19,
             'GuzzleHttp\\' => 11,
             'GrahamCampbell\\ResultType\\' => 26,
+            'Google\\Protobuf\\' => 16,
+            'GPBMetadata\\Google\\Protobuf\\' => 28,
+            'GPBMetadata\\' => 12,
         ),
         'F' => 
         array (
@@ -57,10 +70,15 @@ class ComposerStaticInite6d3927c8e4a6f71d6259807b5eb008d
         'A' => 
         array (
             'App\\' => 4,
+            'Agence104\\LiveKit\\' => 18,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
+        'Twirp\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/twirp/twirp/lib/src',
+        ),
         'Symfony\\Polyfill\\Php80\\' => 
         array (
             0 => __DIR__ . '/..' . '/symfony/polyfill-php80',
@@ -81,6 +99,10 @@ class ComposerStaticInite6d3927c8e4a6f71d6259807b5eb008d
         array (
             0 => __DIR__ . '/..' . '/psr/log/src',
         ),
+        'Psr\\Http\\Server\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/psr/http-server-handler/src',
+        ),
         'Psr\\Http\\Message\\' => 
         array (
             0 => __DIR__ . '/..' . '/psr/http-factory/src',
@@ -98,9 +120,17 @@ class ComposerStaticInite6d3927c8e4a6f71d6259807b5eb008d
         array (
             0 => __DIR__ . '/..' . '/phpoption/phpoption/src/PhpOption',
         ),
+        'Livekit\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/agence104/livekit-server-sdk/src/proto/Livekit',
+        ),
         'Hybridauth\\' => 
         array (
             0 => __DIR__ . '/..' . '/hybridauth/hybridauth/src',
+        ),
+        'Http\\Discovery\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/php-http/discovery/src',
         ),
         'GuzzleHttp\\Psr7\\' => 
         array (
@@ -117,6 +147,18 @@ class ComposerStaticInite6d3927c8e4a6f71d6259807b5eb008d
         'GrahamCampbell\\ResultType\\' => 
         array (
             0 => __DIR__ . '/..' . '/graham-campbell/result-type/src',
+        ),
+        'Google\\Protobuf\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/google/protobuf/src/Google/Protobuf',
+        ),
+        'GPBMetadata\\Google\\Protobuf\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/google/protobuf/src/GPBMetadata/Google/Protobuf',
+        ),
+        'GPBMetadata\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/agence104/livekit-server-sdk/src/proto/GPBMetadata',
         ),
         'Firebase\\JWT\\' => 
         array (
@@ -137,6 +179,10 @@ class ComposerStaticInite6d3927c8e4a6f71d6259807b5eb008d
         'App\\' => 
         array (
             0 => __DIR__ . '/../..' . '/src',
+        ),
+        'Agence104\\LiveKit\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/agence104/livekit-server-sdk/src',
         ),
     );
 

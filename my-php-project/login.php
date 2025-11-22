@@ -141,6 +141,16 @@
             padding: 12px 16px;
         }
         
+        .alert-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .alert .btn {
+            white-space: nowrap;
+        }
+        
         .social-section {
             border-top: 1px solid #e9ecef;
         }
@@ -405,11 +415,25 @@
             $('#email').val('');
             $('#password').val('');
             
+            // Get CSRF token on page load
+            let csrfToken = null;
+            $.get('src/controllers/login.php?action=get_csrf_token', function(response) {
+                if (response && response.success) {
+                    csrfToken = response.csrf_token;
+                    console.log('CSRF token loaded:', csrfToken ? 'OK' : 'FAILED');
+                } else {
+                    console.error('Failed to get CSRF token - invalid response:', response);
+                }
+            }).fail(function(xhr, status, error) {
+                console.error('Failed to get CSRF token:', status, error);
+                console.error('Response:', xhr.responseText);
+            });
+            
             function showAlert(message, type = 'danger') {
                 const alert = $('.alert');
-                alert.removeClass('alert-success alert-danger')
+                alert.removeClass('alert-success alert-danger alert-warning')
                      .addClass(`alert-${type}`)
-                     .text(message)
+                     .html(`<i class="fas fa-exclamation-circle me-2"></i>${message}`)
                      .show();
             }
 
@@ -425,12 +449,37 @@
                     showAlert('Vui lòng nhập đầy đủ thông tin');
                     return;
                 }
+                
+                // Check if CSRF token is available
+                if (!csrfToken) {
+                    showAlert('Đang tải token bảo mật, vui lòng thử lại...');
+                    // Retry getting token
+                    $.get('src/controllers/login.php?action=get_csrf_token', function(response) {
+                        if (response && response.success) {
+                            csrfToken = response.csrf_token;
+                            console.log('CSRF token retried:', csrfToken ? 'OK' : 'FAILED');
+                            // Retry login
+                            $('#loginForm').submit();
+                        } else {
+                            showAlert('Không thể tải token bảo mật. Vui lòng tải lại trang.');
+                        }
+                    }).fail(function() {
+                        showAlert('Không thể tải token bảo mật. Vui lòng tải lại trang.');
+                    });
+                    return;
+                }
+                
+                console.log('Submitting login with CSRF token:', csrfToken ? 'Present' : 'Missing');
 
                  $.ajax({
                      url: 'src/controllers/login.php',
                      type: 'POST',
                      contentType: 'application/json',
-                     data: JSON.stringify({ email, password }),
+                     data: JSON.stringify({ 
+                         email: email, 
+                         password: password,
+                         csrf_token: csrfToken
+                     }),
                      beforeSend: function() {
                          console.log('Sending login request...');
                      },
@@ -440,19 +489,34 @@
                              console.log('Login successful, redirecting...');
                              window.location.href = response.redirect;
                          } else if (response.error) {
-                             showAlert(response.error);
+                             showAlert(response.error || response.message || 'Có lỗi xảy ra');
                          }
                      },
                     error: function(xhr) {
-                        console.error('Login error:', xhr);
-                        let msg = 'Có lỗi xảy ra, vui lòng thử lại sau';
-                        if (xhr.responseJSON && xhr.responseJSON.error) {
-                            msg = xhr.responseJSON.error;
-                        } else if (xhr.responseText) {
-                            console.log('Response text:', xhr.responseText);
-                        }
-                        showAlert(msg);
-                    }
+                       console.error('Login error:', xhr);
+                       let msg = 'Có lỗi xảy ra, vui lòng thử lại sau';
+                       
+                       if (xhr.status === 403) {
+                           // CSRF token invalid
+                           msg = 'Phiên đăng nhập đã hết hạn. Vui lòng tải lại trang.';
+                           // Refresh CSRF token
+                           $.get('src/controllers/login.php?action=get_csrf_token', function(response) {
+                               if (response.success) {
+                                   csrfToken = response.csrf_token;
+                               }
+                           });
+                       } else if (xhr.responseJSON) {
+                           msg = xhr.responseJSON.error || xhr.responseJSON.message || msg;
+                       } else if (xhr.responseText) {
+                           try {
+                               const response = JSON.parse(xhr.responseText);
+                               msg = response.error || response.message || msg;
+                           } catch (e) {
+                               console.log('Response text:', xhr.responseText);
+                           }
+                       }
+                       showAlert(msg);
+                   }
                  });
              });
          });

@@ -707,6 +707,16 @@
             }
 
 
+            // Get CSRF token on page load
+            let csrfToken = null;
+            $.get('src/controllers/register.php?action=get_csrf_token', function(response) {
+                if (response.success) {
+                    csrfToken = response.csrf_token;
+                }
+            }).fail(function() {
+                console.error('Failed to get CSRF token');
+            });
+
             $('#registerForm').on('submit', function(e) {
                 e.preventDefault();
 
@@ -733,6 +743,20 @@
                     showAlert('Mật khẩu xác nhận không khớp');
                     return;
                 }
+                
+                // Check if CSRF token is available
+                if (!csrfToken) {
+                    showAlert('Đang tải token bảo mật, vui lòng thử lại...');
+                    // Retry getting token
+                    $.get('src/controllers/register.php?action=get_csrf_token', function(response) {
+                        if (response.success) {
+                            csrfToken = response.csrf_token;
+                            // Retry registration
+                            $('#registerForm').submit();
+                        }
+                    });
+                    return;
+                }
 
                 $.ajax({
                     url: 'src/controllers/register.php',
@@ -746,7 +770,8 @@
                         phone: phone,
                         address: address,
                         birthday: birthday,
-                        role: roleId
+                        role: roleId,
+                        csrf_token: csrfToken
                     }),
                     success: function(response) {
                         if (response.message) {
@@ -762,7 +787,16 @@
                     },
                     error: function(xhr) {
                         let msg = 'Có lỗi xảy ra, vui lòng thử lại sau';
-                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                        if (xhr.status === 403) {
+                            // CSRF token invalid
+                            msg = 'Phiên đăng ký đã hết hạn. Vui lòng tải lại trang.';
+                            // Refresh CSRF token
+                            $.get('src/controllers/register.php?action=get_csrf_token', function(response) {
+                                if (response.success) {
+                                    csrfToken = response.csrf_token;
+                                }
+                            });
+                        } else if (xhr.responseJSON && xhr.responseJSON.error) {
                             msg = xhr.responseJSON.error;
                         }
                         showAlert(msg);

@@ -48,9 +48,16 @@
         // Khởi tạo Socket.IO cho thông báo real-time
         // Tự động phát hiện URL server Socket.IO
         const getSocketServerURL = function() {
-            const protocol = window.location.protocol;
+            // Hybrid: WebSocket chạy trên VPS riêng (ws.sukien.info.vn)
             if (window.location.hostname.includes('sukien.info.vn')) {
-                return protocol + '//ws.sukien.info.vn';  // Server WebSocket VPS
+                // ✅ QUAN TRỌNG: Dùng wss:// (secure WebSocket) cho production
+                const protocol = window.location.protocol;
+                // Nếu trang web dùng HTTPS, dùng wss:// cho WebSocket
+                if (protocol === 'https:') {
+                    return 'wss://ws.sukien.info.vn';  // Secure WebSocket
+                } else {
+                    return 'ws://ws.sukien.info.vn';   // Non-secure WebSocket (chỉ cho development)
+                }
             }
             return 'http://localhost:3000';  // Phát triển localhost
         };

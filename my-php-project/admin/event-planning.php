@@ -16,7 +16,8 @@ $existingPlans = [];
 try {
     $pdo = getDBConnection();
     
-    // Lấy các sự kiện đã duyệt
+    // Lấy các sự kiện đã duyệt và trạng thái sự kiện
+    // Sử dụng subquery để lấy một kế hoạch cho mỗi sự kiện (ưu tiên kế hoạch đã hoàn thành)
     $sql = "
         SELECT 
             dl.ID_DatLich,
@@ -26,17 +27,45 @@ try {
             dl.SoNguoiDuKien,
             dl.NganSach,
             dl.TrangThaiDuyet,
+            dl.TrangThaiThanhToan,
+            COALESCE(s.TrangThaiThucTe, 'Chưa bắt đầu') as TrangThaiThucTe,
+            COALESCE(s.TrangThaiThucTe, 'Chưa bắt đầu') as TrangThaiSuKien,
+            (SELECT kht.TrangThai 
+             FROM kehoachthuchien kht 
+             INNER JOIN sukien s2 ON kht.ID_SuKien = s2.ID_SuKien 
+             WHERE s2.ID_DatLich = dl.ID_DatLich 
+             ORDER BY CASE WHEN kht.TrangThai = 'Hoàn thành' THEN 0 ELSE 1 END, kht.ID_KeHoach DESC 
+             LIMIT 1) as TrangThaiKeHoach,
+            (SELECT kht.ID_KeHoach 
+             FROM kehoachthuchien kht 
+             INNER JOIN sukien s2 ON kht.ID_SuKien = s2.ID_SuKien 
+             WHERE s2.ID_DatLich = dl.ID_DatLich 
+             ORDER BY CASE WHEN kht.TrangThai = 'Hoàn thành' THEN 0 ELSE 1 END, kht.ID_KeHoach DESC 
+             LIMIT 1) as ID_KeHoach,
             COALESCE(dd.TenDiaDiem, 'Chưa xác định') as TenDiaDiem,
             COALESCE(dd.DiaChi, 'Chưa xác định') as DiaChi,
             COALESCE(ls.TenLoai, 'Chưa phân loại') as TenLoaiSK,
             COALESCE(kh.HoTen, 'Chưa có thông tin') as TenKhachHang,
             COALESCE(kh.SoDienThoai, 'Chưa có') as SoDienThoai
         FROM datlichsukien dl
+        LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
         LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
         LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
         LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-        WHERE dl.TrangThaiDuyet = 'Đã duyệt'
-        ORDER BY dl.NgayBatDau ASC
+        WHERE dl.TrangThaiDuyet = 'Đã duyệt' 
+            AND dl.TrangThaiThanhToan IN ('Đã đặt cọc', 'Đã thanh toán đủ')
+        ORDER BY 
+            CASE 
+                WHEN COALESCE(s.TrangThaiThucTe, '') = 'Hoàn thành' 
+                     OR (SELECT kht.TrangThai 
+                         FROM kehoachthuchien kht 
+                         INNER JOIN sukien s2 ON kht.ID_SuKien = s2.ID_SuKien 
+                         WHERE s2.ID_DatLich = dl.ID_DatLich 
+                         ORDER BY CASE WHEN kht.TrangThai = 'Hoàn thành' THEN 0 ELSE 1 END, kht.ID_KeHoach DESC 
+                         LIMIT 1) = 'Hoàn thành' THEN 1
+                ELSE 0
+            END ASC,
+            dl.NgayBatDau DESC
     ";
     
     $stmt = $pdo->prepare($sql);
@@ -68,8 +97,100 @@ try {
     $stmt->execute();
     $existingPlans = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Update all plan statuses before displaying
+    updateAllPlanStatusesInPHP($pdo);
+    
 } catch (Exception $e) {
     error_log("Error loading fallback data: " . $e->getMessage());
+}
+
+// Helper function to update all plan statuses
+function updateAllPlanStatusesInPHP($pdo) {
+    try {
+        // Get all plan IDs
+        $sql = "SELECT DISTINCT ID_KeHoach FROM kehoachthuchien";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+        $planIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Update status for each plan
+        foreach ($planIds as $planId) {
+            // Get all steps for this plan with their actual status from lichlamviec
+            $stepStmt = $pdo->prepare("
+                SELECT 
+                    ck.ID_ChiTiet,
+                    ck.TrangThai as chitiet_status,
+                    COUNT(llv.ID_LLV) as total_assignments,
+                    SUM(CASE WHEN llv.TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_assignments,
+                    SUM(CASE WHEN llv.TrangThai = 'Đang làm' THEN 1 ELSE 0 END) as inprogress_assignments
+                FROM chitietkehoach ck
+                LEFT JOIN lichlamviec llv ON ck.ID_ChiTiet = llv.ID_ChiTiet
+                WHERE ck.ID_KeHoach = ?
+                GROUP BY ck.ID_ChiTiet, ck.TrangThai
+            ");
+            $stepStmt->execute([$planId]);
+            $steps = $stepStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (empty($steps)) {
+                continue;
+            }
+            
+            $totalSteps = count($steps);
+            $completedSteps = 0;
+            $inProgressSteps = 0;
+            
+            foreach ($steps as $step) {
+                $totalAssignments = (int)$step['total_assignments'];
+                $completedAssignments = (int)$step['completed_assignments'];
+                $inProgressAssignments = (int)$step['inprogress_assignments'];
+                
+                // If step has assignments in lichlamviec, use those to determine status
+                if ($totalAssignments > 0) {
+                    // Step is completed only if ALL assignments are completed
+                    if ($completedAssignments === $totalAssignments && $totalAssignments > 0) {
+                        $completedSteps++;
+                    } 
+                    // Step is in progress if at least one assignment is in progress or completed (but not all)
+                    else if ($inProgressAssignments > 0 || $completedAssignments > 0) {
+                        $inProgressSteps++;
+                    }
+                } else {
+                    // No assignments in lichlamviec, use chitietkehoach status
+                    if ($step['chitiet_status'] === 'Hoàn thành') {
+                        $completedSteps++;
+                    } else if ($step['chitiet_status'] === 'Đang làm') {
+                        $inProgressSteps++;
+                    }
+                }
+            }
+            
+            // Determine new plan status
+            $newPlanStatus = null;
+            if ($completedSteps === $totalSteps && $totalSteps > 0) {
+                // All steps completed
+                $newPlanStatus = 'Hoàn thành';
+            } else if ($inProgressSteps > 0 || $completedSteps > 0) {
+                // At least one step is in progress or completed
+                $newPlanStatus = 'Đang thực hiện';
+            } else {
+                // All steps are "Chưa làm"
+                $newPlanStatus = 'Chưa bắt đầu';
+            }
+            
+            // Update plan status
+            if ($newPlanStatus) {
+                $updateStmt = $pdo->prepare("
+                    UPDATE kehoachthuchien 
+                    SET TrangThai = ? 
+                    WHERE ID_KeHoach = ?
+                ");
+                $updateStmt->execute([$newPlanStatus, $planId]);
+            }
+        }
+        
+    } catch (Exception $e) {
+        error_log("ERROR: updateAllPlanStatusesInPHP - " . $e->getMessage());
+    }
 }
 ?>
 
@@ -1075,6 +1196,74 @@ try {
             color: #495057;
             margin-bottom: 1rem;
         }
+        
+        /* Staff Selection Checkbox List */
+        .staff-selection-container {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .staff-selection-container:hover {
+            border-color: #667eea;
+        }
+        
+        .staff-checkbox-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        
+        .staff-checkbox-item:hover {
+            background: #f0f4ff;
+            border-color: #667eea;
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+        }
+        
+        .staff-checkbox-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+        
+        .staff-checkbox-item label {
+            margin: 0;
+            cursor: pointer;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .staff-checkbox-item .staff-name {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.95rem;
+        }
+        
+        .staff-checkbox-item .staff-role {
+            color: #6c757d;
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+        
+        .staff-checkbox-item input[type="checkbox"]:checked + label .staff-name {
+            color: #667eea;
+        }
+        
+        .staff-checkbox-item:has(input[type="checkbox"]:checked) {
+            background: #e8f0fe;
+            border-color: #667eea;
+        }
     </style>
     
 </head>
@@ -1090,7 +1279,6 @@ try {
                         Lên kế hoạch thực hiện và phân công
                     </h1>
                     <p class="page-subtitle">Tạo và quản lý kế hoạch thực hiện cho các sự kiện đã được duyệt</p>
-                    <button class="btn btn-warning btn-sm" onclick="testCreatePlan()">Test Tạo Kế Hoạch</button>
                 </div>
                 
                 <!-- Statistics -->
@@ -1120,6 +1308,41 @@ try {
                             </div>
                         </div>
                     </div>
+
+                <!-- Filter Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-3">
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-muted">Tìm kiếm</label>
+                                        <input type="text" id="eventSearchInput" class="form-control form-control-sm" placeholder="Tên sự kiện, địa điểm, khách hàng...">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted">Loại sự kiện</label>
+                                        <select id="eventTypeFilter" class="form-select form-select-sm">
+                                            <option value="">Tất cả</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted">Từ ngày</label>
+                                        <input type="date" id="eventDateFrom" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small text-muted">Đến ngày</label>
+                                        <input type="date" id="eventDateTo" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-md-1 d-flex align-items-end">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary w-100" onclick="resetEventFilters()" title="Xóa bộ lọc">
+                                            <i class="fas fa-redo"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Events List -->
                 <div class="row" id="eventsList">
@@ -1238,7 +1461,7 @@ try {
                         </div>
                         
                         <!-- Right Side: Add Step Form -->
-                        <div class="col-md-6">
+                        <div class="col-md-6" id="addStepFormContainer">
                             <div class="card h-100 shadow-sm">
                                 <div class="card-header bg-gradient-primary text-white">
                                     <h6 class="mb-0 d-flex align-items-center">
@@ -1257,12 +1480,16 @@ try {
                                         </div>
                                         
                                         <div class="mb-3">
-                                            <label for="stepStaff" class="form-label fw-bold">
-                                                <i class="fas fa-user text-primary me-1"></i>Nhân viên phụ trách
+                                            <label class="form-label fw-bold">
+                                                <i class="fas fa-users text-primary me-1"></i>Nhân viên phụ trách
                                             </label>
-                                            <select class="form-select form-select-lg" id="stepStaff" name="staffId">
-                                                <option value="">Chọn nhân viên</option>
-                                            </select>
+                                            <div class="staff-selection-container border rounded p-3" style="max-height: 200px; overflow-y: auto; background: #f8f9fa;">
+                                                <div id="stepStaffCheckboxes" class="staff-checkbox-list">
+                                                    <div class="text-center text-muted py-3">
+                                                        <i class="fas fa-spinner fa-spin"></i> Đang tải danh sách nhân viên...
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                         
                                         <div class="mb-3">
@@ -1442,10 +1669,14 @@ try {
                         </div>
                         
                         <div class="mb-3">
-                            <label for="editStepStaff" class="form-label">Nhân viên phụ trách</label>
-                            <select class="form-select" id="editStepStaff" name="staffId">
-                                <option value="">Chọn nhân viên</option>
-                            </select>
+                            <label class="form-label">Nhân viên phụ trách</label>
+                            <div class="staff-selection-container border rounded p-3" style="max-height: 200px; overflow-y: auto; background: #f8f9fa;">
+                                <div id="editStepStaffCheckboxes" class="staff-checkbox-list">
+                                    <div class="text-center text-muted py-3">
+                                        <i class="fas fa-spinner fa-spin"></i> Đang tải danh sách nhân viên...
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="mb-3">
@@ -1478,6 +1709,17 @@ try {
             
             // Tải dữ liệu ban đầu
             loadPageData();
+            
+            // Add event listeners for filters
+            const eventSearch = document.getElementById('eventSearchInput');
+            const eventType = document.getElementById('eventTypeFilter');
+            const eventDateFrom = document.getElementById('eventDateFrom');
+            const eventDateTo = document.getElementById('eventDateTo');
+            
+            if (eventSearch) eventSearch.addEventListener('input', filterEvents);
+            if (eventType) eventType.addEventListener('change', filterEvents);
+            if (eventDateFrom) eventDateFrom.addEventListener('change', filterEvents);
+            if (eventDateTo) eventDateTo.addEventListener('change', filterEvents);
         });
         
         // Cũng ẩn overlay loading trên window load như dự phòng
@@ -1489,13 +1731,17 @@ try {
         });
         
         // Tự động làm mới các bước mỗi 30 giây để đồng bộ với cập nhật nhân viên
+        // Auto-refresh steps every 10 seconds to update progress bars when staff updates progress
         setInterval(function() {
             const currentEventId = document.getElementById('stepEventId')?.value;
             if (currentEventId) {
-                console.log('Auto-refreshing steps for event:', currentEventId);
-                loadSteps(currentEventId);
+                // Check if event is completed
+                const event = approvedEvents.find(e => e.ID_DatLich == currentEventId);
+                const isReadOnly = event && event.TrangThaiSuKien === 'Hoàn thành';
+                console.log('Auto-refreshing steps for event:', currentEventId, 'isReadOnly:', isReadOnly);
+                loadSteps(currentEventId, isReadOnly);
             }
-        }, 30000);
+        }, 10000);
         
         // Load page data - using PHP data directly for now
         function loadPageData() {
@@ -1508,8 +1754,164 @@ try {
             displayPlans();
             updateStatistics();
             
+            // Populate filter dropdowns
+            populateEventFilters();
+            
             // Also load plans from API to ensure we have latest data
             loadPlansFromAPI();
+        }
+        
+        // Populate filter dropdowns with unique values
+        function populateEventFilters() {
+            // First, get unique event types from approved events (for quick display)
+            const eventTypesFromEvents = new Set();
+            approvedEvents.forEach(event => {
+                if (event.TenLoaiSK && event.TenLoaiSK !== 'Chưa phân loại') {
+                    eventTypesFromEvents.add(event.TenLoaiSK);
+                }
+            });
+            
+            // Populate event type filter with event types from approved events first
+            const eventTypeFilter = document.getElementById('eventTypeFilter');
+            if (eventTypeFilter) {
+                // Clear existing options except "Tất cả"
+                eventTypeFilter.innerHTML = '<option value="">Tất cả</option>';
+                
+                // Add event types from approved events
+                Array.from(eventTypesFromEvents).sort().forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.toLowerCase();
+                    option.textContent = type;
+                    eventTypeFilter.appendChild(option);
+                });
+            }
+            
+            // Then, fetch all event types from database to ensure we have everything
+            fetch('../src/controllers/event-types.php?action=get_all_public', {
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.event_types) {
+                    const eventTypeFilter = document.getElementById('eventTypeFilter');
+                    if (eventTypeFilter) {
+                        // Get existing values to avoid duplicates
+                        const existingValues = new Set();
+                        Array.from(eventTypeFilter.options).forEach(opt => {
+                            if (opt.value) existingValues.add(opt.value.toLowerCase());
+                        });
+                        
+                        // Add all event types from database
+                        data.event_types.forEach(eventType => {
+                            const typeName = eventType.TenLoai || eventType.ten_loai;
+                            if (typeName && typeName !== 'Chưa phân loại' && !existingValues.has(typeName.toLowerCase())) {
+                                const option = document.createElement('option');
+                                option.value = typeName.toLowerCase();
+                                option.textContent = typeName;
+                                eventTypeFilter.appendChild(option);
+                            }
+                        });
+                        
+                        // Sort options alphabetically (keep "Tất cả" at top)
+                        const options = Array.from(eventTypeFilter.options);
+                        const allOption = options[0]; // "Tất cả"
+                        const otherOptions = options.slice(1).sort((a, b) => {
+                            return a.textContent.localeCompare(b.textContent, 'vi');
+                        });
+                        eventTypeFilter.innerHTML = '';
+                        eventTypeFilter.appendChild(allOption);
+                        otherOptions.forEach(opt => eventTypeFilter.appendChild(opt));
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error loading all event types:', error);
+                // Continue with event types from approved events only
+            });
+        }
+        
+        // Filter events based on search criteria
+        function filterEvents() {
+            const searchTerm = document.getElementById('eventSearchInput')?.value.toLowerCase() || '';
+            const eventType = document.getElementById('eventTypeFilter')?.value || '';
+            const dateFrom = document.getElementById('eventDateFrom')?.value || '';
+            const dateTo = document.getElementById('eventDateTo')?.value || '';
+            
+            const eventCards = document.querySelectorAll('.event-card');
+            let visibleCount = 0;
+            
+            eventCards.forEach(card => {
+                const eventName = card.getAttribute('data-event-name') || '';
+                const eventTypeValue = card.getAttribute('data-event-type') || '';
+                const locationValue = card.getAttribute('data-location') || '';
+                const customer = card.getAttribute('data-customer') || '';
+                const startDate = card.getAttribute('data-start-date') || '';
+                const endDate = card.getAttribute('data-end-date') || '';
+                
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    eventName.includes(searchTerm) || 
+                    locationValue.includes(searchTerm) || 
+                    customer.includes(searchTerm);
+                
+                // Event type filter
+                const matchesType = !eventType || eventTypeValue === eventType;
+                
+                // Date filter - check if event overlaps with date range
+                let matchesDate = true;
+                if (dateFrom || dateTo) {
+                    if (dateFrom && dateTo) {
+                        // Event must overlap with the date range
+                        matchesDate = (startDate <= dateTo && endDate >= dateFrom);
+                    } else if (dateFrom) {
+                        matchesDate = endDate >= dateFrom;
+                    } else if (dateTo) {
+                        matchesDate = startDate <= dateTo;
+                    }
+                }
+                
+                if (matchesSearch && matchesType && matchesDate) {
+                    card.style.display = '';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // Show message if no results
+            const eventsList = document.getElementById('eventsList');
+            let noResultsMessage = eventsList.querySelector('.no-results-message');
+            if (visibleCount === 0 && eventCards.length > 0) {
+                if (!noResultsMessage) {
+                    noResultsMessage = document.createElement('div');
+                    noResultsMessage.className = 'col-12 no-results-message';
+                    noResultsMessage.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-search"></i>
+                            <h4>Không tìm thấy sự kiện nào</h4>
+                            <p>Không có sự kiện nào phù hợp với bộ lọc của bạn.</p>
+                        </div>
+                    `;
+                    eventsList.appendChild(noResultsMessage);
+                }
+                noResultsMessage.style.display = '';
+            } else if (noResultsMessage) {
+                noResultsMessage.style.display = 'none';
+            }
+        }
+        
+        // Reset all filters
+        function resetEventFilters() {
+            document.getElementById('eventSearchInput').value = '';
+            document.getElementById('eventTypeFilter').value = '';
+            document.getElementById('eventDateFrom').value = '';
+            document.getElementById('eventDateTo').value = '';
+            filterEvents();
         }
         
         // Load plans from API
@@ -1553,19 +1955,77 @@ try {
                 return;
             }
             
-            let html = '';
+            // Sắp xếp sự kiện: đã hoàn thành xuống dưới, còn lại lên trên
+            // Loại bỏ các sự kiện trùng lặp (do JOIN với kế hoạch)
+            const uniqueEvents = [];
+            const seenEventIds = new Set();
+            
             approvedEvents.forEach(event => {
-                const startDate = new Date(event.NgayBatDau).toLocaleDateString('vi-VN');
-                const endDate = new Date(event.NgayKetThuc).toLocaleDateString('vi-VN');
+                if (!seenEventIds.has(event.ID_DatLich)) {
+                    seenEventIds.add(event.ID_DatLich);
+                    uniqueEvents.push(event);
+                } else {
+                    // Nếu sự kiện đã tồn tại, cập nhật nếu có kế hoạch hoàn thành
+                    const existingIndex = uniqueEvents.findIndex(e => e.ID_DatLich === event.ID_DatLich);
+                    if (existingIndex !== -1) {
+                        const existing = uniqueEvents[existingIndex];
+                        // Ưu tiên kế hoạch đã hoàn thành
+                        if (event.TrangThaiKeHoach === 'Hoàn thành' && existing.TrangThaiKeHoach !== 'Hoàn thành') {
+                            uniqueEvents[existingIndex] = event;
+                        }
+                    }
+                }
+            });
+            
+            const sortedEvents = uniqueEvents.sort((a, b) => {
+                const aCompleted = (a.TrangThaiThucTe === 'Hoàn thành') || (a.TrangThaiKeHoach === 'Hoàn thành');
+                const bCompleted = (b.TrangThaiThucTe === 'Hoàn thành') || (b.TrangThaiKeHoach === 'Hoàn thành');
+                
+                // Nếu cả hai đều hoàn thành hoặc cả hai đều chưa hoàn thành, sắp xếp theo ngày bắt đầu (mới nhất lên trên)
+                if (aCompleted === bCompleted) {
+                    const dateA = new Date(a.NgayBatDau);
+                    const dateB = new Date(b.NgayBatDau);
+                    return dateB - dateA; // Mới nhất lên trên
+                }
+                
+                // Sự kiện chưa hoàn thành lên trên (trả về -1), đã hoàn thành xuống dưới (trả về 1)
+                return aCompleted ? 1 : -1;
+            });
+            
+            let html = '';
+            sortedEvents.forEach(event => {
+                // Parse datetime to get both date and time
+                const startDateTime = new Date(event.NgayBatDau);
+                const endDateTime = new Date(event.NgayKetThuc);
+                
+                const startDate = startDateTime.toLocaleDateString('vi-VN');
+                const startTime = startDateTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                const endDate = endDateTime.toLocaleDateString('vi-VN');
+                const endTime = endDateTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                
+                // Format date for filtering (YYYY-MM-DD)
+                const startDateFilter = startDateTime.toISOString().split('T')[0];
+                const endDateFilter = endDateTime.toISOString().split('T')[0];
                 
                 html += `
-                    <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="col-md-6 col-lg-4 mb-4 event-card" 
+                         data-event-id="${event.ID_DatLich}"
+                         data-event-name="${escapeHtml(event.TenSuKien).toLowerCase()}"
+                         data-event-type="${escapeHtml(event.TenLoaiSK).toLowerCase()}"
+                         data-location="${escapeHtml(event.TenDiaDiem).toLowerCase()}"
+                         data-customer="${escapeHtml(event.TenKhachHang).toLowerCase()}"
+                         data-start-date="${startDateFilter}"
+                         data-end-date="${endDateFilter}">
                         <div class="planning-card">
                             <div class="event-header">
                                 <h5 class="mb-1">${escapeHtml(event.TenSuKien)}</h5>
-                                <p class="mb-0">
+                                <p class="mb-1">
                                     <i class="fas fa-calendar"></i>
                                     ${startDate} - ${endDate}
+                                </p>
+                                <p class="mb-0">
+                                    <i class="fas fa-clock"></i>
+                                    ${startTime} - ${endTime}
                                 </p>
                             </div>
                             <div class="card-body">
@@ -1604,12 +2064,10 @@ try {
                                 </div>
                                 
                                 <div class="d-grid gap-2">
-                                    <button class="btn btn-primary" onclick="createPlan(${event.ID_DatLich}, '${escapeHtml(event.TenSuKien)}')">
-                                        <i class="fas fa-plus"></i> Tạo kế hoạch
-                                    </button>
-                                    <button class="btn btn-outline-info" onclick="manageSteps(${event.ID_DatLich}, '${escapeHtml(event.TenSuKien)}')">
-                                        <i class="fas fa-cogs"></i> Quản lý bước
-                                    </button>
+                                    <!-- Buttons will be updated by loadEventPlans() -->
+                                    <div class="text-center text-muted">
+                                        <i class="fas fa-spinner fa-spin"></i> Đang tải...
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1619,8 +2077,8 @@ try {
             
             eventsList.innerHTML = html;
             
-            // Load plans for each event
-            approvedEvents.forEach(event => {
+            // Load plans for each event (sử dụng sortedEvents để giữ thứ tự đã sắp xếp)
+            sortedEvents.forEach(event => {
                 loadEventPlans(event.ID_DatLich);
             });
         }
@@ -1642,11 +2100,15 @@ try {
                 
                 if (!data.success || !data.plans || data.plans.length === 0) {
                     eventPlansContainer.innerHTML = '<small class="text-muted">Chưa có kế hoạch</small>';
+                    // Update event card buttons based on whether plan exists
+                    updateEventCardButtons(eventId, false, false);
                     return;
                 }
                 
-                let html = '';
-                data.plans.forEach(plan => {
+                // Only show the first plan (each event should have only one plan)
+                const plan = data.plans[0];
+                const allStepsCompleted = plan.TrangThai === 'Hoàn thành';
+                
                 // Handle both date and datetime formats
                 let startDate, endDate;
                 try {
@@ -1669,7 +2131,7 @@ try {
                 const statusClass = plan.TrangThai === 'Hoàn thành' ? 'success' : 
                                   plan.TrangThai === 'Đang thực hiện' ? 'warning' : 'secondary';
                 
-                html += `
+                let html = `
                     <div class="event-plan-item mb-3 p-3 border rounded shadow-sm bg-white">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="flex-grow-1">
@@ -1690,23 +2152,89 @@ try {
                                     ` : '<span class="text-muted">Chưa phân công</span>'}
                                 </div>
                             </div>
+                            ${allStepsCompleted ? `
+                            <div class="ms-3 d-flex flex-column align-items-end">
+                                <span class="badge bg-success mb-2">Đã hoàn thành</span>
+                            </div>
+                            ` : `
                             <div class="ms-3 d-flex flex-column align-items-end">
                                 <button class="btn btn-sm btn-outline-primary mb-2 px-3"
                                         onclick="editPlan(${plan.ID_KeHoach || ''})">
                                     <i class="fas fa-edit me-1"></i>Chỉnh sửa
                                 </button>
                             </div>
+                            `}
                         </div>
                     </div>`;
-            });
             
-            eventPlansContainer.innerHTML = html;
-        })
-        .catch(error => {
-            console.error('Error loading event plans:', error);
-            eventPlansContainer.innerHTML = '<small class="text-danger">Lỗi khi tải kế hoạch</small>';
-        });
-    }
+                eventPlansContainer.innerHTML = html;
+                
+                // Update event card buttons based on plan status
+                updateEventCardButtons(eventId, true, allStepsCompleted);
+            })
+            .catch(error => {
+                console.error('Error loading event plans:', error);
+                eventPlansContainer.innerHTML = '<small class="text-danger">Lỗi khi tải kế hoạch</small>';
+                updateEventCardButtons(eventId, false, false);
+            });
+        }
+        
+        // Update event card buttons based on plan existence and completion status
+        function updateEventCardButtons(eventId, hasPlan, allStepsCompleted) {
+            const eventCard = document.querySelector(`.event-card[data-event-id="${eventId}"]`);
+            if (!eventCard) return;
+            
+            const buttonContainer = eventCard.querySelector('.d-grid.gap-2');
+            if (!buttonContainer) return;
+            
+            const event = approvedEvents.find(e => e.ID_DatLich == eventId);
+            if (!event) return;
+            
+            // If event is completed, show read-only view
+            if (event.TrangThaiSuKien === 'Hoàn thành') {
+                buttonContainer.innerHTML = `
+                    <div class="alert alert-success mb-0">
+                        <i class="fas fa-check-circle"></i> Sự kiện đã hoàn thành - Chỉ được xem
+                    </div>
+                    <button class="btn btn-outline-info" onclick="manageSteps(${eventId}, '${escapeHtml(event.TenSuKien)}')">
+                        <i class="fas fa-eye"></i> Xem kế hoạch
+                    </button>
+                `;
+                return;
+            }
+            
+            // If plan exists and all steps are completed, show read-only view
+            if (hasPlan && allStepsCompleted) {
+                buttonContainer.innerHTML = `
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle"></i> Tất cả các bước đã hoàn thành - Chỉ được xem
+                    </div>
+                    <button class="btn btn-outline-info" onclick="manageSteps(${eventId}, '${escapeHtml(event.TenSuKien)}')">
+                        <i class="fas fa-eye"></i> Xem kế hoạch
+                    </button>
+                `;
+                return;
+            }
+            
+            // If plan exists but not all steps completed, show manage button only
+            if (hasPlan && !allStepsCompleted) {
+                buttonContainer.innerHTML = `
+                    <button class="btn btn-outline-info" onclick="manageSteps(${eventId}, '${escapeHtml(event.TenSuKien)}')">
+                        <i class="fas fa-cogs"></i> Quản lý bước
+                    </button>
+                `;
+                return;
+            }
+            
+            // If no plan exists, show create plan button
+            if (!hasPlan) {
+                buttonContainer.innerHTML = `
+                    <button class="btn btn-primary" onclick="createPlan(${eventId}, '${escapeHtml(event.TenSuKien)}')">
+                        <i class="fas fa-plus"></i> Tạo kế hoạch
+                    </button>
+                `;
+            }
+        }
         
         // Display plans in the UI
         function displayPlans() {
@@ -1785,15 +2313,55 @@ try {
             document.getElementById('editPlanName').value = planData.name || planData.ten_kehoach || '';
             document.getElementById('editPlanContent').value = planData.content || planData.NoiDung || '';
 
-            // Split datetime into date and time
-            const start = (planData.start || planData.NgayBatDau || '').trim();
-            const end = (planData.end || planData.NgayKetThuc || '').trim();
-            const [sd, st] = start.includes(' ') ? start.split(' ') : [start, '08:00'];
-            const [ed, et] = end.includes(' ') ? end.split(' ') : [end, '17:00'];
-            document.getElementById('editStartDate').value = sd || '';
-            document.getElementById('editStartTime').value = st || '';
-            document.getElementById('editEndDate').value = ed || '';
-            document.getElementById('editEndTime').value = et || '';
+            // Split datetime into date and time - handle multiple formats
+            let startDate = '';
+            let startTime = '08:00';
+            let endDate = '';
+            let endTime = '17:00';
+            
+            const start = (planData.start || planData.NgayBatDau || '').toString().trim();
+            const end = (planData.end || planData.NgayKetThuc || '').toString().trim();
+            
+            if (start) {
+                if (start.includes(' ')) {
+                    // Format: "YYYY-MM-DD HH:MM:SS"
+                    const parts = start.split(' ');
+                    startDate = parts[0];
+                    startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Take only HH:MM
+                } else if (start.includes('T')) {
+                    // Format: "YYYY-MM-DDTHH:MM:SS"
+                    const parts = start.split('T');
+                    startDate = parts[0];
+                    startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Take only HH:MM
+                } else {
+                    // Format: "YYYY-MM-DD"
+                    startDate = start;
+                    startTime = '08:00';
+                }
+            }
+            
+            if (end) {
+                if (end.includes(' ')) {
+                    // Format: "YYYY-MM-DD HH:MM:SS"
+                    const parts = end.split(' ');
+                    endDate = parts[0];
+                    endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Take only HH:MM
+                } else if (end.includes('T')) {
+                    // Format: "YYYY-MM-DDTHH:MM:SS"
+                    const parts = end.split('T');
+                    endDate = parts[0];
+                    endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Take only HH:MM
+                } else {
+                    // Format: "YYYY-MM-DD"
+                    endDate = end;
+                    endTime = '17:00';
+                }
+            }
+            
+            document.getElementById('editStartDate').value = startDate;
+            document.getElementById('editStartTime').value = startTime;
+            document.getElementById('editEndDate').value = endDate;
+            document.getElementById('editEndTime').value = endTime;
             document.getElementById('editStatus').value = planData.status || planData.TrangThai || 'Chưa bắt đầu';
 
             // Load staff options into edit select, then preselect if available
@@ -1809,6 +2377,16 @@ try {
         }
 
         function editPlan(planId) {
+            // Check if plan's event is completed
+            const plan = existingPlans.find(p => (p.ID_KeHoach == planId || p.id == planId));
+            if (plan) {
+                const event = approvedEvents.find(e => e.ID_DatLich == plan.ID_DatLich);
+                if (event && event.TrangThaiSuKien === 'Hoàn thành') {
+                    alert('Sự kiện đã hoàn thành, không thể chỉnh sửa kế hoạch');
+                    return;
+                }
+            }
+            
             console.log('Editing plan:', planId);
             
             // Fetch plan data from database
@@ -1824,11 +2402,51 @@ try {
                         document.getElementById('editPlanName').value = plan.TenKeHoach || '';
                         document.getElementById('editPlanContent').value = plan.NoiDung || '';
                         
-                        // Split datetime
-                        const startDate = plan.NgayBatDau ? plan.NgayBatDau.split(' ')[0] : '';
-                        const startTime = plan.NgayBatDau ? plan.NgayBatDau.split(' ')[1] : '08:00';
-                        const endDate = plan.NgayKetThuc ? plan.NgayKetThuc.split(' ')[0] : '';
-                        const endTime = plan.NgayKetThuc ? plan.NgayKetThuc.split(' ')[1] : '17:00';
+                        // Split datetime - handle multiple formats
+                        let startDate = '';
+                        let startTime = '08:00';
+                        let endDate = '';
+                        let endTime = '17:00';
+                        
+                        if (plan.NgayBatDau) {
+                            // Handle formats: "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DDTHH:MM:SS", "YYYY-MM-DD"
+                            const startDateTime = plan.NgayBatDau.toString().trim();
+                            if (startDateTime.includes(' ')) {
+                                // Format: "YYYY-MM-DD HH:MM:SS"
+                                const parts = startDateTime.split(' ');
+                                startDate = parts[0];
+                                startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Take only HH:MM
+                            } else if (startDateTime.includes('T')) {
+                                // Format: "YYYY-MM-DDTHH:MM:SS"
+                                const parts = startDateTime.split('T');
+                                startDate = parts[0];
+                                startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Take only HH:MM
+                            } else {
+                                // Format: "YYYY-MM-DD"
+                                startDate = startDateTime;
+                                startTime = '08:00';
+                            }
+                        }
+                        
+                        if (plan.NgayKetThuc) {
+                            // Handle formats: "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DDTHH:MM:SS", "YYYY-MM-DD"
+                            const endDateTime = plan.NgayKetThuc.toString().trim();
+                            if (endDateTime.includes(' ')) {
+                                // Format: "YYYY-MM-DD HH:MM:SS"
+                                const parts = endDateTime.split(' ');
+                                endDate = parts[0];
+                                endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Take only HH:MM
+                            } else if (endDateTime.includes('T')) {
+                                // Format: "YYYY-MM-DDTHH:MM:SS"
+                                const parts = endDateTime.split('T');
+                                endDate = parts[0];
+                                endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Take only HH:MM
+                            } else {
+                                // Format: "YYYY-MM-DD"
+                                endDate = endDateTime;
+                                endTime = '17:00';
+                            }
+                        }
                         
                         document.getElementById('editStartDate').value = startDate;
                         document.getElementById('editStartTime').value = startTime;
@@ -1976,28 +2594,51 @@ try {
         }
 
         function createPlan(eventId, eventName) {
-            console.log('Creating plan for eventId:', eventId, 'eventName:', eventName);
-            document.getElementById('eventId').value = eventId;
-            document.querySelector('#createPlanModal .modal-title').innerHTML = 
-                '<i class="fas fa-plus-circle"></i> Tạo kế hoạch cho: ' + eventName;
+            // Check if event is completed
+            const event = approvedEvents.find(e => e.ID_DatLich == eventId);
+            if (event && event.TrangThaiSuKien === 'Hoàn thành') {
+                alert('Sự kiện đã hoàn thành, không thể tạo kế hoạch mới');
+                return;
+            }
             
-            // Load staff options
-            loadStaffOptions();
-            
-            // Set default dates and times
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('startDate').value = today;
-            document.getElementById('startTime').value = '08:00';
-            document.getElementById('endTime').value = '17:00';
-            
-            // Clear form fields
-            document.getElementById('planName').value = '';
-            document.getElementById('planContent').value = '';
-            document.getElementById('endDate').value = '';
-            document.getElementById('assignedStaff').value = '';
-            
-            const modal = new bootstrap.Modal(document.getElementById('createPlanModal'));
-            modal.show();
+            // Check if event already has a plan
+            fetch(`../src/controllers/event-planning.php?action=get_plans&event_id=${eventId}`, {
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.plans && data.plans.length > 0) {
+                    alert('Sự kiện này đã có kế hoạch. Mỗi sự kiện chỉ được tạo 1 kế hoạch.');
+                    return;
+                }
+                
+                console.log('Creating plan for eventId:', eventId, 'eventName:', eventName);
+                document.getElementById('eventId').value = eventId;
+                document.querySelector('#createPlanModal .modal-title').innerHTML = 
+                    '<i class="fas fa-plus-circle"></i> Tạo kế hoạch cho: ' + eventName;
+                
+                // Load staff options
+                loadStaffOptions();
+                
+                // Set default dates and times
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('startDate').value = today;
+                document.getElementById('startTime').value = '08:00';
+                document.getElementById('endTime').value = '17:00';
+                
+                // Clear form fields
+                document.getElementById('planName').value = '';
+                document.getElementById('planContent').value = '';
+                document.getElementById('endDate').value = '';
+                document.getElementById('assignedStaff').value = '';
+                
+                const modal = new bootstrap.Modal(document.getElementById('createPlanModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error checking existing plans:', error);
+                alert('Có lỗi xảy ra khi kiểm tra kế hoạch hiện có');
+            });
         }
 
         function loadStaffOptions() {
@@ -2117,39 +2758,6 @@ try {
             });
         }
 
-        // Test function to create a plan
-        function testCreatePlan() {
-            if (approvedEvents.length === 0) {
-                alert('Không có sự kiện nào để test');
-                return;
-            }
-            
-            const testEvent = approvedEvents[0];
-            console.log('Testing with event:', testEvent);
-            
-            // Create a test plan
-            const testPlan = {
-                ID_KeHoach: Date.now(),
-                ten_kehoach: 'Kế hoạch test ' + new Date().toLocaleTimeString(),
-                NoiDung: 'Nội dung test kế hoạch',
-                NgayBatDau: '2025-01-01 08:00',
-                NgayKetThuc: '2025-01-01 17:00',
-                TrangThai: 'Chưa thực hiện',
-                ID_DatLich: testEvent.ID_DatLich,
-                ten_nhanvien: 'Test Staff'
-            };
-            
-            console.log('Adding test plan:', testPlan);
-            existingPlans.unshift(testPlan);
-            
-            // Update display
-            displayPlans();
-            updateStatistics();
-            loadEventPlans(testEvent.ID_DatLich);
-            
-            alert('Đã thêm kế hoạch test cho sự kiện: ' + testEvent.TenSuKien);
-        }
-
         // Reset step form
         function resetStepForm() {
             document.getElementById('addStepForm').reset();
@@ -2158,6 +2766,12 @@ try {
             document.getElementById('stepStartTime').value = '08:00';
             document.getElementById('stepEndDate').value = today;
             document.getElementById('stepEndTime').value = '17:00';
+            
+            // Clear checkbox staff selection
+            const stepStaffCheckboxes = document.querySelectorAll('#stepStaffCheckboxes input[type="checkbox"]');
+            stepStaffCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
         }
 
         // Helper function to get staff name by ID
@@ -2178,28 +2792,90 @@ try {
 
         function manageSteps(eventId, eventName) {
             document.getElementById('stepEventId').value = eventId;
-            document.querySelector('#manageStepsModal .modal-title').innerHTML = 
-                '<i class="fas fa-cogs"></i> Quản lý bước thực hiện: ' + eventName;
             
-            // Load existing steps
-            loadSteps(eventId);
+            // Check if event is completed
+            const event = approvedEvents.find(e => e.ID_DatLich == eventId);
+            const isEventCompleted = event && event.TrangThaiSuKien === 'Hoàn thành';
             
-            // Load staff options
-            loadStaffOptionsForSteps();
-            
-            // Set default dates and times
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('stepStartDate').value = today;
-            document.getElementById('stepStartTime').value = '08:00';
-            document.getElementById('stepEndDate').value = today;
-            document.getElementById('stepEndTime').value = '17:00';
-            
-            const modal = new bootstrap.Modal(document.getElementById('manageStepsModal'));
-            modal.show();
+            // Check if all steps are completed by loading steps first
+            fetch(`../src/controllers/event-planning.php?action=get_event_steps&event_id=${eventId}`, {
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                let allStepsCompleted = false;
+                if (data.success && data.steps && data.steps.length > 0) {
+                    const totalSteps = data.steps.length;
+                    const completedSteps = data.steps.filter(step => step.TrangThai === 'Hoàn thành').length;
+                    allStepsCompleted = totalSteps > 0 && completedSteps === totalSteps;
+                }
+                
+                const isReadOnly = isEventCompleted || allStepsCompleted;
+                
+                if (isReadOnly) {
+                    const reason = isEventCompleted ? 'Sự kiện đã hoàn thành' : 'Tất cả các bước đã hoàn thành';
+                    document.querySelector('#manageStepsModal .modal-title').innerHTML = 
+                        '<i class="fas fa-eye"></i> Xem bước thực hiện: ' + eventName + ' <span class="badge bg-success">' + reason + '</span>';
+                } else {
+                    document.querySelector('#manageStepsModal .modal-title').innerHTML = 
+                        '<i class="fas fa-cogs"></i> Quản lý bước thực hiện: ' + eventName;
+                }
+                
+                // Load existing steps
+                loadSteps(eventId, isReadOnly);
+                
+                // Load staff options (only if not read-only)
+                if (!isReadOnly) {
+                    loadStaffOptionsForSteps();
+                    
+                    // Set default dates and times
+                    const today = new Date().toISOString().split('T')[0];
+                    document.getElementById('stepStartDate').value = today;
+                    document.getElementById('stepStartTime').value = '08:00';
+                    document.getElementById('stepEndDate').value = today;
+                    document.getElementById('stepEndTime').value = '17:00';
+                    
+                    // Show add step form
+                    const addStepFormContainer = document.getElementById('addStepFormContainer');
+                    if (addStepFormContainer) {
+                        addStepFormContainer.style.display = '';
+                    }
+                } else {
+                    // Hide add step form if read-only
+                    const addStepFormContainer = document.getElementById('addStepFormContainer');
+                    if (addStepFormContainer) {
+                        addStepFormContainer.style.display = 'none';
+                    }
+                }
+                
+                const modal = new bootstrap.Modal(document.getElementById('manageStepsModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error checking steps:', error);
+                // Fallback to loading steps normally
+                loadSteps(eventId, isEventCompleted);
+                
+                if (!isEventCompleted) {
+                    loadStaffOptionsForSteps();
+                    const addStepFormContainer = document.getElementById('addStepFormContainer');
+                    if (addStepFormContainer) {
+                        addStepFormContainer.style.display = '';
+                    }
+                } else {
+                    const addStepFormContainer = document.getElementById('addStepFormContainer');
+                    if (addStepFormContainer) {
+                        addStepFormContainer.style.display = 'none';
+                    }
+                }
+                
+                const modal = new bootstrap.Modal(document.getElementById('manageStepsModal'));
+                modal.show();
+            });
         }
 
-        function loadSteps(eventId) {
-            console.log('Loading steps for event:', eventId);
+        function loadSteps(eventId, isReadOnly = false) {
+            console.log('Loading steps for event:', eventId, 'isReadOnly:', isReadOnly);
             fetch(`../src/controllers/event-planning.php?action=get_event_steps&event_id=${eventId}`, {
                 credentials: 'same-origin'
             })
@@ -2207,10 +2883,70 @@ try {
                 .then(data => {
                     console.log('Steps data:', data);
                     if (data.success && data.steps && data.steps.length > 0) {
-                        let html = '<div class="timeline">';
+                        // Calculate completion percentage
+                        const totalSteps = data.steps.length;
+                        const completedSteps = data.steps.filter(step => step.TrangThai === 'Hoàn thành').length;
+                        const inProgressSteps = data.steps.filter(step => step.TrangThai === 'Đang làm').length;
+                        const completionPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+                        
+                        // Check if all steps are completed - if so, set isReadOnly to true
+                        const allStepsCompleted = totalSteps > 0 && completedSteps === totalSteps;
+                        if (allStepsCompleted) {
+                            isReadOnly = true;
+                        }
+                        
+                        // Build progress bar HTML
+                        let html = `
+                            <div class="mb-4">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-tasks me-2 text-primary"></i>
+                                                <strong>Tiến độ hoàn thành</strong>
+                                            </h6>
+                                            <span class="badge bg-primary fs-6">${completionPercentage}%</span>
+                                        </div>
+                                        <div class="progress" style="height: 25px;">
+                                            <div class="progress-bar ${completionPercentage === 100 ? 'bg-success' : completionPercentage > 0 ? 'bg-warning progress-bar-striped progress-bar-animated' : 'bg-secondary'}" 
+                                                 role="progressbar" 
+                                                 style="width: ${completionPercentage}%" 
+                                                 aria-valuenow="${completionPercentage}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                ${completionPercentage}%
+                                            </div>
+                                        </div>
+                                        <div class="mt-2 d-flex justify-content-between text-muted small">
+                                            <span><i class="fas fa-check-circle text-success me-1"></i>Hoàn thành: ${completedSteps}/${totalSteps}</span>
+                                            <span><i class="fas fa-spinner text-warning me-1"></i>Đang làm: ${inProgressSteps}</span>
+                                            <span><i class="fas fa-clock text-secondary me-1"></i>Chưa làm: ${totalSteps - completedSteps - inProgressSteps}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        html += '<div class="timeline">';
                         data.steps.forEach((step, index) => {
                             const statusClass = step.TrangThai === 'Hoàn thành' ? 'success' : 
-                                             step.TrangThai === 'Đang thực hiện' ? 'warning' : 'secondary';
+                                             step.TrangThai === 'Đang làm' ? 'warning' : 'secondary';
+                            
+                            // Parse progress percentage from Tiendo (format: "50%" or "0%")
+                            let progressValue = 0;
+                            if (step.Tiendo) {
+                                const progressMatch = step.Tiendo.toString().match(/(\d+)/);
+                                progressValue = progressMatch ? parseInt(progressMatch[1]) : 0;
+                            }
+                            
+                            // Determine progress bar color and animation
+                            let progressBarClass = 'bg-secondary';
+                            if (progressValue >= 100) {
+                                progressBarClass = 'bg-success';
+                            } else if (progressValue > 0) {
+                                progressBarClass = 'bg-warning progress-bar-striped progress-bar-animated';
+                            }
+                            
                             html += `
                                 <div class="timeline-item">
                                     <div class="card mb-3">
@@ -2224,8 +2960,30 @@ try {
                                             </div>
                                         </div>
                                         <div class="card-body">
+                                            <!-- Progress Bar for this step -->
+                                            <div class="mb-3">
+                                                <div class="d-flex justify-content-end align-items-center mb-2">
+                                                    <span class="badge ${progressValue >= 100 ? 'bg-success' : progressValue > 0 ? 'bg-warning' : 'bg-secondary'} fs-6">${progressValue}%</span>
+                                                </div>
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar ${progressBarClass}" 
+                                                         role="progressbar" 
+                                                         style="width: ${progressValue}%" 
+                                                         aria-valuenow="${progressValue}" 
+                                                         aria-valuemin="0" 
+                                                         aria-valuemax="100">
+                                                        ${progressValue}%
+                                                    </div>
+                                                </div>
+                                                ${step.GhiChuTienDo ? `
+                                                <small class="text-muted mt-1 d-block">
+                                                    <i class="fas fa-comment me-1"></i>${step.GhiChuTienDo}
+                                                </small>
+                                                ` : ''}
+                                            </div>
+                                            
                                             <div class="row">
-                                                <div class="col-md-8">
+                                                <div class="${isReadOnly ? 'col-12' : 'col-md-8'}">
                                                     ${step.MoTa ? `
                                                     <div class="mb-3">
                                                         <h6 class="text-primary"><i class="fas fa-info-circle"></i> Mô tả</h6>
@@ -2240,12 +2998,21 @@ try {
                                                             <p class="mb-0"><strong>Kết thúc:</strong> ${new Date(step.NgayKetThuc).toLocaleString('vi-VN')}</p>
                                                         </div>
                                                         <div class="col-md-6">
-                                                            <h6 class="text-info"><i class="fas fa-user-tie"></i> Nhân viên</h6>
-                                                            ${step.TenNhanVien ? `
+                                                            <h6 class="text-info"><i class="fas fa-users"></i> Nhân viên</h6>
+                                                            ${step.assignedStaff && step.assignedStaff.length > 0 ? `
+                                                            <div>
+                                                                ${step.assignedStaff.map(staff => `
+                                                                    <div class="mb-2 p-2 bg-light rounded">
+                                                                        <p class="mb-1"><strong>${escapeHtml(staff.HoTen || 'N/A')}</strong></p>
+                                                                        ${staff.ChucVu ? `<p class="mb-0 text-secondary small"><i class="fas fa-briefcase me-1"></i>${escapeHtml(staff.ChucVu)}</p>` : ''}
+                                                                    </div>
+                                                                `).join('')}
+                                                            </div>
+                                                            ` : step.TenNhanVien ? `
                                                             <div class="d-flex align-items-center">
                                                                 <div>
-                                                                    <p class="mb-1"><strong>${step.TenNhanVien}</strong></p>
-                                                                    ${step.ChucVu ? `<p class="mb-0 text-secondary small"><i class="fas fa-briefcase me-1"></i>${step.ChucVu}</p>` : ''}
+                                                                    <p class="mb-1"><strong>${escapeHtml(step.TenNhanVien)}</strong></p>
+                                                                    ${step.ChucVu ? `<p class="mb-0 text-secondary small"><i class="fas fa-briefcase me-1"></i>${escapeHtml(step.ChucVu)}</p>` : ''}
                                                                 </div>
                                                             </div>
                                                             ` : `
@@ -2258,16 +3025,39 @@ try {
                                                         </div>
                                                     </div>
                                                     
-                                                    ${step.GhiChu ? `
+                                                    ${(() => {
+                                                        // Extract note from MoTa if it contains [Ghi chú: ...]
+                                                        let note = '';
+                                                        if (step.MoTa) {
+                                                            const noteMatch = step.MoTa.match(/\[Ghi chú:\s*([^\]]+)\]/);
+                                                            if (noteMatch) {
+                                                                note = noteMatch[1].trim();
+                                                            }
+                                                        }
+                                                        return note ? `
                                                     <div class="mb-3">
                                                         <h6 class="text-warning"><i class="fas fa-sticky-note"></i> Ghi chú</h6>
                                                         <div class="alert alert-light py-2">
-                                                            <p class="mb-0">${step.GhiChu}</p>
+                                                            <p class="mb-0">${escapeHtml(note)}</p>
+                                                        </div>
+                                                    </div>
+                                                    ` : '';
+                                                    })()}
+                                                    
+                                                    ${isReadOnly ? `
+                                                    <div class="mt-3">
+                                                        <div class="alert alert-success d-flex align-items-center mb-0" role="alert">
+                                                            <i class="fas fa-check-circle fa-2x me-3"></i>
+                                                            <div>
+                                                                <strong>Sự kiện đã hoàn thành</strong>
+                                                                <p class="mb-0 small">Bạn đang xem ở chế độ chỉ đọc. Không thể chỉnh sửa hoặc xóa các bước.</p>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     ` : ''}
                                                 </div>
                                                 
+                                                ${!isReadOnly ? `
                                                 <div class="col-md-4">
                                                     <div class="text-center">
                                                         <h6 class="text-primary mb-3">Thao tác</h6>
@@ -2275,7 +3065,7 @@ try {
                                                             <button class="btn btn-outline-success btn-sm" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Hoàn thành')" title="Hoàn thành">
                                                                 <i class="fas fa-check me-1"></i>Hoàn thành
                                                             </button>
-                                                            <button class="btn btn-outline-warning btn-sm" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Đang thực hiện')" title="Đang làm">
+                                                            <button class="btn btn-outline-warning btn-sm" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Đang làm')" title="Đang làm">
                                                                 <i class="fas fa-play me-1"></i>Đang làm
                                                             </button>
                                                             <button class="btn btn-outline-info btn-sm" onclick="editStep(${step.ID_ChiTiet})" title="Chỉnh sửa">
@@ -2287,6 +3077,7 @@ try {
                                                         </div>
                                                     </div>
                                                 </div>
+                                                ` : ''}
                                             </div>
                                         </div>
                                     </div>
@@ -2306,6 +3097,14 @@ try {
         }
 
         function editStep(stepId) {
+            // Check if event is completed
+            const eventId = document.getElementById('stepEventId')?.value;
+            const event = approvedEvents.find(e => e.ID_DatLich == eventId);
+            if (event && event.TrangThaiSuKien === 'Hoàn thành') {
+                alert('Sự kiện đã hoàn thành, không thể chỉnh sửa bước');
+                return;
+            }
+            
             console.log('Editing step:', stepId);
             
             // Fetch step details
@@ -2327,7 +3126,27 @@ try {
                         // Fill edit step modal
                         document.getElementById('editStepId').value = step.ID_ChiTiet;
                         document.getElementById('editStepName').value = step.TenBuoc || '';
-                        document.getElementById('editStepDescription').value = step.MoTa || '';
+                        
+                        // Extract description and note from MoTa
+                        // Note: GhiChu column doesn't exist, so we parse from MoTa if it contains [Ghi chú: ...]
+                        let description = step.MoTa || '';
+                        let note = '';
+                        
+                        // Check if MoTa contains note in format [Ghi chú: ...]
+                        const noteMatch = description.match(/\[Ghi chú:\s*([^\]]+)\]/);
+                        if (noteMatch) {
+                            note = noteMatch[1].trim();
+                            // Remove note from description
+                            description = description.replace(/\s*\[Ghi chú:[^\]]+\]\s*$/, '').trim();
+                        }
+                        
+                        document.getElementById('editStepDescription').value = description;
+                        
+                        // Handle GhiChu field (extracted from MoTa)
+                        const stepNoteElement = document.getElementById('editStepNote');
+                        if (stepNoteElement) {
+                            stepNoteElement.value = note;
+                        }
                         
                         // Split datetime
                         const startDate = step.NgayBatDau ? step.NgayBatDau.split(' ')[0] : '';
@@ -2340,10 +3159,28 @@ try {
                         document.getElementById('editStepEndDate').value = endDate;
                         document.getElementById('editStepEndTime').value = endTime;
                         
-                        // Load staff options and set selected staff
+                        // Load staff options and set selected staff (multiple checkboxes)
                         loadStaffOptionsForSteps().then(() => {
-                            if (step.ID_NhanVien) {
-                                document.getElementById('editStepStaff').value = step.ID_NhanVien;
+                            // Clear previous selections
+                            const editCheckboxes = document.querySelectorAll('#editStepStaffCheckboxes input[type="checkbox"]');
+                            editCheckboxes.forEach(checkbox => {
+                                checkbox.checked = false;
+                            });
+                            
+                            // If step has assignedStaff array, check all assigned staff
+                            if (step.assignedStaff && Array.isArray(step.assignedStaff) && step.assignedStaff.length > 0) {
+                                step.assignedStaff.forEach(staff => {
+                                    const checkbox = document.getElementById(`edit_staff_${staff.ID_NhanVien}`);
+                                    if (checkbox) {
+                                        checkbox.checked = true;
+                                    }
+                                });
+                            } else if (step.ID_NhanVien) {
+                                // Fallback to single staff (backward compatibility)
+                                const checkbox = document.getElementById(`edit_staff_${step.ID_NhanVien}`);
+                                if (checkbox) {
+                                    checkbox.checked = true;
+                                }
                             }
                         });
                         
@@ -2362,6 +3199,14 @@ try {
         }
 
         function submitEditStep() {
+            // Check if event is completed
+            const eventId = document.getElementById('stepEventId')?.value;
+            const event = approvedEvents.find(e => e.ID_DatLich == eventId);
+            if (event && event.TrangThaiSuKien === 'Hoàn thành') {
+                alert('Sự kiện đã hoàn thành, không thể chỉnh sửa bước');
+                return;
+            }
+            
             const stepIdElement = document.getElementById('editStepId');
             const stepNameElement = document.getElementById('editStepName');
             const stepDescriptionElement = document.getElementById('editStepDescription');
@@ -2369,12 +3214,12 @@ try {
             const stepStartTimeElement = document.getElementById('editStepStartTime');
             const stepEndDateElement = document.getElementById('editStepEndDate');
             const stepEndTimeElement = document.getElementById('editStepEndTime');
-            const stepStaffElement = document.getElementById('editStepStaff');
+            const stepNoteElement = document.getElementById('editStepNote');
             
-            // Check if all elements exist
+            // Check if all required elements exist (staff is optional, loaded from checkboxes)
             if (!stepIdElement || !stepNameElement || !stepDescriptionElement || 
                 !stepStartDateElement || !stepStartTimeElement || 
-                !stepEndDateElement || !stepEndTimeElement || !stepStaffElement) {
+                !stepEndDateElement || !stepEndTimeElement) {
                 console.error('Missing form elements:', {
                     stepIdElement: !!stepIdElement,
                     stepNameElement: !!stepNameElement,
@@ -2382,34 +3227,54 @@ try {
                     stepStartDateElement: !!stepStartDateElement,
                     stepStartTimeElement: !!stepStartTimeElement,
                     stepEndDateElement: !!stepEndDateElement,
-                    stepEndTimeElement: !!stepEndTimeElement,
-                    stepStaffElement: !!stepStaffElement
+                    stepEndTimeElement: !!stepEndTimeElement
                 });
                 alert('Có lỗi với form. Vui lòng thử lại.');
                 return;
             }
             
             const stepId = stepIdElement.value;
-            const stepName = stepNameElement.value;
-            const stepDescription = stepDescriptionElement.value;
+            const stepName = stepNameElement.value.trim();
+            const stepDescription = stepDescriptionElement.value.trim();
             const stepStartDate = stepStartDateElement.value;
             const stepStartTime = stepStartTimeElement.value;
             const stepEndDate = stepEndDateElement.value;
             const stepEndTime = stepEndTimeElement.value;
-            const stepStaff = stepStaffElement.value;
+            const stepNote = stepNoteElement ? stepNoteElement.value.trim() : '';
             
-            if (!stepName.trim()) {
+            // Get all selected staff IDs from checkboxes
+            const stepStaffCheckboxes = document.querySelectorAll('#editStepStaffCheckboxes input[type="checkbox"]:checked');
+            const selectedStaffIds = Array.from(stepStaffCheckboxes)
+                .map(checkbox => checkbox.value)
+                .filter(value => value !== '' && value !== null); // Remove empty values
+            
+            // Validate required fields
+            if (!stepName) {
                 alert('Vui lòng nhập tên bước');
                 return;
             }
             
-            if (!stepStartDate || !stepEndDate) {
-                alert('Vui lòng chọn ngày bắt đầu và kết thúc');
+            if (!stepStartDate || !stepStartTime || !stepEndDate || !stepEndTime) {
+                alert('Vui lòng chọn đầy đủ ngày và giờ bắt đầu, kết thúc');
                 return;
             }
             
             const startDateTime = `${stepStartDate} ${stepStartTime}`;
             const endDateTime = `${stepEndDate} ${stepEndTime}`;
+            
+            // Validate datetime
+            const startDateObj = new Date(startDateTime);
+            const endDateObj = new Date(endDateTime);
+            
+            if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+                alert('Ngày giờ không hợp lệ. Vui lòng kiểm tra lại.');
+                return;
+            }
+            
+            if (endDateObj <= startDateObj) {
+                alert('Thời gian kết thúc phải sau thời gian bắt đầu');
+                return;
+            }
             
             const formData = new FormData();
             formData.append('action', 'update_step');
@@ -2418,7 +3283,21 @@ try {
             formData.append('stepDescription', stepDescription);
             formData.append('stepStartDateTime', startDateTime);
             formData.append('stepEndDateTime', endDateTime);
-            formData.append('staffId', stepStaff);
+            
+            // Add note if provided
+            if (stepNote) {
+                formData.append('stepNote', stepNote);
+            }
+            
+            // Add all selected staff IDs
+            selectedStaffIds.forEach(staffId => {
+                formData.append('staffId[]', staffId);
+            });
+            
+            // Also set as staffId for backward compatibility
+            if (selectedStaffIds.length > 0) {
+                formData.append('staffId', selectedStaffIds.join(','));
+            }
             
             console.log('Sending update step data:', {
                 action: 'update_step',
@@ -2427,7 +3306,7 @@ try {
                 stepDescription: stepDescription,
                 stepStartDateTime: startDateTime,
                 stepEndDateTime: endDateTime,
-                staffId: stepStaff
+                staffIds: selectedStaffIds
             });
             
             fetch('../src/controllers/event-planning.php', {
@@ -2458,15 +3337,18 @@ try {
                     modal.hide();
                     alert('Cập nhật bước thực hiện thành công');
                     
-                    // Reload steps for current plan
-                    const stepPlanIdElement = document.getElementById('stepPlanId');
-                    if (stepPlanIdElement) {
-                        const currentPlanId = stepPlanIdElement.value;
-                        if (currentPlanId) {
-                            loadSteps(currentPlanId);
+                    // Reload steps for current event
+                    const stepEventIdElement = document.getElementById('stepEventId');
+                    if (stepEventIdElement) {
+                        const currentEventId = stepEventIdElement.value;
+                        if (currentEventId) {
+                            // Check if event is completed to determine read-only mode
+                            const event = approvedEvents.find(e => e.ID_DatLich == currentEventId);
+                            const isReadOnly = event && event.TrangThaiSuKien === 'Hoàn thành';
+                            loadSteps(currentEventId, isReadOnly);
                         }
                     } else {
-                        console.warn('stepPlanId element not found, skipping step reload');
+                        console.warn('stepEventId element not found, skipping step reload');
                     }
                 } else {
                     console.error('Update step failed:', data);
@@ -2485,36 +3367,74 @@ try {
             })
                 .then(handleFetchResponse)
                 .then(data => {
-                    const select = document.getElementById('stepStaff');
-                    const editSelect = document.getElementById('editStepStaff');
+                    const addContainer = document.getElementById('stepStaffCheckboxes');
+                    const editContainer = document.getElementById('editStepStaffCheckboxes');
                     
-                    // Clear and populate both selects
-                    [select, editSelect].forEach(sel => {
-                        if (sel) {
-                            sel.innerHTML = '<option value="">Chọn nhân viên</option>';
+                    // Clear containers
+                    if (addContainer) addContainer.innerHTML = '';
+                    if (editContainer) editContainer.innerHTML = '';
+                    
+                    if (data.success && data.staff && data.staff.length > 0) {
+                        // Populate add step form
+                        if (addContainer) {
+                            data.staff.forEach(staff => {
+                                const checkboxItem = document.createElement('div');
+                                checkboxItem.className = 'staff-checkbox-item';
+                                checkboxItem.innerHTML = `
+                                    <input type="checkbox" id="staff_${staff.ID_NhanVien}" name="staffId[]" value="${staff.ID_NhanVien}">
+                                    <label for="staff_${staff.ID_NhanVien}">
+                                        <span class="staff-name">${escapeHtml(staff.HoTen)}</span>
+                                        <span class="staff-role">${escapeHtml(staff.ChucVu)}</span>
+                                    </label>
+                                `;
+                                addContainer.appendChild(checkboxItem);
+                            });
                         }
-                    });
-                    
-                    if (data.success && data.staff) {
-                        data.staff.forEach(staff => {
-                            const option = document.createElement('option');
-                            option.value = staff.ID_NhanVien;
-                            option.textContent = staff.HoTen + ' - ' + staff.ChucVu;
-                            
-                            if (select) select.appendChild(option.cloneNode(true));
-                            if (editSelect) editSelect.appendChild(option);
-                        });
+                        
+                        // Populate edit step form
+                        if (editContainer) {
+                            data.staff.forEach(staff => {
+                                const checkboxItem = document.createElement('div');
+                                checkboxItem.className = 'staff-checkbox-item';
+                                checkboxItem.innerHTML = `
+                                    <input type="checkbox" id="edit_staff_${staff.ID_NhanVien}" name="staffId[]" value="${staff.ID_NhanVien}">
+                                    <label for="edit_staff_${staff.ID_NhanVien}">
+                                        <span class="staff-name">${escapeHtml(staff.HoTen)}</span>
+                                        <span class="staff-role">${escapeHtml(staff.ChucVu)}</span>
+                                    </label>
+                                `;
+                                editContainer.appendChild(checkboxItem);
+                            });
+                        }
+                    } else {
+                        // Show no staff message
+                        const noStaffMsg = '<div class="text-center text-muted py-3"><i class="fas fa-user-slash"></i> Không có nhân viên nào</div>';
+                        if (addContainer) addContainer.innerHTML = noStaffMsg;
+                        if (editContainer) editContainer.innerHTML = noStaffMsg;
                     }
                     
                     return Promise.resolve();
                 })
                 .catch(error => {
                     console.error('Error loading staff:', error);
+                    const errorMsg = '<div class="text-center text-danger py-3"><i class="fas fa-exclamation-triangle"></i> Lỗi khi tải danh sách nhân viên</div>';
+                    const addContainer = document.getElementById('stepStaffCheckboxes');
+                    const editContainer = document.getElementById('editStepStaffCheckboxes');
+                    if (addContainer) addContainer.innerHTML = errorMsg;
+                    if (editContainer) editContainer.innerHTML = errorMsg;
                     return Promise.reject(error);
                 });
         }
 
         function addStep() {
+            // Check if event is completed
+            const eventId = document.getElementById('stepEventId')?.value;
+            const event = approvedEvents.find(e => e.ID_DatLich == eventId);
+            if (event && event.TrangThaiSuKien === 'Hoàn thành') {
+                alert('Sự kiện đã hoàn thành, không thể thêm bước mới');
+                return;
+            }
+            
             const form = document.getElementById('addStepForm');
             const stepEventIdElement = document.getElementById('stepEventId');
             
@@ -2557,9 +3477,22 @@ try {
                 return;
             }
 
-            // Get staff value from form
-            const stepStaff = formData.get('staffId');
-            formData.set('stepStaff', stepStaff);
+            // Get all selected staff IDs from checkboxes
+            const stepStaffCheckboxes = document.querySelectorAll('#stepStaffCheckboxes input[type="checkbox"]:checked');
+            const selectedStaffIds = Array.from(stepStaffCheckboxes)
+                .map(checkbox => checkbox.value)
+                .filter(value => value !== ''); // Remove empty values
+            
+            // Remove old staffId entries and add new ones
+            formData.delete('staffId[]');
+            selectedStaffIds.forEach(staffId => {
+                formData.append('staffId[]', staffId);
+            });
+            
+            // Also set as stepStaff for backward compatibility
+            if (selectedStaffIds.length > 0) {
+                formData.set('stepStaff', selectedStaffIds.join(','));
+            }
             
             fetch('../src/controllers/event-planning.php', {
                 method: 'POST',
@@ -2587,6 +3520,14 @@ try {
         }
 
         function updateStepStatus(stepId, status) {
+            // Check if event is completed
+            const eventId = document.getElementById('stepEventId')?.value;
+            const event = approvedEvents.find(e => e.ID_DatLich == eventId);
+            if (event && event.TrangThaiSuKien === 'Hoàn thành') {
+                alert('Sự kiện đã hoàn thành, không thể cập nhật trạng thái');
+                return;
+            }
+            
             const formData = new FormData();
             formData.append('action', 'update_step_status');
             formData.append('step_id', stepId);
@@ -2613,6 +3554,14 @@ try {
         }
 
         function deleteStep(stepId) {
+            // Check if event is completed
+            const eventId = document.getElementById('stepEventId')?.value;
+            const event = approvedEvents.find(e => e.ID_DatLich == eventId);
+            if (event && event.TrangThaiSuKien === 'Hoàn thành') {
+                alert('Sự kiện đã hoàn thành, không thể xóa bước');
+                return;
+            }
+            
             if (confirm('Bạn có chắc muốn xóa bước thực hiện này?')) {
                 const formData = new FormData();
                 formData.append('action', 'delete_step');

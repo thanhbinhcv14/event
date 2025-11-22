@@ -1,0 +1,30 @@
+# Agora Configuration (chứa App Certificate - không commit)
+config/agora.php
+
+# Composer
+/vendor/
+composer.lock
+
+# Environment files
+.env
+.env.local
+
+# Logs
+*.log
+hook_log.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+

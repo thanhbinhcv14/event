@@ -5,8 +5,27 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+// Tắt display_errors để tránh output HTML trước JSON (nhưng vẫn log errors)
+ini_set('display_errors', 0);
+// Chỉ báo cáo errors nghiêm trọng, không báo warnings/deprecated
+error_reporting(E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR);
+
 require_once __DIR__ . '/../../config/database.php';
-require_once __DIR__ . '/../../config/sepay.php';
+
+// Kiểm tra file sepay.php có tồn tại không trước khi require
+$sepayConfigPath = __DIR__ . '/../../config/sepay.php';
+if (file_exists($sepayConfigPath)) {
+    require_once $sepayConfigPath;
+} else {
+    // Định nghĩa các constants mặc định nếu file không tồn tại
+    if (!defined('SEPAY_PARTNER_CODE')) define('SEPAY_PARTNER_CODE', '');
+    if (!defined('SEPAY_SECRET_KEY')) define('SEPAY_SECRET_KEY', '');
+    if (!defined('SEPAY_API_TOKEN')) define('SEPAY_API_TOKEN', '');
+    if (!defined('SEPAY_ENVIRONMENT')) define('SEPAY_ENVIRONMENT', 'production');
+    if (!defined('SEPAY_CALLBACK_URL')) define('SEPAY_CALLBACK_URL', '');
+}
+
 require_once __DIR__ . '/../../vendor/autoload.php'; // Composer autoload (bao gồm SePay SDK) - đã có comment tiếng Việt
 require_once __DIR__ . '/../auth/csrf.php';
 
@@ -689,7 +708,8 @@ function createSePayQRCode($amount, $content, $accountNumber = null) {
         $curlError = curl_error($ch);
         $finalUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
         $redirectUrl = curl_getinfo($ch, CURLINFO_REDIRECT_URL);
-        curl_close($ch);
+        // curl_close() is deprecated in PHP 8.0+, cURL handle auto-closes when variable is destroyed
+        unset($ch);
             
             // Ghi log chi tiết để debug
             error_log("SePay QR API Request Format " . ($index + 1) . ": " . json_encode($data));
@@ -1609,18 +1629,27 @@ function getPaymentStatus() {
 function getPaymentList() {
     global $pdo;
     
-    $stmt = $pdo->prepare("
-        SELECT t.*, dl.TenSuKien, dl.NgayBatDau, dl.NgayKetThuc,
-               kh.HoTen as KhachHangTen, kh.SoDienThoai
-        FROM thanhtoan t
-        JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
-        JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-        ORDER BY t.NgayThanhToan DESC
-    ");
-    $stmt->execute();
-    $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    echo json_encode(['success' => true, 'payments' => $payments]);
+    try {
+        $stmt = $pdo->prepare("
+            SELECT t.*, dl.TenSuKien, dl.NgayBatDau, dl.NgayKetThuc,
+                   kh.HoTen as KhachHangTen, kh.SoDienThoai
+            FROM thanhtoan t
+            JOIN datlichsukien dl ON t.ID_DatLich = dl.ID_DatLich
+            JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+            ORDER BY t.NgayThanhToan DESC
+        ");
+        $stmt->execute();
+        $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode(['success' => true, 'payments' => $payments]);
+    } catch (Exception $e) {
+        error_log("getPaymentList Error: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error' => 'Lỗi khi lấy danh sách thanh toán',
+            'payments' => []
+        ]);
+    }
 }
 
 function getInvoice() {
@@ -1738,29 +1767,42 @@ function getInvoice() {
 function getPaymentStats() {
     global $pdo;
     
-    // Tổng số thanh toán
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM thanhtoan");
-    $stmt->execute();
-    $total = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
-    
-    // Số thanh toán thành công
-    $stmt = $pdo->prepare("SELECT COUNT(*) as success FROM thanhtoan WHERE TrangThai = 'Thành công'");
-    $stmt->execute();
-    $success = $stmt->fetch(PDO::FETCH_ASSOC)['success'];
-    
-    // Tổng số tiền
-    $stmt = $pdo->prepare("SELECT SUM(SoTien) as total_amount FROM thanhtoan WHERE TrangThai = 'Thành công'");
-    $stmt->execute();
-    $totalAmount = $stmt->fetch(PDO::FETCH_ASSOC)['total_amount'] ?? 0;
-    
-    echo json_encode([
-        'success' => true,
-        'stats' => [
-            'total_payments' => $total,
-            'successful_payments' => $success,
-            'total_amount' => $totalAmount
-        ]
-    ]);
+    try {
+        // Tổng số thanh toán
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM thanhtoan");
+        $stmt->execute();
+        $total = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+        
+        // Số thanh toán thành công
+        $stmt = $pdo->prepare("SELECT COUNT(*) as success FROM thanhtoan WHERE TrangThai = 'Thành công'");
+        $stmt->execute();
+        $success = $stmt->fetch(PDO::FETCH_ASSOC)['success'] ?? 0;
+        
+        // Tổng số tiền
+        $stmt = $pdo->prepare("SELECT SUM(SoTien) as total_amount FROM thanhtoan WHERE TrangThai = 'Thành công'");
+        $stmt->execute();
+        $totalAmount = $stmt->fetch(PDO::FETCH_ASSOC)['total_amount'] ?? 0;
+        
+        echo json_encode([
+            'success' => true,
+            'stats' => [
+                'total' => (int)$total,
+                'successful' => (int)$success,
+                'total_amount' => (float)$totalAmount
+            ]
+        ]);
+    } catch (Exception $e) {
+        error_log("getPaymentStats Error: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error' => 'Lỗi khi lấy thống kê thanh toán',
+            'stats' => [
+                'total' => 0,
+                'successful' => 0,
+                'total_amount' => 0
+            ]
+        ]);
+    }
 }
 
 function processSePayCallback() {

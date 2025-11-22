@@ -28,6 +28,7 @@ $pageTitles = [
     'event-registration' => 'Đăng ký sự kiện',
     'event-planning' => 'Lên kế hoạch thực hiện và phân công',
     'event-types' => 'Quản lý loại sự kiện',
+    'magiamgia' => 'Quản lý mã giảm giá',
     'staff-assignment' => 'Phân công nhân viên',
     'staff-schedule' => 'Lịch làm việc',
     'staff-reports' => 'Báo cáo tiến độ',
@@ -251,6 +252,11 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
                 <span>Quản lý loại sự kiện</span>
             </a>
             
+            <a href="magiamgia.php" class="menu-item <?= $currentPage === 'magiamgia' ? 'active' : '' ?>">
+                <i class="fas fa-ticket-alt"></i>
+                <span>Quản lý mã giảm giá</span>
+            </a>
+            
             <a href="locations.php" class="menu-item <?= $currentPage === 'locations' ? 'active' : '' ?>">
                 <i class="fas fa-map-marker-alt"></i>
                 <span>Quản lý địa điểm</span>
@@ -304,6 +310,11 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
                 <span>Quản lý loại sự kiện</span>
             </a>
             
+            <a href="magiamgia.php" class="menu-item <?= $currentPage === 'magiamgia' ? 'active' : '' ?>">
+                <i class="fas fa-ticket-alt"></i>
+                <span>Quản lý mã giảm giá</span>
+            </a>
+            
             <a href="locations.php" class="menu-item <?= $currentPage === 'locations' ? 'active' : '' ?>">
                 <i class="fas fa-map-marker-alt"></i>
                 <span>Quản lý địa điểm</span>
@@ -355,11 +366,6 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             <a href="event-registrations.php" class="menu-item <?= $currentPage === 'event-registrations' ? 'active' : '' ?>">
                 <i class="fas fa-eye"></i>
                 <span>Xem duyệt sự kiện</span>
-            </a>
-            
-            <a href="reports.php" class="menu-item <?= $currentPage === 'reports' ? 'active' : '' ?>">
-                <i class="fas fa-chart-bar"></i>
-                <span>Thống kê báo cáo</span>
             </a>
             <?php endif; ?>
             

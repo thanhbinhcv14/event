@@ -16,7 +16,6 @@ $user = $_SESSION['user'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sự kiện của tôi - Event Management System</title>
-    <link rel="icon" href="../img/logo/logo.jpg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -1450,6 +1449,19 @@ $user = $_SESSION['user'];
                     }
                 });
             }
+            
+            // Tự động refresh danh sách sự kiện mỗi 2 phút để kiểm tra và hủy thanh toán đã hết hạn
+            // Thanh toán "Đang xử lý" sẽ tự động bị hủy sau 15 phút, sau đó nút thanh toán sẽ hiện lại
+            setInterval(function() {
+                console.log('🔄 Auto-refreshing events list to check for expired payments...');
+                loadMyEvents();
+            }, 120000); // 2 phút = 120,000 milliseconds
+            
+            // Cũng refresh sau 15 phút để đảm bảo thanh toán đã hết hạn được hủy
+            setTimeout(function() {
+                console.log('⏰ 15 minutes passed, refreshing to cancel expired payments...');
+                loadMyEvents();
+            }, 900000); // 15 phút = 900,000 milliseconds
         });
         
         // Check if event has passed payment deadline (event end time)
@@ -1486,6 +1498,11 @@ $user = $_SESSION['user'];
                     // Show notification if events were cancelled due to payment deadline
                     if (data.cancelled_deadline && data.cancelled_deadline > 0) {
                         showError(`Có ${data.cancelled_deadline} sự kiện đã quá hạn thanh toán đủ và đã bị tự động hủy. Tiền cọc không được hoàn lại.`);
+                    }
+                    
+                    // Show notification if pending payments were auto-cancelled (after 15 minutes)
+                    if (data.cancelled_pending_payments && data.cancelled_pending_payments > 0) {
+                        showError(`Có ${data.cancelled_pending_payments} thanh toán đã quá 15 phút chờ thanh toán và đã được tự động hủy. Bạn có thể thanh toán lại.`);
                     }
                     
                     displayEvents();
@@ -1691,18 +1708,8 @@ $user = $_SESSION['user'];
                             ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' 
                               && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Chưa thanh toán'
                               && (!event.PendingPayments || event.PendingPayments == 0)
-                              && !isExpired 
-                              && !event.RequiresFullPayment ? `
+                              && !isExpired ? `
                             <button class="btn btn-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
-                                <i class="fas fa-credit-card"></i> Thanh toán
-                            </button>
-                            ` : ''}
-                            ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' 
-                              && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Chưa thanh toán'
-                              && (!event.PendingPayments || event.PendingPayments == 0)
-                              && !isExpired 
-                              && event.RequiresFullPayment ? `
-                            <button class="btn btn-primary btn-sm" onclick="makePayment(${event.ID_DatLich}, 'full')">
                                 <i class="fas fa-credit-card"></i> Thanh toán
                             </button>
                             ` : ''}
@@ -1711,8 +1718,8 @@ $user = $_SESSION['user'];
                               && (!event.PendingPayments || event.PendingPayments == 0)
                               && !isExpired 
                               && (!paymentDeadline || !paymentDeadline.is_past_deadline) ? `
-                            <button class="btn btn-success btn-sm" onclick="makePayment(${event.ID_DatLich}, 'full')">
-                                <i class="fas fa-credit-card"></i> Thanh toán đủ
+                            <button class="btn btn-success btn-sm" onclick="makePayment(${event.ID_DatLich}, 'remaining')">
+                                <i class="fas fa-credit-card"></i> Thanh toán phần còn lại
                             </button>
                             ` : ''}
                             ${paymentDeadline && paymentDeadline.is_past_deadline && !isFullyPaid ? `
@@ -1725,7 +1732,9 @@ $user = $_SESSION['user'];
                                 <i class="fas fa-clock"></i> Hết hạn thanh toán
                             </button>
                             ` : ''}
-                            ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Đã thanh toán đủ' ? `
+                            ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' && 
+                              (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Đã thanh toán đủ' && 
+                              (event.AllStepsCompleted === true || event.AllStepsCompleted === 1) ? `
                             <button class="btn btn-review btn-sm" onclick="openReviewModal(${event.ID_DatLich}, '${event.TenSuKien}')" 
                                     title="Đánh giá sự kiện đã hoàn thành">
                                 <i class="fas fa-star"></i> Đánh giá
@@ -1880,7 +1889,7 @@ $user = $_SESSION['user'];
                     success: function(response) {
                         if (response.success) {
                             alert('Hủy sự kiện thành công!');
-                            loadEvents(); // Reload the events list
+                            loadMyEvents(); // Reload the events list
                         } else {
                             alert('Lỗi: ' + response.message);
                         }
@@ -1993,7 +2002,7 @@ $user = $_SESSION['user'];
                         </div>
                         <div class="col-md-6">
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="paymentType" id="fullPayment" value="full" ${defaultPaymentType === 'full' ? 'checked' : ''} ${event.RequiresFullPayment ? '' : (event.TrangThaiThanhToan !== 'Đã đặt cọc' ? 'disabled' : '')}>
+                                <input class="form-check-input" type="radio" name="paymentType" id="fullPayment" value="full" ${defaultPaymentType === 'full' ? 'checked' : ''} ${event.TrangThaiThanhToan === 'Đã đặt cọc' ? 'disabled' : ''}>
                                 <label class="form-check-label" for="fullPayment">
                                     <strong>Thanh toán đủ</strong> - ${new Intl.NumberFormat('vi-VN').format(totalAmount)} VNĐ
                                     <br><small class="text-muted">Thanh toán toàn bộ số tiền</small>
@@ -2116,11 +2125,14 @@ $user = $_SESSION['user'];
                             $('#depositPayment').prop('disabled', false);
                         }
                         
+                        // Cho phép thanh toán đủ khi >= 7 ngày (không disable)
                         if (event.RequiresFullPayment) {
                             $('#fullPayment').prop('disabled', false);
-                        } else if (event.TrangThaiThanhToan !== 'Đã đặt cọc') {
+                        } else if (event.TrangThaiThanhToan === 'Đã đặt cọc') {
+                            // Đã đặt cọc thì disable full payment (phải dùng remaining)
                             $('#fullPayment').prop('disabled', true);
                         } else {
+                            // Chưa đặt cọc và >= 7 ngày: cho phép cả deposit và full
                             $('#fullPayment').prop('disabled', false);
                         }
                     }
@@ -3267,7 +3279,7 @@ $user = $_SESSION['user'];
                                     modal.hide();
                                     
                                     // Reload events to update UI
-                                    loadEvents();
+                                    loadMyEvents();
                                 }, 2000);
                             } else {
                                 alert('Lỗi: ' + data.message);

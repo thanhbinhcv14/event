@@ -496,29 +496,128 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             border-radius: 20px;
         }
         
-        /* Tab Styles */
+        /* Tab Styles - Modern Design */
         .nav-tabs {
-            border-bottom: 2px solid #e9ecef;
+            border-bottom: none;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 0.5rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
         }
         
         .nav-tabs .nav-link {
             border: none;
             color: #666;
-            font-weight: 500;
-            padding: 1rem 2rem;
-            border-radius: 10px 10px 0 0;
-            margin-right: 0.5rem;
+            font-weight: 600;
+            padding: 1rem 2.5rem;
+            border-radius: 15px;
+            margin-right: 0;
+            transition: all 0.3s ease;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: transparent;
+        }
+        
+        .nav-tabs .nav-link i {
+            font-size: 1.1rem;
         }
         
         .nav-tabs .nav-link.active {
-            color: #667eea;
-            background: white;
-            border-bottom: 2px solid #667eea;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transform: translateY(-2px);
         }
         
-        .nav-tabs .nav-link:hover {
+        .nav-tabs .nav-link:hover:not(.active) {
             color: #667eea;
             background: rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        /* Search Bar Styles */
+        .search-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-box input {
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 0.75rem 1rem 0.75rem 3rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .search-box input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            outline: none;
+        }
+        
+        .search-box i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+            font-size: 1.1rem;
+        }
+        
+        .search-results-info {
+            margin-top: 1rem;
+            color: #6c757d;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+        
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid #e9ecef;
+            background: white;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .filter-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
         }
         
         .dropdown-item i {
@@ -572,6 +671,24 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             transform: translateY(-2px);
         }
         
+        /* Empty state styles */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 4rem;
+            color: #dee2e6;
+            margin-bottom: 1rem;
+        }
+        
+        .empty-state h4 {
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+        
         @media (max-width: 768px) {
             .navbar {
                 padding: 0.5rem 1rem;
@@ -613,6 +730,30 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             
             .navbar-toggler:focus {
                 box-shadow: none;
+            }
+            
+            .nav-tabs {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .nav-tabs .nav-link {
+                padding: 0.75rem 1.5rem;
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .search-container {
+                padding: 1rem;
+            }
+            
+            .filter-buttons {
+                justify-content: center;
+            }
+            
+            .filter-btn {
+                font-size: 0.8rem;
+                padding: 0.4rem 0.8rem;
             }
         }
         
@@ -740,6 +881,23 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                 <div class="tab-content" id="serviceTabsContent">
                     <!-- Locations Tab -->
                     <div class="tab-pane fade show active" id="locations" role="tabpanel">
+                        <!-- Search Bar for Locations -->
+                        <div class="search-container">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="locationSearch" class="form-control" 
+                                       placeholder="Tìm kiếm địa điểm theo tên, địa chỉ, loại địa điểm...">
+                            </div>
+                            <div class="filter-buttons" id="locationFilters">
+                                <button class="filter-btn active" data-filter="all">Tất cả</button>
+                                <button class="filter-btn" data-filter="Trong nhà">Trong nhà</button>
+                                <button class="filter-btn" data-filter="Ngoài trời">Ngoài trời</button>
+                            </div>
+                            <div class="search-results-info" id="locationResultsInfo" style="display: none;">
+                                <i class="fas fa-info-circle"></i>
+                                <span id="locationResultsCount">0</span> kết quả tìm thấy
+                            </div>
+                        </div>
                         <div class="row" id="locationsContainer">
                             <div class="col-12 text-center">
                                 <div class="spinner-border text-primary" role="status">
@@ -752,6 +910,25 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                     
                     <!-- Equipment Tab -->
                     <div class="tab-pane fade" id="equipment" role="tabpanel">
+                        <!-- Search Bar for Equipment -->
+                        <div class="search-container">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="equipmentSearch" class="form-control" 
+                                       placeholder="Tìm kiếm thiết bị theo tên, loại, hãng sản xuất...">
+                            </div>
+                            <div class="filter-buttons" id="equipmentFilters">
+                                <button class="filter-btn active" data-filter="all">Tất cả</button>
+                                <button class="filter-btn" data-filter="Âm thanh">Âm thanh</button>
+                                <button class="filter-btn" data-filter="Hình ảnh">Hình ảnh</button>
+                                <button class="filter-btn" data-filter="Ánh sáng">Ánh sáng</button>
+                                <button class="filter-btn" data-filter="Phụ trợ">Phụ trợ</button>
+                            </div>
+                            <div class="search-results-info" id="equipmentResultsInfo" style="display: none;">
+                                <i class="fas fa-info-circle"></i>
+                                <span id="equipmentResultsCount">0</span> kết quả tìm thấy
+                            </div>
+                        </div>
                         <div class="row" id="equipmentContainer">
                             <div class="col-12 text-center">
                                 <div class="spinner-border text-primary" role="status">
@@ -764,6 +941,18 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                     
                     <!-- Combos Tab -->
                     <div class="tab-pane fade" id="combos" role="tabpanel">
+                        <!-- Search Bar for Combos -->
+                        <div class="search-container">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="comboSearch" class="form-control" 
+                                       placeholder="Tìm kiếm combo theo tên, mô tả...">
+                            </div>
+                            <div class="search-results-info" id="comboResultsInfo" style="display: none;">
+                                <i class="fas fa-info-circle"></i>
+                                <span id="comboResultsCount">0</span> kết quả tìm thấy
+                            </div>
+                        </div>
                         <div class="row" id="combosContainer">
                             <div class="col-12 text-center">
                                 <div class="spinner-border text-primary" role="status">
@@ -945,9 +1134,22 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        // Global data storage
+        let allLocations = [];
+        let allEquipment = [];
+        let allCombos = [];
+        
+        // Current filters
+        let locationFilter = 'all';
+        let equipmentFilter = 'all';
+        
         // Load services data
         document.addEventListener('DOMContentLoaded', function() {
             loadLocations();
+            
+            // Setup search and filter handlers
+            setupSearchHandlers();
+            setupFilterHandlers();
             
             // Load data when tab is clicked
             document.getElementById('equipment-tab').addEventListener('click', function() {
@@ -963,13 +1165,137 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             });
         });
         
+        // Setup search handlers
+        function setupSearchHandlers() {
+            // Location search
+            const locationSearch = document.getElementById('locationSearch');
+            if (locationSearch) {
+                locationSearch.addEventListener('input', function() {
+                    filterLocations();
+                });
+            }
+            
+            // Equipment search
+            const equipmentSearch = document.getElementById('equipmentSearch');
+            if (equipmentSearch) {
+                equipmentSearch.addEventListener('input', function() {
+                    filterEquipment();
+                });
+            }
+            
+            // Combo search
+            const comboSearch = document.getElementById('comboSearch');
+            if (comboSearch) {
+                comboSearch.addEventListener('input', function() {
+                    filterCombos();
+                });
+            }
+        }
+        
+        // Setup filter button handlers
+        function setupFilterHandlers() {
+            // Location filters
+            const locationFilters = document.querySelectorAll('#locationFilters .filter-btn');
+            locationFilters.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    locationFilters.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    locationFilter = this.dataset.filter;
+                    filterLocations();
+                });
+            });
+            
+            // Equipment filters
+            const equipmentFilters = document.querySelectorAll('#equipmentFilters .filter-btn');
+            equipmentFilters.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    equipmentFilters.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    equipmentFilter = this.dataset.filter;
+                    filterEquipment();
+                });
+            });
+        }
+        
+        // Filter locations
+        function filterLocations() {
+            const searchTerm = document.getElementById('locationSearch').value.toLowerCase().trim();
+            const filtered = allLocations.filter(location => {
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    location.TenDiaDiem.toLowerCase().includes(searchTerm) ||
+                    (location.DiaChi && location.DiaChi.toLowerCase().includes(searchTerm)) ||
+                    (location.LoaiDiaDiem && location.LoaiDiaDiem.toLowerCase().includes(searchTerm)) ||
+                    (location.MoTa && location.MoTa.toLowerCase().includes(searchTerm));
+                
+                // Type filter
+                const matchesFilter = locationFilter === 'all' || location.LoaiDiaDiem === locationFilter;
+                
+                return matchesSearch && matchesFilter;
+            });
+            
+            displayLocations(filtered);
+            updateResultsInfo('location', filtered.length, allLocations.length);
+        }
+        
+        // Filter equipment
+        function filterEquipment() {
+            const searchTerm = document.getElementById('equipmentSearch').value.toLowerCase().trim();
+            const filtered = allEquipment.filter(item => {
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    item.TenThietBi.toLowerCase().includes(searchTerm) ||
+                    (item.LoaiThietBi && item.LoaiThietBi.toLowerCase().includes(searchTerm)) ||
+                    (item.HangSX && item.HangSX.toLowerCase().includes(searchTerm)) ||
+                    (item.MoTa && item.MoTa.toLowerCase().includes(searchTerm));
+                
+                // Type filter
+                const matchesFilter = equipmentFilter === 'all' || item.LoaiThietBi === equipmentFilter;
+                
+                return matchesSearch && matchesFilter;
+            });
+            
+            displayEquipment(filtered);
+            updateResultsInfo('equipment', filtered.length, allEquipment.length);
+        }
+        
+        // Filter combos
+        function filterCombos() {
+            const searchTerm = document.getElementById('comboSearch').value.toLowerCase().trim();
+            const filtered = allCombos.filter(combo => {
+                return !searchTerm || 
+                    combo.TenCombo.toLowerCase().includes(searchTerm) ||
+                    (combo.MoTa && combo.MoTa.toLowerCase().includes(searchTerm)) ||
+                    (combo.ThietBiTrongCombo && combo.ThietBiTrongCombo.toLowerCase().includes(searchTerm));
+            });
+            
+            displayCombos(filtered);
+            updateResultsInfo('combo', filtered.length, allCombos.length);
+        }
+        
+        // Update results info
+        function updateResultsInfo(type, filteredCount, totalCount) {
+            const infoElement = document.getElementById(type + 'ResultsInfo');
+            const countElement = document.getElementById(type + 'ResultsCount');
+            
+            if (infoElement && countElement) {
+                if (filteredCount < totalCount) {
+                    countElement.textContent = filteredCount;
+                    infoElement.style.display = 'flex';
+                } else {
+                    infoElement.style.display = 'none';
+                }
+            }
+        }
+        
         // Load locations
         function loadLocations() {
             fetch('src/controllers/services-controller.php?action=get_locations')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        displayLocations(data.locations);
+                        allLocations = data.locations;
+                        displayLocations(allLocations);
                     } else {
                         document.getElementById('locationsContainer').innerHTML = `
                             <div class="col-12 text-center">
@@ -1000,7 +1326,8 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        displayEquipment(data.equipment);
+                        allEquipment = data.equipment;
+                        displayEquipment(allEquipment);
                     } else {
                         document.getElementById('equipmentContainer').innerHTML = `
                             <div class="col-12 text-center">
@@ -1031,7 +1358,8 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        displayCombos(data.combos);
+                        allCombos = data.combos;
+                        displayCombos(allCombos);
                     } else {
                         document.getElementById('combosContainer').innerHTML = `
                             <div class="col-12 text-center">
@@ -1061,14 +1389,28 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             const container = document.getElementById('locationsContainer');
             
             if (!locations || locations.length === 0) {
-                container.innerHTML = `
-                    <div class="col-12 text-center">
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i>
-                            Chưa có địa điểm nào được thêm vào hệ thống
+                const searchTerm = document.getElementById('locationSearch').value.trim();
+                if (searchTerm) {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="empty-state">
+                                <i class="fas fa-search"></i>
+                                <h4>Không tìm thấy kết quả</h4>
+                                <p>Không có địa điểm nào phù hợp với từ khóa "<strong>${searchTerm}</strong>"</p>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="empty-state">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <h4>Chưa có địa điểm</h4>
+                                <p>Chưa có địa điểm nào được thêm vào hệ thống</p>
+                            </div>
+                        </div>
+                    `;
+                }
                 return;
             }
             
@@ -1126,14 +1468,28 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             const container = document.getElementById('equipmentContainer');
             
             if (equipment.length === 0) {
-                container.innerHTML = `
-                    <div class="col-12 text-center">
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i>
-                            Chưa có thiết bị nào được thêm vào hệ thống
+                const searchTerm = document.getElementById('equipmentSearch').value.trim();
+                if (searchTerm) {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="empty-state">
+                                <i class="fas fa-search"></i>
+                                <h4>Không tìm thấy kết quả</h4>
+                                <p>Không có thiết bị nào phù hợp với từ khóa "<strong>${searchTerm}</strong>"</p>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="empty-state">
+                                <i class="fas fa-cogs"></i>
+                                <h4>Chưa có thiết bị</h4>
+                                <p>Chưa có thiết bị nào được thêm vào hệ thống</p>
+                            </div>
+                        </div>
+                    `;
+                }
                 return;
             }
             
@@ -1201,14 +1557,28 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             const container = document.getElementById('combosContainer');
             
             if (combos.length === 0) {
-                container.innerHTML = `
-                    <div class="col-12 text-center">
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i>
-                            Chưa có combo nào được thêm vào hệ thống
+                const searchTerm = document.getElementById('comboSearch').value.trim();
+                if (searchTerm) {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="empty-state">
+                                <i class="fas fa-search"></i>
+                                <h4>Không tìm thấy kết quả</h4>
+                                <p>Không có combo nào phù hợp với từ khóa "<strong>${searchTerm}</strong>"</p>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="empty-state">
+                                <i class="fas fa-box"></i>
+                                <h4>Chưa có combo</h4>
+                                <p>Chưa có combo nào được thêm vào hệ thống</p>
+                            </div>
+                        </div>
+                    `;
+                }
                 return;
             }
             

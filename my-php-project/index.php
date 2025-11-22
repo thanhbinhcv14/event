@@ -423,6 +423,35 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             padding: 0 1rem;
         }
         
+        /* Right side buttons - compact and aligned right */
+        .navbar .d-flex.gap-1 {
+            margin-left: 1rem;
+            margin-right: 0;
+        }
+        
+        /* Reduce padding for navbar buttons */
+        .navbar .btn {
+            padding: 0.4rem 0.8rem !important;
+            font-size: 0.9rem;
+        }
+        
+        .navbar .navbar-event-btn {
+            padding: 8px 18px !important;
+            font-size: 0.9rem;
+        }
+        
+        /* Align buttons to right edge */
+        @media (min-width: 992px) {
+            .navbar .container-fluid {
+                padding-right: 0.5rem;
+            }
+            
+            .navbar .d-flex.gap-1 {
+                margin-left: 1rem;
+                margin-right: 0;
+            }
+        }
+        
         .navbar.scrolled {
             background: rgba(255, 255, 255, 0.98) !important;
             box-shadow: 0 4px 30px rgba(0,0,0,0.15);
@@ -514,6 +543,76 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             50% {
                 transform: translateY(-2px);
             }
+        }
+        
+        /* Discount Cart Icon Styles */
+        .discount-cart-btn {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .discount-cart-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .discount-cart-btn .badge {
+            font-size: 0.7rem;
+            padding: 0.25em 0.5em;
+            animation: pulse-badge 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-badge {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+        
+        /* Navbar discount cart link styles */
+        .nav-link.position-relative {
+            padding-right: 1.5rem !important;
+        }
+        
+        .nav-link .badge {
+            font-size: 0.65rem;
+            padding: 0.2em 0.5em;
+            animation: pulse-badge 2s ease-in-out infinite;
+            margin-left: 5px;
+            min-width: 18px;
+            text-align: center;
+            line-height: 1.2;
+            z-index: 10;
+        }
+        
+        .nav-link:hover .badge {
+            animation-play-state: paused;
+        }
+        
+        /* Ensure badge is visible when displayed */
+        #discountCartBadge[style*="display: block"],
+        #discountCartBadge:not([style*="display: none"]) {
+            display: inline-block !important;
+        }
+        
+        /* Discount Cart Modal Styles */
+        .list-group-item {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .list-group-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .list-group-item .badge {
+            font-size: 0.9rem;
+            padding: 0.5rem 0.75rem;
+            letter-spacing: 0.5px;
         }
         
         .dropdown-menu {
@@ -842,6 +941,140 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             margin: 0 auto 20px;
             color: white;
             font-size: 2rem;
+        }
+        
+        /* Discount Code Card Styles */
+        .discount-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            height: 100%;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .discount-card .text-center {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .discount-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #ffc107, #ff9800, #ff5722);
+        }
+        
+        .discount-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-color: #ffc107;
+        }
+        
+        .discount-code-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+            text-transform: uppercase;
+        }
+        
+        .discount-code-badge.badge-percent {
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        }
+        
+        .discount-code-badge.badge-amount {
+            background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+        }
+        
+        .discount-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #28a745;
+            margin: 1rem 0;
+        }
+        
+        .discount-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            min-height: 40px;
+        }
+        
+        .discount-conditions {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        
+        .discount-conditions i {
+            color: #ffc107;
+            margin-right: 0.5rem;
+        }
+        
+        .btn-save-discount {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border: none;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            margin-top: auto;
+            cursor: pointer;
+        }
+        
+        .btn-save-discount:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+            color: white;
+        }
+        
+        .btn-save-discount.saved {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+        
+        .btn-save-discount.saved:hover {
+            background: linear-gradient(135deg, #5a6268 0%, #3d4146 100%);
+        }
+        
+        .discount-end-date {
+            font-size: 0.85rem;
+            color: #dc3545;
+            margin-top: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .no-discount-codes {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #666;
+        }
+        
+        .no-discount-codes i {
+            font-size: 3rem;
+            color: #ddd;
+            margin-bottom: 1rem;
         }
         
         .banner-section {
@@ -1883,9 +2116,17 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                             <i class="fas fa-comments me-1"></i>Chat hỗ trợ
                         </a>
                     </li>
+                    <!-- ✅ Giỏ mã giảm giá trong menu -->
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="#" onclick="openDiscountCartModal(); return false;" title="Mã giảm giá đã lưu">
+                            <i class="fas fa-ticket-alt me-1"></i>Mã giảm giá
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" 
+                                  id="discountCartBadge" style="display: none; font-size: 0.65rem; padding: 0.2em 0.5em; min-width: 18px; text-align: center; line-height: 1.2;">0</span>
+                        </a>
+                    </li>
                     <?php endif; ?>
                 </ul>
-                <div class="d-flex gap-2 align-items-center">
+                <div class="d-flex gap-1 align-items-center">
                     <?php if ($user): ?>
                         <!-- ✅ Nút Sự kiện nổi bật bên phải -->
                         <div class="dropdown">
@@ -2054,6 +2295,53 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             </div>
         </div>
     </section>
+
+    <!-- Discount Codes Section -->
+    <section id="discount-codes" class="py-5 bg-light">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold">Mã giảm giá đang có</h2>
+                <p class="lead text-muted">Nhấn "Lưu lại" để thêm mã vào giỏ. Xem mã đã lưu bằng icon <i class="fas fa-ticket-alt text-warning"></i> trên thanh menu</p>
+            </div>
+            <div class="row g-4" id="discountCodesContainer">
+                <!-- Discount codes will be loaded here via JavaScript -->
+                <div class="col-12 text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Discount Cart Modal -->
+    <div class="modal fade" id="discountCartModal" tabindex="-1" aria-labelledby="discountCartModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: white;">
+                    <h5 class="modal-title" id="discountCartModalLabel">
+                        <i class="fas fa-ticket-alt"></i> Mã giảm giá đã lưu
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="discountCartContent">
+                        <div class="text-center py-4">
+                            <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Chưa có mã giảm giá nào được lưu</p>
+                            <p class="text-muted small">Lưu mã giảm giá trên trang chủ để sử dụng khi đăng ký sự kiện</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <a href="events/register.php" class="btn btn-primary">
+                        <i class="fas fa-calendar-plus"></i> Đăng ký sự kiện
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Banner Section -->
     <section class="banner-section">
@@ -2231,7 +2519,13 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         const getSocketServerURL = function() {
             const protocol = window.location.protocol;
             if (window.location.hostname.includes('sukien.info.vn')) {
-                return protocol + '//ws.sukien.info.vn';  // VPS WebSocket server
+                // ✅ QUAN TRỌNG: Dùng wss:// (secure WebSocket) cho production
+                // Nếu trang web dùng HTTPS, dùng wss:// cho WebSocket
+                if (protocol === 'https:') {
+                    return 'wss://ws.sukien.info.vn';  // Secure WebSocket
+                } else {
+                    return 'ws://ws.sukien.info.vn';   // Non-secure WebSocket (chỉ cho development)
+                }
             }
             return 'http://localhost:3000';  // Localhost development
         };
@@ -2375,13 +2669,23 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         // Smooth scrolling for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
+                const href = this.getAttribute('href');
+                // Skip if href is just '#' or empty
+                if (!href || href === '#' || href.length <= 1) {
+                    return; // Let default behavior handle it
+                }
+                
                 e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
+                try {
+                    const target = document.querySelector(href);
                 if (target) {
                     target.scrollIntoView({
                         behavior: 'smooth',
                         block: 'start'
                     });
+                    }
+                } catch (error) {
+                    console.warn('Invalid selector for smooth scroll:', href);
                 }
             });
         });
@@ -2404,10 +2708,59 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
     
     
     <script>
+        // Check if user is logged in (from PHP)
+        const isUserLoggedIn = <?php echo isset($user) && $user ? 'true' : 'false'; ?>;
+        
         // Ensure jQuery is loaded before chat widget
         $(document).ready(function() {
             console.log('jQuery loaded successfully');
             loadFeaturedEvents();
+            loadDiscountCodes();
+            
+            // Start auto-refresh for discount codes
+            startDiscountCodesAutoRefresh();
+            
+            // Refresh discount codes when page becomes visible (user switches back to tab)
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    console.log('Page became visible, refreshing discount codes...');
+                    loadDiscountCodes(true);
+                }
+            });
+            
+            // Refresh discount codes when window gains focus
+            $(window).on('focus', function() {
+                console.log('Window gained focus, refreshing discount codes...');
+                loadDiscountCodes(true);
+            });
+            
+            // When user logs in, clear discount codes from previous user
+            // This ensures each user only sees their own saved codes
+            if (isUserLoggedIn) {
+                const currentUserId = <?= json_encode($_SESSION['user']['ID_User'] ?? null) ?>;
+                const lastUserId = localStorage.getItem('lastLoggedInUserId');
+                
+                // If different user logged in, clear saved discount codes
+                if (lastUserId && lastUserId !== String(currentUserId)) {
+                    console.log('Different user logged in, clearing saved discount codes');
+                    localStorage.removeItem('savedDiscountCodes');
+                    updateDiscountCartBadge();
+                }
+                
+                // Store current user ID
+                localStorage.setItem('lastLoggedInUserId', String(currentUserId));
+            } else {
+                // If user is not logged in, clear the stored user ID
+                localStorage.removeItem('lastLoggedInUserId');
+            }
+            
+            // Check and remove expired/used discount codes
+            // This works for both logged in and not logged in users
+            // For logged in users: removes used "first time" codes
+            // For all users: removes expired codes
+            checkAndRemoveUsedDiscountCodes();
+            
+            updateDiscountCartBadge();
             
             // Add Enter key listener for chat input
             document.getElementById('chatInput').addEventListener('keypress', function(e) {
@@ -2415,7 +2768,549 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                     sendChatMessage();
                 }
             });
+            
+            // Auto-load discount cart when modal is shown
+            $('#discountCartModal').on('show.bs.modal', function() {
+                if (!isUserLoggedIn) {
+                    // Close modal and redirect to login
+                    $(this).modal('hide');
+                    if (confirm('Bạn cần đăng nhập để xem mã giảm giá đã lưu. Bạn có muốn đăng nhập ngay không?')) {
+                        window.location.href = 'login.php?redirect=' + encodeURIComponent(window.location.href);
+                    }
+                    return false;
+                }
+                loadDiscountCart();
+            });
+            
+            // Check for pending discount codes after login (from sessionStorage)
+            const pendingCodes = JSON.parse(sessionStorage.getItem('pendingDiscountCodes') || '[]');
+            if (pendingCodes.length > 0 && isUserLoggedIn) {
+                // Transfer pending codes to localStorage
+                let savedCodes = getSavedDiscountCodes();
+                pendingCodes.forEach(code => {
+                    if (!savedCodes.includes(code)) {
+                        savedCodes.push(code);
+                    }
+                });
+                localStorage.setItem('savedDiscountCodes', JSON.stringify(savedCodes));
+                sessionStorage.removeItem('pendingDiscountCodes');
+                updateDiscountCartBadge();
+                showNotification('Đã thêm ' + pendingCodes.length + ' mã giảm giá vào giỏ!', 'success');
+            }
         });
+        
+        // Check and remove expired/used discount codes
+        function checkAndRemoveUsedDiscountCodes() {
+            const savedCodes = getSavedDiscountCodes();
+            if (savedCodes.length === 0) {
+                return;
+            }
+            
+            // Check which codes are still available (not expired, not used, still active)
+            // API get_available_codes already filters expired codes and used "first time" codes
+            $.ajax({
+                url: 'src/controllers/magiamgia-controller.php',
+                method: 'GET',
+                data: {
+                    action: 'get_available_codes'
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response && response.success && response.codes) {
+                        const availableCodes = response.codes.map(c => c.code);
+                        const removedCodes = [];
+                        const updatedSavedCodes = savedCodes.filter(code => {
+                            const isAvailable = availableCodes.includes(code);
+                            if (!isAvailable) {
+                                removedCodes.push(code);
+                            }
+                            return isAvailable;
+                        });
+                        
+                        // If any codes were removed (expired or used), update localStorage
+                        if (updatedSavedCodes.length !== savedCodes.length) {
+                            localStorage.setItem('savedDiscountCodes', JSON.stringify(updatedSavedCodes));
+                            updateDiscountCartBadge();
+                            console.log('Removed expired/used discount codes from localStorage:', removedCodes);
+                            
+                            // Show notification if codes were removed (only if page is visible)
+                            if (removedCodes.length > 0 && document.visibilityState === 'visible') {
+                                const message = removedCodes.length === 1 
+                                    ? `Mã giảm giá "${removedCodes[0]}" đã hết hạn hoặc đã được sử dụng và đã được xóa khỏi giỏ.`
+                                    : `${removedCodes.length} mã giảm giá đã hết hạn hoặc đã được sử dụng và đã được xóa khỏi giỏ.`;
+                                showNotification(message, 'info');
+                            }
+                        }
+                    } else {
+                        // If API returns no codes, check if all saved codes are expired
+                        // Only clear if we have saved codes but API returns none
+                        if (savedCodes.length > 0) {
+                            localStorage.setItem('savedDiscountCodes', JSON.stringify([]));
+                            updateDiscountCartBadge();
+                            console.log('All discount codes expired or inactive, cleared localStorage');
+                            
+                            // Show notification if page is visible
+                            if (document.visibilityState === 'visible') {
+                                showNotification('Tất cả mã giảm giá đã lưu đã hết hạn và đã được xóa khỏi giỏ.', 'info');
+                            }
+                        }
+                    }
+                },
+                error: function() {
+                    console.error('Error checking expired/used discount codes');
+                    // On error, don't clear codes - keep them until next successful check
+                }
+            });
+        }
+        
+        // Load discount codes with cache busting
+        function loadDiscountCodes(forceRefresh = false) {
+            console.log('Loading discount codes...', forceRefresh ? '(forced refresh)' : '');
+            
+            // Add timestamp to prevent caching
+            const timestamp = new Date().getTime();
+            
+            $.ajax({
+                url: 'src/controllers/magiamgia-controller.php',
+                method: 'GET',
+                data: {
+                    action: 'get_available_codes',
+                    _t: timestamp  // Cache busting parameter
+                },
+                cache: false,  // Disable browser cache
+                dataType: 'json',
+                success: function(response) {
+                    console.log('Discount codes API response:', response);
+                    
+                    // Handle string response (if JSON not parsed)
+                    if (typeof response === 'string') {
+                        try {
+                            response = JSON.parse(response);
+                        } catch (e) {
+                            console.error('Error parsing JSON response:', e);
+                            displayNoDiscountCodes();
+                            return;
+                        }
+                    }
+                    
+                    if (response && response.success && response.codes && Array.isArray(response.codes) && response.codes.length > 0) {
+                        console.log('Displaying', response.codes.length, 'discount codes');
+                        displayDiscountCodes(response.codes);
+                    } else {
+                        console.log('No discount codes found or invalid response');
+                        if (response && response.error) {
+                            console.error('API Error:', response.error);
+                            showNotification('Không thể tải mã giảm giá: ' + response.error, 'error');
+                        }
+                        displayNoDiscountCodes();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading discount codes:', error);
+                    console.error('XHR status:', xhr.status);
+                    console.error('XHR response:', xhr.responseText);
+                    console.error('Status:', status);
+                    
+                    // Try to parse response as JSON to see if there's an error message
+                    try {
+                        const errorResponse = JSON.parse(xhr.responseText);
+                        console.error('Error response:', errorResponse);
+                    } catch (e) {
+                        console.error('Could not parse error response as JSON');
+                    }
+                    
+                    displayNoDiscountCodes();
+                }
+            });
+        }
+        
+        // Auto-refresh discount codes periodically (every 5 minutes)
+        let discountCodesRefreshInterval = null;
+        
+        function startDiscountCodesAutoRefresh() {
+            // Clear existing interval if any
+            if (discountCodesRefreshInterval) {
+                clearInterval(discountCodesRefreshInterval);
+            }
+            
+            // Refresh every 5 minutes (300000 ms)
+            discountCodesRefreshInterval = setInterval(function() {
+                console.log('Auto-refreshing discount codes...');
+                loadDiscountCodes(true);
+            }, 300000); // 5 minutes
+        }
+        
+        function stopDiscountCodesAutoRefresh() {
+            if (discountCodesRefreshInterval) {
+                clearInterval(discountCodesRefreshInterval);
+                discountCodesRefreshInterval = null;
+            }
+        }
+        
+        // Display discount codes
+        function displayDiscountCodes(codes) {
+            const container = $('#discountCodesContainer');
+            let html = '';
+            
+            if (!codes || codes.length === 0) {
+                displayNoDiscountCodes();
+                return;
+            }
+            
+            codes.forEach(function(code) {
+                const savedCodes = getSavedDiscountCodes();
+                const isSaved = savedCodes.includes(code.code);
+                
+                const minAmountText = code.min_amount > 0 
+                    ? `Đơn hàng tối thiểu: ${new Intl.NumberFormat('vi-VN').format(code.min_amount)} VNĐ` 
+                    : 'Không có điều kiện tối thiểu';
+                
+                // Format end date properly - use server formatted date if available
+                let endDateFormatted = code.end_date_display || 'Không xác định';
+                if (!endDateFormatted || endDateFormatted === 'Không xác định') {
+                    if (code.end_date) {
+                        try {
+                            // Handle both datetime and date formats
+                            const endDate = new Date(code.end_date);
+                            if (!isNaN(endDate.getTime())) {
+                                endDateFormatted = endDate.toLocaleDateString('vi-VN', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                });
+                            }
+                        } catch (e) {
+                            console.error('Error formatting date:', e);
+                        }
+                    }
+                }
+                
+                // Determine badge color based on code type
+                const badgeClass = code.type === 'Phần trăm' ? 'badge-percent' : 'badge-amount';
+                
+                html += `
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="discount-card">
+                            <div class="text-center">
+                                <div class="discount-code-badge ${badgeClass}">${code.code}</div>
+                                <h5 class="mb-2 mt-3">${code.name || 'Mã giảm giá'}</h5>
+                                <div class="discount-value">${code.display_text || 'Giảm giá'}</div>
+                                <p class="discount-description">${code.description || 'Mã giảm giá đặc biệt'}</p>
+                                <div class="discount-conditions">
+                                    <i class="fas fa-info-circle"></i>
+                                    ${minAmountText}
+                                </div>
+                                <div class="discount-end-date">
+                                    <i class="fas fa-clock"></i> Hết hạn: ${endDateFormatted}
+                                </div>
+                                <button class="btn-save-discount ${isSaved ? 'saved' : ''}" 
+                                        onclick="saveDiscountCode('${code.code}', this)"
+                                        data-code="${code.code}"
+                                        type="button">
+                                    <i class="fas ${isSaved ? 'fa-check' : 'fa-shopping-cart'}"></i>
+                                    ${isSaved ? 'Đã lưu' : 'Thêm vào giỏ'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.html(html);
+        }
+        
+        // Display no discount codes message
+        function displayNoDiscountCodes() {
+            const container = $('#discountCodesContainer');
+            container.html(`
+                <div class="col-12">
+                    <div class="no-discount-codes">
+                        <i class="fas fa-ticket-alt"></i>
+                        <h4>Hiện chưa có mã giảm giá nào</h4>
+                        <p>Vui lòng quay lại sau để xem các mã giảm giá mới!</p>
+                    </div>
+                </div>
+            `);
+        }
+        
+        // Save discount code to localStorage
+        function saveDiscountCode(code, buttonElement) {
+            // Check if user is logged in
+            if (!isUserLoggedIn) {
+                // Show login prompt
+                if (confirm('Bạn cần đăng nhập để lưu mã giảm giá. Bạn có muốn đăng nhập ngay không?')) {
+                    // Save code to sessionStorage temporarily
+                    let pendingCodes = JSON.parse(sessionStorage.getItem('pendingDiscountCodes') || '[]');
+                    if (!pendingCodes.includes(code)) {
+                        pendingCodes.push(code);
+                        sessionStorage.setItem('pendingDiscountCodes', JSON.stringify(pendingCodes));
+                    }
+                    // Redirect to login with return URL
+                    window.location.href = 'login.php?redirect=' + encodeURIComponent(window.location.href) + '&action=save_discount';
+                }
+                return;
+            }
+            
+            let savedCodes = getSavedDiscountCodes();
+            
+            if (savedCodes.includes(code)) {
+                // Remove from saved list
+                savedCodes = savedCodes.filter(c => c !== code);
+                localStorage.setItem('savedDiscountCodes', JSON.stringify(savedCodes));
+                buttonElement.classList.remove('saved');
+                buttonElement.innerHTML = '<i class="fas fa-shopping-cart"></i> Thêm vào giỏ';
+                showNotification('Đã xóa mã giảm giá khỏi giỏ', 'info');
+                updateDiscountCartBadge();
+                // Refresh cart modal if open
+                if ($('#discountCartModal').hasClass('show')) {
+                    loadDiscountCart();
+                }
+            } else {
+                // Add to saved list
+                savedCodes.push(code);
+                localStorage.setItem('savedDiscountCodes', JSON.stringify(savedCodes));
+                buttonElement.classList.add('saved');
+                buttonElement.innerHTML = '<i class="fas fa-check"></i> Đã lưu';
+                showNotification('Đã thêm mã giảm giá vào giỏ!', 'success');
+                updateDiscountCartBadge();
+                // Refresh cart modal if open
+                if ($('#discountCartModal').hasClass('show')) {
+                    loadDiscountCart();
+                }
+            }
+        }
+        
+        // Update discount cart badge
+        function updateDiscountCartBadge() {
+            const savedCodes = getSavedDiscountCodes();
+            const badge = document.getElementById('discountCartBadge');
+            const badge2 = document.getElementById('discountCartBadge2');
+            
+            if (badge) {
+                if (savedCodes.length > 0) {
+                    badge.textContent = savedCodes.length;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+            
+            if (badge2) {
+                if (savedCodes.length > 0) {
+                    badge2.textContent = savedCodes.length;
+                    badge2.style.display = 'block';
+                } else {
+                    badge2.style.display = 'none';
+                }
+            }
+        }
+        
+        // Open discount cart modal
+        function openDiscountCartModal() {
+            console.log('openDiscountCartModal called, isUserLoggedIn:', isUserLoggedIn);
+            
+            // Check if user is logged in
+            if (!isUserLoggedIn) {
+                if (confirm('Bạn cần đăng nhập để xem mã giảm giá đã lưu. Bạn có muốn đăng nhập ngay không?')) {
+                    window.location.href = 'login.php?redirect=' + encodeURIComponent(window.location.href);
+                }
+                return false;
+            }
+            
+            try {
+                const modalElement = document.getElementById('discountCartModal');
+                if (!modalElement) {
+                    console.error('Modal element not found');
+                    alert('Không tìm thấy modal mã giảm giá');
+                    return false;
+                }
+                
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+                loadDiscountCart();
+                return false;
+            } catch (error) {
+                console.error('Error opening discount cart modal:', error);
+                alert('Có lỗi xảy ra khi mở giỏ mã giảm giá');
+                return false;
+            }
+        }
+        
+        // Load discount cart content
+        function loadDiscountCart() {
+            const savedCodes = getSavedDiscountCodes();
+            const container = $('#discountCartContent');
+            
+            if (savedCodes.length === 0) {
+                container.html(`
+                    <div class="text-center py-4">
+                        <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Chưa có mã giảm giá nào được lưu</p>
+                        <p class="text-muted small">Lưu mã giảm giá trên trang chủ để sử dụng khi đăng ký sự kiện</p>
+                    </div>
+                `);
+                return;
+            }
+            
+            // Load full discount code details from API
+            $.ajax({
+                url: 'src/controllers/magiamgia-controller.php',
+                method: 'GET',
+                data: {
+                    action: 'get_available_codes'
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success && response.codes) {
+                        // Filter only saved codes
+                        const savedCodeDetails = response.codes.filter(code => savedCodes.includes(code.code));
+                        
+                        let html = '<div class="list-group">';
+                        
+                        if (savedCodeDetails.length > 0) {
+                            savedCodeDetails.forEach(function(code) {
+                                const minAmountText = code.min_amount > 0 
+                                    ? `Đơn hàng tối thiểu: ${new Intl.NumberFormat('vi-VN').format(code.min_amount)} VNĐ` 
+                                    : 'Không có điều kiện tối thiểu';
+                                
+                                const endDate = new Date(code.end_date);
+                                const endDateFormatted = endDate.toLocaleDateString('vi-VN', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                });
+                                
+                                html += `
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <span class="badge bg-warning text-dark me-2" style="font-size: 0.9rem;">${code.code}</span>
+                                                    <h6 class="mb-0">${code.name}</h6>
+                                                </div>
+                                                <p class="mb-1 text-success fw-bold">${code.display_text}</p>
+                                                <p class="mb-1 text-muted small">${code.description || 'Mã giảm giá đặc biệt'}</p>
+                                                <div class="small text-muted mb-2">
+                                                    <i class="fas fa-info-circle text-warning"></i> ${minAmountText}
+                                                </div>
+                                                <div class="small text-danger">
+                                                    <i class="fas fa-clock"></i> Hết hạn: ${endDateFormatted}
+                                                </div>
+                                            </div>
+                                            <div class="d-flex flex-column gap-2">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="copyDiscountCode('${code.code}')" title="Sao chép mã">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${code.code}')" title="Xóa khỏi giỏ">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            // Some saved codes might not be available anymore
+                            savedCodes.forEach(function(code) {
+                                html += `
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <span class="badge bg-warning text-dark me-2">${code}</span>
+                                                <span class="text-muted small">Mã này có thể đã hết hạn hoặc không còn hoạt động</span>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${code}')" title="Xóa khỏi giỏ">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        }
+                        
+                        html += '</div>';
+                        container.html(html);
+                    } else {
+                        container.html(`
+                            <div class="text-center py-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                                <p class="text-muted">Không thể tải thông tin mã giảm giá</p>
+                            </div>
+                        `);
+                    }
+                },
+                error: function() {
+                    container.html(`
+                        <div class="text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <p class="text-muted">Lỗi khi tải thông tin mã giảm giá</p>
+                        </div>
+                    `);
+                }
+            });
+        }
+        
+        // Copy discount code to clipboard
+        function copyDiscountCode(code) {
+            navigator.clipboard.writeText(code).then(function() {
+                showNotification('Đã sao chép mã: ' + code, 'success');
+            }, function() {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = code;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showNotification('Đã sao chép mã: ' + code, 'success');
+            });
+        }
+        
+        // Remove code from cart
+        function removeFromCart(code) {
+            let savedCodes = getSavedDiscountCodes();
+            savedCodes = savedCodes.filter(c => c !== code);
+            localStorage.setItem('savedDiscountCodes', JSON.stringify(savedCodes));
+            updateDiscountCartBadge();
+            loadDiscountCart();
+            
+            // Update button on homepage if visible
+            const button = document.querySelector(`button[data-code="${code}"]`);
+            if (button) {
+                button.classList.remove('saved');
+                button.innerHTML = '<i class="fas fa-bookmark"></i> Lưu lại';
+            }
+            
+            showNotification('Đã xóa mã khỏi giỏ', 'info');
+        }
+        
+        // Get saved discount codes from localStorage
+        function getSavedDiscountCodes() {
+            try {
+                const saved = localStorage.getItem('savedDiscountCodes');
+                return saved ? JSON.parse(saved) : [];
+            } catch (e) {
+                console.error('Error reading saved discount codes:', e);
+                return [];
+            }
+        }
+        
+        // Show notification
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+            notification.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000; min-width: 300px;';
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'}"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
         
         // Load featured events
         function loadFeaturedEvents() {

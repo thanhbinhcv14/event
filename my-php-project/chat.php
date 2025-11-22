@@ -1451,8 +1451,72 @@ if (!in_array($userRole, [1, 3, 5])) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- LiveKit Client SDK -->
-    <script src="https://unpkg.com/livekit-client@latest/dist/livekit-client.umd.js"></script>
+    <!-- Stringee SDK - Load từ LOCAL trước, sau đó fallback về CDN -->
+    <script>
+    (function() {
+        // ✅ Đường dẫn local SDK (ưu tiên cao nhất)
+        const localSDKPath = '<?php echo BASE_PATH; ?>/assets/Stringee/StringeeWebSDK_2.9.0/latest.sdk.bundle.min.js';
+        
+        // ✅ Danh sách URL để thử (theo thứ tự ưu tiên: Local → CDN)
+        const stringeeUrls = [
+            localSDKPath,                                                      // ✅ LOCAL SDK (ưu tiên nhất)
+            'https://cdn.stringee.com/sdk/web/latest/stringee-web-sdk.min.js', // ✅ CDN URL chính xác (từ Stringee)
+            'https://cdn.stringee.com/sdk/web/stringee-web-sdk.min.js',        // CDN URL không có /latest/
+            'https://cdn.stringee.com/sdk/web/latest/stringee.js',              // CDN URL cũ
+            'https://cdn.stringee.com/sdk/web/stringee.js'                     // CDN URL cũ không có /latest/
+        ];
+        
+        // ✅ Hàm load SDK với URL cụ thể
+        function loadStringeeSDK(urlIndex) {
+            if (urlIndex >= stringeeUrls.length) {
+                console.error('❌ Tất cả URL Stringee SDK đều fail (bao gồm cả local)');
+                alert('Không thể tải Stringee SDK. Vui lòng:\n' +
+                      '1. Kiểm tra file SDK local có tồn tại không\n' +
+                      '2. Kiểm tra kết nối mạng\n' +
+                      '3. Liên hệ admin để được hỗ trợ');
+                return;
+            }
+            
+            const url = stringeeUrls[urlIndex];
+            const isLocal = urlIndex === 0; // URL đầu tiên là local
+            console.log(`🔄 ${isLocal ? '📁 LOCAL' : '🌐 CDN'}: Attempting to load Stringee SDK from: ${url} (attempt ${urlIndex + 1}/${stringeeUrls.length})`);
+            
+            const script = document.createElement('script');
+            script.src = url;
+            script.async = true;
+            script.defer = false;
+            
+            script.onload = function() {
+                // Đợi một chút để SDK khởi tạo xong
+                setTimeout(() => {
+                    if (typeof StringeeClient !== 'undefined') {
+                        window.stringeeSDKLoaded = true;
+                        console.log(`✅ Stringee SDK loaded successfully from: ${isLocal ? '📁 LOCAL' : '🌐 CDN'} ${url}`);
+                        console.log('✅ StringeeClient is now available:', typeof StringeeClient);
+                    } else {
+                        console.error(`❌ SDK loaded from ${url} but StringeeClient is undefined`);
+                        // Thử URL tiếp theo
+                        loadStringeeSDK(urlIndex + 1);
+                    }
+                }, 500); // Đợi 500ms để SDK khởi tạo
+            };
+            
+            script.onerror = function() {
+                console.error(`❌ Failed to load Stringee SDK from: ${url}`);
+                // Thử URL tiếp theo
+                loadStringeeSDK(urlIndex + 1);
+            };
+            
+            // Thêm vào head
+            document.head.appendChild(script);
+        }
+        
+        // ✅ Bắt đầu load từ LOCAL SDK (ưu tiên nhất)
+        loadStringeeSDK(0);
+    })();
+    </script>
+    <!-- Stringee Helper Functions -->
+    <script src="<?php echo BASE_PATH; ?>/assets/js/stringee-helper.js"></script>
     <!-- Socket.IO - Sử dụng CDN cho production, local server cho development -->
     <script>
     // ✅ Global flag để biết Socket.IO đã load chưa
@@ -1598,11 +1662,8 @@ if (!in_array($userRole, [1, 3, 5])) {
         let isConnected = false;
         let typingTimeout;
         
-        // Biến cho Media và Call (LiveKit)
+        // Biến cho Media và Call (Stringee)
         let currentCall = null;
-        let room = null; // LiveKit Room object
-        let localVideoTrack = null;
-        let localAudioTrack = null;
         let isMuted = false;
         let isCameraOff = false;
         
@@ -1656,6 +1717,22 @@ if (!in_array($userRole, [1, 3, 5])) {
             setupQuickReplies(); // Thiết lập nút trả lời nhanh
             setupConversationSearch(); // Thiết lập chức năng tìm kiếm
             startAutoRefresh();
+            
+            // ✅ Setup Stringee event handlers khi page load
+            const checkStringeeHelper = setInterval(function() {
+                if (window.StringeeHelper) {
+                    clearInterval(checkStringeeHelper);
+                    setupStringeeEventHandlers();
+                    console.log('✅ Stringee event handlers setup completed');
+                }
+            }, 100);
+            
+            setTimeout(function() {
+                clearInterval(checkStringeeHelper);
+                if (!window.StringeeHelper) {
+                    console.warn('⚠️ StringeeHelper chưa được load sau 5 giây');
+                }
+            }, 5000);
             
             // QUAN TRỌNG: Thêm interval để kiểm tra và reconnect nếu cần
             // Kiểm tra mỗi 10 giây xem socket có đang connected không
@@ -1801,12 +1878,18 @@ if (!in_array($userRole, [1, 3, 5])) {
         // Phát hiện môi trường và thiết lập URL server Socket.IO
         // ✅ FIX: Dùng base URL với mount point, path là relative
         const getSocketServerURL = function() {
-            const protocol = window.location.protocol;
-            
             // Hybrid: WebSocket chạy trên VPS riêng (ws.sukien.info.vn)
             // PHP chạy trên shared hosting (sukien.info.vn)
             if (window.location.hostname.includes('sukien.info.vn')) {
-                return protocol + '//ws.sukien.info.vn';  // VPS WebSocket server
+                // ✅ QUAN TRỌNG: Dùng wss:// (secure WebSocket) cho production
+                // Nếu server Socket.IO hỗ trợ HTTPS, dùng wss://, nếu không dùng ws://
+                const protocol = window.location.protocol;
+                // Nếu trang web dùng HTTPS, dùng wss:// cho WebSocket
+                if (protocol === 'https:') {
+                    return 'wss://ws.sukien.info.vn';  // Secure WebSocket
+                } else {
+                    return 'ws://ws.sukien.info.vn';   // Non-secure WebSocket (chỉ cho development)
+                }
             }
             
             // Localhost development
@@ -3254,8 +3337,8 @@ if (!in_array($userRole, [1, 3, 5])) {
                 // Video
                 'video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska',
                 // Tài liệu
-                'application/pdf', 'application/msword', 
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                 'application/pdf', 'application/msword', 
+                                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                 'text/plain', 'application/zip', 'application/x-rar-compressed'
             ];
             
@@ -3307,7 +3390,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     $('#progress_' + progressId).remove();
                     // Chỉ enable attach button nếu không còn progress nào
                     if ($('.upload-progress').length === 0) {
-                        $('#attachButton').prop('disabled', false);
+                    $('#attachButton').prop('disabled', false);
                     }
                     // Không reset file input ở đây vì có thể còn files khác đang upload
                     
@@ -3356,7 +3439,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     $('#progress_' + progressId).remove();
                     // Chỉ enable attach button nếu không còn progress nào
                     if ($('.upload-progress').length === 0) {
-                        $('#attachButton').prop('disabled', false);
+                    $('#attachButton').prop('disabled', false);
                     }
                     // Không reset file input ở đây vì có thể còn files khác đang upload
                     
@@ -3452,10 +3535,10 @@ if (!in_array($userRole, [1, 3, 5])) {
                 
                 // Localhost development - thử phát hiện my-php-project (chỉ cho localhost)
                 if (hostname === 'localhost' || hostname === '127.0.0.1') {
-                    if (path.includes('/my-php-project/')) {
-                        return path.substring(0, path.indexOf('/my-php-project/') + '/my-php-project/'.length);
-                    } else if (path.includes('/event/')) {
-                        return path.substring(0, path.indexOf('/event/') + '/event/'.length) + 'my-php-project/';
+                if (path.includes('/my-php-project/')) {
+                    return path.substring(0, path.indexOf('/my-php-project/') + '/my-php-project/'.length);
+                } else if (path.includes('/event/')) {
+                    return path.substring(0, path.indexOf('/event/') + '/event/'.length) + 'my-php-project/';
                     }
                 }
                 
@@ -3703,10 +3786,10 @@ if (!in_array($userRole, [1, 3, 5])) {
                 
                 // Localhost (chỉ cho localhost)
                 if (hostname === 'localhost' || hostname === '127.0.0.1') {
-                    if (path.includes('/my-php-project/')) {
-                        return path.substring(0, path.indexOf('/my-php-project/') + '/my-php-project/'.length);
-                    } else if (path.includes('/event/')) {
-                        return path.substring(0, path.indexOf('/event/') + '/event/'.length) + 'my-php-project/';
+                if (path.includes('/my-php-project/')) {
+                    return path.substring(0, path.indexOf('/my-php-project/') + '/my-php-project/'.length);
+                } else if (path.includes('/event/')) {
+                    return path.substring(0, path.indexOf('/event/') + '/event/'.length) + 'my-php-project/';
                     }
                 }
                 
@@ -3815,26 +3898,35 @@ if (!in_array($userRole, [1, 3, 5])) {
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
         
-        // ==================== CÁC HÀM CALL ====================
+        // ==================== CÁC HÀM CALL (Stringee SDK) ====================
         
-        // Khởi tạo cuộc gọi với LiveKit
-        function initiateCall(callType) {
+        /**
+         * Khởi tạo cuộc gọi (Voice hoặc Video) với Stringee
+         */
+        async function initiateCall(callType) {
             if (!currentConversationId) {
                 alert('Vui lòng chọn cuộc trò chuyện trước khi gọi');
                 return;
             }
             
-            // Kiểm tra LiveKit SDK đã load chưa
-            if (typeof LiveKit === 'undefined') {
-                alert('LiveKit SDK chưa được tải. Vui lòng tải lại trang.');
+            if (!window.StringeeHelper) {
+                alert('Stringee SDK chưa được load. Vui lòng refresh trang.');
                 return;
             }
             
-            $.post(getApiPath('src/controllers/call-controller.php?action=initiate_call'), {
+            try {
+                // Tạo call session trên server
+                const response = await $.post(getApiPath('src/controllers/call-controller.php?action=initiate_call'), {
                 conversation_id: currentConversationId,
                 call_type: callType
-            }, function(response) {
-                if (response.success) {
+                });
+                
+                if (!response.success) {
+                    alert('Lỗi khởi tạo cuộc gọi: ' + (response.error || 'Unknown error'));
+                    return;
+                }
+                
+                // Lưu thông tin call
                     currentCall = {
                         id: response.call_id,
                         type: response.call_type,
@@ -3843,272 +3935,139 @@ if (!in_array($userRole, [1, 3, 5])) {
                         status: response.status
                     };
                     
+                // Hiển thị modal
                     showCallModal('outgoing', response.receiver_name, callType);
                     
-                    // Lấy LiveKit token và join room
-                    getLiveKitTokenAndJoin(response.call_id, callType);
+                // Lấy token và join call với Stringee
+                await window.StringeeHelper.getTokenAndJoin(response.call_id, callType, true);
                     
                     // Phát sự kiện call qua socket
                     if (isConnected && socket && typeof socket.emit === 'function') {
-                        const callData = {
+                    socket.emit('call_initiated', {
                             call_id: response.call_id,
                             caller_id: currentUserId,
                             receiver_id: response.receiver_id,
                             call_type: callType,
                             conversation_id: currentConversationId
-                        };
-                        console.log('📞 Emitting call_initiated event:', callData);
-                        socket.emit('call_initiated', callData);
-                    } else {
-                        console.warn('⚠️ Socket not connected, cannot emit call event');
-                    }
-                } else {
-                    alert('Lỗi khởi tạo cuộc gọi: ' + response.error);
+                    });
                 }
-            }, 'json').fail(function(xhr, status, error) {
-                console.error('Call initiation error:', error);
-                console.error('Response:', xhr.responseText);
-                alert('Lỗi kết nối khi khởi tạo cuộc gọi: ' + error);
-            });
-        }
-        
-        // Lấy LiveKit token và join room
-        function getLiveKitTokenAndJoin(callId, callType) {
-            $.post(getApiPath('src/controllers/livekit-controller.php?action=get_token'), {
-                call_id: callId,
-                conversation_id: currentConversationId
-            }, function(response) {
-                if (response.success) {
-                    console.log('✅ LiveKit token received');
-                    joinLiveKitRoom(response.token, response.room_name, response.ws_url, callType, true);
-                } else {
-                    console.error('❌ Failed to get LiveKit token:', response.error);
-                    alert('Lỗi lấy token LiveKit: ' + response.error);
-                }
-            }, 'json').fail(function(xhr, status, error) {
-                console.error('❌ Error getting LiveKit token:', error);
-                alert('Lỗi kết nối khi lấy token LiveKit: ' + error);
-            });
-        }
-        
-        // Join LiveKit room
-        async function joinLiveKitRoom(token, roomName, wsUrl, callType, isCaller) {
-            try {
-                console.log('📞 Joining LiveKit room:', roomName);
-                
-                // Tạo room options
-                const roomOptions = {
-                    // Adaptive stream cho chất lượng tốt hơn
-                    adaptiveStream: true,
-                    // Dynacast để tự động điều chỉnh chất lượng
-                    dynacast: true,
-                    // Publish defaults
-                    publishDefaults: {
-                        videoCodec: 'vp8',
-                        audioPreset: {
-                            maxBitrate: 16000
-                        }
-                    }
-                };
-                
-                // Tạo room instance
-                room = new LiveKit.Room(roomOptions);
-                
-                // Event listeners cho LiveKit Room
-                room.on('participantConnected', (participant) => {
-                    console.log('✅ Participant connected:', participant.identity);
-                    // Setup tracks cho participant mới kết nối
-                    setupRemoteTracks(participant, callType);
-                });
-                
-                room.on('participantDisconnected', (participant) => {
-                    console.log('⚠️ Participant disconnected:', participant.identity);
-                    cleanupRemoteTracks();
-                });
-                
-                room.on('trackSubscribed', (track, publication, participant) => {
-                    console.log('✅ Track subscribed:', track.kind, 'from', participant.identity);
-                    handleRemoteTrack(track, publication, participant, callType);
-                });
-                
-                room.on('trackUnsubscribed', (track, publication, participant) => {
-                    console.log('⚠️ Track unsubscribed:', track.kind);
-                    handleTrackUnsubscribed(track, publication, participant);
-                });
-                
-                room.on('disconnected', () => {
-                    console.log('⚠️ Disconnected from room');
-                    cleanupLiveKit();
-                });
-                
-                room.on('localTrackPublished', (publication, participant) => {
-                    console.log('✅ Local track published:', publication.track ? publication.track.kind : 'unknown');
-                });
-                
-                room.on('localTrackUnpublished', (publication, participant) => {
-                    console.log('⚠️ Local track unpublished:', publication.track ? publication.track.kind : 'unknown');
-                });
-                
-                // Xử lý khi có participant mới join và đã publish tracks
-                room.on('trackPublished', (publication, participant) => {
-                    console.log('📞 Track published:', publication.trackSid, 'by', participant.identity);
-                    if (publication.track) {
-                        handleRemoteTrack(publication.track, publication, participant, callType);
-                    }
-                });
-                
-                // Connect to room
-                await room.connect(wsUrl, token);
-                console.log('✅ Connected to LiveKit room:', roomName);
-                
-                // Enable camera/microphone based on call type
-                if (callType === 'video') {
-                    // Video call: enable both camera and microphone
-                    await enableCameraAndMicrophone();
-                } else {
-                    // Voice call: only microphone
-                    await enableMicrophone();
-                }
-                
             } catch (error) {
-                console.error('❌ Error joining LiveKit room:', error);
-                alert('Lỗi kết nối LiveKit: ' + error.message);
-                cleanupLiveKit();
+                console.error('❌ Error initiating call:', error);
+                alert('Lỗi khởi tạo cuộc gọi: ' + error.message);
+                $('#callModal').removeClass('show').css('display', 'none');
+                currentCall = null;
             }
         }
         
-        // Enable camera and microphone với LiveKit
-        async function enableCameraAndMicrophone() {
-            try {
-                // Sử dụng LiveKit để tạo tracks trực tiếp
-                localVideoTrack = await LiveKit.createLocalVideoTrack({
-                    resolution: LiveKit.VideoPresets.h720,
-                    facingMode: 'user'
-                });
-                
-                localAudioTrack = await LiveKit.createLocalAudioTrack({
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                });
-                
-                // Publish tracks
-                await room.localParticipant.publishVideoTrack(localVideoTrack);
-                await room.localParticipant.publishAudioTrack(localAudioTrack);
-                
-                // Display local video
-                const localVideo = document.getElementById('localVideo');
-                if (localVideo && localVideoTrack) {
-                    localVideoTrack.attach(localVideo);
-                }
-                
-                console.log('✅ Camera and microphone enabled');
-            } catch (error) {
-                console.error('❌ Error enabling camera/microphone:', error);
-                alert('Lỗi truy cập camera/microphone: ' + error.message);
-            }
-        }
-        
-        // Enable microphone only với LiveKit
-        async function enableMicrophone() {
-            try {
-                // Sử dụng LiveKit để tạo audio track trực tiếp
-                localAudioTrack = await LiveKit.createLocalAudioTrack({
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                });
-                
-                // Publish track
-                await room.localParticipant.publishAudioTrack(localAudioTrack);
-                
-                console.log('✅ Microphone enabled');
-            } catch (error) {
-                console.error('❌ Error enabling microphone:', error);
-                alert('Lỗi truy cập microphone: ' + error.message);
-            }
-        }
-        
-        // Setup remote tracks from participant với LiveKit
-        function setupRemoteTracks(participant, callType) {
-            // LiveKit: tracks được quản lý qua participant.trackPublications
-            participant.trackPublications.forEach((publication) => {
-                if (publication.track) {
-                    handleRemoteTrack(publication.track, publication, participant, callType);
-                }
-            });
-        }
-        
-        // Handle remote track với LiveKit
-        function handleRemoteTrack(track, publication, participant, callType) {
-            if (!track) {
-                console.warn('⚠️ Track is null or undefined');
+        // ✅ Setup Stringee event handlers
+        function setupStringeeEventHandlers() {
+            if (!window.StringeeHelper) {
+                console.warn('⚠️ StringeeHelper chưa được load, không thể setup event handlers');
                 return;
             }
             
-            if (track.kind === 'video') {
-                // Video track
+            // Setup incoming call handler
+            window.onStringeeIncomingCall = function(incomingCall) {
+                console.log('📞 Incoming call received via Stringee:', incomingCall);
+            };
+            
+            // Setup local stream handler
+            window.onStringeeLocalStreamAdded = function(stream) {
+                console.log('✅ Local stream added:', stream);
+                
+                const localVideo = document.getElementById('localVideo');
+                if (localVideo && stream.getVideoTracks().length > 0) {
+                    localVideo.srcObject = stream;
+                    localVideo.play().catch(err => {
+                        console.error('❌ Error playing local video:', err);
+                    });
+                }
+            };
+            
+            // Setup remote stream handler
+            window.onStringeeRemoteStreamAdded = function(stream) {
+                console.log('✅ Remote stream added:', stream);
+                
                 const remoteVideo = document.getElementById('remoteVideo');
-                if (remoteVideo) {
-                    track.attach(remoteVideo);
+                if (remoteVideo && stream.getVideoTracks().length > 0) {
+                    remoteVideo.srcObject = stream;
                     remoteVideo.play().catch(err => {
                         console.error('❌ Error playing remote video:', err);
                     });
-                }
-            } else if (track.kind === 'audio') {
-                // Audio track
-                const remoteAudio = document.getElementById('remoteAudio');
-                if (remoteAudio) {
-                    track.attach(remoteAudio);
-                    remoteAudio.play().catch(err => {
-                        console.error('❌ Error playing remote audio:', err);
-                        // Retry after user interaction
-                        document.addEventListener('click', () => {
-                            remoteAudio.play().catch(e => console.error('Still error:', e));
-                        }, { once: true });
+                    
+                    $('#videoCallContainer').addClass('show').css({
+                        'display': 'block',
+                        'visibility': 'visible',
+                        'opacity': '1',
+                        'z-index': '10000'
                     });
                 }
-            }
+                
+                const remoteAudio = document.getElementById('remoteAudio');
+                if (remoteAudio && stream.getAudioTracks().length > 0) {
+                    remoteAudio.srcObject = stream;
+                    remoteAudio.play().catch(err => {
+                        console.error('❌ Error playing remote audio:', err);
+                    });
+                }
+            };
+            
+            // Setup call answered handler
+            window.onCallAnswered = function() {
+                console.log('✅ Call answered');
+                
+                if (currentCall && currentCall.type === 'video') {
+                    $('#callModal').removeClass('show').css('display', 'none');
+                    $('#videoCallContainer').addClass('show').css({
+                        'display': 'block',
+                        'visibility': 'visible',
+                        'opacity': '1',
+                        'z-index': '10000'
+                    });
+                    } else {
+                    showVoiceCallUI();
+                }
+            };
+            
+            // Setup call ended handler
+            window.onCallEnded = function() {
+                console.log('📞 Call ended');
+                cleanupCall();
+            };
+            
+            // Setup call rejected handler
+            window.onCallRejected = function() {
+                console.log('❌ Call rejected');
+                cleanupCall();
+            };
+            
+            // Setup call busy handler
+            window.onCallBusy = function() {
+                console.log('📞 Call busy');
+                cleanupCall();
+            };
+            
+            // Setup call error handler
+            window.onCallError = function(error) {
+                console.error('❌ Call error:', error);
+                alert('Lỗi cuộc gọi: ' + (error.message || error));
+                cleanupCall();
+            };
         }
         
-        // Handle track unsubscribed
-        function handleTrackUnsubscribed(track, publication, participant) {
-            track.detach();
-        }
-        
-        // Cleanup remote tracks
-        function cleanupRemoteTracks() {
-            const remoteVideo = document.getElementById('remoteVideo');
-            const remoteAudio = document.getElementById('remoteAudio');
+        // Cleanup call
+        function cleanupCall() {
+            $('#callModal').removeClass('show').css('display', 'none');
+            $('#videoCallContainer').removeClass('show').css({
+                'display': 'none',
+                'visibility': 'hidden',
+                'opacity': '0'
+            });
+            currentCall = null;
             
-            if (remoteVideo) {
-                remoteVideo.srcObject = null;
+            if (window.StringeeHelper) {
+                window.StringeeHelper.cleanup();
             }
-            if (remoteAudio) {
-                remoteAudio.srcObject = null;
-            }
-        }
-        
-        // Cleanup LiveKit
-        function cleanupLiveKit() {
-            if (localVideoTrack) {
-                localVideoTrack.stop();
-                localVideoTrack.detach();
-                localVideoTrack = null;
-            }
-            
-            if (localAudioTrack) {
-                localAudioTrack.stop();
-                localAudioTrack.detach();
-                localAudioTrack = null;
-            }
-            
-            if (room) {
-                room.disconnect();
-                room = null;
-            }
-            
-            cleanupRemoteTracks();
         }
         
         // Hiển thị modal cuộc gọi
@@ -4203,54 +4162,33 @@ if (!in_array($userRole, [1, 3, 5])) {
             }, 100);
         }
         
-        // Chấp nhận cuộc gọi với LiveKit
-        function acceptCall() {
+        /**
+         * Chấp nhận cuộc gọi với Stringee SDK
+         */
+        async function acceptCall() {
             if (!currentCall) {
                 console.error('No current call to accept');
                 return;
             }
             
-            // Kiểm tra LiveKit SDK đã load chưa
-            if (typeof LiveKit === 'undefined') {
-                alert('LiveKit SDK chưa được tải. Vui lòng tải lại trang.');
+            if (!window.StringeeHelper) {
+                alert('Stringee SDK chưa được load. Vui lòng refresh trang.');
                 return;
             }
             
-            $.post(getApiPath('src/controllers/call-controller.php?action=accept_call'), {
+            try {
+                // Accept call trên server
+                const response = await $.post(getApiPath('src/controllers/call-controller.php?action=accept_call'), {
                 call_id: currentCall.id
-            }, function(response) {
-                if (response.success) {
-                    // Lấy LiveKit token và join room
-                    $.post(getApiPath('src/controllers/livekit-controller.php?action=get_token'), {
-                        call_id: currentCall.id,
-                        conversation_id: currentConversationId
-                    }, function(tokenResponse) {
-                        if (tokenResponse.success) {
-                            console.log('✅ LiveKit token received for accept');
-                            
-                            if (currentCall.type === 'video') {
-                                // Video call: ẩn modal và hiển thị video container
-                                $('#callModal').removeClass('show').css('display', 'none');
-                                $('#videoCallContainer').addClass('show').css({
-                                    'display': 'block',
-                                    'visibility': 'visible',
-                                    'opacity': '1',
-                                    'z-index': '10000'
-                                });
-                            } else {
-                                // Voice call: hiển thị UI cuộc gọi đang hoạt động
-                                showVoiceCallUI();
-                            }
-                            
-                            // Join LiveKit room
-                            joinLiveKitRoom(tokenResponse.token, tokenResponse.room_name, tokenResponse.ws_url, currentCall.type, false);
-                        } else {
-                            alert('Lỗi lấy token LiveKit: ' + tokenResponse.error);
-                        }
-                    }, 'json').fail(function(xhr, status, error) {
-                        console.error('❌ Error getting LiveKit token:', error);
-                        alert('Lỗi kết nối khi lấy token LiveKit: ' + error);
-                    });
+                });
+                
+                if (!response.success) {
+                    alert('Lỗi chấp nhận cuộc gọi: ' + (response.error || 'Unknown error'));
+                    return;
+                }
+                
+                // Lấy token và join call với Stringee
+                await window.StringeeHelper.getTokenAndJoin(currentCall.id, currentCall.type, false);
                     
                     // Phát sự kiện accept
                     if (isConnected && socket && typeof socket.emit === 'function') {
@@ -4260,39 +4198,34 @@ if (!in_array($userRole, [1, 3, 5])) {
                             receiver_id: currentUserId
                         });
                     }
-                } else {
-                    alert('Lỗi chấp nhận cuộc gọi: ' + response.error);
+            } catch (error) {
+                console.error('❌ Error accepting call:', error);
+                alert('Lỗi: ' + error.message);
                 }
-            }, 'json').fail(function(xhr, status, error) {
-                console.error('Accept call error:', error);
-                alert('Lỗi khi chấp nhận cuộc gọi: ' + error);
-            });
         }
         
-        // Từ chối cuộc gọi
+        /**
+         * Từ chối cuộc gọi
+         */
         function rejectCall() {
             if (!currentCall) {
-                console.error('No current call to reject');
-                // Ẩn modal - Đồng nhất với admin/chat.php
-                const modalElement = document.getElementById('callModal');
-                if (modalElement) {
-                    $(modalElement).removeClass('show').css('display', 'none');
-                }
+                cleanupCall();
                 return;
             }
             
             const callId = currentCall.id;
             const callerId = currentCall.caller_id || currentCall.receiver_id;
             
+            // Cleanup Stringee call
+            if (window.StringeeHelper) {
+                window.StringeeHelper.cleanup();
+            }
+            
+            // Gọi backend để reject
             $.post(getApiPath('src/controllers/call-controller.php?action=reject_call'), {
                 call_id: callId
             }, function(response) {
-                // Ẩn modal - Đồng nhất với admin/chat.php
-                const modalElement = document.getElementById('callModal');
-                if (modalElement) {
-                    $(modalElement).removeClass('show').css('display', 'none');
-                }
-                currentCall = null;
+                cleanupCall();
                 
                 // Phát sự kiện reject
                 if (isConnected && socket && typeof socket.emit === 'function') {
@@ -4304,93 +4237,51 @@ if (!in_array($userRole, [1, 3, 5])) {
                 }
             }, 'json').fail(function(xhr, status, error) {
                 console.error('Reject call error:', error);
-                // Ẩn modal - Đồng nhất với admin/chat.php
-                const modalElement = document.getElementById('callModal');
-                if (modalElement) {
-                    $(modalElement).removeClass('show').css('display', 'none');
-                }
-                currentCall = null;
+                cleanupCall();
             });
         }
         
-        // Kết thúc cuộc gọi với LiveKit
+        /**
+         * Kết thúc cuộc gọi với Stringee SDK
+         */
         function endCall() {
-            console.log('📞 End call function called');
-            console.log('📞 Current call:', currentCall);
-            console.log('📞 LiveKit room:', room);
-            
-            // QUAN TRỌNG: Ẩn modal ngay lập tức để người dùng thấy phản hồi
-            $('#callModal').removeClass('show').css('display', 'none');
-            $('#videoCallContainer').removeClass('show').css({
-                'display': 'none',
-                'visibility': 'hidden',
-                'opacity': '0'
-            });
-            
-            // Cleanup LiveKit
-            cleanupLiveKit();
-            
-            // Lấy callId trước khi clear currentCall
             const callId = currentCall ? currentCall.id : null;
             
-            // Xóa currentCall ngay lập tức để tránh gọi lại
-            currentCall = null;
-            
-            // Nếu không có callId, chỉ cleanup và return
-            if (!callId) {
-                console.log('⚠️ No callId, cleanup done');
-                return;
+            // Cleanup Stringee call ngay lập tức
+            if (window.StringeeHelper) {
+                window.StringeeHelper.endCall();
+                window.StringeeHelper.cleanup();
             }
             
-            console.log('📞 Ending call with ID:', callId);
+            // Cleanup UI
+            cleanupCall();
             
-            // Gọi backend để kết thúc cuộc gọi (async, không chặn UI)
+            // Gọi backend để kết thúc cuộc gọi (async)
+            if (callId) {
             $.post(getApiPath('src/controllers/call-controller.php?action=end_call'), {
                 call_id: callId
             }, function(response) {
-                console.log('📞 End call response:', response);
-                
                 // Phát sự kiện end qua socket
                 if (isConnected && socket && typeof socket.emit === 'function') {
                     socket.emit('call_ended', {
                         call_id: callId,
                         caller_id: currentUserId
                     });
-                    console.log('✅ Call ended event emitted');
-                }
-                
-                console.log('✅ Call ended successfully');
-            }, 'json').fail(function(xhr, status, error) {
-                console.error('❌ End call backend error:', error);
-                console.error('Response:', xhr.responseText);
-                
+                    }
+                }, 'json').fail(function() {
                 // Vẫn phát sự kiện end ngay cả khi backend fail
                 if (isConnected && socket && typeof socket.emit === 'function') {
                     socket.emit('call_ended', {
                         call_id: callId,
                         caller_id: currentUserId
                     });
-                    console.log('✅ Call ended event emitted (despite backend error)');
                 }
-                
-                console.log('✅ Cleanup done despite backend error');
             });
+            }
         }
         
         // Làm endCall có thể truy cập toàn cục
         window.endCall = endCall;
-        
-        // Bắt đầu cuộc gọi video (đã được xử lý trong joinLiveKitRoom)
-        function startVideoCall() {
-            // Function này giữ lại để tương thích, nhưng logic đã được chuyển sang joinLiveKitRoom
-            console.log('📹 startVideoCall called - logic handled in joinLiveKitRoom');
-        }
-        
-        // Bắt đầu cuộc gọi thoại (đã được xử lý trong joinLiveKitRoom)
-        function startVoiceCall() {
-            // Function này giữ lại để tương thích, nhưng logic đã được chuyển sang joinLiveKitRoom
-            console.log('📞 startVoiceCall called - logic handled in joinLiveKitRoom');
-        }
         
         // Hiển thị UI cuộc gọi thoại
         function showVoiceCallUI() {
@@ -4491,49 +4382,29 @@ if (!in_array($userRole, [1, 3, 5])) {
             }, 100);
         }
         
-        // Khởi tạo WebRTC peer connection (DEPRECATED - đã thay bằng LiveKit)
-        // Function này giữ lại để tương thích nhưng không còn được sử dụng
-        function initializePeerConnection() {
-            console.warn('⚠️ initializePeerConnection is deprecated. Using LiveKit instead.');
-        }
-        
-        // Toggle mute với LiveKit
+        // Toggle mute với Stringee SDK
         function toggleMute() {
-            if (localAudioTrack) {
-                if (localAudioTrack.isMuted) {
-                    localAudioTrack.setMuted(false);
-                    isMuted = false;
-                } else {
-                    localAudioTrack.setMuted(true);
-                    isMuted = true;
-                }
-                
-                const icon = $('#muteBtn i');
-                if (isMuted) {
-                    icon.removeClass('fa-microphone').addClass('fa-microphone-slash');
-                } else {
-                    icon.removeClass('fa-microphone-slash').addClass('fa-microphone');
-                }
+            if (window.StringeeHelper && window.StringeeHelper.toggleMute) {
+                    isMuted = window.StringeeHelper.toggleMute();
+                    const icon = $('#muteBtn i');
+                    if (isMuted) {
+                        icon.removeClass('fa-microphone').addClass('fa-microphone-slash');
+                    } else {
+                        icon.removeClass('fa-microphone-slash').addClass('fa-microphone');
+                    }
             }
         }
         
-        // Toggle camera với LiveKit
+        // Toggle camera với Stringee SDK
         function toggleCamera() {
-            if (localVideoTrack) {
-                if (localVideoTrack.isMuted) {
-                    localVideoTrack.setMuted(false);
-                    isCameraOff = false;
-                } else {
-                    localVideoTrack.setMuted(true);
-                    isCameraOff = true;
-                }
-                
-                const icon = $('#cameraBtn i');
-                if (isCameraOff) {
-                    icon.removeClass('fa-video').addClass('fa-video-slash');
-                } else {
-                    icon.removeClass('fa-video-slash').addClass('fa-video');
-                }
+            if (window.StringeeHelper && window.StringeeHelper.toggleCamera) {
+                    isCameraOff = window.StringeeHelper.toggleCamera();
+                    const icon = $('#cameraBtn i');
+                    if (isCameraOff) {
+                        icon.removeClass('fa-video').addClass('fa-video-slash');
+                    } else {
+                        icon.removeClass('fa-video-slash').addClass('fa-video');
+                    }
             }
         }
         
@@ -4542,7 +4413,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             endCall();
         }
         
-        // Socket events for calls (LiveKit - chỉ cần xử lý call signaling, không cần WebRTC signaling)
+        // Socket events for calls (Stringee - chỉ cần xử lý call signaling)
         function setupCallSocketEvents() {
             // Prevent duplicate event listeners
             if (socket._callEventsSetup) {
@@ -4617,7 +4488,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                     }
                 });
                 
-                // Call accepted - LiveKit sẽ tự động kết nối khi cả 2 bên join room
+                // Call accepted - Stringee sẽ tự động kết nối khi cả 2 bên join call
                 socket.on('call_accepted', data => {
                     console.log('📞 Received call_accepted event:', data);
                     // Logic đã được xử lý trong acceptCall()
@@ -4628,7 +4499,9 @@ if (!in_array($userRole, [1, 3, 5])) {
                     console.log('Received call_rejected event:', data);
                     if (data.caller_id === currentUserId) {
                         $('#callModal').removeClass('show');
-                        cleanupLiveKit();
+                        if (window.StringeeHelper) {
+                            window.StringeeHelper.cleanup();
+                        }
                         currentCall = null;
                         showNotification(data.message || 'Cuộc gọi bị từ chối', 'warning', 'fa-times-circle');
                     }
@@ -4647,8 +4520,10 @@ if (!in_array($userRole, [1, 3, 5])) {
                         'opacity': '0'
                     });
                     
-                    // Cleanup LiveKit
-                    cleanupLiveKit();
+                    // Cleanup Stringee
+                    if (window.StringeeHelper) {
+                        window.StringeeHelper.cleanup();
+                    }
                     
                     // ✅ Hiển thị thông báo
                     if (data.message) {

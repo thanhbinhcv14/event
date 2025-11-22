@@ -355,7 +355,7 @@ function addPlanStep($pdo) {
         $sql = "
             INSERT INTO chitietkehoach 
             (ID_KeHoach, TenBuoc, MoTa, NgayBatDau, NgayKetThuc, TrangThai, ID_NhanVien, GhiChu)
-            VALUES (?, ?, ?, ?, ?, 'Chưa bắt đầu', ?, ?)
+            VALUES (?, ?, ?, ?, ?, 'Chưa làm', ?, ?)
         ";
         
         $stmt = $pdo->prepare($sql);
@@ -441,7 +441,7 @@ function getStaff($pdo) {
                 nv.DiaChi
             FROM nhanvieninfo nv
             LEFT JOIN users u ON nv.ID_User = u.ID_User
-            WHERE u.TrangThai = 'Hoạt động'
+            WHERE u.TrangThai = 'Hoạt động' AND u.ID_Role = 2
             ORDER BY nv.HoTen ASC
         ";
         
@@ -472,7 +472,7 @@ function getStaffList($pdo) {
                 nv.ChucVu
             FROM nhanvieninfo nv
             LEFT JOIN users u ON nv.ID_User = u.ID_User
-            WHERE u.TrangThai = 'Hoạt động'
+            WHERE u.TrangThai = 'Hoạt động' AND u.ID_Role = 4
             ORDER BY nv.HoTen ASC
         ";
         
@@ -577,18 +577,37 @@ function getEventSteps($pdo) {
                 c.*,
                 nv.HoTen as TenNhanVien,
                 nv.ChucVu,
-                nv.SoDienThoai
+                nv.SoDienThoai,
+                COALESCE(llv.Tiendo, '0%') as Tiendo,
+                COALESCE(llv.GhiChu, NULL) as GhiChuTienDo,
+                GROUP_CONCAT(DISTINCT CONCAT(llv_nv.HoTen, ' - ', llv_nv.ChucVu) SEPARATOR ', ') as AllStaffNames
             FROM chitietkehoach c
             LEFT JOIN kehoachthuchien k ON c.ID_KeHoach = k.ID_KeHoach
             LEFT JOIN sukien s ON k.ID_SuKien = s.ID_SuKien
             LEFT JOIN nhanvieninfo nv ON c.ID_NhanVien = nv.ID_NhanVien
+            LEFT JOIN lichlamviec llv ON llv.ID_ChiTiet = c.ID_ChiTiet
+            LEFT JOIN nhanvieninfo llv_nv ON llv.ID_NhanVien = llv_nv.ID_NhanVien
             WHERE s.ID_DatLich = ? OR k.ID_SuKien = ?
+            GROUP BY c.ID_ChiTiet
             ORDER BY c.NgayBatDau ASC
         ";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$eventId, $eventId]);
         $steps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // For each step, get all assigned staff IDs from lichlamviec
+        foreach ($steps as &$step) {
+            $staffStmt = $pdo->prepare("
+                SELECT DISTINCT llv.ID_NhanVien, nv.HoTen, nv.ChucVu
+                FROM lichlamviec llv
+                LEFT JOIN nhanvieninfo nv ON llv.ID_NhanVien = nv.ID_NhanVien
+                WHERE llv.ID_ChiTiet = ?
+            ");
+            $staffStmt->execute([$step['ID_ChiTiet']]);
+            $step['assignedStaff'] = $staffStmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+        unset($step);
         
         error_log("DEBUG: getEventSteps - eventId: $eventId");
         error_log("DEBUG: getEventSteps - steps count: " . count($steps));
@@ -651,6 +670,9 @@ function getPlans($pdo) {
             $whereClause = 'WHERE dl.ID_DatLich = ?';
             $params[] = $eventId;
         }
+        
+        // First, update all plan statuses before fetching
+        updateAllPlanStatuses($pdo, $eventId);
         
         $sql = "
             SELECT 
@@ -798,6 +820,42 @@ function createPlan($pdo) {
             echo json_encode([
                 'success' => false,
                 'error' => 'Vui lòng điền đầy đủ thông tin bắt buộc. Thiếu: ' . implode(', ', $missing)
+            ]);
+            return;
+        }
+        
+        // Check payment status - only allow creating plan if payment is sufficient or deposit is made
+        $paymentCheckStmt = $pdo->prepare("
+            SELECT TrangThaiThanhToan, TrangThaiDuyet
+            FROM datlichsukien
+            WHERE ID_DatLich = ?
+        ");
+        $paymentCheckStmt->execute([$eventId]);
+        $paymentInfo = $paymentCheckStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$paymentInfo) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Không tìm thấy thông tin sự kiện'
+            ]);
+            return;
+        }
+        
+        // Check if event is approved
+        if ($paymentInfo['TrangThaiDuyet'] !== 'Đã duyệt') {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Sự kiện chưa được duyệt. Vui lòng duyệt sự kiện trước khi tạo kế hoạch.'
+            ]);
+            return;
+        }
+        
+        // Check payment status - must be "Đã thanh toán đủ" or "Đã đặt cọc"
+        $paymentStatus = $paymentInfo['TrangThaiThanhToan'] ?? 'Chưa thanh toán';
+        if ($paymentStatus !== 'Đã thanh toán đủ' && $paymentStatus !== 'Đã đặt cọc') {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Không thể tạo kế hoạch. Khách hàng phải thanh toán đủ hoặc đã đặt cọc trước khi lên kế hoạch và phân công.'
             ]);
             return;
         }
@@ -954,11 +1012,42 @@ function updateStepStatus($pdo) {
             return;
         }
         
+        // Validate status value matches database enum
+        $validStatuses = ['Chưa làm', 'Đang làm', 'Hoàn thành'];
+        if (!in_array($status, $validStatuses)) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Trạng thái không hợp lệ. Chỉ chấp nhận: ' . implode(', ', $validStatuses)
+            ]);
+            return;
+        }
+        
+        // Update step status in chitietkehoach
         $sql = "UPDATE chitietkehoach SET TrangThai = ? WHERE ID_ChiTiet = ?";
         $stmt = $pdo->prepare($sql);
         $result = $stmt->execute([$status, $stepId]);
         
         if ($result) {
+            // Sync status with lichlamviec if exists
+            $scheduleSql = "UPDATE lichlamviec SET TrangThai = ? WHERE ID_ChiTiet = ?";
+            $scheduleStmt = $pdo->prepare($scheduleSql);
+            $scheduleStmt->execute([$status, $stepId]);
+            
+            // If status is 'Đang làm', update ThoiGianHoanThanh to NULL
+            // If status is 'Hoàn thành', update ThoiGianHoanThanh to current time
+            if ($status === 'Đang làm') {
+                $timeSql = "UPDATE lichlamviec SET ThoiGianHoanThanh = NULL WHERE ID_ChiTiet = ?";
+                $timeStmt = $pdo->prepare($timeSql);
+                $timeStmt->execute([$stepId]);
+            } elseif ($status === 'Hoàn thành') {
+                $timeSql = "UPDATE lichlamviec SET ThoiGianHoanThanh = NOW() WHERE ID_ChiTiet = ?";
+                $timeStmt = $pdo->prepare($timeSql);
+                $timeStmt->execute([$stepId]);
+            }
+            
+            // Auto-update plan status based on step statuses
+            updatePlanStatusFromSteps($pdo, $stepId, 'chitietkehoach');
+            
             // Check and update event status if all steps are completed
             checkAndUpdateEventStatusFromStep($pdo, $stepId);
             
@@ -1198,6 +1287,16 @@ function getStepById($pdo) {
         }
         
         if ($step) {
+            // Get all assigned staff from lichlamviec
+            $staffStmt = $pdo->prepare("
+                SELECT DISTINCT llv.ID_NhanVien, nv.HoTen, nv.ChucVu
+                FROM lichlamviec llv
+                LEFT JOIN nhanvieninfo nv ON llv.ID_NhanVien = nv.ID_NhanVien
+                WHERE llv.ID_ChiTiet = ?
+            ");
+            $staffStmt->execute([$stepId]);
+            $step['assignedStaff'] = $staffStmt->fetchAll(PDO::FETCH_ASSOC);
+            
             echo json_encode([
                 'success' => true,
                 'step' => $step
@@ -1226,7 +1325,27 @@ function updateStepById($pdo) {
         $stepDescription = $_POST['stepDescription'] ?? '';
         $startDateTime = $_POST['stepStartDateTime'] ?? '';
         $endDateTime = $_POST['stepEndDateTime'] ?? '';
-        $staffId = $_POST['staffId'] ?? '';
+        $stepNote = $_POST['stepNote'] ?? $_POST['note'] ?? '';
+        
+        // Handle multiple staff IDs
+        $staffIds = [];
+        if (isset($_POST['staffId']) && is_array($_POST['staffId'])) {
+            $staffIds = array_filter($_POST['staffId'], function($id) {
+                return !empty($id);
+            });
+        } elseif (isset($_POST['staffId']) && !empty($_POST['staffId'])) {
+            // Comma-separated staff IDs or single ID
+            $staffIdInput = $_POST['staffId'];
+            if (strpos($staffIdInput, ',') !== false) {
+                $staffIds = array_filter(explode(',', $staffIdInput), function($id) {
+                    return !empty(trim($id));
+                });
+            } else {
+                $staffIds = [$staffIdInput];
+            }
+        }
+        
+        $staffId = !empty($staffIds) ? $staffIds[0] : null; // First staff for chitietkehoach.ID_NhanVien (backward compatibility)
         
         error_log("=== UPDATE STEP DEBUG ===");
         error_log("stepId: '$stepId'");
@@ -1234,9 +1353,9 @@ function updateStepById($pdo) {
         error_log("stepDescription: '$stepDescription'");
         error_log("startDateTime: '$startDateTime'");
         error_log("endDateTime: '$endDateTime'");
-        error_log("staffId: '$staffId'");
-        error_log("staffId type: " . gettype($staffId));
-        error_log("staffId empty check: " . (empty($staffId) ? 'EMPTY' : 'NOT EMPTY'));
+        error_log("stepNote: '$stepNote'");
+        error_log("staffIds: " . json_encode($staffIds));
+        error_log("staffId (first): " . ($staffId ?: 'NULL'));
         
         if (empty($stepId) || empty($stepName) || empty($startDateTime) || empty($endDateTime)) {
             $missing = [];
@@ -1258,6 +1377,13 @@ function updateStepById($pdo) {
         $currentStep = $currentStmt->fetch(PDO::FETCH_ASSOC);
         
         // Update step
+        // Note: GhiChu column doesn't exist in chitietkehoach table
+        // If stepNote is provided, append it to MoTa
+        $finalDescription = $stepDescription;
+        if (!empty($stepNote)) {
+            $finalDescription = $stepDescription . "\n\n[Ghi chú: " . $stepNote . "]";
+        }
+        
         $sql = "
             UPDATE chitietkehoach 
             SET TenBuoc = ?, MoTa = ?, NgayBatDau = ?, NgayKetThuc = ?, 
@@ -1268,7 +1394,7 @@ function updateStepById($pdo) {
         $stmt = $pdo->prepare($sql);
         $result = $stmt->execute([
             $stepName,
-            $stepDescription,
+            $finalDescription,
             $startDateTime,
             $endDateTime,
             $staffId ?: null,
@@ -1278,13 +1404,8 @@ function updateStepById($pdo) {
         error_log("Update result: " . ($result ? 'SUCCESS' : 'FAILED'));
         error_log("Rows affected: " . $stmt->rowCount());
         
-        // If step was updated successfully and staff is assigned, create/update work schedule
-        if ($result && $staffId) {
-            // Check if work schedule already exists for this step
-            $existingScheduleStmt = $pdo->prepare("SELECT ID_LLV FROM lichlamviec WHERE ID_ChiTiet = ?");
-            $existingScheduleStmt->execute([$stepId]);
-            $existingSchedule = $existingScheduleStmt->fetch(PDO::FETCH_ASSOC);
-            
+        // If step was updated successfully, update work schedules for all assigned staff
+        if ($result) {
             // Get event details for work schedule
             $eventStmt = $pdo->prepare("
                 SELECT dl.ID_DatLich, dl.TenSuKien
@@ -1297,28 +1418,13 @@ function updateStepById($pdo) {
             $event = $eventStmt->fetch(PDO::FETCH_ASSOC);
             
             if ($event) {
-                if ($existingSchedule) {
-                    // Update existing work schedule
-                    $updateScheduleSql = "
-                        UPDATE lichlamviec 
-                        SET ID_NhanVien = ?, NhiemVu = ?, NgayBatDau = ?, NgayKetThuc = ?, 
-                            CongViec = ?, NgayCapNhat = NOW()
-                        WHERE ID_ChiTiet = ?
-                    ";
-                    
-                    $updateScheduleStmt = $pdo->prepare($updateScheduleSql);
-                    $updateResult = $updateScheduleStmt->execute([
-                        $staffId,
-                        $stepName,
-                        $startDateTime,
-                        $endDateTime,
-                        $stepDescription,
-                        $stepId
-                    ]);
-                    
-                    error_log("Work schedule updated: " . ($updateResult ? 'SUCCESS' : 'FAILED'));
-                } else {
-                    // Create new work schedule
+                // Delete all existing work schedules for this step
+                $deleteStmt = $pdo->prepare("DELETE FROM lichlamviec WHERE ID_ChiTiet = ?");
+                $deleteStmt->execute([$stepId]);
+                error_log("Deleted existing work schedules for step $stepId");
+                
+                // Create new work schedules for each assigned staff
+                if (!empty($staffIds)) {
                     $scheduleSql = "
                         INSERT INTO lichlamviec 
                         (ID_DatLich, ID_NhanVien, NhiemVu, NgayBatDau, NgayKetThuc, TrangThai, ID_ChiTiet, CongViec, NgayTao)
@@ -1326,17 +1432,28 @@ function updateStepById($pdo) {
                     ";
                     
                     $scheduleStmt = $pdo->prepare($scheduleSql);
-                    $scheduleResult = $scheduleStmt->execute([
-                        $event['ID_DatLich'],
-                        $staffId,
-                        $stepName,
-                        $startDateTime,
-                        $endDateTime,
-                        $stepId,
-                        $stepDescription
-                    ]);
+                    $createdSchedules = 0;
                     
-                    error_log("Work schedule created for updated step: " . ($scheduleResult ? 'SUCCESS' : 'FAILED'));
+                    foreach ($staffIds as $singleStaffId) {
+                        $scheduleResult = $scheduleStmt->execute([
+                            $event['ID_DatLich'],
+                            $singleStaffId,
+                            $stepName,
+                            $startDateTime,
+                            $endDateTime,
+                            $stepId,
+                            $stepDescription
+                        ]);
+                        
+                        if ($scheduleResult) {
+                            $createdSchedules++;
+                            error_log("Work schedule created for staff ID $singleStaffId: SUCCESS");
+                        } else {
+                            error_log("Work schedule creation failed for staff ID $singleStaffId");
+                        }
+                    }
+                    
+                    error_log("Total work schedules created: $createdSchedules / " . count($staffIds));
                 }
             }
         }
@@ -1373,7 +1490,27 @@ function addEventStep($pdo) {
         $startTime = $_POST['stepStartTime'] ?? '';
         $endDate = $_POST['stepEndDate'] ?? '';
         $endTime = $_POST['stepEndTime'] ?? '';
-        $staffId = $_POST['stepStaff'] ?? '';
+        $stepNote = $_POST['stepNote'] ?? $_POST['note'] ?? '';
+        
+        // Handle multiple staff IDs
+        $staffIds = [];
+        if (isset($_POST['staffId']) && is_array($_POST['staffId'])) {
+            $staffIds = array_filter($_POST['staffId'], function($id) {
+                return !empty($id);
+            });
+        } elseif (isset($_POST['stepStaff']) && !empty($_POST['stepStaff'])) {
+            // Comma-separated staff IDs or single ID
+            $stepStaff = $_POST['stepStaff'];
+            if (strpos($stepStaff, ',') !== false) {
+                $staffIds = array_filter(explode(',', $stepStaff), function($id) {
+                    return !empty(trim($id));
+                });
+            } else {
+                $staffIds = [$stepStaff];
+            }
+        }
+        
+        $staffId = !empty($staffIds) ? $staffIds[0] : null; // First staff for chitietkehoach.ID_NhanVien (backward compatibility)
         
         error_log("=== ADD EVENT STEP DEBUG ===");
         error_log("eventId: '$eventId'");
@@ -1383,10 +1520,8 @@ function addEventStep($pdo) {
         error_log("startTime: '$startTime'");
         error_log("endDate: '$endDate'");
         error_log("endTime: '$endTime'");
-        error_log("staffId: '$staffId'");
-        error_log("staffId after null coalescing: " . ($staffId ?: 'NULL'));
-        error_log("staffId type: " . gettype($staffId));
-        error_log("staffId empty check: " . (empty($staffId) ? 'EMPTY' : 'NOT EMPTY'));
+        error_log("staffIds: " . json_encode($staffIds));
+        error_log("staffId (first): " . ($staffId ?: 'NULL'));
         
         if (empty($eventId) || empty($stepName) || empty($startDate) || empty($startTime) || empty($endDate) || empty($endTime)) {
             $missing = [];
@@ -1439,16 +1574,23 @@ function addEventStep($pdo) {
         }
         
         // Insert step
+        // Note: GhiChu column doesn't exist in chitietkehoach table
+        // If stepNote is provided, append it to MoTa
+        $finalDescription = $stepDescription;
+        if (!empty($stepNote)) {
+            $finalDescription = $stepDescription . "\n\n[Ghi chú: " . $stepNote . "]";
+        }
+        
         $sql = "
             INSERT INTO chitietkehoach (ID_KeHoach, TenBuoc, MoTa, NgayBatDau, NgayKetThuc, ID_NhanVien, TrangThai)
-            VALUES (?, ?, ?, ?, ?, ?, 'Chưa thực hiện')
+            VALUES (?, ?, ?, ?, ?, ?, 'Chưa làm')
         ";
         
         $stmt = $pdo->prepare($sql);
         $result = $stmt->execute([
             $plan['ID_KeHoach'],
             $stepName,
-            $stepDescription,
+            $finalDescription,
             $startDateTime,
             $endDateTime,
             $staffId ?: null
@@ -1457,8 +1599,8 @@ function addEventStep($pdo) {
         error_log("Insert result: " . ($result ? 'SUCCESS' : 'FAILED'));
         error_log("Rows affected: " . $stmt->rowCount());
         
-        // If step was created successfully and staff is assigned, create work schedule
-        if ($result && $staffId) {
+        // If step was created successfully and staff is assigned, create work schedule for each staff
+        if ($result && !empty($staffIds)) {
             $stepId = $pdo->lastInsertId();
             
             // Get event details for work schedule
@@ -1471,7 +1613,7 @@ function addEventStep($pdo) {
             $event = $eventStmt->fetch(PDO::FETCH_ASSOC);
             
             if ($event) {
-                // Create work schedule entry
+                // Create work schedule entry for each staff member
                 $scheduleSql = "
                     INSERT INTO lichlamviec 
                     (ID_DatLich, ID_NhanVien, NhiemVu, NgayBatDau, NgayKetThuc, TrangThai, ID_ChiTiet, CongViec, NgayTao)
@@ -1479,20 +1621,28 @@ function addEventStep($pdo) {
                 ";
                 
                 $scheduleStmt = $pdo->prepare($scheduleSql);
-                $scheduleResult = $scheduleStmt->execute([
-                    $event['ID_DatLich'],
-                    $staffId,
-                    $stepName,
-                    $startDateTime,
-                    $endDateTime,
-                    $stepId,
-                    $stepDescription
-                ]);
+                $createdSchedules = 0;
                 
-                error_log("Work schedule created: " . ($scheduleResult ? 'SUCCESS' : 'FAILED'));
-                if ($scheduleResult) {
-                    error_log("Work schedule ID: " . $pdo->lastInsertId());
+                foreach ($staffIds as $singleStaffId) {
+                    $scheduleResult = $scheduleStmt->execute([
+                        $event['ID_DatLich'],
+                        $singleStaffId,
+                        $stepName,
+                        $startDateTime,
+                        $endDateTime,
+                        $stepId,
+                        $stepDescription
+                    ]);
+                    
+                    if ($scheduleResult) {
+                        $createdSchedules++;
+                        error_log("Work schedule created for staff ID $singleStaffId: SUCCESS");
+                    } else {
+                        error_log("Work schedule creation failed for staff ID $singleStaffId");
+                    }
                 }
+                
+                error_log("Total work schedules created: $createdSchedules / " . count($staffIds));
             }
         }
         
@@ -1656,6 +1806,233 @@ function checkAndUpdateEventStatusFromStep($pdo, $stepId) {
         
     } catch (Exception $e) {
         error_log("ERROR: checkAndUpdateEventStatusFromStep - Exception: " . $e->getMessage());
+    }
+}
+
+/**
+ * Auto-update plan status (kehoachthuchien) based on step statuses (chitietkehoach)
+ */
+function updatePlanStatusFromSteps($pdo, $assignmentId, $sourceTable) {
+    try {
+        // Get plan ID from assignment
+        $planId = null;
+        
+        if ($sourceTable === 'chitietkehoach') {
+            // Get plan ID directly from chitietkehoach
+            $stmt = $pdo->prepare("SELECT ID_KeHoach FROM chitietkehoach WHERE ID_ChiTiet = ?");
+            $stmt->execute([$assignmentId]);
+            $planId = $stmt->fetchColumn();
+        } else if ($sourceTable === 'lichlamviec') {
+            // Get plan ID from lichlamviec -> chitietkehoach -> kehoachthuchien
+            $stmt = $pdo->prepare("
+                SELECT kht.ID_KeHoach 
+                FROM lichlamviec llv
+                JOIN chitietkehoach ctk ON llv.ID_ChiTiet = ctk.ID_ChiTiet
+                JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+                WHERE llv.ID_LLV = ?
+            ");
+            $stmt->execute([$assignmentId]);
+            $planId = $stmt->fetchColumn();
+        }
+        
+        if (!$planId) {
+            error_log("DEBUG: updatePlanStatusFromSteps - No plan ID found for assignment: " . $assignmentId);
+            return;
+        }
+        
+        error_log("DEBUG: updatePlanStatusFromSteps - Plan ID: " . $planId);
+        
+        // Get all steps for this plan with their actual status from lichlamviec
+        // A step is considered "Hoàn thành" only if ALL assigned staff have completed it
+        // A step is considered "Đang làm" if at least one staff is working on it
+        $stmt = $pdo->prepare("
+            SELECT 
+                ck.ID_ChiTiet,
+                ck.TrangThai as chitiet_status,
+                COUNT(llv.ID_LLV) as total_assignments,
+                SUM(CASE WHEN llv.TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_assignments,
+                SUM(CASE WHEN llv.TrangThai = 'Đang làm' THEN 1 ELSE 0 END) as inprogress_assignments,
+                SUM(CASE WHEN llv.TrangThai = 'Chưa làm' THEN 1 ELSE 0 END) as notstarted_assignments
+            FROM chitietkehoach ck
+            LEFT JOIN lichlamviec llv ON ck.ID_ChiTiet = llv.ID_ChiTiet
+            WHERE ck.ID_KeHoach = ?
+            GROUP BY ck.ID_ChiTiet, ck.TrangThai
+        ");
+        $stmt->execute([$planId]);
+        $steps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (empty($steps)) {
+            error_log("DEBUG: updatePlanStatusFromSteps - No steps found for plan: " . $planId);
+            return;
+        }
+        
+        $totalSteps = count($steps);
+        $completedSteps = 0;
+        $inProgressSteps = 0;
+        
+        foreach ($steps as $step) {
+            $totalAssignments = (int)$step['total_assignments'];
+            $completedAssignments = (int)$step['completed_assignments'];
+            $inProgressAssignments = (int)$step['inprogress_assignments'];
+            
+            // If step has assignments in lichlamviec, use those to determine status
+            if ($totalAssignments > 0) {
+                // Step is completed only if ALL assignments are completed
+                if ($completedAssignments === $totalAssignments && $totalAssignments > 0) {
+                    $completedSteps++;
+                } 
+                // Step is in progress if at least one assignment is in progress or completed (but not all)
+                else if ($inProgressAssignments > 0 || $completedAssignments > 0) {
+                    $inProgressSteps++;
+                }
+            } else {
+                // No assignments in lichlamviec, use chitietkehoach status
+                if ($step['chitiet_status'] === 'Hoàn thành') {
+                    $completedSteps++;
+                } else if ($step['chitiet_status'] === 'Đang làm') {
+                    $inProgressSteps++;
+                }
+            }
+        }
+        
+        error_log("DEBUG: updatePlanStatusFromSteps - Total: $totalSteps, Completed: $completedSteps, In Progress: $inProgressSteps");
+        
+        // Determine new plan status
+        $newPlanStatus = null;
+        if ($completedSteps === $totalSteps && $totalSteps > 0) {
+            // All steps completed
+            $newPlanStatus = 'Hoàn thành';
+        } else if ($inProgressSteps > 0 || $completedSteps > 0) {
+            // At least one step is in progress or completed
+            $newPlanStatus = 'Đang thực hiện';
+        } else {
+            // All steps are "Chưa làm"
+            $newPlanStatus = 'Chưa bắt đầu';
+        }
+        
+        // Update plan status
+        if ($newPlanStatus) {
+            $updateStmt = $pdo->prepare("
+                UPDATE kehoachthuchien 
+                SET TrangThai = ? 
+                WHERE ID_KeHoach = ?
+            ");
+            $updateResult = $updateStmt->execute([$newPlanStatus, $planId]);
+            
+            if ($updateResult) {
+                error_log("DEBUG: updatePlanStatusFromSteps - Plan status updated to: " . $newPlanStatus);
+            } else {
+                error_log("ERROR: updatePlanStatusFromSteps - Failed to update plan status");
+            }
+        }
+    } catch (Exception $e) {
+        error_log("ERROR: updatePlanStatusFromSteps - " . $e->getMessage());
+    }
+}
+
+/**
+ * Update status for all plans (or plans for a specific event)
+ */
+function updateAllPlanStatuses($pdo, $eventId = null) {
+    try {
+        $whereClause = '';
+        $params = [];
+        
+        if (!empty($eventId)) {
+            $whereClause = 'WHERE dl.ID_DatLich = ?';
+            $params[] = $eventId;
+        }
+        
+        // Get all plan IDs
+        $sql = "
+            SELECT DISTINCT kht.ID_KeHoach
+            FROM kehoachthuchien kht
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+            {$whereClause}
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $planIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Update status for each plan
+        foreach ($planIds as $planId) {
+            // Get all steps for this plan with their actual status from lichlamviec
+            $stepStmt = $pdo->prepare("
+                SELECT 
+                    ck.ID_ChiTiet,
+                    ck.TrangThai as chitiet_status,
+                    COUNT(llv.ID_LLV) as total_assignments,
+                    SUM(CASE WHEN llv.TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_assignments,
+                    SUM(CASE WHEN llv.TrangThai = 'Đang làm' THEN 1 ELSE 0 END) as inprogress_assignments
+                FROM chitietkehoach ck
+                LEFT JOIN lichlamviec llv ON ck.ID_ChiTiet = llv.ID_ChiTiet
+                WHERE ck.ID_KeHoach = ?
+                GROUP BY ck.ID_ChiTiet, ck.TrangThai
+            ");
+            $stepStmt->execute([$planId]);
+            $steps = $stepStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (empty($steps)) {
+                continue;
+            }
+            
+            $totalSteps = count($steps);
+            $completedSteps = 0;
+            $inProgressSteps = 0;
+            
+            foreach ($steps as $step) {
+                $totalAssignments = (int)$step['total_assignments'];
+                $completedAssignments = (int)$step['completed_assignments'];
+                $inProgressAssignments = (int)$step['inprogress_assignments'];
+                
+                // If step has assignments in lichlamviec, use those to determine status
+                if ($totalAssignments > 0) {
+                    // Step is completed only if ALL assignments are completed
+                    if ($completedAssignments === $totalAssignments && $totalAssignments > 0) {
+                        $completedSteps++;
+                    } 
+                    // Step is in progress if at least one assignment is in progress or completed (but not all)
+                    else if ($inProgressAssignments > 0 || $completedAssignments > 0) {
+                        $inProgressSteps++;
+                    }
+                } else {
+                    // No assignments in lichlamviec, use chitietkehoach status
+                    if ($step['chitiet_status'] === 'Hoàn thành') {
+                        $completedSteps++;
+                    } else if ($step['chitiet_status'] === 'Đang làm') {
+                        $inProgressSteps++;
+                    }
+                }
+            }
+            
+            // Determine new plan status
+            $newPlanStatus = null;
+            if ($completedSteps === $totalSteps && $totalSteps > 0) {
+                // All steps completed
+                $newPlanStatus = 'Hoàn thành';
+            } else if ($inProgressSteps > 0 || $completedSteps > 0) {
+                // At least one step is in progress or completed
+                $newPlanStatus = 'Đang thực hiện';
+            } else {
+                // All steps are "Chưa làm"
+                $newPlanStatus = 'Chưa bắt đầu';
+            }
+            
+            // Update plan status
+            if ($newPlanStatus) {
+                $updateStmt = $pdo->prepare("
+                    UPDATE kehoachthuchien 
+                    SET TrangThai = ? 
+                    WHERE ID_KeHoach = ?
+                ");
+                $updateStmt->execute([$newPlanStatus, $planId]);
+            }
+        }
+        
+    } catch (Exception $e) {
+        error_log("ERROR: updateAllPlanStatuses - " . $e->getMessage());
     }
 }
 

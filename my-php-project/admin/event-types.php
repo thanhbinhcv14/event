@@ -1,5 +1,5 @@
 <?php
-// Bao gồm header admin
+// Include admin header
 include 'includes/admin-header.php';
 ?>
     
@@ -205,7 +205,7 @@ include 'includes/admin-header.php';
         let eventTypesTable;
         let currentFilters = {};
 
-        // Khởi tạo trang
+        // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             initializeDataTable();
             loadStatistics();
@@ -213,7 +213,7 @@ include 'includes/admin-header.php';
         });
 
         function initializeDataTable() {
-            // Kiểm tra DataTables có sẵn không
+            // Check if DataTables is available
             if (typeof $.fn.DataTable === 'undefined') {
                 console.error('DataTables not available');
                 AdminPanel.showError('DataTables không khả dụng');
@@ -250,7 +250,7 @@ include 'includes/admin-header.php';
                             data: 'ID_LoaiSK', 
                             className: 'text-center',
                             render: function(data) {
-                                return `<strong>#${data}</strong>`;
+                                return `<strong>${data}</strong>`;
                             }
                         },
                         { 
@@ -306,7 +306,7 @@ include 'includes/admin-header.php';
                             }
                         }
                     ],
-                    order: [[1, 'asc']], // Sắp xếp theo tên mặc định
+                    order: [[1, 'asc']], // Sort by name by default
                     language: {
                         processing: "Đang xử lý...",
                         search: "Tìm kiếm:",
@@ -334,7 +334,7 @@ include 'includes/admin-header.php';
         }
 
         function setupEventListeners() {
-            // Ô tìm kiếm
+            // Search input
             $('#searchInput').on('keyup', function() {
                 eventTypesTable.search(this.value).draw();
             });
@@ -344,15 +344,15 @@ include 'includes/admin-header.php';
             const searchTerm = $('#searchInput').val();
             const sortBy = $('#sortBy').val();
             
-            // Áp dụng tìm kiếm
+            // Apply search
             if (searchTerm) {
                 eventTypesTable.search(searchTerm).draw();
             } else {
                 eventTypesTable.search('').draw();
             }
             
-            // Áp dụng sắp xếp
-            let sortColumn = 1; // Mặc định là cột tên
+            // Apply sorting
+            let sortColumn = 1; // Default to name column
             let sortDir = 'asc';
             
             switch(sortBy) {
@@ -405,7 +405,7 @@ include 'includes/admin-header.php';
             });
         }
 
-        // Hiển thị modal thêm loại sự kiện
+        // Show add event type modal
         function showAddEventTypeModal() {
             document.getElementById('eventTypeModalTitle').innerHTML = '<i class="fas fa-plus"></i> Thêm loại sự kiện';
             document.getElementById('eventTypeForm').reset();
@@ -415,7 +415,7 @@ include 'includes/admin-header.php';
             modal.show();
         }
 
-        // Chỉnh sửa loại sự kiện
+        // Edit event type
         function editEventType(id) {
             AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', {
                 action: 'get',
@@ -441,7 +441,7 @@ include 'includes/admin-header.php';
             });
         }
 
-        // Xem loại sự kiện
+        // View event type
         function viewEventType(id) {
             AdminPanel.showLoading('#viewEventTypeModalBody');
             
@@ -465,7 +465,7 @@ include 'includes/admin-header.php';
                             <div class="col-md-6">
                                 <h6><i class="fas fa-info-circle text-primary"></i> Thông tin cơ bản</h6>
                                 <table class="table table-borderless">
-                                    <tr><td><strong>ID:</strong></td><td>#${eventType.ID_LoaiSK}</td></tr>
+                                    <tr><td><strong>ID:</strong></td><td>${eventType.ID_LoaiSK}</td></tr>
                                     <tr><td><strong>Tên loại:</strong></td><td>${eventType.TenLoai}</td></tr>
                                     <tr><td><strong>Giá cơ bản:</strong></td><td><span class="text-success fw-bold">${price} VNĐ</span></td></tr>
                                     <tr><td><strong>Ngày tạo:</strong></td><td>${createdDate}</td></tr>
@@ -497,7 +497,7 @@ include 'includes/admin-header.php';
             });
         }
         
-        // Lưu loại sự kiện
+        // Save event type
         function saveEventType() {
             if (!AdminPanel.validateForm('eventTypeForm')) {
                 return;
@@ -514,14 +514,14 @@ include 'includes/admin-header.php';
                 if (response.success) {
                     AdminPanel.showSuccess(isEdit ? 'Đã cập nhật loại sự kiện thành công' : 'Đã thêm loại sự kiện thành công');
                     
-                    // Đóng modal
+                    // Close modal
                     const modalElement = document.getElementById('eventTypeModal');
                     const modal = bootstrap.Modal.getInstance(modalElement);
                     if (modal) {
                         modal.hide();
                     }
                     
-                    // Tải lại bảng
+                    // Reload table
                     eventTypesTable.ajax.reload();
                     loadStatistics();
                 } else {
@@ -533,9 +533,9 @@ include 'includes/admin-header.php';
             });
         }
         
-        // Xóa loại sự kiện
+        // Delete event type
         function deleteEventType(id) {
-            // Lấy tên loại sự kiện để xác nhận
+            // Get event type name for confirmation
             AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', {
                 action: 'get',
                 id: id

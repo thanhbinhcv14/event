@@ -9,20 +9,63 @@ try {
     require_once __DIR__ . '/../config/database.php';
     $pdo = getDBConnection();
     
+    // Get current user info
+    $currentUserId = $user['ID_User'] ?? null;
+    $currentUserRole = $user['ID_Role'] ?? null;
+    
+    // Build WHERE clause based on role
+    // Role 3 (Quản lý sự kiện) chỉ xem sự kiện đã đăng ký giúp khách hàng
+    $isRole3 = ($currentUserRole == 3);
+    $role3WhereClause = "";
+    $role3Params = [];
+    
+    if ($isRole3) {
+        // Role 3: Chỉ hiển thị sự kiện có GhiChu chứa "Đăng ký bởi quản lý sự kiện" hoặc "Đăng ký bởi"
+        $role3WhereClause = "WHERE (GhiChu LIKE ? OR GhiChu LIKE ? OR GhiChu LIKE ?)";
+        $role3Params = ['%Đăng ký bởi quản lý sự kiện%', '%Đăng ký bởi%', '%quản lý sự kiện%'];
+    }
+    // Role 1, 2, 4: Xem tất cả sự kiện (không có WHERE clause)
+    
     // Total event registrations
-    $stmt = $pdo->query("SELECT COUNT(*) AS total_registrations FROM datlichsukien");
+    $sql = "SELECT COUNT(*) AS total_registrations FROM datlichsukien" . ($isRole3 ? " " . $role3WhereClause : "");
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($isRole3 ? $role3Params : []);
     $dashboardData['total_registrations'] = $stmt->fetchColumn();
     
     // Pending registrations
-    $stmt = $pdo->query("SELECT COUNT(*) AS pending_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
+    if ($isRole3) {
+        $sql = "SELECT COUNT(*) AS pending_registrations FROM datlichsukien " . $role3WhereClause . " AND TrangThaiDuyet = 'Chờ duyệt'";
+        $params = $role3Params;
+    } else {
+        $sql = "SELECT COUNT(*) AS pending_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'";
+        $params = [];
+    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $dashboardData['pending_registrations'] = $stmt->fetchColumn();
     
     // Approved registrations
-    $stmt = $pdo->query("SELECT COUNT(*) AS approved_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
+    if ($isRole3) {
+        $sql = "SELECT COUNT(*) AS approved_registrations FROM datlichsukien " . $role3WhereClause . " AND TrangThaiDuyet = 'Đã duyệt'";
+        $params = $role3Params;
+    } else {
+        $sql = "SELECT COUNT(*) AS approved_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'";
+        $params = [];
+    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $dashboardData['approved_registrations'] = $stmt->fetchColumn();
     
     // Rejected registrations
-    $stmt = $pdo->query("SELECT COUNT(*) AS rejected_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Từ chối'");
+    if ($isRole3) {
+        $sql = "SELECT COUNT(*) AS rejected_registrations FROM datlichsukien " . $role3WhereClause . " AND TrangThaiDuyet = 'Từ chối'";
+        $params = $role3Params;
+    } else {
+        $sql = "SELECT COUNT(*) AS rejected_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Từ chối'";
+        $params = [];
+    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $dashboardData['rejected_registrations'] = $stmt->fetchColumn();
     
     // Total locations
@@ -58,16 +101,59 @@ try {
     $dashboardData['blocked_customers'] = $stmt->fetchColumn();
     
     // Monthly event registrations
-    $stmt = $pdo->query("
-        SELECT 
-            DATE_FORMAT(NgayTao, '%Y-%m') as month,
-            COUNT(*) as count
-        FROM datlichsukien 
-        WHERE NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-        GROUP BY DATE_FORMAT(NgayTao, '%Y-%m')
-        ORDER BY month ASC
-    ");
+    if ($isRole3) {
+        $sql = "
+            SELECT 
+                DATE_FORMAT(NgayTao, '%Y-%m') as month,
+                COUNT(*) as count
+            FROM datlichsukien 
+            WHERE NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH) 
+            AND (GhiChu LIKE ? OR GhiChu LIKE ? OR GhiChu LIKE ?)
+            GROUP BY DATE_FORMAT(NgayTao, '%Y-%m')
+            ORDER BY month ASC
+        ";
+        $params = $role3Params;
+    } else {
+        $sql = "
+            SELECT 
+                DATE_FORMAT(NgayTao, '%Y-%m') as month,
+                COUNT(*) as count
+            FROM datlichsukien 
+            WHERE NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(NgayTao, '%Y-%m')
+            ORDER BY month ASC
+        ";
+        $params = [];
+    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $dashboardData['monthly_registrations'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Statistics for customer registration assistance
+    // Total registrations
+    $totalRegistrations = $dashboardData['total_registrations'];
+    
+    // Registrations made by staff (role 3) for customers
+    if ($isRole3) {
+        // For role 3, all registrations are staff-assisted
+        $staffAssistedRegistrations = $totalRegistrations;
+    } else {
+        // Count registrations with "Đăng ký bởi" in GhiChu
+        $sql = "SELECT COUNT(*) AS staff_assisted FROM datlichsukien WHERE GhiChu LIKE ? OR GhiChu LIKE ? OR GhiChu LIKE ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['%Đăng ký bởi quản lý sự kiện%', '%Đăng ký bởi%', '%[NHANVIEN_ID:%']);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $staffAssistedRegistrations = (int)($result['staff_assisted'] ?? 0);
+    }
+    
+    // Customer self-registrations
+    $customerSelfRegistrations = $totalRegistrations - $staffAssistedRegistrations;
+    
+    // Calculate percentages
+    $dashboardData['staff_assisted_count'] = $staffAssistedRegistrations;
+    $dashboardData['customer_self_count'] = $customerSelfRegistrations;
+    $dashboardData['staff_assisted_percentage'] = $totalRegistrations > 0 ? round(($staffAssistedRegistrations / $totalRegistrations) * 100, 2) : 0;
+    $dashboardData['customer_self_percentage'] = $totalRegistrations > 0 ? round(($customerSelfRegistrations / $totalRegistrations) * 100, 2) : 0;
     
 } catch (Exception $e) {
     error_log("Reports data error: " . $e->getMessage());
@@ -84,7 +170,11 @@ try {
         'active_customers' => 0,
         'pending_customers' => 0,
         'blocked_customers' => 0,
-        'monthly_registrations' => []
+        'monthly_registrations' => [],
+        'staff_assisted_count' => 0,
+        'customer_self_count' => 0,
+        'staff_assisted_percentage' => 0,
+        'customer_self_percentage' => 0
     ];
 }
 ?>
@@ -95,7 +185,13 @@ try {
                 <i class="fas fa-chart-bar"></i>
                 Thống kê báo cáo
             </h1>
-            <p class="page-subtitle">Tổng quan thống kê và biểu đồ hệ thống</p>
+            <p class="page-subtitle">
+                <?php if ($currentUserRole == 3): ?>
+                    Thống kê các sự kiện đã đăng ký giúp khách hàng
+                <?php else: ?>
+                    Tổng quan thống kê và biểu đồ hệ thống
+                <?php endif; ?>
+            </p>
         </div>
 
         <!-- Statistics Cards -->
@@ -219,7 +315,7 @@ try {
         </div>
         
         <div class="row mt-4">
-            <div class="col-lg-12">
+            <div class="col-lg-6">
                 <div class="chart-container">
                     <h3 class="chart-title">
                         <i class="fas fa-chart-line"></i>
@@ -227,6 +323,24 @@ try {
                     </h3>
                     <div class="chart-wrapper">
                         <canvas id="monthlyChart" width="400" height="150"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="chart-container">
+                    <h3 class="chart-title">
+                        <i class="fas fa-chart-pie"></i>
+                        Phân loại đăng ký sự kiện
+                    </h3>
+                    <div class="chart-wrapper">
+                        <canvas id="registrationTypeChart" width="400" height="200"></canvas>
+                    </div>
+                    <div class="text-center mt-3">
+                        <p class="mb-1">
+                            <span class="badge bg-info me-2">Nhờ đăng ký: <?= $dashboardData['staff_assisted_count'] ?> (<?= $dashboardData['staff_assisted_percentage'] ?>%)</span>
+                            <span class="badge bg-success">Tự đăng ký: <?= $dashboardData['customer_self_count'] ?> (<?= $dashboardData['customer_self_percentage'] ?>%)</span>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -426,6 +540,57 @@ try {
                             beginAtZero: true,
                             ticks: {
                                 stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Registration Type Chart (Customer self-registration vs Staff-assisted)
+            const registrationTypeCtx = document.getElementById('registrationTypeChart').getContext('2d');
+            new Chart(registrationTypeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Khách hàng nhờ đăng ký', 'Khách hàng tự đăng ký'],
+                    datasets: [{
+                        data: [
+                            <?= $dashboardData['staff_assisted_count'] ?>,
+                            <?= $dashboardData['customer_self_count'] ?>
+                        ],
+                        backgroundColor: [
+                            '#17a2b8',
+                            '#28a745'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed + ' sự kiện';
+                                    if (context.dataIndex === 0) {
+                                        label += ' (<?= $dashboardData['staff_assisted_percentage'] ?>%)';
+                                    } else {
+                                        label += ' (<?= $dashboardData['customer_self_percentage'] ?>%)';
+                                    }
+                                    return label;
+                                }
                             }
                         }
                     }

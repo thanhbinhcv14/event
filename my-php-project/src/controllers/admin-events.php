@@ -469,6 +469,34 @@ function getRegistrationDetails() {
         $stmt->execute([$id]);
         $registration = $stmt->fetch(PDO::FETCH_ASSOC);
         
+        // Parse staff info from GhiChu if exists
+        $staffRegisteredInfo = null;
+        if (!empty($registration['GhiChu'])) {
+            // Check if GhiChu contains staff info pattern: [NHANVIEN_ID:xxx] - [NHANVIEN_NAME:xxx]
+            if (preg_match('/\[NHANVIEN_ID:(\d+)\].*?\[NHANVIEN_NAME:(.+?)\]/', $registration['GhiChu'], $matches)) {
+                $staffRegisteredId = $matches[1];
+                $staffRegisteredName = $matches[2];
+                
+                // Get full staff info
+                $stmt = $pdo->prepare("
+                    SELECT nv.ID_NhanVien, nv.HoTen, nv.ChucVu, nv.SoDienThoai
+                    FROM nhanvieninfo nv
+                    WHERE nv.ID_NhanVien = ?
+                ");
+                $stmt->execute([$staffRegisteredId]);
+                $staffRegisteredInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$staffRegisteredInfo) {
+                    // Fallback to name from GhiChu
+                    $staffRegisteredInfo = [
+                        'ID_NhanVien' => $staffRegisteredId,
+                        'HoTen' => $staffRegisteredName,
+                        'ChucVu' => 'Quản lý sự kiện',
+                        'SoDienThoai' => 'N/A'
+                    ];
+                }
+            }
+        }
+        
         if (!$registration) {
             echo json_encode(['success' => false, 'message' => 'Không tìm thấy đăng ký']);
             return;
@@ -485,12 +513,20 @@ function getRegistrationDetails() {
             // Get individual equipment
             $stmt = $pdo->prepare("
                 SELECT 
-                    ct.*,
+                    ct.ID_CT,
+                    ct.ID_DatLich,
+                    ct.ID_TB,
+                    ct.ID_Combo,
+                    ct.SoLuong,
+                    ct.DonGia,
+                    ct.GhiChu,
                     tb.TenThietBi,
                     tb.LoaiThietBi,
                     tb.HangSX,
                     tb.GiaThue,
-                    tb.DonViTinh
+                    tb.DonViTinh,
+                    tb.TrangThai,
+                    tb.MoTa
                 FROM chitietdatsukien ct
                 LEFT JOIN thietbi tb ON ct.ID_TB = tb.ID_TB
                 WHERE ct.ID_DatLich = ? AND ct.ID_TB IS NOT NULL
@@ -498,10 +534,21 @@ function getRegistrationDetails() {
             $stmt->execute([$id]);
             $individualEquipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
+            error_log("Individual equipment query executed. Found: " . count($individualEquipment));
+            if (count($individualEquipment) > 0) {
+                error_log("First individual equipment: " . json_encode($individualEquipment[0]));
+            }
+            
             // Get combo equipment
-                $stmt = $pdo->prepare("
+            $stmt = $pdo->prepare("
                 SELECT 
-                    ct.*,
+                    ct.ID_CT,
+                    ct.ID_DatLich,
+                    ct.ID_TB,
+                    ct.ID_Combo,
+                    ct.SoLuong,
+                    ct.DonGia,
+                    ct.GhiChu,
                     c.TenCombo,
                     c.MoTa as ComboMoTa,
                     c.GiaCombo
@@ -512,15 +559,27 @@ function getRegistrationDetails() {
             $stmt->execute([$id]);
             $comboEquipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
+            error_log("Combo equipment query executed. Found: " . count($comboEquipment));
+            if (count($comboEquipment) > 0) {
+                error_log("First combo equipment: " . json_encode($comboEquipment[0]));
+            }
+            
             // Combine equipment
             $equipment = array_merge($individualEquipment, $comboEquipment);
             
-            error_log("Found " . count($equipment) . " equipment items from chitietdatsukien");
-            error_log("Individual equipment: " . count($individualEquipment));
-            error_log("Combo equipment: " . count($comboEquipment));
-    
-} catch (Exception $e) {
+            error_log("Total equipment found: " . count($equipment));
+            error_log("Individual equipment count: " . count($individualEquipment));
+            error_log("Combo equipment count: " . count($comboEquipment));
+            
+            // Debug: Check if there's any data in chitietdatsukien for this registration
+            $debugStmt = $pdo->prepare("SELECT COUNT(*) as total FROM chitietdatsukien WHERE ID_DatLich = ?");
+            $debugStmt->execute([$id]);
+            $debugResult = $debugStmt->fetch(PDO::FETCH_ASSOC);
+            error_log("Total records in chitietdatsukien for ID_DatLich = $id: " . $debugResult['total']);
+            
+        } catch (Exception $e) {
             error_log("Error getting equipment: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             $equipment = [];
         }
         
@@ -566,7 +625,20 @@ function getRegistrationDetails() {
                     <tr><td><strong>Họ tên:</strong></td><td>' . htmlspecialchars($registration['HoTen']) . '</td></tr>
                     <tr><td><strong>Số điện thoại:</strong></td><td>' . htmlspecialchars($registration['SoDienThoai']) . '</td></tr>
                     <tr><td><strong>Địa chỉ:</strong></td><td>' . htmlspecialchars($registration['KhachHangDiaChi'] ?: 'Không có') . '</td></tr>
-                </table>
+                </table>';
+        
+        // Add staff registration info if available
+        if ($staffRegisteredInfo) {
+            $html .= '
+                <h5 class="mt-3"><i class="fas fa-user-tie text-warning"></i> Nhân viên phụ trách đăng ký</h5>
+                <table class="table table-sm">
+                    <tr><td><strong>Họ tên:</strong></td><td>' . htmlspecialchars($staffRegisteredInfo['HoTen']) . '</td></tr>
+                    <tr><td><strong>Chức vụ:</strong></td><td>' . htmlspecialchars($staffRegisteredInfo['ChucVu'] ?? 'Quản lý sự kiện') . '</td></tr>
+                    <tr><td><strong>Số điện thoại:</strong></td><td>' . htmlspecialchars($staffRegisteredInfo['SoDienThoai'] ?? 'N/A') . '</td></tr>
+                </table>';
+        }
+        
+        $html .= '
             </div>
         </div>
         
@@ -611,28 +683,44 @@ function getRegistrationDetails() {
         
             foreach ($equipment as $item) {
                 // Check if it's combo or individual equipment
-                if (!empty($item['TenCombo'])) {
+                if (!empty($item['TenCombo']) || !empty($item['ID_Combo'])) {
                     // Combo equipment
+                    $comboName = htmlspecialchars($item['TenCombo'] ?? 'Combo không xác định');
+                    $comboQuantity = intval($item['SoLuong'] ?? 1);
+                    $comboPrice = floatval($item['DonGia'] ?? $item['GiaCombo'] ?? 0);
+                    $comboNote = htmlspecialchars($item['GhiChu'] ?? 'Combo thiết bị');
+                    
                     $html .= '<tr>
-                        <td><strong><i class="fas fa-box text-primary"></i> ' . htmlspecialchars($item['TenCombo']) . '</strong></td>
+                        <td><strong><i class="fas fa-box text-primary"></i> ' . $comboName . '</strong></td>
                         <td><span class="badge bg-info">Combo</span></td>
                         <td>N/A</td>
-                        <td><span class="badge bg-primary">' . ($item['SoLuong'] ?: '1') . '</span></td>
+                        <td><span class="badge bg-primary">' . $comboQuantity . '</span></td>
                         <td>combo</td>
-                        <td><strong class="text-success">' . number_format($item['DonGia'] ?: $item['GiaCombo'] ?: 0) . ' VNĐ</strong></td>
-                        <td>' . htmlspecialchars($item['GhiChu'] ?: 'Combo thiết bị') . '</td>
+                        <td><strong class="text-success">' . number_format($comboPrice) . ' VNĐ</strong></td>
+                        <td>' . $comboNote . '</td>
+                    </tr>';
+                } else if (!empty($item['TenThietBi']) || !empty($item['ID_TB'])) {
+                    // Individual equipment
+                    $equipName = htmlspecialchars($item['TenThietBi'] ?? 'Thiết bị không xác định');
+                    $equipType = htmlspecialchars($item['LoaiThietBi'] ?? 'N/A');
+                    $equipBrand = htmlspecialchars($item['HangSX'] ?? 'N/A');
+                    $equipQuantity = intval($item['SoLuong'] ?? 1);
+                    $equipUnit = htmlspecialchars($item['DonViTinh'] ?? 'cái');
+                    $equipPrice = floatval($item['DonGia'] ?? $item['GiaThue'] ?? 0);
+                    $equipNote = htmlspecialchars($item['GhiChu'] ?? 'Thiết bị riêng lẻ');
+                    
+                    $html .= '<tr>
+                        <td><strong><i class="fas fa-cog text-primary"></i> ' . $equipName . '</strong></td>
+                        <td>' . $equipType . '</td>
+                        <td>' . $equipBrand . '</td>
+                        <td><span class="badge bg-primary">' . $equipQuantity . '</span></td>
+                        <td>' . $equipUnit . '</td>
+                        <td><strong class="text-success">' . number_format($equipPrice) . ' VNĐ</strong></td>
+                        <td>' . $equipNote . '</td>
                     </tr>';
                 } else {
-                    // Individual equipment
-                    $html .= '<tr>
-                        <td><strong><i class="fas fa-cog text-primary"></i> ' . htmlspecialchars($item['TenThietBi'] ?: 'N/A') . '</strong></td>
-                        <td>' . htmlspecialchars($item['LoaiThietBi'] ?: 'N/A') . '</td>
-                        <td>' . htmlspecialchars($item['HangSX'] ?: 'N/A') . '</td>
-                        <td><span class="badge bg-primary">' . ($item['SoLuong'] ?: '1') . '</span></td>
-                        <td>' . htmlspecialchars($item['DonViTinh'] ?: 'cái') . '</td>
-                        <td><strong class="text-success">' . number_format($item['DonGia'] ?: $item['GiaThue'] ?: 0) . ' VNĐ</strong></td>
-                        <td>' . htmlspecialchars($item['GhiChu'] ?: 'Thiết bị riêng lẻ') . '</td>
-                    </tr>';
+                    // Unknown type - log for debugging
+                    error_log("Unknown equipment type: " . json_encode($item));
                 }
             }
             

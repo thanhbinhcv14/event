@@ -58,15 +58,19 @@ if (!in_array($action, $publicActions)) {
 
 try {
     require_once __DIR__ . '/../../config/database.php';
-    $pdo = getDBConnection();
     
-    // Debug kết nối database
-    if (!$pdo) {
-        error_log("Debug - Database connection failed");
-        echo json_encode(['success' => false, 'error' => 'Lỗi kết nối database']);
+    // Kiểm tra database connection
+    try {
+        $pdo = getDBConnection();
+        if (!$pdo) {
+            echo json_encode(['success' => false, 'error' => 'Không thể kết nối database'], JSON_UNESCAPED_UNICODE);
+            exit();
+        }
+    } catch (Exception $e) {
+        error_log("Database Connection Error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Lỗi kết nối database: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
         exit();
     }
-    error_log("Debug - Database connection successful");
     
     switch ($action) {
             
@@ -141,6 +145,10 @@ try {
         case 'get_all_locations':
             // Lấy tất cả địa điểm đang hoạt động
             try {
+                if (!isset($pdo) || !$pdo) {
+                    throw new Exception('Database connection không tồn tại');
+                }
+                
                 $stmt = $pdo->prepare("
                     SELECT 
                         ID_DD,
@@ -157,30 +165,60 @@ try {
                     WHERE TrangThaiHoatDong = 'Hoạt động'
                     ORDER BY TenDiaDiem ASC
                 ");
-                $stmt->execute();
+                
+                if (!$stmt) {
+                    throw new Exception('Lỗi khi prepare SQL: ' . implode(', ', $pdo->errorInfo()));
+                }
+                
+                $result = $stmt->execute();
+                if (!$result) {
+                    throw new Exception('Lỗi khi execute SQL: ' . implode(', ', $stmt->errorInfo()));
+                }
+                
                 $locations = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
-                echo json_encode(['success' => true, 'locations' => $locations]);
+                echo json_encode(['success' => true, 'locations' => $locations ? $locations : []], JSON_UNESCAPED_UNICODE);
                 
+            } catch (PDOException $e) {
+                error_log("Get All Locations PDO Error: " . $e->getMessage());
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
             } catch (Exception $e) {
-                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
+                error_log("Get All Locations Error: " . $e->getMessage());
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
             }
             break;
             
         case 'get_all_equipment':
             // Lấy tất cả thiết bị có sẵn
             try {
+                if (!isset($pdo) || !$pdo) {
+                    throw new Exception('Database connection không tồn tại');
+                }
+                
                 $stmt = $pdo->prepare("
                     SELECT * FROM thietbi 
                     WHERE TrangThai = 'Sẵn sàng' 
                     ORDER BY LoaiThietBi, TenThietBi
                 ");
-                $stmt->execute();
+                
+                if (!$stmt) {
+                    throw new Exception('Lỗi khi prepare SQL: ' . implode(', ', $pdo->errorInfo()));
+                }
+                
+                $result = $stmt->execute();
+                if (!$result) {
+                    throw new Exception('Lỗi khi execute SQL: ' . implode(', ', $stmt->errorInfo()));
+                }
+                
                 $equipment = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
-                echo json_encode(['success' => true, 'equipment' => $equipment]);
+                echo json_encode(['success' => true, 'equipment' => $equipment ? $equipment : []], JSON_UNESCAPED_UNICODE);
+            } catch (PDOException $e) {
+                error_log("Get All Equipment PDO Error: " . $e->getMessage());
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
             } catch (Exception $e) {
-                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
+                error_log("Get All Equipment Error: " . $e->getMessage());
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
             }
             break;
             
@@ -567,14 +605,151 @@ try {
                 }
                 error_log("Debug - Converted LoaiThueApDung: " . ($loaiThueApDung ?? 'NULL'));
                 
+                // Validate and get discount code if provided
+                $discountCodeId = null;
+                $discountAmount = 0;
+                if (!empty($input['discount_code']) || !empty($input['discount_id'])) {
+                    $totalAmount = floatval($input['total_price'] ?? 0);
+                    $codeData = null;
+                    
+                    // Nếu frontend đã gửi discount_id và discount_amount, validate lại để đảm bảo tính bảo mật
+                    if (!empty($input['discount_id']) && isset($input['discount_amount'])) {
+                        $discountCodeId = intval($input['discount_id']);
+                        $frontendDiscountAmount = floatval($input['discount_amount']);
+                        
+                        // Validate discount code từ database
+                        $stmt = $pdo->prepare("SELECT * FROM magiamgia WHERE ID_MaGiamGia = ?");
+                        $stmt->execute([$discountCodeId]);
+                        $codeData = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($codeData && $codeData['TrangThai'] === 'Hoạt động') {
+                            $now = time();
+                            $ngayBatDau = strtotime($codeData['NgayBatDau']);
+                            $ngayKetThuc = strtotime($codeData['NgayKetThuc']);
+                            
+                            if ($now >= $ngayBatDau && $now <= $ngayKetThuc) {
+                                // Kiểm tra số lần sử dụng tổng cộng
+                                if ($codeData['SoLanSuDungTongCong'] !== null && 
+                                    $codeData['SoLanDaSuDung'] >= $codeData['SoLanSuDungTongCong']) {
+                                    // Mã đã hết lượt sử dụng tổng cộng
+                                    $discountCodeId = null;
+                                    $discountAmount = 0;
+                                }
+                                // Kiểm tra số lần sử dụng của user
+                                elseif ($codeData['SoLanSuDungToiDa'] !== null && $userId) {
+                                    $stmt = $pdo->prepare("
+                                        SELECT COUNT(*) 
+                                        FROM magiamgia_sudung 
+                                        WHERE ID_MaGiamGia = ? AND ID_User = ?
+                                    ");
+                                    $stmt->execute([$codeData['ID_MaGiamGia'], $userId]);
+                                    $userUsageCount = $stmt->fetchColumn();
+                                    
+                                    if ($userUsageCount >= $codeData['SoLanSuDungToiDa']) {
+                                        // User đã dùng hết lượt
+                                        $discountCodeId = null;
+                                        $discountAmount = 0;
+                                    }
+                                }
+                                
+                                // Nếu vẫn còn hợp lệ, kiểm tra số tiền tối thiểu và tính discount
+                                if ($discountCodeId && ($codeData['SoTienToiThieu'] == 0 || $totalAmount >= $codeData['SoTienToiThieu'])) {
+                                    // Tính lại discount amount để verify với frontend
+                                    $calculatedDiscount = 0;
+                                    if ($codeData['LoaiGiamGia'] === 'Phần trăm') {
+                                        $calculatedDiscount = ($totalAmount * $codeData['GiaTriGiamGia']) / 100;
+                                    } else {
+                                        $calculatedDiscount = $codeData['GiaTriGiamGia'];
+                                        if ($calculatedDiscount > $totalAmount) {
+                                            $calculatedDiscount = $totalAmount;
+                                        }
+                                    }
+                                    
+                                    // Sử dụng giá trị từ frontend nếu khớp với tính toán (cho phép sai số nhỏ do làm tròn)
+                                    if (abs($frontendDiscountAmount - $calculatedDiscount) < 1) {
+                                        $discountAmount = $frontendDiscountAmount;
+                                    } else {
+                                        // Nếu không khớp, sử dụng giá trị tính toán từ backend
+                                        $discountAmount = $calculatedDiscount;
+                                        error_log("Discount amount mismatch: frontend={$frontendDiscountAmount}, calculated={$calculatedDiscount}");
+                                    }
+                                } else {
+                                    $discountCodeId = null;
+                                    $discountAmount = 0;
+                                }
+                            }
+                        }
+                    } 
+                    // Nếu chỉ có discount_code, tính lại như cũ
+                    elseif (!empty($input['discount_code'])) {
+                        $discountCode = trim($input['discount_code']);
+                        
+                        // Validate discount code
+                        $stmt = $pdo->prepare("SELECT * FROM magiamgia WHERE MaCode = ?");
+                        $stmt->execute([$discountCode]);
+                        $codeData = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($codeData && $codeData['TrangThai'] === 'Hoạt động') {
+                            $now = time();
+                            $ngayBatDau = strtotime($codeData['NgayBatDau']);
+                            $ngayKetThuc = strtotime($codeData['NgayKetThuc']);
+                            
+                            if ($now >= $ngayBatDau && $now <= $ngayKetThuc) {
+                                $isCodeValid = true;
+                                
+                                // Kiểm tra số lần sử dụng tổng cộng
+                                if ($codeData['SoLanSuDungTongCong'] !== null && 
+                                    $codeData['SoLanDaSuDung'] >= $codeData['SoLanSuDungTongCong']) {
+                                    // Mã đã hết lượt sử dụng tổng cộng
+                                    $isCodeValid = false;
+                                }
+                                // Kiểm tra số lần sử dụng của user
+                                elseif ($codeData['SoLanSuDungToiDa'] !== null && $userId) {
+                                    $stmt = $pdo->prepare("
+                                        SELECT COUNT(*) 
+                                        FROM magiamgia_sudung 
+                                        WHERE ID_MaGiamGia = ? AND ID_User = ?
+                                    ");
+                                    $stmt->execute([$codeData['ID_MaGiamGia'], $userId]);
+                                    $userUsageCount = $stmt->fetchColumn();
+                                    
+                                    if ($userUsageCount >= $codeData['SoLanSuDungToiDa']) {
+                                        // User đã dùng hết lượt
+                                        $isCodeValid = false;
+                                    }
+                                }
+                                
+                                // Nếu mã hợp lệ, kiểm tra số tiền tối thiểu và tính discount
+                                if ($isCodeValid && ($codeData['SoTienToiThieu'] == 0 || $totalAmount >= $codeData['SoTienToiThieu'])) {
+                                    // Set discountCodeId (chưa được set trong trường hợp này)
+                                    $discountCodeId = $codeData['ID_MaGiamGia'];
+                                    // Calculate discount amount
+                                    if ($codeData['LoaiGiamGia'] === 'Phần trăm') {
+                                        $discountAmount = ($totalAmount * $codeData['GiaTriGiamGia']) / 100;
+                                    } else {
+                                        $discountAmount = $codeData['GiaTriGiamGia'];
+                                        if ($discountAmount > $totalAmount) {
+                                            $discountAmount = $totalAmount;
+                                        }
+                                    }
+                                } else {
+                                    $discountCodeId = null;
+                                    $discountAmount = 0;
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 // Chèn vào bảng datlichsukien
                 $roomId = $input['room_id'] ?? null;
                 
                 $sql = "INSERT INTO datlichsukien (
                     ID_KhachHang, TenSuKien, MoTa, NgayBatDau, NgayKetThuc, 
                     ID_DD, ID_LoaiSK, SoNguoiDuKien, NganSach, TongTien,
-                    TrangThaiDuyet, TrangThaiThanhToan, GhiChu, LoaiThueApDung, ID_Phong
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    TrangThaiDuyet, TrangThaiThanhToan, GhiChu, LoaiThueApDung, ID_Phong,
+                    ID_MaGiamGia, SoTienGiamGia
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 
                 $stmt = $pdo->prepare($sql);
                 $result = $stmt->execute([
@@ -592,7 +767,9 @@ try {
                     'Chưa thanh toán',
                     'Đăng ký từ website',
                     $loaiThueApDung,
-                    $roomId
+                    $roomId,
+                    $discountCodeId,
+                    $discountAmount
                 ]);
                 
                 if (!$result) {
@@ -658,6 +835,36 @@ try {
                             $stmt->execute([$datLichId, $equipmentId, $quantity, $equipment['GiaThue']]);
                         }
                     }
+                }
+                
+                // Lưu vào bảng magiamgia_sudung nếu có mã giảm giá được áp dụng
+                if ($discountCodeId && $discountAmount > 0) {
+                    $totalAmountBeforeDiscount = floatval($input['total_price'] ?? 0) + $discountAmount;
+                    $totalAmountAfterDiscount = floatval($input['total_price'] ?? 0);
+                    
+                    // Lưu record sử dụng mã giảm giá
+                    $stmt = $pdo->prepare("
+                        INSERT INTO magiamgia_sudung (
+                            ID_MaGiamGia, ID_User, ID_DatLich, 
+                            SoTienGiamGia, SoTienTruocGiam, SoTienSauGiam
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $discountCodeId,
+                        $userId,
+                        $datLichId,
+                        $discountAmount,
+                        $totalAmountBeforeDiscount,
+                        $totalAmountAfterDiscount
+                    ]);
+                    
+                    // Cập nhật số lần đã sử dụng trong bảng magiamgia
+                    $stmt = $pdo->prepare("
+                        UPDATE magiamgia 
+                        SET SoLanDaSuDung = SoLanDaSuDung + 1 
+                        WHERE ID_MaGiamGia = ?
+                    ");
+                    $stmt->execute([$discountCodeId]);
                 }
                 
                 $pdo->commit();
@@ -976,6 +1183,56 @@ try {
                             ];
                         }
                     }
+                    
+                    // Check if all steps are completed for this event
+                    // Only check if event is approved and payment is sufficient
+                    if ($event['TrangThaiDuyet'] === 'Đã duyệt' && 
+                        ($event['TrangThaiThanhToan'] === 'Đã thanh toán đủ' || $event['TrangThaiThanhToan'] === 'Đã đặt cọc')) {
+                        
+                        // Get sukien ID from datlichsukien
+                        $stmtSukien = $pdo->prepare("SELECT ID_SuKien FROM sukien WHERE ID_DatLich = ?");
+                        $stmtSukien->execute([$event['ID_DatLich']]);
+                        $sukien = $stmtSukien->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($sukien && $sukien['ID_SuKien']) {
+                            // Check if all steps are completed
+                            $stmtSteps = $pdo->prepare("
+                                SELECT 
+                                    COUNT(*) as total_steps,
+                                    SUM(CASE WHEN TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_steps
+                                FROM (
+                                    SELECT ctk.TrangThai FROM chitietkehoach ctk
+                                    JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+                                    WHERE kht.ID_SuKien = ?
+                                    
+                                    UNION ALL
+                                    
+                                    SELECT llv.TrangThai FROM lichlamviec llv
+                                    JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
+                                    JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+                                    WHERE s.ID_SuKien = ?
+                                ) as all_steps
+                            ");
+                            $stmtSteps->execute([$sukien['ID_SuKien'], $sukien['ID_SuKien']]);
+                            $stepsResult = $stmtSteps->fetch(PDO::FETCH_ASSOC);
+                            
+                            $totalSteps = (int)($stepsResult['total_steps'] ?? 0);
+                            $completedSteps = (int)($stepsResult['completed_steps'] ?? 0);
+                            
+                            // Set flag if all steps are completed
+                            $event['AllStepsCompleted'] = ($totalSteps > 0 && $totalSteps === $completedSteps);
+                            $event['TotalSteps'] = $totalSteps;
+                            $event['CompletedSteps'] = $completedSteps;
+                        } else {
+                            $event['AllStepsCompleted'] = false;
+                            $event['TotalSteps'] = 0;
+                            $event['CompletedSteps'] = 0;
+                        }
+                    } else {
+                        $event['AllStepsCompleted'] = false;
+                        $event['TotalSteps'] = 0;
+                        $event['CompletedSteps'] = 0;
+                    }
                 }
                 unset($event);
 
@@ -993,12 +1250,25 @@ try {
         case 'get_all_combos':
             // Lấy tất cả combo có sẵn
             try {
+                if (!isset($pdo) || !$pdo) {
+                    throw new Exception('Database connection không tồn tại');
+                }
+                
                 $stmt = $pdo->prepare("
                     SELECT c.ID_Combo, c.TenCombo, c.MoTa, c.GiaCombo
                     FROM combo c
                     ORDER BY c.GiaCombo ASC
                 ");
-                $stmt->execute();
+                
+                if (!$stmt) {
+                    throw new Exception('Lỗi khi prepare SQL: ' . implode(', ', $pdo->errorInfo()));
+                }
+                
+                $result = $stmt->execute();
+                if (!$result) {
+                    throw new Exception('Lỗi khi execute SQL: ' . implode(', ', $stmt->errorInfo()));
+                }
+                
                 $combos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 // Get combo details (equipment in each combo)
@@ -1010,35 +1280,55 @@ try {
                         WHERE cc.ID_Combo = ?
                         ORDER BY t.LoaiThietBi, t.TenThietBi
                     ");
-                    $stmt->execute([$combo['ID_Combo']]);
-                    $combo['equipment'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    if ($stmt) {
+                        $stmt->execute([$combo['ID_Combo']]);
+                        $combo['equipment'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    } else {
+                        $combo['equipment'] = [];
+                    }
                 }
                 
-                echo json_encode(['success' => true, 'combos' => $combos]);
+                echo json_encode(['success' => true, 'combos' => $combos ? $combos : []], JSON_UNESCAPED_UNICODE);
                 
+            } catch (PDOException $e) {
+                error_log("Get All Combos PDO Error: " . $e->getMessage());
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
             } catch (Exception $e) {
-                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
+                error_log("Get All Combos Error: " . $e->getMessage());
+                echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
             }
             break;
             
         case 'get_combo_suggestions':
             // Lấy gợi ý combo dựa trên loại sự kiện
             try {
+                if (!isset($pdo) || !$pdo) {
+                    throw new Exception('Database connection không tồn tại');
+                }
+                
                 $eventType = $_GET['event_type'] ?? '';
                 $locationId = $_GET['location_id'] ?? '';
                 
                 if (empty($eventType)) {
-                    echo json_encode(['success' => false, 'error' => 'Thiếu loại sự kiện']);
+                    echo json_encode(['success' => false, 'error' => 'Thiếu loại sự kiện'], JSON_UNESCAPED_UNICODE);
                     break;
                 }
                 
                 // Get event type ID
                 $stmt = $pdo->prepare("SELECT ID_LoaiSK FROM loaisukien WHERE TenLoai = ?");
-                $stmt->execute([$eventType]);
+                if (!$stmt) {
+                    throw new Exception('Lỗi khi prepare SQL: ' . implode(', ', $pdo->errorInfo()));
+                }
+                
+                $result = $stmt->execute([$eventType]);
+                if (!$result) {
+                    throw new Exception('Lỗi khi execute SQL: ' . implode(', ', $stmt->errorInfo()));
+                }
+                
                 $eventTypeData = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if (!$eventTypeData) {
-                    echo json_encode(['success' => false, 'error' => 'Loại sự kiện không tồn tại']);
+                    echo json_encode(['success' => false, 'error' => 'Loại sự kiện không tồn tại'], JSON_UNESCAPED_UNICODE);
                     break;
                 }
                 
@@ -1053,7 +1343,16 @@ try {
                     WHERE cl.ID_LoaiSK = ?
                     ORDER BY COALESCE(cl.UuTien, 1) ASC, c.GiaCombo ASC
                 ");
-                $stmt->execute([$eventTypeId]);
+                
+                if (!$stmt) {
+                    throw new Exception('Lỗi khi prepare SQL: ' . implode(', ', $pdo->errorInfo()));
+                }
+                
+                $result = $stmt->execute([$eventTypeId]);
+                if (!$result) {
+                    throw new Exception('Lỗi khi execute SQL: ' . implode(', ', $stmt->errorInfo()));
+                }
+                
                 $combos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 // Get combo details (equipment in each combo)
@@ -1065,11 +1364,15 @@ try {
                         WHERE cc.ID_Combo = ?
                         ORDER BY t.LoaiThietBi, t.TenThietBi
                     ");
-                    $stmt->execute([$combo['ID_Combo']]);
-                    $combo['equipment'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    if ($stmt) {
+                        $stmt->execute([$combo['ID_Combo']]);
+                        $combo['equipment'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    } else {
+                        $combo['equipment'] = [];
+                    }
                 }
                 
-                echo json_encode(['success' => true, 'combos' => $combos]);
+                echo json_encode(['success' => true, 'combos' => $combos ? $combos : []], JSON_UNESCAPED_UNICODE);
                 
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => 'Lỗi database: ' . $e->getMessage()]);
@@ -1114,10 +1417,12 @@ try {
                 
                 error_log("Debug - Customer ID: " . $customerId);
                 
-                // Lấy chi tiết sự kiện
+                // Lấy chi tiết sự kiện kèm thông tin mã giảm giá
                 $stmt = $pdo->prepare("
-                    SELECT * FROM datlichsukien 
-                    WHERE ID_DatLich = ? AND ID_KhachHang = ? AND TrangThaiDuyet = 'Chờ duyệt'
+                    SELECT d.*, m.MaCode, m.TenMa, m.LoaiGiamGia, m.GiaTriGiamGia
+                    FROM datlichsukien d
+                    LEFT JOIN magiamgia m ON d.ID_MaGiamGia = m.ID_MaGiamGia
+                    WHERE d.ID_DatLich = ? AND d.ID_KhachHang = ? AND d.TrangThaiDuyet = 'Chờ duyệt'
                 ");
                 $stmt->execute([$eventId, $customerId]);
                 $event = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1128,8 +1433,10 @@ try {
                 if (!$event) {
                     error_log("Debug - No event found with status restriction, trying without status");
                     $stmt = $pdo->prepare("
-                        SELECT * FROM datlichsukien 
-                        WHERE ID_DatLich = ? AND ID_KhachHang = ?
+                        SELECT d.*, m.MaCode, m.TenMa, m.LoaiGiamGia, m.GiaTriGiamGia
+                        FROM datlichsukien d
+                        LEFT JOIN magiamgia m ON d.ID_MaGiamGia = m.ID_MaGiamGia
+                        WHERE d.ID_DatLich = ? AND d.ID_KhachHang = ?
                     ");
                     $stmt->execute([$eventId, $customerId]);
                     $event = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1303,6 +1610,142 @@ try {
                 error_log("Debug - Update room_id: " . ($roomId ?? 'NULL'));
                 error_log("Debug - Update room_rental_type: " . ($roomRentalType ?? 'NULL'));
                 
+                // Validate and get discount code if provided (same logic as register)
+                $discountCodeId = null;
+                $discountAmount = 0;
+                if (!empty($input['discount_code']) || !empty($input['discount_id'])) {
+                    $totalAmount = floatval($input['total_price'] ?? 0);
+                    $codeData = null;
+                    
+                    // Nếu frontend đã gửi discount_id và discount_amount, validate lại để đảm bảo tính bảo mật
+                    if (!empty($input['discount_id']) && isset($input['discount_amount'])) {
+                        $discountCodeId = intval($input['discount_id']);
+                        $frontendDiscountAmount = floatval($input['discount_amount']);
+                        
+                        // Validate discount code từ database
+                        $stmt = $pdo->prepare("SELECT * FROM magiamgia WHERE ID_MaGiamGia = ?");
+                        $stmt->execute([$discountCodeId]);
+                        $codeData = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($codeData && $codeData['TrangThai'] === 'Hoạt động') {
+                            $now = time();
+                            $ngayBatDau = strtotime($codeData['NgayBatDau']);
+                            $ngayKetThuc = strtotime($codeData['NgayKetThuc']);
+                            
+                            if ($now >= $ngayBatDau && $now <= $ngayKetThuc) {
+                                // Kiểm tra số lần sử dụng tổng cộng
+                                if ($codeData['SoLanSuDungTongCong'] !== null && 
+                                    $codeData['SoLanDaSuDung'] >= $codeData['SoLanSuDungTongCong']) {
+                                    // Mã đã hết lượt sử dụng tổng cộng
+                                    $discountCodeId = null;
+                                    $discountAmount = 0;
+                                }
+                                // Kiểm tra số lần sử dụng của user
+                                elseif ($codeData['SoLanSuDungToiDa'] !== null && $userId) {
+                                    $stmt = $pdo->prepare("
+                                        SELECT COUNT(*) 
+                                        FROM magiamgia_sudung 
+                                        WHERE ID_MaGiamGia = ? AND ID_User = ?
+                                    ");
+                                    $stmt->execute([$codeData['ID_MaGiamGia'], $userId]);
+                                    $userUsageCount = $stmt->fetchColumn();
+                                    
+                                    if ($userUsageCount >= $codeData['SoLanSuDungToiDa']) {
+                                        // User đã dùng hết lượt
+                                        $discountCodeId = null;
+                                        $discountAmount = 0;
+                                    }
+                                }
+                                
+                                // Nếu vẫn còn hợp lệ, kiểm tra số tiền tối thiểu và tính discount
+                                if ($discountCodeId && ($codeData['SoTienToiThieu'] == 0 || $totalAmount >= $codeData['SoTienToiThieu'])) {
+                                    // Tính lại discount amount để verify với frontend
+                                    $calculatedDiscount = 0;
+                                    if ($codeData['LoaiGiamGia'] === 'Phần trăm') {
+                                        $calculatedDiscount = ($totalAmount * $codeData['GiaTriGiamGia']) / 100;
+                                    } else {
+                                        $calculatedDiscount = $codeData['GiaTriGiamGia'];
+                                        if ($calculatedDiscount > $totalAmount) {
+                                            $calculatedDiscount = $totalAmount;
+                                        }
+                                    }
+                                    
+                                    // Sử dụng giá trị từ frontend nếu khớp với tính toán (cho phép sai số nhỏ do làm tròn)
+                                    if (abs($frontendDiscountAmount - $calculatedDiscount) < 1) {
+                                        $discountAmount = $frontendDiscountAmount;
+                                    } else {
+                                        // Nếu không khớp, sử dụng giá trị tính toán từ backend
+                                        $discountAmount = $calculatedDiscount;
+                                        error_log("Discount amount mismatch: frontend={$frontendDiscountAmount}, calculated={$calculatedDiscount}");
+                                    }
+                                } else {
+                                    $discountCodeId = null;
+                                    $discountAmount = 0;
+                                }
+                            }
+                        }
+                    } 
+                    // Nếu chỉ có discount_code, tính lại như cũ
+                    elseif (!empty($input['discount_code'])) {
+                        $discountCode = trim($input['discount_code']);
+                        
+                        // Validate discount code
+                        $stmt = $pdo->prepare("SELECT * FROM magiamgia WHERE MaCode = ?");
+                        $stmt->execute([$discountCode]);
+                        $codeData = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($codeData && $codeData['TrangThai'] === 'Hoạt động') {
+                            $now = time();
+                            $ngayBatDau = strtotime($codeData['NgayBatDau']);
+                            $ngayKetThuc = strtotime($codeData['NgayKetThuc']);
+                            
+                            if ($now >= $ngayBatDau && $now <= $ngayKetThuc) {
+                                $isCodeValid = true;
+                                
+                                // Kiểm tra số lần sử dụng tổng cộng
+                                if ($codeData['SoLanSuDungTongCong'] !== null && 
+                                    $codeData['SoLanDaSuDung'] >= $codeData['SoLanSuDungTongCong']) {
+                                    // Mã đã hết lượt sử dụng tổng cộng
+                                    $isCodeValid = false;
+                                }
+                                // Kiểm tra số lần sử dụng của user
+                                elseif ($codeData['SoLanSuDungToiDa'] !== null && $userId) {
+                                    $stmt = $pdo->prepare("
+                                        SELECT COUNT(*) 
+                                        FROM magiamgia_sudung 
+                                        WHERE ID_MaGiamGia = ? AND ID_User = ?
+                                    ");
+                                    $stmt->execute([$codeData['ID_MaGiamGia'], $userId]);
+                                    $userUsageCount = $stmt->fetchColumn();
+                                    
+                                    if ($userUsageCount >= $codeData['SoLanSuDungToiDa']) {
+                                        // User đã dùng hết lượt
+                                        $isCodeValid = false;
+                                    }
+                                }
+                                
+                                // Nếu mã hợp lệ, kiểm tra số tiền tối thiểu và tính discount
+                                if ($isCodeValid && ($codeData['SoTienToiThieu'] == 0 || $totalAmount >= $codeData['SoTienToiThieu'])) {
+                                    // Set discountCodeId (chưa được set trong trường hợp này)
+                                    $discountCodeId = $codeData['ID_MaGiamGia'];
+                                    // Calculate discount amount
+                                    if ($codeData['LoaiGiamGia'] === 'Phần trăm') {
+                                        $discountAmount = ($totalAmount * $codeData['GiaTriGiamGia']) / 100;
+                                    } else {
+                                        $discountAmount = $codeData['GiaTriGiamGia'];
+                                        if ($discountAmount > $totalAmount) {
+                                            $discountAmount = $totalAmount;
+                                        }
+                                    }
+                                } else {
+                                    $discountCodeId = null;
+                                    $discountAmount = 0;
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 $stmt = $pdo->prepare("
                     UPDATE datlichsukien SET
                         TenSuKien = ?,
@@ -1316,7 +1759,9 @@ try {
                         GhiChu = ?,
                         ID_DD = ?,
                         LoaiThueApDung = ?,
-                        ID_Phong = ?
+                        ID_Phong = ?,
+                        ID_MaGiamGia = ?,
+                        SoTienGiamGia = ?
                     WHERE ID_DatLich = ?
                 ");
                 
@@ -1333,6 +1778,8 @@ try {
                     $input['location_id'],
                     $loaiThueApDung,
                     $roomId,
+                    $discountCodeId,
+                    $discountAmount,
                     $editId
                 ]);
                 
