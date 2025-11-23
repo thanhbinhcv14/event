@@ -72,6 +72,30 @@ async function initStringeeClient(token, serverAddrs) {
         // Tạo client
         stringeeClient = new StringeeClient(serverAddrs);
         
+        // QUAN TRỌNG: Setup WebSocket connection event handlers
+        // Connection status monitoring
+        stringeeClient.on('connect', function() {
+            console.log('✅ [Stringee] WebSocket connected');
+            if (typeof window.onStringeeConnected === 'function') {
+                window.onStringeeConnected();
+            }
+        });
+        
+        stringeeClient.on('disconnect', function() {
+            console.warn('⚠️ [Stringee] WebSocket disconnected');
+            if (typeof window.onStringeeDisconnected === 'function') {
+                window.onStringeeDisconnected();
+            }
+        });
+        
+        // Error handler
+        stringeeClient.on('error', function(error) {
+            console.error('❌ [Stringee] WebSocket error:', error);
+            if (typeof window.onStringeeError === 'function') {
+                window.onStringeeError(error);
+            }
+        });
+        
         // Setup incoming call handler (voice call)
         stringeeClient.on('incomingcall', function(incomingCall) {
             console.log('📞 [Stringee] Incoming voice call received');
@@ -99,20 +123,34 @@ async function initStringeeClient(token, serverAddrs) {
         }
         
         // Connect với token
+        console.log('🔄 [Stringee] Connecting to WebSocket servers:', serverAddrs);
         await new Promise((resolve, reject) => {
+            let authenticated = false;
+            
+            // Authentication handler
             stringeeClient.on('authen', function(res) {
                 if (res.r === 0) {
-                    console.log('✅ [Stringee] Authenticated');
+                    authenticated = true;
+                    console.log('✅ [Stringee] Authenticated successfully');
+                    console.log('✅ [Stringee] User ID:', res.userId || 'N/A');
                     resolve();
                 } else {
-                    reject(new Error('Authentication failed: ' + (res.m || 'Unknown error')));
+                    const errorMsg = res.m || res.message || 'Unknown authentication error';
+                    console.error('❌ [Stringee] Authentication failed:', errorMsg);
+                    reject(new Error('Authentication failed: ' + errorMsg));
                 }
             });
             
+            // Connect
+            console.log('🔄 [Stringee] Calling stringeeClient.connect()...');
             stringeeClient.connect(token);
             
+            // Timeout handler
             setTimeout(() => {
-                reject(new Error('Connection timeout'));
+                if (!authenticated) {
+                    console.error('❌ [Stringee] Connection timeout after 10 seconds');
+                    reject(new Error('Connection timeout'));
+                }
             }, 10000);
         });
         
@@ -128,9 +166,9 @@ async function initStringeeClient(token, serverAddrs) {
  * Make Stringee Call
  * Theo documentation: Voice call dùng StringeeCall, Video call dùng StringeeCall2
  */
-async function makeStringeeCall(fromUserId, toUserId, callType = 'voice') {
+async function makeStringeeCall(fromUserId, toUserId, callType = 'voice', callId = null) {
     try {
-        console.log('📞 [Stringee] Making call:', { fromUserId, toUserId, callType });
+        console.log('📞 [Stringee] Making call:', { fromUserId, toUserId, callType, callId });
         
         await waitForStringeeSDK();
         
@@ -160,6 +198,16 @@ async function makeStringeeCall(fromUserId, toUserId, callType = 'voice') {
             }
         }
         
+        // QUAN TRỌNG: Set customData với callId để Stringee callback có thể query database
+        if (callId && stringeeCall.setCustomData) {
+            try {
+                stringeeCall.setCustomData(JSON.stringify({ callId: callId }));
+                console.log('✅ [Stringee] Set customData with callId:', callId);
+            } catch (e) {
+                console.warn('⚠️ [Stringee] setCustomData not available:', e);
+            }
+        }
+        
         // Setup events
         setupStringeeCallEvents();
         
@@ -168,6 +216,17 @@ async function makeStringeeCall(fromUserId, toUserId, callType = 'voice') {
             stringeeCall.makeCall(function(res) {
                 if (res.r === 0) {
                     console.log('✅ [Stringee] Call initiated');
+                    
+                    // QUAN TRỌNG: Lưu stringee_call_id vào database sau khi makeCall() thành công
+                    // Stringee callId có thể lấy từ stringeeCall.callId hoặc res.callId
+                    const stringeeCallId = stringeeCall.callId || res.callId;
+                    if (stringeeCallId && callId) {
+                        // Gọi API để update stringee_call_id
+                        updateStringeeCallId(callId, stringeeCallId).catch(err => {
+                            console.warn('⚠️ [Stringee] Failed to update stringee_call_id:', err);
+                        });
+                    }
+                    
                     resolve();
                 } else {
                     const errorMsg = res.m || res.message || 'Failed to make call';
@@ -597,27 +656,120 @@ async function getStringeeTokenAndJoin(callId, callType, isCaller = true) {
         console.log('✅ [Stringee] Token received');
         
         // Initialize client
-            await initStringeeClient(response.token, response.server_addrs);
-            
-            // Make or answer call
-            if (isCaller) {
-                const receiverId = response.receiver_id || response.user_id;
-            const callerId = response.user_id || response.caller_id;
+        await initStringeeClient(response.token, response.server_addrs);
+        
+        // Make or answer call
+        if (isCaller) {
+            // QUAN TRỌNG: Lấy receiver_id và caller_id từ response (đã được thêm trong stringee-controller.php)
+            const receiverId = response.receiver_id;
+            const callerId = response.caller_id || response.user_id;
             
             if (!receiverId || !callerId) {
-                throw new Error('Thiếu thông tin caller hoặc receiver ID');
+                console.error('❌ [Stringee] Missing call info:', {
+                    receiver_id: receiverId,
+                    caller_id: callerId,
+                    user_id: response.user_id,
+                    response: response
+                });
+                throw new Error('Thiếu thông tin caller hoặc receiver ID. Vui lòng kiểm tra call session.');
             }
             
-            await makeStringeeCall(callerId, receiverId, callType);
-            } else {
+            // Đảm bảo cả hai đều là string (Stringee yêu cầu)
+            const fromUserId = String(callerId);
+            const toUserId = String(receiverId);
+            
+            console.log('📞 [Stringee] Making call:', {
+                from: fromUserId,
+                to: toUserId,
+                callType: callType,
+                callId: callId
+            });
+            
+            // QUAN TRỌNG: Truyền callId để Stringee callback có thể query database
+            await makeStringeeCall(fromUserId, toUserId, callType, callId);
+        } else {
             console.log('📞 [Stringee] Waiting for incoming call...');
-            }
+        }
             
             return response;
         
     } catch (error) {
         console.error('❌ [Stringee] Error getting token:', error);
         throw error;
+    }
+}
+
+/**
+ * Update Stringee Call ID in database
+ * Gọi API để lưu stringee_call_id vào database
+ */
+async function updateStringeeCallId(callId, stringeeCallId) {
+    try {
+        // Xác định API path
+        let apiPath = '../src/controllers/stringee-controller.php?action=update_stringee_call_id';
+        if (typeof getApiPath === 'function') {
+            apiPath = getApiPath('src/controllers/stringee-controller.php?action=update_stringee_call_id');
+        } else {
+            const path = window.location.pathname;
+            if (path.includes('/admin/')) {
+                apiPath = '../src/controllers/stringee-controller.php?action=update_stringee_call_id';
+            }
+        }
+        
+        const response = await $.post(apiPath, {
+            call_id: callId,
+            stringee_call_id: stringeeCallId
+        });
+        
+        if (response.success) {
+            console.log('✅ [Stringee] Updated stringee_call_id:', stringeeCallId);
+        } else {
+            console.warn('⚠️ [Stringee] Failed to update stringee_call_id:', response.error);
+        }
+    } catch (error) {
+        console.error('❌ [Stringee] Error updating stringee_call_id:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get Stringee Client Connection Status
+ * Kiểm tra xem WebSocket đã kết nối chưa
+ */
+function getStringeeConnectionStatus() {
+    if (!stringeeClient) {
+        return {
+            connected: false,
+            status: 'not_initialized',
+            message: 'Stringee client chưa được khởi tạo'
+        };
+    }
+    
+    // Stringee SDK có thể có property để check connection status
+    // Nếu không có, ta có thể check qua các event đã được trigger
+    try {
+        // Thử check connection state nếu SDK hỗ trợ
+        if (stringeeClient.connected !== undefined) {
+            return {
+                connected: stringeeClient.connected === true,
+                status: stringeeClient.connected ? 'connected' : 'disconnected',
+                message: stringeeClient.connected ? 'Đã kết nối' : 'Chưa kết nối'
+            };
+        }
+        
+        // Fallback: giả định đã connected nếu client tồn tại
+        return {
+            connected: true,
+            status: 'connected',
+            message: 'Đã kết nối (status không thể xác định chính xác)'
+        };
+    } catch (error) {
+        console.warn('⚠️ [Stringee] Cannot check connection status:', error);
+        return {
+            connected: false,
+            status: 'unknown',
+            message: 'Không thể kiểm tra trạng thái kết nối'
+        };
     }
 }
 
@@ -632,5 +784,7 @@ window.StringeeHelper = {
     toggleCamera: toggleCamera,
     endCall: endStringeeCall,
     cleanup: cleanupStringeeCall,
-    getTokenAndJoin: getStringeeTokenAndJoin
+    getTokenAndJoin: getStringeeTokenAndJoin,
+    getConnectionStatus: getStringeeConnectionStatus,
+    getClient: function() { return stringeeClient; }
 };

@@ -173,6 +173,64 @@ function createPayment() {
         return;
     }
     
+    // Validate and apply discount code if provided (chỉ cho SePay, không cho tiền mặt)
+    $discountCodeId = null;
+    $discountAmount = 0;
+    $discountCode = null;
+    if (!empty($_POST['discount_code']) || !empty($_POST['discount_id'])) {
+        // Tiền mặt không cho phép áp dụng mã giảm giá
+        if ($paymentMethod === 'cash') {
+            // Bỏ qua mã giảm giá cho thanh toán tiền mặt
+        } else {
+            $userId = $_SESSION['user']['ID_User'];
+            $baseAmount = floatval($amount);
+            
+            // Only apply discount for full payment (1 time), not for deposit or remaining payment
+            if ($paymentType === 'full') {
+                // If discount_id and discount_amount are provided, validate them
+                if (!empty($_POST['discount_id']) && isset($_POST['discount_amount'])) {
+                    $discountCodeId = intval($_POST['discount_id']);
+                    $frontendDiscountAmount = floatval($_POST['discount_amount']);
+                    
+                    // Validate discount code from database
+                    $stmt = $pdo->prepare("SELECT * FROM magiamgia WHERE ID_MaGiamGia = ? AND TrangThai = 'Hoạt động'");
+                    $stmt->execute([$discountCodeId]);
+                    $codeData = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($codeData) {
+                        // Recalculate discount to ensure security
+                        $discountAmount = calculateDiscountAmount($codeData, $baseAmount, $userId);
+                        if ($discountAmount > 0) {
+                            $discountCode = $codeData['MaCode'];
+                            // Verify the discount amount matches (allow small floating point differences)
+                            if (abs($discountAmount - $frontendDiscountAmount) > 0.01) {
+                                error_log("Discount amount mismatch: frontend={$frontendDiscountAmount}, backend={$discountAmount}");
+                                // Use backend calculated amount for security
+                            }
+                        } else {
+                            $discountCodeId = null;
+                            $discountCode = null;
+                        }
+                    }
+                } else if (!empty($_POST['discount_code'])) {
+                    // If only discount code is provided, validate it
+                    $code = trim($_POST['discount_code']);
+                    $stmt = $pdo->prepare("SELECT * FROM magiamgia WHERE MaCode = ? AND TrangThai = 'Hoạt động'");
+                    $stmt->execute([$code]);
+                    $codeData = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($codeData) {
+                        $discountAmount = calculateDiscountAmount($codeData, $baseAmount, $userId);
+                        if ($discountAmount > 0) {
+                            $discountCodeId = $codeData['ID_MaGiamGia'];
+                            $discountCode = $code;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     // Kiểm tra sự kiện có tồn tại và thuộc về người dùng không
     $userId = $_SESSION['user']['ID_User'];
     $stmt = $pdo->prepare("
@@ -316,6 +374,9 @@ function createPayment() {
         // Lưu SePay dưới dạng 'Chuyển khoản' để khớp với ENUM hiện có
         $paymentMethodDB = $paymentMethod === 'sepay' ? 'Chuyển khoản' : 'Tiền mặt';
         $note = "Thanh toán {$paymentTypeDB} qua {$paymentMethodDB} cho sự kiện: {$event['TenSuKien']}";
+        if ($discountCode) {
+            $note .= " - Mã giảm giá: {$discountCode} (Giảm: " . number_format($discountAmount, 0, ',', '.') . " VNĐ)";
+        }
         
         $stmt->execute([
             $eventId,
@@ -447,6 +508,60 @@ function createPayment() {
     }
 }
 
+// Helper function to calculate discount amount
+function calculateDiscountAmount($codeData, $totalAmount, $userId) {
+    global $pdo;
+    
+    // Check date validity
+    $now = time();
+    $ngayBatDau = strtotime($codeData['NgayBatDau']);
+    $ngayKetThuc = strtotime($codeData['NgayKetThuc']);
+    
+    if ($now < $ngayBatDau || $now > $ngayKetThuc) {
+        return 0;
+    }
+    
+    // Check minimum amount
+    if ($codeData['SoTienToiThieu'] > 0 && $totalAmount < $codeData['SoTienToiThieu']) {
+        return 0;
+    }
+    
+    // Check total usage limit
+    if ($codeData['SoLanSuDungTongCong'] !== null && 
+        $codeData['SoLanDaSuDung'] >= $codeData['SoLanSuDungTongCong']) {
+        return 0;
+    }
+    
+    // Check per-user usage limit
+    if ($userId && $codeData['SoLanSuDungToiDa'] !== null) {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) 
+            FROM magiamgia_sudung 
+            WHERE ID_MaGiamGia = ? AND ID_User = ?
+        ");
+        $stmt->execute([$codeData['ID_MaGiamGia'], $userId]);
+        $userUsageCount = $stmt->fetchColumn();
+        
+        if ($userUsageCount >= $codeData['SoLanSuDungToiDa']) {
+            return 0;
+        }
+    }
+    
+    // Calculate discount amount
+    $discountAmount = 0;
+    if ($codeData['LoaiGiamGia'] === 'Phần trăm') {
+        $discountAmount = ($totalAmount * $codeData['GiaTriGiamGia']) / 100;
+    } else {
+        $discountAmount = $codeData['GiaTriGiamGia'];
+        // Don't allow discount more than total amount
+        if ($discountAmount > $totalAmount) {
+            $discountAmount = $totalAmount;
+        }
+    }
+    
+    return $discountAmount;
+}
+
 function generateQRData($paymentMethod, $amount, $eventId, $transactionCode) {
     global $pdo;
     
@@ -541,9 +656,11 @@ function createSePayCheckoutURL($amount, $orderDescription, $orderInvoice, $cust
     try {
         $partnerCode = defined('SEPAY_PARTNER_CODE') ? SEPAY_PARTNER_CODE : '';
         $secretKey = defined('SEPAY_SECRET_KEY') ? SEPAY_SECRET_KEY : '';
-        $environment = defined('SEPAY_ENVIRONMENT') && SEPAY_ENVIRONMENT === 'sandbox' 
-            ? SePayClient::ENVIRONMENT_SANDBOX 
-            : SePayClient::ENVIRONMENT_PRODUCTION;
+        // SDK SePay sử dụng string 'sandbox' hoặc 'production'
+        $environment = defined('SEPAY_ENVIRONMENT') ? SEPAY_ENVIRONMENT : 'production';
+        if ($environment !== 'sandbox' && $environment !== 'production') {
+            $environment = 'production'; // Default to production
+        }
         $callbackUrl = defined('SEPAY_CALLBACK_URL') ? SEPAY_CALLBACK_URL : '';
         
         // ✅ Khởi tạo SePay Client với SDK chính thức
@@ -603,9 +720,17 @@ function createSePayCheckoutURL($amount, $orderDescription, $orderInvoice, $cust
         );
         
         // Log chi tiết để debug
-        error_log("SePay Checkout URL created using official SDK for merchant: {$partnerCode}");
-        error_log("SePay Checkout URL (POST): " . $checkoutUrl);
-        error_log("SePay Form Fields: " . json_encode($formFields, JSON_UNESCAPED_UNICODE));
+        error_log("=== SePay Checkout Debug ===");
+        error_log("Merchant ID: {$partnerCode}");
+        error_log("Environment: {$environment}");
+        error_log("Checkout URL (POST): " . $checkoutUrl);
+        error_log("Form Fields Count: " . count($formFields));
+        error_log("Form Fields Keys: " . implode(', ', array_keys($formFields)));
+        error_log("Has Merchant in Form Fields: " . (isset($formFields['merchant']) ? 'YES (' . $formFields['merchant'] . ')' : 'NO'));
+        error_log("Has Signature in Form Fields: " . (isset($formFields['signature']) ? 'YES' : 'NO'));
+        error_log("Checkout Data: " . json_encode($checkoutData, JSON_UNESCAPED_UNICODE));
+        error_log("Form HTML Preview (first 500 chars): " . substr($formHtml, 0, 500));
+        error_log("=== End SePay Checkout Debug ===");
         
         return [
             'checkout_url' => $checkoutUrl, // URL để POST form
@@ -616,11 +741,24 @@ function createSePayCheckoutURL($amount, $orderDescription, $orderInvoice, $cust
     } catch (SePayException $e) {
         error_log("SePay Checkout URL SePayException: " . $e->getMessage());
         error_log("SePay Checkout URL Exception Code: " . $e->getCode());
-        return null;
+        error_log("SePay Checkout URL Exception Trace: " . $e->getTraceAsString());
+        return [
+            'error' => 'SePayException: ' . $e->getMessage(),
+            'error_code' => $e->getCode()
+        ];
+    } catch (\SePay\Exceptions\ValidationException $e) {
+        error_log("SePay Checkout URL ValidationException: " . $e->getMessage());
+        return [
+            'error' => 'ValidationException: ' . $e->getMessage(),
+            'error_code' => $e->getCode()
+        ];
     } catch (Exception $e) {
         error_log("SePay Checkout URL Exception: " . $e->getMessage());
         error_log("SePay Checkout URL Exception Trace: " . $e->getTraceAsString());
-        return null;
+        return [
+            'error' => 'Exception: ' . $e->getMessage(),
+            'error_code' => $e->getCode()
+        ];
     }
 }
 
@@ -833,6 +971,51 @@ function createSePayPayment() {
         return;
     }
     
+    // Validate and apply discount code if provided (chỉ cho SePay, không cho tiền mặt)
+    // SePay payment luôn là chuyển khoản, nên có thể áp dụng mã giảm giá
+    $discountCodeId = null;
+    $discountAmount = 0;
+    $discountCode = null;
+    if (!empty($_POST['discount_code']) || !empty($_POST['discount_id'])) {
+        $userId = $_SESSION['user']['ID_User'];
+        $baseAmount = floatval($amount);
+        
+        // Only apply discount for full payment (1 time), not for deposit or remaining payment
+        if ($paymentType === 'full') {
+            if (!empty($_POST['discount_id']) && isset($_POST['discount_amount'])) {
+                $discountCodeId = intval($_POST['discount_id']);
+                $frontendDiscountAmount = floatval($_POST['discount_amount']);
+                
+                $stmt = $pdo->prepare("SELECT * FROM magiamgia WHERE ID_MaGiamGia = ? AND TrangThai = 'Hoạt động'");
+                $stmt->execute([$discountCodeId]);
+                $codeData = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($codeData) {
+                    $discountAmount = calculateDiscountAmount($codeData, $baseAmount, $userId);
+                    if ($discountAmount > 0) {
+                        $discountCode = $codeData['MaCode'];
+                    } else {
+                        $discountCodeId = null;
+                        $discountCode = null;
+                    }
+                }
+            } else if (!empty($_POST['discount_code'])) {
+                $code = trim($_POST['discount_code']);
+                $stmt = $pdo->prepare("SELECT * FROM magiamgia WHERE MaCode = ? AND TrangThai = 'Hoạt động'");
+                $stmt->execute([$code]);
+                $codeData = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($codeData) {
+                    $discountAmount = calculateDiscountAmount($codeData, $baseAmount, $userId);
+                    if ($discountAmount > 0) {
+                        $discountCodeId = $codeData['ID_MaGiamGia'];
+                        $discountCode = $code;
+                    }
+                }
+            }
+        }
+    }
+    
     try {
         // Lấy thông tin chi tiết sự kiện
     $stmt = $pdo->prepare("
@@ -863,12 +1046,16 @@ function createSePayPayment() {
         ");
         
         $paymentTypeDB = $paymentType === 'deposit' ? 'Đặt cọc' : 'Thanh toán đủ';
+        $note = "Tạo thanh toán SePay {$paymentTypeDB} - {$paymentId} - Content: {$tempContent}";
+        if ($discountCode) {
+            $note .= " - Mã giảm giá: {$discountCode} (Giảm: " . number_format($discountAmount, 0, ',', '.') . " VNĐ)";
+        }
         $stmt->execute([
             $eventId,
             $amount,
             $paymentTypeDB,
             $paymentId,
-            "Tạo thanh toán SePay {$paymentTypeDB} - {$paymentId} - Content: {$tempContent}"
+            $note
         ]);
         
         $insertedId = $pdo->lastInsertId();
@@ -1144,29 +1331,53 @@ function createSePayPayment() {
         ];
         
         // ✅ Thêm SePay Checkout URL nếu có (Ưu tiên chuyển hướng đến SePay Checkout Gateway)
-        if ($checkoutResult && isset($checkoutResult['checkout_url'])) {
-            $response['sepay_checkout_url'] = $checkoutResult['checkout_url'];
-            $response['checkout_invoice'] = $orderInvoice;
-            $response['checkout_merchant'] = SEPAY_PARTNER_CODE; // SP-LIVE-BT953B7A
+        // ⚠️ LƯU Ý: Nếu checkout URL không hoạt động (ERR_QUIC_PROTOCOL_ERROR hoặc 404),
+        // hệ thống sẽ tự động fallback về QR code và thông tin ngân hàng
+        if ($checkoutResult && isset($checkoutResult['checkout_url']) && !isset($checkoutResult['error'])) {
+            $checkoutUrl = $checkoutResult['checkout_url'];
             
-            // ✅ Thêm form HTML và form fields để submit POST form
-            if (isset($checkoutResult['form_html'])) {
-                $response['form_html'] = $checkoutResult['form_html'];
+            // Kiểm tra xem URL có hợp lệ không
+            if (filter_var($checkoutUrl, FILTER_VALIDATE_URL)) {
+                $response['sepay_checkout_url'] = $checkoutUrl;
+                $response['checkout_invoice'] = $orderInvoice;
+                $response['checkout_merchant'] = SEPAY_PARTNER_CODE; // SP-LIVE-BT953B7A
+                
+                // ✅ Thêm form HTML và form fields để submit POST form
+                if (isset($checkoutResult['form_html'])) {
+                    $response['form_html'] = $checkoutResult['form_html'];
+                }
+                if (isset($checkoutResult['form_fields'])) {
+                    $response['form_fields'] = $checkoutResult['form_fields'];
+                }
+                
+                $response['message'] = 'Đang chuyển hướng đến trang thanh toán SePay...';
+                $response['checkout_warning'] = 'Nếu không thể truy cập trang thanh toán, hệ thống sẽ tự động hiển thị QR code.';
+                error_log("SePay Checkout URL ready for POST form submission: " . substr($checkoutUrl, 0, 150) . "...");
+            } else {
+                error_log("SePay Checkout URL is invalid: " . $checkoutUrl);
+                $response['sepay_checkout_error'] = 'URL thanh toán không hợp lệ';
             }
-            if (isset($checkoutResult['form_fields'])) {
-                $response['form_fields'] = $checkoutResult['form_fields'];
-            }
-            
-            $response['message'] = 'Đang chuyển hướng đến trang thanh toán SePay...';
-            error_log("SePay Checkout URL ready for POST form submission: " . substr($checkoutResult['checkout_url'], 0, 150) . "...");
         } else {
-            error_log("SePay Checkout URL creation failed, using QR code fallback");
+            if ($checkoutResult && isset($checkoutResult['error'])) {
+                error_log("SePay Checkout URL creation failed with error: " . $checkoutResult['error']);
+                $response['sepay_checkout_error'] = $checkoutResult['error'];
+                $response['checkout_fallback_message'] = 'Sử dụng QR code và thông tin ngân hàng để thanh toán.';
+            } else {
+                error_log("SePay Checkout URL creation failed, using QR code fallback");
+                $response['checkout_fallback_message'] = 'Sử dụng QR code và thông tin ngân hàng để thanh toán.';
+            }
         }
         
-        echo json_encode($response);
+        echo json_encode($response, JSON_UNESCAPED_UNICODE);
         
+    } catch (PDOException $e) {
+        error_log("Database error in createSePayPayment: " . $e->getMessage());
+        error_log("Database error trace: " . $e->getTraceAsString());
+        echo json_encode(['success' => false, 'error' => 'Lỗi cơ sở dữ liệu: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
+        error_log("Exception in createSePayPayment: " . $e->getMessage());
+        error_log("Exception trace: " . $e->getTraceAsString());
+        echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -1937,9 +2148,11 @@ function getSePayOrderDetail() {
     try {
         $partnerCode = defined('SEPAY_PARTNER_CODE') ? SEPAY_PARTNER_CODE : '';
         $secretKey = defined('SEPAY_SECRET_KEY') ? SEPAY_SECRET_KEY : '';
-        $environment = defined('SEPAY_ENVIRONMENT') && SEPAY_ENVIRONMENT === 'sandbox' 
-            ? SePayClient::ENVIRONMENT_SANDBOX 
-            : SePayClient::ENVIRONMENT_PRODUCTION;
+        // SDK SePay sử dụng string 'sandbox' hoặc 'production'
+        $environment = defined('SEPAY_ENVIRONMENT') ? SEPAY_ENVIRONMENT : 'production';
+        if ($environment !== 'sandbox' && $environment !== 'production') {
+            $environment = 'production'; // Default to production
+        }
         
         // ✅ Khởi tạo SePay Client với SDK
         $sepay = new SePayClient(

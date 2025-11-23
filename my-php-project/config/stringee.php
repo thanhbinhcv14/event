@@ -35,24 +35,48 @@ define('STRINGEE_MAX_CONNECT_TIME', 0);
 
 // Answer URL - Callback URL cho Answer URL
 // ⚠️ QUAN TRỌNG: Cập nhật URL này trong Stringee Dashboard
-// Production: https://sukien.info.vn/my-php-project/src/controllers/stringee-callback.php?type=answer
+// Production: https://sukien.info.vn/src/controllers/stringee-callback.php?type=answer
 // Localhost: http://localhost/my-php-project/src/controllers/stringee-callback.php?type=answer
 if (!defined('STRINGEE_ANSWER_URL')) {
-    $baseUrl = defined('BASE_URL') ? BASE_URL : '';
-    $basePath = defined('BASE_PATH') ? BASE_PATH : '';
-    $answerPath = rtrim($basePath, '/') . '/src/controllers/stringee-callback.php?type=answer';
-    define('STRINGEE_ANSWER_URL', $baseUrl . $answerPath);
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    
+    // Production: luôn dùng root path (không có subdirectory)
+    if (strpos($host, 'sukien.info.vn') !== false || strpos($host, 'sukien') !== false) {
+        $answerUrl = $protocol . '://' . $host . '/src/controllers/stringee-callback.php?type=answer';
+    } else {
+        // Localhost: dùng BASE_URL (đã bao gồm BASE_PATH)
+        if (defined('BASE_URL')) {
+            $answerUrl = rtrim(BASE_URL, '/') . '/src/controllers/stringee-callback.php?type=answer';
+        } else {
+            $answerUrl = $protocol . '://' . $host . '/src/controllers/stringee-callback.php?type=answer';
+        }
+    }
+    
+    define('STRINGEE_ANSWER_URL', $answerUrl);
 }
 
 // Event URL - Callback URL cho Event URL
 // ⚠️ QUAN TRỌNG: Cập nhật URL này trong Stringee Dashboard
-// Production: https://sukien.info.vn/my-php-project/src/controllers/stringee-callback.php?type=event
+// Production: https://sukien.info.vn/src/controllers/stringee-callback.php?type=event
 // Localhost: http://localhost/my-php-project/src/controllers/stringee-callback.php?type=event
 if (!defined('STRINGEE_EVENT_URL')) {
-    $baseUrl = defined('BASE_URL') ? BASE_URL : '';
-    $basePath = defined('BASE_PATH') ? BASE_PATH : '';
-    $eventPath = rtrim($basePath, '/') . '/src/controllers/stringee-callback.php?type=event';
-    define('STRINGEE_EVENT_URL', $baseUrl . $eventPath);
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    
+    // Production: luôn dùng root path (không có subdirectory)
+    if (strpos($host, 'sukien.info.vn') !== false || strpos($host, 'sukien') !== false) {
+        $eventUrl = $protocol . '://' . $host . '/src/controllers/stringee-callback.php?type=event';
+    } else {
+        // Localhost: dùng BASE_URL (đã bao gồm BASE_PATH)
+        if (defined('BASE_URL')) {
+            $eventUrl = rtrim(BASE_URL, '/') . '/src/controllers/stringee-callback.php?type=event';
+        } else {
+            $eventUrl = $protocol . '://' . $host . '/src/controllers/stringee-callback.php?type=event';
+        }
+    }
+    
+    define('STRINGEE_EVENT_URL', $eventUrl);
 }
 
 // Recording Settings

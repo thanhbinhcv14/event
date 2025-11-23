@@ -51,6 +51,7 @@ define('BASE_URL', $protocol . '://' . $host . $basePath);
 define('BASE_PATH', $basePath);
 
 // Session Security Configuration
+// CHỈ start session nếu chưa được start (tránh conflict với các file khác)
 if (session_status() === PHP_SESSION_NONE) {
     // Secure session configuration
     ini_set('session.cookie_httponly', 1);
@@ -68,5 +69,11 @@ if (session_status() === PHP_SESSION_NONE) {
         ini_set('session.cookie_samesite', 'Strict');
     }
     
-    session_start();
+    // Start session với error handling
+    try {
+        session_start();
+    } catch (Exception $e) {
+        error_log('Session start error in config.php: ' . $e->getMessage());
+        // Không throw exception để tránh break các file khác
+    }
 }

@@ -1707,7 +1707,6 @@ $user = $_SESSION['user'];
                             ` : ''}
                             ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' 
                               && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Chưa thanh toán'
-                              && (!event.PendingPayments || event.PendingPayments == 0)
                               && !isExpired ? `
                             <button class="btn btn-primary btn-sm" onclick="makePayment(${event.ID_DatLich})">
                                 <i class="fas fa-credit-card"></i> Thanh toán
@@ -1715,7 +1714,6 @@ $user = $_SESSION['user'];
                             ` : ''}
                             ${(event.TrangThaiDuyet || 'Chờ duyệt') === 'Đã duyệt' 
                               && (event.TrangThaiThanhToan || 'Chưa thanh toán') === 'Đã đặt cọc'
-                              && (!event.PendingPayments || event.PendingPayments == 0)
                               && !isExpired 
                               && (!paymentDeadline || !paymentDeadline.is_past_deadline) ? `
                             <button class="btn btn-success btn-sm" onclick="makePayment(${event.ID_DatLich}, 'remaining')">

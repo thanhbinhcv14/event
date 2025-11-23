@@ -1538,29 +1538,6 @@
                                         </h5>
                                     </div>
                                     <div class="card-body">
-                                        <!-- Discount Code Input -->
-                                        <div class="mb-3">
-                                            <label for="discountCode" class="form-label">
-                                                <i class="fas fa-ticket-alt text-warning"></i> Mã giảm giá
-                                            </label>
-                                            <div class="input-group">
-                                                <input type="text" class="form-control" id="discountCode" 
-                                                       placeholder="Nhập mã giảm giá hoặc chọn từ mã đã lưu" maxlength="50">
-                                                <button class="btn btn-outline-secondary" type="button" id="loadSavedCodeBtn" 
-                                                        onclick="event.preventDefault(); event.stopPropagation(); loadSavedDiscountCode(); return false;" title="Tải mã đã lưu">
-                                                    <i class="fas fa-bookmark"></i>
-                                                </button>
-                                                <button class="btn btn-outline-primary" type="button" id="applyDiscountBtn" onclick="event.preventDefault(); event.stopPropagation(); applyDiscountCode(); return false;">
-                                                    <i class="fas fa-check"></i> Áp dụng
-                                                </button>
-                                            </div>
-                                            <small class="text-muted d-block mt-1">
-                                                <i class="fas fa-info-circle"></i> Mã giảm giá chỉ áp dụng khi thanh toán đủ và hoàn tất thanh toán. 
-                                                Bạn có thể lưu mã giảm giá trên trang chủ để sử dụng sau.
-                                            </small>
-                                            <div id="discountCodeMessage" class="mt-2" style="display: none;"></div>
-                                        </div>
-                                        
                                         <div id="orderSummary">
                                             <div class="text-center py-4">
                                                 <i class="fas fa-info-circle text-muted fa-2x mb-2"></i>
@@ -1662,9 +1639,6 @@
             loadEventTypes();
             setMinDate();
             
-            // Load saved discount code from localStorage
-            loadSavedDiscountCode();
-            
             // Kiểm tra nếu đang chỉnh sửa sự kiện hiện có
             const urlParams = new URLSearchParams(window.location.search);
             const editId = urlParams.get('edit');
@@ -1672,88 +1646,6 @@
                 loadEventForEdit(editId);
             }
         });
-        
-        // Load saved discount code from localStorage
-        function loadSavedDiscountCode(event) {
-            // Prevent any form submission
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            
-            try {
-                const savedCodes = localStorage.getItem('savedDiscountCodes');
-                if (savedCodes) {
-                    const codes = JSON.parse(savedCodes);
-                    if (codes && codes.length > 0) {
-                        // If multiple codes saved, show a dropdown or use the first one
-                        if (codes.length === 1) {
-                            // Use the only saved code
-                            const savedCode = codes[0];
-                            $('#discountCode').val(savedCode);
-                            
-                            // Show notification
-                            const messageDiv = $('#discountCodeMessage');
-                            messageDiv.html(`
-                                <div class="alert alert-info mb-0">
-                                    <i class="fas fa-info-circle"></i> 
-                                    Đã tải mã giảm giá đã lưu: <strong>${savedCode}</strong>. 
-                                    Nhấn "Áp dụng" để sử dụng.
-                                </div>
-                            `).show();
-                        } else {
-                            // Multiple codes - show selection
-                            showSavedCodesSelection(codes);
-                        }
-                    } else {
-                        const messageDiv = $('#discountCodeMessage');
-                        messageDiv.html(`
-                            <div class="alert alert-warning mb-0">
-                                <i class="fas fa-exclamation-triangle"></i> 
-                                Chưa có mã giảm giá nào được lưu. Vui lòng lưu mã trên trang chủ.
-                            </div>
-                        `).show();
-                    }
-                } else {
-                    const messageDiv = $('#discountCodeMessage');
-                    messageDiv.html(`
-                        <div class="alert alert-warning mb-0">
-                            <i class="fas fa-exclamation-triangle"></i> 
-                            Chưa có mã giảm giá nào được lưu. Vui lòng lưu mã trên trang chủ.
-                        </div>
-                    `).show();
-                }
-            } catch (e) {
-                console.error('Error loading saved discount code:', e);
-                const messageDiv = $('#discountCodeMessage');
-                messageDiv.html(`
-                    <div class="alert alert-danger mb-0">
-                        <i class="fas fa-times-circle"></i> 
-                        Lỗi khi tải mã giảm giá đã lưu.
-                    </div>
-                `).show();
-            }
-            
-            return false;
-        }
-        
-        // Show saved codes selection (if multiple codes saved)
-        function showSavedCodesSelection(codes) {
-            const messageDiv = $('#discountCodeMessage');
-            let html = '<div class="alert alert-info mb-2"><i class="fas fa-info-circle"></i> Bạn có nhiều mã đã lưu. Chọn mã để sử dụng:</div>';
-            html += '<div class="d-flex flex-wrap gap-2 mb-2">';
-            codes.forEach(code => {
-                // Escape code to prevent XSS
-                const escapedCode = code.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                html += `
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="event.preventDefault(); event.stopPropagation(); $('#discountCode').val('${escapedCode}'); $('#discountCodeMessage').hide(); return false;">
-                        ${code}
-                    </button>
-                `;
-            });
-            html += '</div>';
-            messageDiv.html(html).show();
-        }
         
         // Đặt ngày tối thiểu là hôm nay
         function setMinDate() {
@@ -2057,63 +1949,6 @@
                             $('#eventType').val(event.ID_LoaiSK);
                             
                             // Hiển thị mã giảm giá đã sử dụng nếu có
-                            // Kiểm tra cả MaCode và ID_MaGiamGia để đảm bảo có mã giảm giá
-                            if (event.MaCode || event.ID_MaGiamGia) {
-                                console.log('Displaying discount code:', event.MaCode);
-                                
-                                // Enable input và button trước (nếu đã disable từ lần trước)
-                                $('#discountCode').prop('disabled', false);
-                                $('#applyDiscountBtn').prop('disabled', false);
-                                
-                                // Điền mã giảm giá vào input
-                                if (event.MaCode) {
-                                    $('#discountCode').val(event.MaCode);
-                                }
-                                
-                                // Hiển thị thông báo mã giảm giá đã sử dụng
-                                const messageDiv = $('#discountCodeMessage');
-                                let discountText = '';
-                                if (event.LoaiGiamGia === 'Phần trăm') {
-                                    discountText = `${event.GiaTriGiamGia}%`;
-                                } else if (event.LoaiGiamGia === 'Số tiền' && event.GiaTriGiamGia) {
-                                    const formattedAmount = new Intl.NumberFormat('vi-VN').format(event.GiaTriGiamGia);
-                                    discountText = `${formattedAmount} VNĐ`;
-                                }
-                                
-                                const formattedDiscountAmount = new Intl.NumberFormat('vi-VN').format(event.SoTienGiamGia || 0);
-                                
-                                let messageHtml = `
-                                    <div class="alert alert-success mb-0">
-                                        <i class="fas fa-check-circle"></i> 
-                                        Mã giảm giá đã sử dụng: <strong>${event.MaCode || 'N/A'}</strong>`;
-                                
-                                if (event.TenMa) {
-                                    messageHtml += ` (${event.TenMa})`;
-                                }
-                                
-                                if (discountText) {
-                                    messageHtml += `<br><small>Giảm ${discountText}`;
-                                    if (formattedDiscountAmount !== '0') {
-                                        messageHtml += ` - Đã giảm: ${formattedDiscountAmount} VNĐ`;
-                                    }
-                                    messageHtml += `</small>`;
-                                }
-                                
-                                messageHtml += `</div>`;
-                                
-                                messageDiv.html(messageHtml).show();
-                                
-                                // Disable input và button vì đã sử dụng
-                                $('#discountCode').prop('disabled', true);
-                                $('#applyDiscountBtn').prop('disabled', true).html('<i class="fas fa-check"></i> Đã áp dụng');
-                            } else {
-                                console.log('No discount code found for this event');
-                                // Clear discount code input and message if no discount code
-                                $('#discountCode').val('');
-                                $('#discountCodeMessage').hide();
-                                $('#discountCode').prop('disabled', false);
-                                $('#applyDiscountBtn').prop('disabled', false).html('<i class="fas fa-check"></i> Áp dụng');
-                            }
                             
                             // Hiển thị giá loại sự kiện
                             const selectedEventTypeOption = $('#eventType option:selected');
@@ -5864,29 +5699,6 @@
             console.log('Selected Equipment:', selectedEquipment);
             console.log('Selected Combos:', selectedCombos);
             
-            // Apply discount if available
-            // Nếu có mã giảm giá đã được áp dụng, cần validate lại với total price mới
-            let discountAmount = 0;
-            let finalPrice = totalPrice;
-            const discountCode = $('#discountCode').val().trim();
-            const discountData = window.appliedDiscountCode || null;
-            let needsRevalidation = false;
-            
-            // Nếu có mã giảm giá đã apply và total price thay đổi, cần validate lại
-            if (discountData && discountData.success && discountCode) {
-                // Kiểm tra xem total price có thay đổi không
-                const oldTotalPrice = discountData.original_total_price || 0;
-                if (Math.abs(totalPrice - oldTotalPrice) > 0.01) {
-                    // Total price đã thay đổi, cần validate lại
-                    needsRevalidation = true;
-                    console.log('Total price changed, discount code needs revalidation');
-                    // Vẫn sử dụng discount amount cũ để hiển thị tạm thời, nhưng sẽ có cảnh báo
-                    // User cần nhấn "Áp dụng" lại để cập nhật discount amount mới
-                }
-                discountAmount = discountData.discount_amount || 0;
-                finalPrice = discountData.final_amount || totalPrice;
-            }
-            
             const totalPriceFormatted = new Intl.NumberFormat('vi-VN').format(totalPrice);
             html += `
                 <div class="summary-item">
@@ -5895,96 +5707,8 @@
                 </div>
             `;
             
-            if (discountAmount > 0 || (discountCode && discountData && !discountData.success)) {
-                const discountAmountFormatted = new Intl.NumberFormat('vi-VN').format(discountAmount);
-                const finalPriceFormatted = new Intl.NumberFormat('vi-VN').format(finalPrice);
-                
-                html += `
-                    <div class="summary-item" style="color: #28a745;">
-                        <span><strong><i class="fas fa-ticket-alt"></i> Giảm giá:</strong></span>
-                        <span><strong>-${discountAmountFormatted} VNĐ</strong></span>
-                    </div>
-                    ${needsRevalidation ? `
-                    <div class="summary-item" style="color: #ffc107; background-color: #fff3cd; padding: 8px; border-radius: 4px; margin: 5px 0;">
-                        <small><i class="fas fa-exclamation-triangle"></i> <strong>Tổng tiền đã thay đổi!</strong> Vui lòng nhấn nút "Áp dụng" lại mã giảm giá để cập nhật số tiền giảm giá chính xác.</small>
-                    </div>
-                    ` : ''}
-                    <div class="summary-item" style="border-top: 2px solid #28a745; padding-top: 10px; margin-top: 10px;">
-                        <span><strong>Tổng sau giảm giá:</strong></span>
-                        <span><strong style="color: #28a745; font-size: 1.2em;">${finalPriceFormatted} VNĐ</strong></span>
-                    </div>
-                `;
-            }
-            
             $('#orderSummary').html(html);
         }
-        
-        // Apply discount code
-        function applyDiscountCode(event) {
-            // Prevent any form submission
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            
-            const code = $('#discountCode').val().trim();
-            const messageDiv = $('#discountCodeMessage');
-            
-            if (!code) {
-                messageDiv.html('<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle"></i> Vui lòng nhập mã giảm giá</div>').show();
-                window.appliedDiscountCode = null;
-                updateOrderSummary();
-                return false;
-            }
-            
-            const totalPrice = calculateTotalPrice();
-            const userId = <?= json_encode($_SESSION['user']['ID_User'] ?? null) ?>;
-            
-            $('#applyDiscountBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra...');
-            
-            $.ajax({
-                url: '../src/controllers/magiamgia-controller.php',
-                method: 'GET',
-                data: {
-                    action: 'validate_code',
-                    code: code,
-                    user_id: userId,
-                    total_amount: totalPrice
-                },
-                dataType: 'json',
-                success: function(response) {
-                    $('#applyDiscountBtn').prop('disabled', false).html('<i class="fas fa-check"></i> Áp dụng');
-                    
-                    if (response.success) {
-                        // Lưu thêm original_total_price để so sánh sau này
-                        response.original_total_price = totalPrice;
-                        window.appliedDiscountCode = response;
-                        messageDiv.html(`<div class="alert alert-success mb-0"><i class="fas fa-check-circle"></i> ${response.message || 'Mã giảm giá hợp lệ!'}</div>`).show();
-                        updateOrderSummary();
-                    } else {
-                        window.appliedDiscountCode = null;
-                        messageDiv.html(`<div class="alert alert-danger mb-0"><i class="fas fa-times-circle"></i> ${response.error || 'Mã giảm giá không hợp lệ'}</div>`).show();
-                        updateOrderSummary();
-                    }
-                },
-                error: function() {
-                    $('#applyDiscountBtn').prop('disabled', false).html('<i class="fas fa-check"></i> Áp dụng');
-                    window.appliedDiscountCode = null;
-                    messageDiv.html('<div class="alert alert-danger mb-0"><i class="fas fa-times-circle"></i> Lỗi kết nối. Vui lòng thử lại.</div>').show();
-                    updateOrderSummary();
-                }
-            });
-            
-            return false;
-        }
-        
-        // Allow Enter key to apply discount code
-        $('#discountCode').on('keypress', function(e) {
-            if (e.which === 13) {
-                e.preventDefault();
-                applyDiscountCode();
-            }
-        });
         
         // Format date
         function formatDate(dateString) {
@@ -6121,17 +5845,7 @@
                 }),
                 // Khi submit, chuyển tất cả pending combos sang confirmed và gửi đi
                 combo_ids: [...pendingComboSelections, ...selectedCombos].map(c => c.ID_Combo), // Gửi array các combo ID
-                total_price: calculateTotalPrice(),
-                // Gửi đầy đủ thông tin mã giảm giá nếu đã được áp dụng
-                discount_code: (window.appliedDiscountCode && window.appliedDiscountCode.success) 
-                    ? window.appliedDiscountCode.code.MaCode 
-                    : ($('#discountCode').val().trim() || null),
-                discount_amount: (window.appliedDiscountCode && window.appliedDiscountCode.success) 
-                    ? window.appliedDiscountCode.discount_amount 
-                    : 0,
-                discount_id: (window.appliedDiscountCode && window.appliedDiscountCode.success) 
-                    ? window.appliedDiscountCode.code.ID_MaGiamGia 
-                    : null
+                total_price: calculateTotalPrice()
             };
             
             // Chuyển pending combos sang confirmed khi submit
@@ -6179,28 +5893,6 @@
                             if (data.success) {
                                 const message = editId ? 'Cập nhật sự kiện thành công!' : 'Đăng ký sự kiện thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.';
                                 showSuccess(message);
-                                
-                                // Remove used discount code from localStorage if it's a "first time" code
-                                if (window.appliedDiscountCode && window.appliedDiscountCode.success) {
-                                    const usedCode = window.appliedDiscountCode.code;
-                                    const isFirstTimeCode = (usedCode.TenMa && (
-                                        usedCode.TenMa.includes('Lần đầu') || 
-                                        usedCode.TenMa.includes('lần đầu') ||
-                                        usedCode.SoLanSuDungToiDa === 1
-                                    ));
-                                    
-                                    if (isFirstTimeCode) {
-                                        // Remove from localStorage
-                                        try {
-                                            const savedCodes = JSON.parse(localStorage.getItem('savedDiscountCodes') || '[]');
-                                            const updatedCodes = savedCodes.filter(code => code !== usedCode.MaCode);
-                                            localStorage.setItem('savedDiscountCodes', JSON.stringify(updatedCodes));
-                                            console.log('Removed used first-time discount code from localStorage:', usedCode.MaCode);
-                                        } catch (e) {
-                                            console.error('Error removing discount code from localStorage:', e);
-                                        }
-                                    }
-                                }
                                 
                                 setTimeout(() => {
                                     window.location.href = 'my-events.php';

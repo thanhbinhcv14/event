@@ -616,12 +616,36 @@ if (!$event) {
                 </div>
             </div>
 
+                        <!-- Discount Code Input -->
+                        <div class="mb-3">
+                            <label for="discountCode" class="form-label">
+                                <i class="fas fa-ticket-alt text-warning"></i> <strong>Mã giảm giá</strong>
+                            </label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="discountCode" 
+                                       placeholder="Nhập mã giảm giá hoặc chọn từ mã đã lưu" maxlength="50">
+                                <button class="btn btn-outline-secondary" type="button" id="loadSavedCodeBtn" 
+                                        onclick="event.preventDefault(); event.stopPropagation(); loadSavedDiscountCode(); return false;" title="Tải mã đã lưu">
+                                    <i class="fas fa-bookmark"></i>
+                                </button>
+                                <button class="btn btn-outline-primary" type="button" id="applyDiscountBtn" onclick="event.preventDefault(); event.stopPropagation(); applyDiscountCode(); return false;">
+                                    <i class="fas fa-check"></i> Áp dụng
+                                </button>
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                <i class="fas fa-info-circle"></i> Mã giảm giá chỉ áp dụng khi thanh toán đủ 1 lần. 
+                                Bạn có thể lưu mã giảm giá trên trang chủ để sử dụng sau.
+                            </small>
+                            <div id="discountCodeMessage" class="mt-2" style="display: none;"></div>
+                        </div>
+
                         <div class="mb-3">
                                 <label class="form-label"><strong>Số tiền thanh toán:</strong></label>
                             <div class="input-group">
                                     <input type="text" class="form-control form-control-lg text-center fw-bold" id="amountDisplay" readonly>
                                 <span class="input-group-text">VNĐ</span>
                             </div>
+                            <div id="discountInfo" class="mt-2" style="display: none;"></div>
                         </div>
 
                         <div class="d-grid">
@@ -653,21 +677,60 @@ if (!$event) {
         const remainingAmount = <?= $remainingAmount ?>;
         const requiresFullPayment = <?= $requiresFullPayment ? 'true' : 'false' ?>;
         const hasDeposit = <?= ($event['TrangThaiThanhToan'] === 'Đã đặt cọc') ? 'true' : 'false' ?>;
+        const userId = <?= json_encode($_SESSION['user']['ID_User'] ?? null) ?>;
         
         let selectedPaymentType = '<?= $paymentTypeParam ?>';
         let selectedPaymentMethod = null;
+        let appliedDiscountCode = null; // Store applied discount code data
         
         // Cập nhật hiển thị số tiền
         function updateAmountDisplay() {
-            let amount;
+            let baseAmount;
             if (selectedPaymentType === 'deposit') {
-                amount = depositAmount;
+                baseAmount = depositAmount;
             } else if (selectedPaymentType === 'remaining' || hasDeposit) {
-                amount = remainingAmount;
+                baseAmount = remainingAmount;
             } else {
-                amount = totalAmount;
+                baseAmount = totalAmount;
             }
-            $('#amountDisplay').val(new Intl.NumberFormat('vi-VN').format(amount));
+            
+            // Apply discount if available (chỉ cho SePay, không cho tiền mặt)
+            let finalAmount = baseAmount;
+            let discountAmount = 0;
+            
+            // Chỉ áp dụng mã giảm giá khi: SePay + thanh toán đủ 1 lần (không cho đặt cọc và thanh toán phần còn lại)
+            if (appliedDiscountCode && appliedDiscountCode.success && 
+                selectedPaymentMethod === 'sepay' && 
+                selectedPaymentType === 'full') {
+                discountAmount = appliedDiscountCode.discount_amount || 0;
+                finalAmount = Math.max(0, baseAmount - discountAmount);
+            } else {
+                // Tiền mặt, đặt cọc hoặc thanh toán phần còn lại không áp dụng mã giảm giá
+                if (selectedPaymentMethod === 'cash' || selectedPaymentType === 'deposit' || selectedPaymentType === 'remaining') {
+                    appliedDiscountCode = null;
+                }
+            }
+            
+            $('#amountDisplay').val(new Intl.NumberFormat('vi-VN').format(finalAmount));
+            
+            // Update discount info display (chỉ hiển thị khi thanh toán đủ SePay)
+            const discountInfoDiv = $('#discountInfo');
+            if (discountAmount > 0 && selectedPaymentType === 'full' && selectedPaymentMethod === 'sepay') {
+                const discountFormatted = new Intl.NumberFormat('vi-VN').format(discountAmount);
+                const baseAmountFormatted = new Intl.NumberFormat('vi-VN').format(baseAmount);
+                discountInfoDiv.html(`
+                    <div class="alert alert-success mb-0 py-2">
+                        <small>
+                            <i class="fas fa-ticket-alt"></i> 
+                            <strong>Đã giảm:</strong> ${discountFormatted} VNĐ
+                            <br>
+                            <span class="text-muted">Tổng gốc: ${baseAmountFormatted} VNĐ</span>
+                        </small>
+                    </div>
+                `).show();
+            } else {
+                discountInfoDiv.hide();
+            }
         }
         
         // Cập nhật lựa chọn thẻ loại thanh toán
@@ -689,6 +752,8 @@ if (!$event) {
         // Lựa chọn loại thanh toán
         $('input[name="paymentType"]').on('change', function() {
             selectedPaymentType = $(this).val();
+            // Cập nhật trạng thái mã giảm giá dựa trên loại thanh toán
+            updateDiscountCodeAvailability();
             updateAmountDisplay();
             updatePaymentTypeSelection();
             checkProceedButton();
@@ -731,6 +796,8 @@ if (!$event) {
                 }
                 updateAmountDisplay();
                 updatePaymentTypeSelection();
+                // Cập nhật trạng thái mã giảm giá
+                updateDiscountCodeAvailability();
             } else if (selectedPaymentMethod === 'cash') {
                 $('#cashDetails').show();
                 // Tiền mặt phải là thanh toán đủ hoặc phần còn lại
@@ -743,8 +810,12 @@ if (!$event) {
                     $('#fullPayment').val('full');
                     selectedPaymentType = 'full';
                 }
+                // Tiền mặt không cho áp dụng mã giảm giá
+                disableDiscountCode();
                 updateAmountDisplay();
                 updatePaymentTypeSelection();
+                // Cập nhật trạng thái mã giảm giá
+                updateDiscountCodeAvailability();
             }
             
             checkProceedButton();
@@ -768,6 +839,8 @@ if (!$event) {
         // Khởi tạo
         updateAmountDisplay();
         updatePaymentTypeSelection();
+        // Cập nhật trạng thái mã giảm giá ban đầu
+        updateDiscountCodeAvailability();
 
         // Tiến hành thanh toán
         $('#proceedPayment').on('click', function() {
@@ -784,13 +857,22 @@ if (!$event) {
                 return;
             }
 
-            let amount;
+            let baseAmount;
             if (selectedPaymentType === 'deposit') {
-                amount = depositAmount;
+                baseAmount = depositAmount;
             } else if (selectedPaymentType === 'remaining' || hasDeposit) {
-                amount = remainingAmount;
+                baseAmount = remainingAmount;
             } else {
-                amount = totalAmount;
+                baseAmount = totalAmount;
+            }
+            
+            // Apply discount if available (chỉ cho SePay + thanh toán đủ 1 lần, không cho đặt cọc và thanh toán phần còn lại)
+            let amount = baseAmount;
+            if (appliedDiscountCode && appliedDiscountCode.success && 
+                selectedPaymentMethod === 'sepay' && 
+                selectedPaymentType === 'full') {
+                const discountAmount = appliedDiscountCode.discount_amount || 0;
+                amount = Math.max(0, baseAmount - discountAmount);
             }
             
             const invoiceData = {
@@ -798,6 +880,15 @@ if (!$event) {
                 phone: invoicePhone,
                 address: $('#invoiceAddress').val().trim() || null
             };
+            
+            // Prepare discount code data (chỉ gửi khi SePay + thanh toán đủ 1 lần)
+            const discountData = (appliedDiscountCode && appliedDiscountCode.success && 
+                                  selectedPaymentMethod === 'sepay' && 
+                                  selectedPaymentType === 'full') ? {
+                discount_code: appliedDiscountCode.code.MaCode,
+                discount_amount: appliedDiscountCode.discount_amount || 0,
+                discount_id: appliedDiscountCode.code.ID_MaGiamGia
+            } : null;
             
             if (confirm(`Xác nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(amount)} VNĐ qua ${selectedPaymentMethod === 'sepay' ? 'SePay Banking' : 'Tiền mặt'}?`)) {
                 // Hiển thị loading
@@ -825,6 +916,13 @@ if (!$event) {
                     payment_type: selectedPaymentType,
                     invoice_data: invoiceData
                 };
+            }
+            
+            // Add discount code data if available
+            if (discountData) {
+                apiData.discount_code = discountData.discount_code;
+                apiData.discount_amount = discountData.discount_amount;
+                apiData.discount_id = discountData.discount_id;
             }
             
             // Đảm bảo CSRF token được thêm vào trước khi gửi request
@@ -860,20 +958,126 @@ if (!$event) {
                                         // ✅ Ưu tiên: Submit POST form đến SePay Checkout Gateway
                                         // SePay yêu cầu POST form, không phải GET redirect
                                         console.log('Submitting SePay Checkout form');
+                                        console.log('Response data:', {
+                                            has_form_html: !!response.form_html,
+                                            has_form_fields: !!response.form_fields,
+                                            checkout_url: response.sepay_checkout_url,
+                                            checkout_warning: response.checkout_warning
+                                        });
+                                        
+                                        // ⚠️ Thử submit form, nếu fail thì fallback về QR code
+                                        let formSubmitted = false;
                                         
                                         if (response.form_html) {
                                             // Render và tự động submit form
+                                            console.log('Using form_html from response');
+                                            console.log('Form HTML preview:', response.form_html.substring(0, 500));
+                                            
+                                            // Xóa form cũ nếu có
+                                            $('#sepay-checkout-form').remove();
+                                            
+                                            // Append form vào body
                                             $('body').append(response.form_html);
-                                            $('#sepay-checkout-form').submit();
+                                            
+                                            // Kiểm tra form có tồn tại không
+                                            const formElement = $('#sepay-checkout-form');
+                                            if (formElement.length > 0) {
+                                                console.log('Form found, action URL:', formElement.attr('action'));
+                                                console.log('Form method:', formElement.attr('method'));
+                                                
+                                                // Thêm event listener để detect nếu form submit fail
+                                                formElement.on('submit', function(e) {
+                                                    console.log('Form submit event triggered');
+                                                    formSubmitted = true;
+                                                });
+                                                
+                                                // Submit form sau một chút delay để đảm bảo form đã được render
+                                                setTimeout(function() {
+                                                    try {
+                                                        formElement.submit();
+                                                        // Nếu sau 3 giây vẫn chưa redirect, có thể form submit fail
+                                                        setTimeout(function() {
+                                                            if (!formSubmitted && document.visibilityState === 'visible') {
+                                                                console.warn('Form submit may have failed, falling back to QR code');
+                                                                if (response.bank_info || response.qr_code || response.qr_string) {
+                                                                    showSePayQRCode(response);
+                                                                }
+                                                            }
+                                                        }, 3000);
+                                                    } catch (error) {
+                                                        console.error('Error submitting form:', error);
+                                                        // Fallback về QR code
+                                                        if (response.bank_info || response.qr_code || response.qr_string) {
+                                                            showSePayQRCode(response);
+                                                        }
+                                                    }
+                                                }, 100);
+                                            } else {
+                                                console.error('Form not found after append!');
+                                                // Fallback: tạo form từ form_fields hoặc hiển thị QR
+                                                if (response.sepay_checkout_url && response.form_fields) {
+                                                    createAndSubmitForm(response.sepay_checkout_url, response.form_fields);
+                                                } else if (response.bank_info || response.qr_code || response.qr_string) {
+                                                    showSePayQRCode(response);
+                                                }
+                                            }
                                         } else if (response.sepay_checkout_url && response.form_fields) {
                                             // Tạo form động từ form_fields
+                                            console.log('Creating form from form_fields');
+                                            createAndSubmitForm(response.sepay_checkout_url, response.form_fields);
+                    } else {
+                                            // Fallback: redirect hoặc hiển thị QR code
+                                            console.warn('Fallback: redirecting to SePay Checkout (may not work):', response.sepay_checkout_url);
+                                            if (response.sepay_checkout_url) {
+                                                // Thử redirect, nếu fail thì fallback về QR
+                                                const redirectTimeout = setTimeout(function() {
+                                                    if (document.visibilityState === 'visible') {
+                                                        console.warn('Redirect may have failed, falling back to QR code');
+                                                        if (response.bank_info || response.qr_code || response.qr_string) {
+                                                            showSePayQRCode(response);
+                                                        }
+                                                    }
+                                                }, 3000);
+                                                
+                                                try {
+                                                    window.location.href = response.sepay_checkout_url;
+                                                } catch (error) {
+                                                    console.error('Error redirecting:', error);
+                                                    clearTimeout(redirectTimeout);
+                                                    if (response.bank_info || response.qr_code || response.qr_string) {
+                                                        showSePayQRCode(response);
+                                                    } else {
+                                                        alert('Lỗi: Không thể truy cập trang thanh toán. Vui lòng thử lại hoặc sử dụng QR code.');
+                                                    }
+                                                }
+                                            } else {
+                                                // Không có URL, hiển thị QR code nếu có
+                                                if (response.bank_info || response.qr_code || response.qr_string) {
+                                                    showSePayQRCode(response);
+                                                } else {
+                                                    alert('Lỗi: Không có URL thanh toán. Vui lòng thử lại.');
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Helper function để tạo và submit form
+                                        function createAndSubmitForm(checkoutUrl, formFields) {
+                                            console.log('Creating form with URL:', checkoutUrl);
+                                            console.log('Form fields:', Object.keys(formFields));
+                                            
+                                            // Xóa form cũ nếu có
+                                            $('#sepay-checkout-form-dynamic').remove();
+                                            
+                                            // Tạo form động
                                             const form = $('<form>', {
+                                                id: 'sepay-checkout-form-dynamic',
                                                 method: 'POST',
-                                                action: response.sepay_checkout_url,
+                                                action: checkoutUrl,
                                                 style: 'display: none;'
                                             });
                                             
-                                            $.each(response.form_fields, function(key, value) {
+                                            // Thêm các field
+                                            $.each(formFields, function(key, value) {
                                                 form.append($('<input>', {
                                                     type: 'hidden',
                                                     name: key,
@@ -881,12 +1085,23 @@ if (!$event) {
                                                 }));
                                             });
                                             
+                                            // Append vào body
                                             $('body').append(form);
-                                            form.submit();
-                    } else {
-                                            // Fallback: redirect (có thể không hoạt động)
-                                            console.log('Redirecting to SePay Checkout:', response.sepay_checkout_url);
-                                            window.location.href = response.sepay_checkout_url;
+                                            
+                                            // Submit form với error handling
+                                            setTimeout(function() {
+                                                try {
+                                                    form.submit();
+                                                    // Nếu sau 3 giây vẫn chưa redirect, có thể form submit fail
+                                                    setTimeout(function() {
+                                                        if (document.visibilityState === 'visible') {
+                                                            console.warn('Form submit may have failed, check if QR code is available');
+                                                        }
+                                                    }, 3000);
+                                                } catch (error) {
+                                                    console.error('Error submitting dynamic form:', error);
+                                                }
+                                            }, 100);
                                         }
                                     } else if (response.bank_info || response.qr_code || response.qr_string) {
                                         // Hiển thị QR code và thông tin ngân hàng ngay trên trang
@@ -911,11 +1126,53 @@ if (!$event) {
                                 }
                             },
                             error: function(xhr, status, error) {
-                                console.error('Payment Error:', xhr, status, error);
-                                console.error('Response:', xhr.responseText);
+                                console.error('=== Payment Error Details ===');
+                                console.error('Status:', status);
+                                console.error('Error:', error);
+                                console.error('HTTP Status Code:', xhr.status);
+                                console.error('Response Text:', xhr.responseText);
+                                
+                                // Thử parse JSON response nếu có
+                                let errorMessage = 'Lỗi không xác định';
+                                let errorDetails = null;
+                                
+                                try {
+                                    if (xhr.responseText) {
+                                        const response = JSON.parse(xhr.responseText);
+                                        errorMessage = response.error || response.message || 'Lỗi không xác định';
+                                        errorDetails = response;
+                                        console.error('Parsed Error Response:', response);
+                                    }
+                                } catch (e) {
+                                    console.error('Could not parse response as JSON:', e);
+                                    // Nếu không phải JSON, hiển thị raw response
+                                    if (xhr.responseText && xhr.responseText.length < 500) {
+                                        errorMessage = xhr.responseText;
+                                    }
+                                }
+                                
+                                console.error('Error Message:', errorMessage);
+                                console.error('=== End Payment Error Details ===');
+                                
+                                // Hiển thị thông báo lỗi cho người dùng
+                                let userMessage = 'Đã xảy ra lỗi khi xử lý thanh toán.';
+                                
+                                if (xhr.status === 500) {
+                                    userMessage = 'Lỗi máy chủ (500). Vui lòng thử lại sau hoặc liên hệ hỗ trợ.';
+                                } else if (xhr.status === 404) {
+                                    userMessage = 'Không tìm thấy trang thanh toán. Vui lòng thử lại.';
+                                } else if (xhr.status === 403) {
+                                    userMessage = 'Không có quyền thực hiện thao tác này.';
+                                } else if (xhr.status === 400) {
+                                    userMessage = errorMessage || 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.';
+                                } else if (errorMessage && errorMessage !== 'Lỗi không xác định') {
+                                    userMessage = errorMessage;
+                                }
+                                
+                                alert('❌ ' + userMessage);
                                 
                                 // Nếu lỗi CSRF, thử refresh token và gửi lại
-                                if (xhr.status === 403 && xhr.responseJSON && xhr.responseJSON.code === 'CSRF_TOKEN_INVALID') {
+                                if (xhr.status === 403 && errorDetails && errorDetails.code === 'CSRF_TOKEN_INVALID') {
                                     if (window.CSRFHelper) {
                                         window.CSRFHelper.refreshToken().then(() => {
                                             alert('Phiên làm việc đã hết hạn. Vui lòng thử lại.');
@@ -925,8 +1182,11 @@ if (!$event) {
                                         alert('Lỗi xác thực. Vui lòng tải lại trang và thử lại.');
                                     }
                                 } else {
-                                    alert('Lỗi kết nối. Vui lòng thử lại.');
+                                    // Đã hiển thị alert ở trên với userMessage chi tiết
+                                    // Không cần alert thêm ở đây
                                 }
+                                
+                                // Re-enable button
                                 $('#proceedPayment').prop('disabled', false).html('<i class="fas fa-credit-card"></i> Xác nhận thanh toán');
                             }
                         });
@@ -1306,6 +1566,253 @@ if (!$event) {
         $(window).on('beforeunload', function() {
             if (pollingInterval) {
                 clearInterval(pollingInterval);
+            }
+        });
+        
+        // Load saved discount code from localStorage
+        function loadSavedDiscountCode(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            try {
+                const savedCodes = localStorage.getItem('savedDiscountCodes');
+                if (savedCodes) {
+                    const codes = JSON.parse(savedCodes);
+                    if (codes && codes.length > 0) {
+                        if (codes.length === 1) {
+                            const savedCode = codes[0];
+                            $('#discountCode').val(savedCode);
+                            
+                            const messageDiv = $('#discountCodeMessage');
+                            messageDiv.html(`
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Đã tải mã giảm giá đã lưu: <strong>${savedCode}</strong>. 
+                                    Nhấn "Áp dụng" để sử dụng.
+                                </div>
+                            `).show();
+                        } else {
+                            showSavedCodesSelection(codes);
+                        }
+                    } else {
+                        const messageDiv = $('#discountCodeMessage');
+                        messageDiv.html(`
+                            <div class="alert alert-warning mb-0">
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                Chưa có mã giảm giá nào được lưu. Vui lòng lưu mã trên trang chủ.
+                            </div>
+                        `).show();
+                    }
+                } else {
+                    const messageDiv = $('#discountCodeMessage');
+                    messageDiv.html(`
+                        <div class="alert alert-warning mb-0">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            Chưa có mã giảm giá nào được lưu. Vui lòng lưu mã trên trang chủ.
+                        </div>
+                    `).show();
+                }
+            } catch (e) {
+                console.error('Error loading saved discount code:', e);
+                const messageDiv = $('#discountCodeMessage');
+                messageDiv.html(`
+                    <div class="alert alert-danger mb-0">
+                        <i class="fas fa-times-circle"></i> 
+                        Lỗi khi tải mã giảm giá đã lưu.
+                    </div>
+                `).show();
+            }
+            
+            return false;
+        }
+        
+        // Show saved codes selection (if multiple codes saved)
+        function showSavedCodesSelection(codes) {
+            const messageDiv = $('#discountCodeMessage');
+            let html = '<div class="alert alert-info mb-2"><i class="fas fa-info-circle"></i> Bạn có nhiều mã đã lưu. Chọn mã để sử dụng:</div>';
+            html += '<div class="d-flex flex-wrap gap-2 mb-2">';
+            codes.forEach(code => {
+                const escapedCode = code.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                html += `
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="event.preventDefault(); event.stopPropagation(); $('#discountCode').val('${escapedCode}'); $('#discountCodeMessage').hide(); return false;">
+                        ${code}
+                    </button>
+                `;
+            });
+            html += '</div>';
+            messageDiv.html(html).show();
+        }
+        
+        // Disable discount code section (for cash payment)
+        function disableDiscountCode() {
+            $('#discountCode').prop('disabled', true);
+            $('#loadSavedCodeBtn').prop('disabled', true);
+            $('#applyDiscountBtn').prop('disabled', true);
+            // Ẩn thông báo, chỉ hiển thị khi người dùng cố gắng áp dụng mã
+            $('#discountCodeMessage').hide();
+            appliedDiscountCode = null;
+        }
+        
+        // Enable discount code section (chỉ cho thanh toán đủ 1 lần)
+        function enableDiscountCode() {
+            // Chỉ enable khi thanh toán đủ (full), không cho đặt cọc và thanh toán phần còn lại
+            if (selectedPaymentType === 'full') {
+                $('#discountCode').prop('disabled', false);
+                $('#loadSavedCodeBtn').prop('disabled', false);
+                $('#applyDiscountBtn').prop('disabled', false);
+                // Ẩn thông báo lỗi nếu có
+                if ($('#discountCodeMessage').hasClass('alert-warning') || $('#discountCodeMessage').hasClass('alert-danger')) {
+                    $('#discountCodeMessage').hide();
+                }
+            } else {
+                // Đặt cọc hoặc thanh toán phần còn lại không cho phép mã giảm giá
+                disableDiscountCodeForNonFull();
+            }
+        }
+        
+        // Disable discount code section (for deposit or remaining payment)
+        function disableDiscountCodeForNonFull() {
+            $('#discountCode').prop('disabled', true);
+            $('#loadSavedCodeBtn').prop('disabled', true);
+            $('#applyDiscountBtn').prop('disabled', true);
+            // Ẩn thông báo, chỉ hiển thị khi người dùng cố gắng áp dụng mã
+            $('#discountCodeMessage').hide();
+            appliedDiscountCode = null;
+        }
+        
+        // Cập nhật trạng thái mã giảm giá dựa trên phương thức và loại thanh toán
+        function updateDiscountCodeAvailability() {
+            // Tiền mặt không cho phép mã giảm giá
+            if (selectedPaymentMethod === 'cash') {
+                disableDiscountCode();
+            } 
+            // Đặt cọc hoặc thanh toán phần còn lại không cho phép mã giảm giá
+            else if (selectedPaymentType === 'deposit' || selectedPaymentType === 'remaining') {
+                disableDiscountCodeForNonFull();
+            }
+            // SePay + thanh toán đủ 1 lần mới cho phép mã giảm giá
+            else if (selectedPaymentMethod === 'sepay' && selectedPaymentType === 'full') {
+                enableDiscountCode();
+            }
+        }
+        
+        // Apply discount code
+        function applyDiscountCode(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            // Không cho phép áp dụng mã giảm giá khi thanh toán tiền mặt
+            if (selectedPaymentMethod === 'cash') {
+                const messageDiv = $('#discountCodeMessage');
+                messageDiv.html('<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle"></i> Mã giảm giá không áp dụng cho thanh toán tiền mặt.</div>').show();
+                appliedDiscountCode = null;
+                updateAmountDisplay();
+                return false;
+            }
+            
+            // Không cho phép áp dụng mã giảm giá khi đặt cọc hoặc thanh toán phần còn lại
+            if (selectedPaymentType === 'deposit' || selectedPaymentType === 'remaining') {
+                const messageDiv = $('#discountCodeMessage');
+                let message = '';
+                if (selectedPaymentType === 'deposit') {
+                    message = '<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle"></i> Mã giảm giá chỉ áp dụng khi thanh toán đủ 1 lần, không áp dụng cho đặt cọc.</div>';
+                } else {
+                    message = '<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle"></i> Mã giảm giá chỉ áp dụng khi thanh toán đủ 1 lần, không áp dụng cho thanh toán phần còn lại.</div>';
+                }
+                messageDiv.html(message).show();
+                appliedDiscountCode = null;
+                updateAmountDisplay();
+                return false;
+            }
+            
+            // Chỉ cho phép áp dụng mã giảm giá khi thanh toán đủ
+            if (selectedPaymentType !== 'full') {
+                const messageDiv = $('#discountCodeMessage');
+                messageDiv.html('<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle"></i> Mã giảm giá chỉ áp dụng khi thanh toán đủ 1 lần.</div>').show();
+                appliedDiscountCode = null;
+                updateAmountDisplay();
+                return false;
+            }
+            
+            const code = $('#discountCode').val().trim();
+            const messageDiv = $('#discountCodeMessage');
+            
+            if (!code) {
+                messageDiv.html('<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle"></i> Vui lòng nhập mã giảm giá</div>').show();
+                appliedDiscountCode = null;
+                updateAmountDisplay();
+                return false;
+            }
+            
+            // Get current payment amount (base amount before discount)
+            let baseAmount;
+            if (selectedPaymentType === 'remaining' || hasDeposit) {
+                baseAmount = remainingAmount;
+            } else {
+                baseAmount = totalAmount;
+            }
+            
+            $('#applyDiscountBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra...');
+            
+            $.ajax({
+                url: '../src/controllers/magiamgia-controller.php',
+                method: 'GET',
+                data: {
+                    action: 'validate_code',
+                    code: code,
+                    user_id: userId,
+                    total_amount: baseAmount
+                },
+                dataType: 'json',
+                success: function(response) {
+                    $('#applyDiscountBtn').prop('disabled', false).html('<i class="fas fa-check"></i> Áp dụng');
+                    
+                    if (response.success) {
+                        appliedDiscountCode = response;
+                        messageDiv.html(`<div class="alert alert-success mb-0"><i class="fas fa-check-circle"></i> ${response.message || 'Mã giảm giá hợp lệ!'}</div>`).show();
+                        updateAmountDisplay();
+                    } else {
+                        appliedDiscountCode = null;
+                        messageDiv.html(`<div class="alert alert-danger mb-0"><i class="fas fa-times-circle"></i> ${response.error || 'Mã giảm giá không hợp lệ'}</div>`).show();
+                        updateAmountDisplay();
+                    }
+                },
+                error: function() {
+                    $('#applyDiscountBtn').prop('disabled', false).html('<i class="fas fa-check"></i> Áp dụng');
+                    appliedDiscountCode = null;
+                    messageDiv.html('<div class="alert alert-danger mb-0"><i class="fas fa-times-circle"></i> Lỗi kết nối. Vui lòng thử lại.</div>').show();
+                    updateAmountDisplay();
+                }
+            });
+            
+            return false;
+        }
+        
+        // Allow Enter key to apply discount code
+        $('#discountCode').on('keypress', function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                applyDiscountCode();
+            }
+        });
+        
+        // Load saved discount code on page load
+        $(document).ready(function() {
+            // Load saved discount code if available
+            try {
+                const savedCodes = localStorage.getItem('savedDiscountCodes');
+                if (savedCodes) {
+                    const codes = JSON.parse(savedCodes);
+                    if (codes && codes.length === 1) {
+                        $('#discountCode').val(codes[0]);
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading saved discount code on page load:', e);
             }
         });
     </script>

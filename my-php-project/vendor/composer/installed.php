@@ -3,22 +3,13 @@
         'name' => 'myphp/event-system',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '050ccc1d66c28d5e3e156c304005d910ea65d40d',
+        'reference' => 'd1910f897f921ae2fa99fdc5de195f45c81cba9a',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
-        'agence104/livekit-server-sdk' => array(
-            'pretty_version' => '1.3.1',
-            'version' => '1.3.1.0',
-            'reference' => '477e7c351e069cd0275567d932bc91bc7bb1ed37',
-            'type' => 'library',
-            'install_path' => __DIR__ . '/../agence104/livekit-server-sdk',
-            'aliases' => array(),
-            'dev_requirement' => false,
-        ),
         'doctrine/instantiator' => array(
             'pretty_version' => '2.0.0',
             'version' => '2.0.0.0',
@@ -34,15 +25,6 @@
             'reference' => 'd1e91ecf8c598d073d0995afa8cd5c75c6e19e66',
             'type' => 'library',
             'install_path' => __DIR__ . '/../firebase/php-jwt',
-            'aliases' => array(),
-            'dev_requirement' => false,
-        ),
-        'google/protobuf' => array(
-            'pretty_version' => 'v4.33.1',
-            'version' => '4.33.1.0',
-            'reference' => '0cd73ccf0cd26c3e72299cce1ea6144091a57e12',
-            'type' => 'library',
-            'install_path' => __DIR__ . '/../google/protobuf',
             'aliases' => array(),
             'dev_requirement' => false,
         ),
@@ -103,16 +85,16 @@
         'myphp/event-system' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '050ccc1d66c28d5e3e156c304005d910ea65d40d',
+            'reference' => 'd1910f897f921ae2fa99fdc5de195f45c81cba9a',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
             'dev_requirement' => false,
         ),
         'nikic/php-parser' => array(
-            'pretty_version' => 'v5.6.1',
-            'version' => '5.6.1.0',
-            'reference' => 'f103601b29efebd7ff4a1ca7b3eeea9e3336a2a2',
+            'pretty_version' => 'v5.6.2',
+            'version' => '5.6.2.0',
+            'reference' => '3a454ca033b9e06b63282ce19562e892747449bb',
             'type' => 'library',
             'install_path' => __DIR__ . '/../nikic/php-parser',
             'aliases' => array(),
@@ -135,27 +117,6 @@
             'install_path' => __DIR__ . '/../phar-io/version',
             'aliases' => array(),
             'dev_requirement' => true,
-        ),
-        'php-http/async-client-implementation' => array(
-            'dev_requirement' => false,
-            'provided' => array(
-                0 => '*',
-            ),
-        ),
-        'php-http/client-implementation' => array(
-            'dev_requirement' => false,
-            'provided' => array(
-                0 => '*',
-            ),
-        ),
-        'php-http/discovery' => array(
-            'pretty_version' => '1.20.0',
-            'version' => '1.20.0.0',
-            'reference' => '82fe4c73ef3363caed49ff8dd1539ba06044910d',
-            'type' => 'composer-plugin',
-            'install_path' => __DIR__ . '/../php-http/discovery',
-            'aliases' => array(),
-            'dev_requirement' => false,
         ),
         'phpoption/phpoption' => array(
             'pretty_version' => '1.9.4',
@@ -212,9 +173,9 @@
             'dev_requirement' => true,
         ),
         'phpunit/phpunit' => array(
-            'pretty_version' => '9.6.25',
-            'version' => '9.6.25.0',
-            'reference' => '049c011e01be805202d8eebedef49f769a8ec7b7',
+            'pretty_version' => '9.6.29',
+            'version' => '9.6.29.0',
+            'reference' => '9ecfec57835a5581bc888ea7e13b51eb55ab9dd3',
             'type' => 'library',
             'install_path' => __DIR__ . '/../phpunit/phpunit',
             'aliases' => array(),
@@ -232,8 +193,7 @@
         'psr/http-client-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '*',
-                1 => '1.0',
+                0 => '1.0',
             ),
         ),
         'psr/http-factory' => array(
@@ -248,8 +208,7 @@
         'psr/http-factory-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '*',
-                1 => '1.0',
+                0 => '1.0',
             ),
         ),
         'psr/http-message' => array(
@@ -264,18 +223,8 @@
         'psr/http-message-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '*',
-                1 => '1.0',
+                0 => '1.0',
             ),
-        ),
-        'psr/http-server-handler' => array(
-            'pretty_version' => '1.0.2',
-            'version' => '1.0.2.0',
-            'reference' => '84c4fb66179be4caaf8e97bd239203245302e7d4',
-            'type' => 'library',
-            'install_path' => __DIR__ . '/../psr/http-server-handler',
-            'aliases' => array(),
-            'dev_requirement' => false,
         ),
         'psr/log' => array(
             'pretty_version' => '3.0.2',
@@ -359,9 +308,9 @@
             'dev_requirement' => true,
         ),
         'sebastian/exporter' => array(
-            'pretty_version' => '4.0.6',
-            'version' => '4.0.6.0',
-            'reference' => '78c00df8f170e02473b682df15bfcdacc3d32d72',
+            'pretty_version' => '4.0.8',
+            'version' => '4.0.8.0',
+            'reference' => '14c6ba52f95a36c3d27c835d65efc7123c446e8c',
             'type' => 'library',
             'install_path' => __DIR__ . '/../sebastian/exporter',
             'aliases' => array(),
@@ -485,22 +434,13 @@
             'dev_requirement' => false,
         ),
         'theseer/tokenizer' => array(
-            'pretty_version' => '1.2.3',
-            'version' => '1.2.3.0',
-            'reference' => '737eda637ed5e28c3413cb1ebe8bb52cbf1ca7a2',
+            'pretty_version' => '1.3.1',
+            'version' => '1.3.1.0',
+            'reference' => 'b7489ce515e168639d17feec34b8847c326b0b3c',
             'type' => 'library',
             'install_path' => __DIR__ . '/../theseer/tokenizer',
             'aliases' => array(),
             'dev_requirement' => true,
-        ),
-        'twirp/twirp' => array(
-            'pretty_version' => 'v0.14.0',
-            'version' => '0.14.0.0',
-            'reference' => '08a54881275a4a874d717f043b5afc1749d57567',
-            'type' => 'library',
-            'install_path' => __DIR__ . '/../twirp/twirp',
-            'aliases' => array(),
-            'dev_requirement' => false,
         ),
         'vlucas/phpdotenv' => array(
             'pretty_version' => 'v5.6.2',

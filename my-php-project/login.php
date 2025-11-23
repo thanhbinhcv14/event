@@ -435,6 +435,11 @@
                      .addClass(`alert-${type}`)
                      .html(`<i class="fas fa-exclamation-circle me-2"></i>${message}`)
                      .show();
+                
+                // Auto hide sau 5 giây
+                setTimeout(function() {
+                    alert.fadeOut();
+                }, 5000);
             }
 
             $('#loginForm').on('submit', function(e) {

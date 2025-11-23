@@ -598,6 +598,82 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ==================== WebRTC Signaling Events ====================
+    
+    // Handle WebRTC offer (from caller to receiver)
+    socket.on('call-offer', (data) => {
+        const { call_id, receiver_id, offer, call_type } = data;
+        const userInfo = connectedUsers.get(socket.id);
+        
+        if (!userInfo) {
+            console.warn('⚠️ call-offer: User not authenticated');
+            return;
+        }
+        
+        console.log(`📞 WebRTC Offer: call_id=${call_id}, from=${userInfo.userId}, to=${receiver_id}`);
+        
+        // Forward offer to receiver
+        io.to(`user_${receiver_id}`).emit('call-offer', {
+            call_id,
+            caller_id: userInfo.userId,
+            receiver_id,
+            offer,
+            call_type
+        });
+    });
+    
+    // Handle WebRTC answer (from receiver to caller)
+    socket.on('call-answer', (data) => {
+        const { call_id, answer } = data;
+        const userInfo = connectedUsers.get(socket.id);
+        
+        if (!userInfo) {
+            console.warn('⚠️ call-answer: User not authenticated');
+            return;
+        }
+        
+        console.log(`📞 WebRTC Answer: call_id=${call_id}, from=${userInfo.userId}`);
+        
+        // Find caller from active call
+        const activeCall = activeCalls.get(call_id);
+        if (activeCall) {
+            // Forward answer to caller
+            io.to(`user_${activeCall.caller_id}`).emit('call-answer', {
+                call_id,
+                answer
+            });
+        }
+    });
+    
+    // Handle ICE candidate (bidirectional)
+    socket.on('ice-candidate', (data) => {
+        const { call_id, candidate } = data;
+        const userInfo = connectedUsers.get(socket.id);
+        
+        if (!userInfo) {
+            console.warn('⚠️ ice-candidate: User not authenticated');
+            return;
+        }
+        
+        console.log(`🧊 ICE Candidate: call_id=${call_id}, from=${userInfo.userId}`);
+        
+        // Find active call to determine other party
+        const activeCall = activeCalls.get(call_id);
+        if (activeCall) {
+            const otherUserId = userInfo.userId == activeCall.caller_id 
+                ? activeCall.receiver_id 
+                : activeCall.caller_id;
+            
+            // Forward ICE candidate to other party
+            io.to(`user_${otherUserId}`).emit('ice-candidate', {
+                call_id,
+                candidate
+            });
+        }
+    });
+    
+    // ==================== Call Management Events ====================
+    
     // Xử lý các events cuộc gọi
     socket.on('call_initiated', (data) => {
         const { call_id, caller_id, receiver_id, call_type, conversation_id } = data;
@@ -842,11 +918,18 @@ io.on('connection', (socket) => {
             
             let receiverName = userInfo.userName || 'Người dùng';
             
+            // Notify caller that receiver accepted
             io.to(`user_${caller_id}`).emit('call_accepted', {
                 call_id,
                 caller_id,
                 receiver_id,
                 receiver_name: receiverName
+            });
+            
+            // Notify caller to send WebRTC offer now
+            io.to(`user_${caller_id}`).emit('receiver_accepted', {
+                call_id,
+                receiver_id
             });
             
             io.to(`user_${receiver_id}`).emit('call_notification', {
@@ -1009,67 +1092,8 @@ io.on('connection', (socket) => {
         }
     });
 
-    // WebRTC Offer - Caller gửi offer cho receiver
-    socket.on('webrtc_offer', (data) => {
-        const { call_id, offer } = data;
-        const userInfo = connectedUsers.get(socket.id);
-        
-        if (userInfo) {
-            const call = activeCalls.get(call_id);
-            if (call && call.caller_id == userInfo.userId) {
-                console.log(`📞 Forwarding WebRTC offer for call ${call_id} from caller ${call.caller_id} to receiver ${call.receiver_id}`);
-                // Forward offer to receiver
-                io.to(`user_${call.receiver_id}`).emit('webrtc_offer', {
-                    call_id,
-                    offer
-                });
-            }
-        }
-    });
-
-    // WebRTC Answer - Receiver gửi answer cho caller
-    socket.on('webrtc_answer', (data) => {
-        const { call_id, answer } = data;
-        const userInfo = connectedUsers.get(socket.id);
-        
-        if (userInfo) {
-            const call = activeCalls.get(call_id);
-            if (call && call.receiver_id == userInfo.userId) {
-                console.log(`📞 Forwarding WebRTC answer for call ${call_id} from receiver ${call.receiver_id} to caller ${call.caller_id}`);
-                // Forward answer to caller
-                io.to(`user_${call.caller_id}`).emit('webrtc_answer', {
-                    call_id,
-                    answer
-                });
-            }
-        }
-    });
-
-    // ICE Candidate - Forward ICE candidates giữa caller và receiver
-    socket.on('ice_candidate', (data) => {
-        const { call_id, candidate } = data;
-        const userInfo = connectedUsers.get(socket.id);
-        
-        if (userInfo) {
-            const call = activeCalls.get(call_id);
-            if (call) {
-                // Forward ICE candidate to the other peer
-                if (call.caller_id == userInfo.userId) {
-                    // Caller sent candidate, forward to receiver
-                    io.to(`user_${call.receiver_id}`).emit('ice_candidate', {
-                        call_id,
-                        candidate
-                    });
-                } else if (call.receiver_id == userInfo.userId) {
-                    // Receiver sent candidate, forward to caller
-                    io.to(`user_${call.caller_id}`).emit('ice_candidate', {
-                        call_id,
-                        candidate
-                    });
-                }
-            }
-        }
-    });
+    // NOTE: WebRTC signaling events đã được xử lý ở trên (call-offer, call-answer, ice-candidate)
+    // Các events cũ (webrtc_offer, webrtc_answer, ice_candidate) đã được xóa
 
     // Xử lý ping/pong để kiểm tra sức khỏe kết nối
     socket.on('ping', () => {

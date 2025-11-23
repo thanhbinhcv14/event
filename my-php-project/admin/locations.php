@@ -188,35 +188,34 @@ include 'includes/admin-header.php';
                                 <div class="card border">
                                     <div class="card-body">
                                         <div class="row g-3">
-                                            <div class="col-md-3">
-                                                <label class="form-label small">Số nhà</label>
-                                                <input type="text" class="form-control form-control-sm" id="locationSoNha" name="SoNha" placeholder="VD: 194">
-                                            </div>
-                                            <div class="col-md-9">
-                                                <label class="form-label small">Đường/Phố</label>
-                                                <input type="text" class="form-control form-control-sm" id="locationDuongPho" name="DuongPho" placeholder="VD: Hoàng Văn Thụ">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label small">Phường/Xã</label>
-                                                <select class="form-select form-select-sm" id="locationPhuongXa" name="PhuongXa">
-                                                    <option value="">Chọn Phường/Xã</option>
+                                            <!-- Hàng 1: Tỉnh/Thành phố và Quận/Huyện (theo flow: Tỉnh → Quận) -->
+                                            <div class="col-md-6">
+                                                <label class="form-label small">Tỉnh/Thành phố <span class="text-danger">*</span></label>
+                                                <select class="form-select form-select-sm" id="locationTinhThanh" name="TinhThanh" required>
+                                                    <option value="">Chọn Tỉnh/Thành phố</option>
                                                 </select>
-                                                <input type="text" class="form-control form-control-sm mt-2" id="locationPhuongXaText" placeholder="Hoặc nhập tên Phường/Xã" style="display: none;">
-                                                <small class="text-muted">
-                                                    <a href="javascript:void(0)" onclick="togglePhuongXaInput()" id="togglePhuongXaLink">Nhập thủ công</a>
-                                                </small>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-6">
                                                 <label class="form-label small">Quận/Huyện <span class="text-danger">*</span></label>
                                                 <select class="form-select form-select-sm" id="locationQuanHuyen" name="QuanHuyen" required>
                                                     <option value="">Chọn Quận/Huyện</option>
                                                 </select>
                                             </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label small">Tỉnh/Thành phố <span class="text-danger">*</span></label>
-                                                <select class="form-select form-select-sm" id="locationTinhThanh" name="TinhThanh" required>
-                                                    <option value="">Chọn Tỉnh/Thành phố</option>
-                                                </select>
+                                            
+                                            <!-- Hàng 2: Đường/Phố và Phường/Xã (nhập thủ công) -->
+                                            <div class="col-md-6">
+                                                <label class="form-label small">Đường/Phố</label>
+                                                <input type="text" class="form-control form-control-sm" id="locationDuongPhoText" name="DuongPho" placeholder="Nhập tên Đường/Phố">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small">Phường/Xã</label>
+                                                <input type="text" class="form-control form-control-sm" id="locationPhuongXaText" name="PhuongXa" placeholder="Nhập tên Phường/Xã">
+                                            </div>
+                                            
+                                            <!-- Hàng 3: Số nhà -->
+                                            <div class="col-md-12">
+                                                <label class="form-label small">Số nhà</label>
+                                                <input type="text" class="form-control form-control-sm" id="locationSoNha" name="SoNha" placeholder="VD: 194">
                                             </div>
                                         </div>
                                     </div>
@@ -343,16 +342,15 @@ include 'includes/admin-header.php';
     </style>
 
     <script>
+        // Đảm bảo jQuery đã được load trước khi sử dụng
+        // Tất cả code sử dụng jQuery phải được đặt trong $(document).ready()
+        // hoặc sau khi jQuery được load (trong admin-footer.php)
+        
+        // Khai báo biến global (không sử dụng jQuery)
         let locationsTable;
         let currentFilters = {};
 
-        // Khởi tạo trang
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeDataTable();
-            loadStatistics();
-            setupEventListeners();
-        });
-
+        // Tất cả functions sử dụng jQuery sẽ được gọi trong $(document).ready()
         function initializeDataTable() {
             // Kiểm tra DataTables có sẵn không
             if (typeof $.fn.DataTable === 'undefined') {
@@ -568,13 +566,11 @@ include 'includes/admin-header.php';
             $('#locationAddress').val(''); // Reset địa chỉ đầy đủ
             $('#locationModalTitle').html('<i class="fas fa-plus"></i> Thêm địa điểm mới');
             
-            // Reset dropdowns
+            // Reset dropdowns và text inputs
             loadProvinces();
             $('#locationQuanHuyen').empty().append('<option value="">Chọn Quận/Huyện</option>');
-            $('#locationPhuongXa').empty().append('<option value="">Chọn Phường/Xã</option>');
-            $('#locationPhuongXaText').hide();
-            $('#locationPhuongXa').show();
-            $('#togglePhuongXaLink').text('Nhập thủ công');
+            $('#locationDuongPhoText').val('');
+            $('#locationPhuongXaText').val('');
             
             // Reset giá thuê fields
             togglePriceFields();
@@ -586,11 +582,10 @@ include 'includes/admin-header.php';
         // Tự động cập nhật địa chỉ đầy đủ khi thay đổi các thành phần
         function updateFullAddress() {
             const soNha = $('#locationSoNha').val() || '';
-            const duongPho = $('#locationDuongPho').val() || '';
-            // Lấy giá trị từ dropdown hoặc input text
-            const phuongXa = $('#locationPhuongXaText').is(':visible') 
-                ? $('#locationPhuongXaText').val() 
-                : ($('#locationPhuongXa').val() || '');
+            // Lấy giá trị đường phố từ text input
+            const duongPho = $('#locationDuongPhoText').val() || '';
+            // Lấy giá trị phường/xã từ text input
+            const phuongXa = $('#locationPhuongXaText').val() || '';
             const quanHuyen = $('#locationQuanHuyen').val() || '';
             const tinhThanh = $('#locationTinhThanh').val() || '';
             
@@ -709,31 +704,21 @@ include 'includes/admin-header.php';
             const select = $('#locationQuanHuyen');
             select.empty().append('<option value="">Chọn Quận/Huyện</option>');
             
+            // Reset đường phố và phường/xã khi thay đổi tỉnh/thành phố
+            $('#locationDuongPhoText').val('');
+            $('#locationPhuongXaText').val('');
+            
             if (province && vietnamProvinces[province]) {
+                console.log(`📋 Load ${vietnamProvinces[province].length} quận/huyện cho ${province}`);
                 vietnamProvinces[province].forEach(district => {
                     select.append(`<option value="${district}">${district}</option>`);
                 });
+            } else if (province) {
+                console.warn(`⚠️ Không có dữ liệu quận/huyện cho ${province}`);
             }
         }
 
-        // Toggle input thủ công cho Phường/Xã
-        function togglePhuongXaInput() {
-            const select = $('#locationPhuongXa');
-            const textInput = $('#locationPhuongXaText');
-            const link = $('#togglePhuongXaLink');
-            
-            if (textInput.is(':visible')) {
-                textInput.hide();
-                select.show();
-                link.text('Nhập thủ công');
-                textInput.val('');
-            } else {
-                select.hide();
-                textInput.show();
-                link.text('Chọn từ danh sách');
-                select.val('');
-            }
-        }
+        // Không cần dữ liệu dropdown nữa, chỉ dùng text input cho Đường/Phố và Phường/Xã
 
         // Ẩn/hiện giá thuê dựa trên loại địa điểm
         function togglePriceFields() {
@@ -763,28 +748,87 @@ include 'includes/admin-header.php';
             }
         }
 
-        // Gắn sự kiện cho các trường địa chỉ
-        $(document).ready(function() {
-            // Tải danh sách tỉnh/thành phố khi trang tải
-            loadProvinces();
+        // Gắn sự kiện cho các trường địa chỉ - Đảm bảo jQuery đã được load
+        // Sử dụng jQuery ready để đảm bảo jQuery đã sẵn sàng
+        (function() {
+            // Kiểm tra jQuery đã được load chưa
+            function initLocationPage() {
+                if (typeof jQuery === 'undefined' || typeof $ === 'undefined') {
+                    // Nếu jQuery chưa được load, đợi thêm một chút
+                    setTimeout(initLocationPage, 100);
+                    return;
+                }
+                
+                // Tải danh sách tỉnh/thành phố khi trang tải
+                loadProvinces();
+                
+                // Xóa event listener cũ để tránh duplicate
+                $('#locationTinhThanh').off('change');
+                $('#locationQuanHuyen').off('change');
+                
+                // Khi chọn tỉnh/thành phố, load quận/huyện
+                $('#locationTinhThanh').on('change', function() {
+                    const province = $(this).val();
+                    console.log('📍 Tỉnh/Thành phố đã chọn:', province);
+                    
+                    if (province) {
+                        // Load quận/huyện của tỉnh/thành phố đó
+                        loadDistricts(province);
+                        // Reset quận/huyện, đường phố và phường/xã
+                        $('#locationQuanHuyen').val('');
+                        $('#locationDuongPho').val('');
+                        $('#locationDuongPhoText').val('');
+                        $('#locationPhuongXa').val('');
+                        $('#locationPhuongXaText').val('');
+                        updateFullAddress();
+                        console.log('✅ Đã load quận/huyện cho:', province);
+                    } else {
+                        // Nếu không chọn tỉnh/thành phố, reset tất cả
+                        $('#locationQuanHuyen').empty().append('<option value="">Chọn Quận/Huyện</option>');
+                        $('#locationDuongPhoText').val('');
+                        $('#locationPhuongXaText').val('');
+                        updateFullAddress();
+                    }
+                });
+                
+                // Khi chọn quận/huyện, reset đường phố và phường/xã (chỉ nhập thủ công)
+                $('#locationQuanHuyen').on('change', function() {
+                    const district = $(this).val();
+                    console.log('📍 Quận/Huyện đã chọn:', district);
+                    
+                    // Reset đường phố và phường/xã
+                    $('#locationDuongPhoText').val('');
+                    $('#locationPhuongXaText').val('');
+                    updateFullAddress();
+                });
+                
+                // Khi chọn loại địa điểm, ẩn/hiện giá thuê
+                $('#locationType').on('change', function() {
+                    togglePriceFields();
+                });
+                
+                // Gắn sự kiện cho các trường địa chỉ để tự động cập nhật địa chỉ đầy đủ
+                $('#locationSoNha, #locationDuongPhoText, #locationPhuongXaText, #locationQuanHuyen, #locationTinhThanh').on('input change', function() {
+                    updateFullAddress();
+                });
+                
+                // Khởi tạo trang
+                initializeDataTable();
+                loadStatistics();
+                setupEventListeners();
+            }
             
-            // Khi chọn tỉnh/thành phố, load quận/huyện
-            $('#locationTinhThanh').on('change', function() {
-                const province = $(this).val();
-                loadDistricts(province);
-                updateFullAddress();
-            });
-            
-            // Khi chọn loại địa điểm, ẩn/hiện giá thuê
-            $('#locationType').on('change', function() {
-                togglePriceFields();
-            });
-            
-            // Gắn sự kiện cho các trường địa chỉ
-            $('#locationSoNha, #locationDuongPho, #locationPhuongXa, #locationPhuongXaText, #locationQuanHuyen, #locationTinhThanh').on('input change', function() {
-                updateFullAddress();
-            });
-        });
+            // Chờ jQuery được load từ admin-footer.php
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Đợi thêm một chút để đảm bảo jQuery đã được load từ admin-footer.php
+                    setTimeout(initLocationPage, 100);
+                });
+            } else {
+                // Nếu DOM đã sẵn sàng, đợi jQuery
+                setTimeout(initLocationPage, 100);
+            }
+        })();
 
         function editLocation(id) {
             AdminPanel.makeAjaxRequest('../src/controllers/locations.php', {
@@ -800,38 +844,70 @@ include 'includes/admin-header.php';
                     
                     // Điền các trường địa chỉ chi tiết
                     $('#locationSoNha').val(location.SoNha || '');
-                    $('#locationDuongPho').val(location.DuongPho || '');
                     
                     // Tải tỉnh/thành phố trước
                     loadProvinces();
                     if (location.TinhThanh) {
                         $('#locationTinhThanh').val(location.TinhThanh);
+                        console.log('📍 Edit: Đã set Tỉnh/Thành phố:', location.TinhThanh);
+                        
                         // Tải quận/huyện sau khi chọn tỉnh/thành phố
                         loadDistricts(location.TinhThanh);
-                    }
-                    
-                    // Set giá trị quận/huyện và phường/xã
-                    if (location.QuanHuyen) {
-                        $('#locationQuanHuyen').val(location.QuanHuyen);
-                    }
-                    
-                    if (location.PhuongXa) {
-                        // Kiểm tra xem phường/xã có trong dropdown không
-                        const phuongXaOption = $('#locationPhuongXa option').filter(function() {
-                            return $(this).text() === location.PhuongXa || $(this).val() === location.PhuongXa;
-                        });
                         
-                        if (phuongXaOption.length > 0) {
-                            $('#locationPhuongXa').val(location.PhuongXa);
-                            $('#locationPhuongXaText').hide();
-                            $('#locationPhuongXa').show();
-                        } else {
-                            // Nếu không có trong dropdown, dùng input text
-                            $('#locationPhuongXaText').val(location.PhuongXa);
-                            $('#locationPhuongXa').hide();
-                            $('#locationPhuongXaText').show();
-                            $('#togglePhuongXaLink').text('Chọn từ danh sách');
+                        // Đợi một chút để dropdown quận/huyện được load xong
+                        setTimeout(() => {
+                            // Set giá trị quận/huyện, đường phố và phường/xã
+                            if (location.QuanHuyen) {
+                                // Kiểm tra xem quận/huyện có trong danh sách không
+                                const quanHuyenOption = $('#locationQuanHuyen option').filter(function() {
+                                    return $(this).val() === location.QuanHuyen;
+                                });
+                                
+                                if (quanHuyenOption.length > 0) {
+                                    $('#locationQuanHuyen').val(location.QuanHuyen);
+                                    console.log('📍 Edit: Đã set Quận/Huyện:', location.QuanHuyen);
+                                    
+                                    // Set đường phố và phường/xã vào text input
+                                    if (location.DuongPho) {
+                                        $('#locationDuongPhoText').val(location.DuongPho);
+                                    }
+                                    if (location.PhuongXa) {
+                                        $('#locationPhuongXaText').val(location.PhuongXa);
+                                    }
+                                    
+                                    // Cập nhật địa chỉ đầy đủ sau khi set tất cả giá trị
+                                    updateFullAddress();
+                                } else {
+                                    // Nếu quận/huyện không có trong danh sách, vẫn set giá trị vào text input
+                                    $('#locationQuanHuyen').val(location.QuanHuyen);
+                                    if (location.DuongPho) {
+                                        $('#locationDuongPhoText').val(location.DuongPho);
+                                    }
+                                    if (location.PhuongXa) {
+                                        $('#locationPhuongXaText').val(location.PhuongXa);
+                                    }
+                                    updateFullAddress();
+                                }
+                            } else {
+                                // Nếu không có quận/huyện, chỉ set đường phố và phường/xã nếu có
+                                if (location.DuongPho) {
+                                    $('#locationDuongPhoText').val(location.DuongPho);
+                                }
+                                if (location.PhuongXa) {
+                                    $('#locationPhuongXaText').val(location.PhuongXa);
+                                }
+                                updateFullAddress();
+                            }
+                        }, 100);
+                    } else {
+                        // Nếu không có tỉnh/thành phố, chỉ set đường phố và phường/xã nếu có
+                        if (location.DuongPho) {
+                            $('#locationDuongPhoText').val(location.DuongPho);
                         }
+                        if (location.PhuongXa) {
+                            $('#locationPhuongXaText').val(location.PhuongXa);
+                        }
+                        updateFullAddress();
                     }
                     
                     $('#locationAddress').val(location.DiaChi || ''); // Địa chỉ đầy đủ (readonly)
@@ -930,17 +1006,28 @@ include 'includes/admin-header.php';
                 return;
             }
 
+            // Đảm bảo địa chỉ đầy đủ được cập nhật trước khi submit
+            updateFullAddress();
+
             const formData = new FormData(document.getElementById('locationForm'));
             const isEdit = $('#locationId').val() !== '';
             const action = isEdit ? 'update_location' : 'add_location';
             
-            // Lấy giá trị phường/xã từ dropdown hoặc input text
-            const phuongXa = $('#locationPhuongXaText').is(':visible') 
-                ? $('#locationPhuongXaText').val() 
-                : $('#locationPhuongXa').val();
+            // Lấy giá trị đường phố từ text input
+            const duongPho = $('#locationDuongPhoText').val() || '';
+            
+            // Cập nhật giá trị đường phố trong formData
+            formData.set('DuongPho', duongPho);
+            
+            // Lấy giá trị phường/xã từ text input
+            const phuongXa = $('#locationPhuongXaText').val() || '';
             
             // Cập nhật giá trị phường/xã trong formData
-            formData.set('PhuongXa', phuongXa || '');
+            formData.set('PhuongXa', phuongXa);
+            
+            // Đảm bảo DiaChi được thêm vào formData (từ field readonly)
+            const diaChi = $('#locationAddress').val() || '';
+            formData.set('DiaChi', diaChi);
             
             // Nếu loại địa điểm là "Trong nhà", set giá thuê về null
             const locationType = $('#locationType').val();
@@ -1009,10 +1096,28 @@ include 'includes/admin-header.php';
 
         
 
-        // Tự động làm mới mỗi 30 giây
-        setInterval(() => {
-            loadStatistics();
-        }, 30000);
+        // Tự động làm mới mỗi 30 giây - Đảm bảo jQuery đã được load
+        (function() {
+            function startAutoRefresh() {
+                if (typeof jQuery === 'undefined' || typeof $ === 'undefined') {
+                    setTimeout(startAutoRefresh, 100);
+                    return;
+                }
+                setInterval(() => {
+                    if (typeof loadStatistics === 'function') {
+                        loadStatistics();
+                    }
+                }, 30000);
+            }
+            // Chờ jQuery được load từ admin-footer.php
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(startAutoRefresh, 200);
+                });
+            } else {
+                setTimeout(startAutoRefresh, 200);
+            }
+        })();
     </script>
 
 <?php include 'includes/admin-footer.php'; ?>

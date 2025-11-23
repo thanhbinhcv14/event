@@ -1,19 +1,42 @@
 <?php
-session_start();
-require_once __DIR__ . '/../../config/database.php';
-require_once __DIR__ . '/../auth/csrf.php';
+// Tắt output buffer để tránh lỗi khi output JSON
+while (ob_get_level() > 0) {
+    ob_end_clean();
+}
 
+// Set JSON header trước
 header('Content-Type: application/json');
 
-// Handle CSRF token request
+// Start session
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Require CSRF helper (không cần database)
+require_once __DIR__ . '/../auth/csrf.php';
+
+// Handle CSRF token request (KHÔNG cần database)
 $action = $_GET['action'] ?? '';
 if ($action === 'get_csrf_token') {
-    echo json_encode([
-        'success' => true,
-        'csrf_token' => generateCSRFToken()
-    ]);
-    exit;
+    try {
+        echo json_encode([
+            'success' => true,
+            'csrf_token' => generateCSRFToken()
+        ]);
+        exit;
+    } catch (Exception $e) {
+        error_log('Error generating CSRF token: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Lỗi tạo token bảo mật'
+        ]);
+        exit;
+    }
 }
+
+// Các action khác cần database - require sau khi xử lý get_csrf_token
+require_once __DIR__ . '/../../config/database.php';
 
 $data = json_decode(file_get_contents('php://input'), true);
 if (!$data || !isset($data['email']) || !isset($data['password'])) {
@@ -101,7 +124,20 @@ try {
     ]);
     exit;
 } catch (Exception $e) {
+    error_log('Login error: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    
+    // Clear any output
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
     http_response_code(500);
-    echo json_encode(['error' => 'Có lỗi xảy ra, vui lòng thử lại sau']);
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => false,
+        'error' => 'Có lỗi xảy ra, vui lòng thử lại sau'
+    ]);
+    exit;
 }
 ?>

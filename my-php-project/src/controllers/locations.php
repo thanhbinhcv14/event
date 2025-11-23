@@ -194,13 +194,19 @@ try {
             error_log("Add location - Received data: " . json_encode($input));
             error_log("Add location - FILES data: " . json_encode($_FILES));
             
-            // QuanHuyen và TinhThanh là bắt buộc, các trường khác có thể để trống
-            $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'SucChua', 'LoaiThue', 'QuanHuyen', 'TinhThanh'];
+            // QuanHuyen và TinhThanh là bắt buộc, LoaiThue chỉ bắt buộc cho địa điểm ngoài trời
+            $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'SucChua', 'QuanHuyen', 'TinhThanh'];
             foreach ($requiredFields as $field) {
                 if (empty($input[$field])) {
                     echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
                     exit();
                 }
+            }
+            
+            // LoaiThue chỉ bắt buộc cho địa điểm ngoài trời
+            if (($input['LoaiDiaDiem'] ?? '') === 'Ngoài trời' && empty($input['LoaiThue'])) {
+                echo json_encode(['success' => false, 'error' => 'Loại thuê là bắt buộc cho địa điểm ngoài trời']);
+                exit();
             }
             
             // Xác thực LoaiDiaDiem

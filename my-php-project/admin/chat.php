@@ -926,90 +926,8 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- Stringee SDK - Load từ LOCAL trước, sau đó fallback về CDN -->
-<script>
-(function() {
-    // ✅ Đường dẫn local SDK (ưu tiên cao nhất)
-    // Từ admin/chat.php, file SDK nằm ở ../assets/Stringee/... (relative path từ admin/)
-    // Hoặc dùng absolute path từ root
-    const localSDKPath = '<?php 
-        // Lấy path từ root của project
-        $scriptPath = $_SERVER["SCRIPT_NAME"] ?? "";
-        $pathParts = explode("/", trim($scriptPath, "/"));
-        
-        // Tìm vị trí của "admin" trong path
-        $adminIndex = array_search("admin", $pathParts);
-        
-        if ($adminIndex !== false) {
-            // Nếu có "admin" trong path, dùng relative path
-            echo "../assets/Stringee/StringeeWebSDK_2.9.0/latest.sdk.bundle.min.js";
-        } else {
-            // Nếu không có "admin", dùng BASE_PATH
-            $basePath = defined("BASE_PATH") ? BASE_PATH : "";
-            $basePath = rtrim($basePath, "/");
-            echo ($basePath ? $basePath . "/" : "") . "assets/Stringee/StringeeWebSDK_2.9.0/latest.sdk.bundle.min.js";
-        }
-    ?>';
-    
-    // ✅ Danh sách URL để thử (theo thứ tự ưu tiên: Local → CDN)
-    const stringeeUrls = [
-        localSDKPath,                                                      // ✅ LOCAL SDK (ưu tiên nhất)
-        'https://cdn.stringee.com/sdk/web/latest/stringee-web-sdk.min.js', // CDN URL mới
-        'https://cdn.stringee.com/sdk/web/stringee-web-sdk.min.js',        // CDN URL không có /latest/
-        'https://cdn.stringee.com/sdk/web/latest/stringee.js',              // CDN URL cũ
-        'https://cdn.stringee.com/sdk/web/stringee.js'                     // CDN URL cũ không có /latest/
-    ];
-    
-    // ✅ Hàm load SDK với URL cụ thể
-    function loadStringeeSDK(urlIndex) {
-        if (urlIndex >= stringeeUrls.length) {
-            console.error('❌ Tất cả URL Stringee SDK đều fail (bao gồm cả local)');
-            alert('Không thể tải Stringee SDK. Vui lòng:\n' +
-                  '1. Kiểm tra file SDK local có tồn tại không\n' +
-                  '2. Kiểm tra kết nối mạng\n' +
-                  '3. Liên hệ admin để được hỗ trợ');
-            return;
-        }
-        
-        const url = stringeeUrls[urlIndex];
-        const isLocal = urlIndex === 0; // URL đầu tiên là local
-        console.log(`🔄 ${isLocal ? '📁 LOCAL' : '🌐 CDN'}: Attempting to load Stringee SDK from: ${url} (attempt ${urlIndex + 1}/${stringeeUrls.length})`);
-        
-        const script = document.createElement('script');
-        script.src = url;
-        script.async = true;
-        script.defer = false;
-        
-        script.onload = function() {
-            // Đợi một chút để SDK khởi tạo xong
-            setTimeout(() => {
-                if (typeof StringeeClient !== 'undefined') {
-                    window.stringeeSDKLoaded = true;
-                    console.log(`✅ Stringee SDK loaded successfully from: ${isLocal ? '📁 LOCAL' : '🌐 CDN'} ${url}`);
-                    console.log('✅ StringeeClient is now available:', typeof StringeeClient);
-                } else {
-                    console.error(`❌ SDK loaded from ${url} but StringeeClient is undefined`);
-                    // Thử URL tiếp theo
-                    loadStringeeSDK(urlIndex + 1);
-                }
-            }, 500); // Đợi 500ms để SDK khởi tạo
-        };
-        
-        script.onerror = function() {
-            console.error(`❌ Failed to load Stringee SDK from: ${url}`);
-            // Thử URL tiếp theo
-            loadStringeeSDK(urlIndex + 1);
-        };
-        
-        // Thêm vào head
-        document.head.appendChild(script);
-    }
-    
-    // ✅ Bắt đầu load từ LOCAL SDK (ưu tiên nhất)
-    loadStringeeSDK(0);
-})();
-</script>
-<!-- Stringee Helper Functions -->
+<!-- WebRTC is built into modern browsers, no external SDK needed -->
+<!-- WebRTC Helper Functions -->
 <script src="<?php 
     // Lấy path từ root của project
     $scriptPath = $_SERVER["SCRIPT_NAME"] ?? "";
@@ -1020,12 +938,12 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
     
     if ($adminIndex !== false) {
         // Nếu có "admin" trong path, dùng relative path
-        echo "../assets/js/stringee-helper.js";
+        echo "../assets/js/webrtc-helper.js";
     } else {
         // Nếu không có "admin", dùng BASE_PATH
         $basePath = defined("BASE_PATH") ? BASE_PATH : "";
         $basePath = rtrim($basePath, "/");
-        echo ($basePath ? $basePath . "/" : "") . "assets/js/stringee-helper.js";
+        echo ($basePath ? $basePath . "/" : "") . "assets/js/webrtc-helper.js";
     }
 ?>"></script>
 <!-- Socket.IO - Dùng CDN cho production, local server cho development -->
@@ -1079,8 +997,8 @@ let isConnected = false;
 let currentUserId = <?php echo $currentUserId; ?>;
 let currentUserName = '<?php echo htmlspecialchars($currentUserName); ?>';
 
-// Biến cho Media và Call (Stringee)
-let currentCall = null;
+// Biến cho Media và Call (WebRTC)
+// Note: currentCall được khai báo trong phần call functions
 let isMuted = false;
 let isCameraOff = false;
 
@@ -1089,6 +1007,27 @@ let pollingInterval1 = null;
 let pollingInterval2 = null;
 let autoRefreshInterval = null;
 let activityInterval = null;
+
+// ✅ Hàm helper để tự động phát hiện đường dẫn API đúng
+function getApiPath(relativePath) {
+    const path = window.location.pathname;
+    const hostname = window.location.hostname;
+    
+    // Domain production (sukien.info.vn) - không có my-php-project
+    if (hostname.includes('sukien.info.vn') || hostname.includes('sukien')) {
+        return '/' + relativePath;
+    }
+    
+    // Localhost development - giữ nguyên để test local
+    if (path.includes('/my-php-project/')) {
+        return '/my-php-project/' + relativePath;
+    } else if (path.includes('/event/')) {
+        return '/event/my-php-project/' + relativePath;
+    }
+    
+    // Fallback: đường dẫn tương đối từ admin/
+    return '../' + relativePath;
+}
 
 // Khởi tạo chat
 $(document).ready(function() {
@@ -1108,7 +1047,7 @@ $(document).ready(function() {
 // Đặt user online
 function setUserOnline() {
     $.ajax({
-        url: '../src/controllers/chat-controller.php?action=set_user_online',
+        url: getApiPath('src/controllers/chat-controller.php?action=set_user_online'),
         type: 'POST',
         dataType: 'json',
         success: function(data) {
@@ -1127,7 +1066,7 @@ function setUserOnline() {
 // Đặt user offline
 function setUserOffline() {
     $.ajax({
-        url: '../src/controllers/chat-controller.php?action=set_user_offline',
+        url: getApiPath('src/controllers/chat-controller.php?action=set_user_offline'),
         type: 'POST',
         dataType: 'json',
         success: function(data) {
@@ -1146,7 +1085,7 @@ function setUserOffline() {
 // Cập nhật hoạt động của user
 function updateUserActivity() {
     $.ajax({
-        url: '../src/controllers/chat-controller.php?action=update_activity',
+        url: getApiPath('src/controllers/chat-controller.php?action=update_activity'),
         type: 'POST',
         dataType: 'json',
         success: function(data) {
@@ -1265,6 +1204,12 @@ function initializeSocket() {
     }
     
     chatSocket.on('connect', function() {
+        // Initialize WebRTC Helper khi socket đã kết nối
+        if (window.WebRTCHelper) {
+            window.WebRTCHelper.init(chatSocket);
+            setupWebRTCEventHandlers();
+            console.log('✅ WebRTC Helper initialized');
+        }
         console.log('✅ Admin chat connected successfully');
         isConnected = true;
         updateConnectionStatus('connected', 'Đã kết nối');
@@ -1479,6 +1424,9 @@ function initializeSocket() {
             console.log('📞 Showing call modal for:', callerName);
             console.log('📞 Call type:', data.call_type);
             
+            // WebRTC sẽ được init khi receiver accept call
+            // Không cần init ở đây
+            
             // Hiển thị modal với nút chấp nhận/từ chối
             showCallModal('incoming', callerName, data.call_type);
             
@@ -1502,10 +1450,18 @@ function initializeSocket() {
     
     chatSocket.on('call_accepted', function(data) {
         console.log('Received call_accepted event:', data);
-        // ✅ Stringee: Logic đã được xử lý trong acceptCallInternal, không cần làm gì thêm
+        // ✅ WebRTC: Logic đã được xử lý trong acceptCall và WebRTC handlers
         if (data.caller_id === currentUserId && currentCall) {
-            // Stringee call đã được join trong acceptCallInternal
-            console.log('✅ Call accepted, Stringee call should be connected');
+            // WebRTC call đã được connected qua offer/answer exchange
+            console.log('✅ Call accepted, WebRTC call should be connected');
+        }
+    });
+    
+    // Receiver accepted - Caller gửi offer
+    chatSocket.on('receiver_accepted', function(data) {
+        console.log('📞 Receiver accepted, sending offer:', data);
+        if (currentCall && data.call_id == currentCall.id && window.WebRTCHelper) {
+            window.WebRTCHelper.sendOfferToReceiver();
         }
     });
     
@@ -1546,9 +1502,9 @@ function initializeSocket() {
             console.log('✅ Remote video stopped');
         }
         
-        // ✅ Cleanup Stringee call
-        if (window.StringeeHelper) {
-            window.StringeeHelper.cleanup();
+        // ✅ Cleanup WebRTC call
+        if (window.WebRTCHelper) {
+            window.WebRTCHelper.cleanup();
         }
         
         // Hiển thị thông báo
@@ -1620,16 +1576,15 @@ function initializeSocket() {
         showNotification(data.message || 'Thông báo cuộc gọi', notificationType, icon);
     });
     
-    // ==================== Stringee Call Events ====================
-    // ✅ Lưu ý: WebRTC signaling events (webrtc_offer, webrtc_answer, ice_candidate) 
-    // đã được loại bỏ vì chúng ta đang sử dụng Stringee thay vì WebRTC trực tiếp.
-    // Stringee xử lý tất cả signaling và media routing tự động.
+    // ==================== WebRTC Call Events ====================
+    // WebRTC signaling events (call-offer, call-answer, ice-candidate) 
+    // được handle trong setupWebRTCEventHandlers()
 }
 
 // Tải danh sách cuộc trò chuyện
 function loadConversations() {
     $.ajax({
-        url: '../src/controllers/chat-controller.php?action=get_conversations',
+        url: getApiPath('src/controllers/chat-controller.php?action=get_conversations'),
         type: 'GET',
         dataType: 'json',
         success: function(data) {
@@ -1663,7 +1618,7 @@ function loadConversations() {
 function loadOnlineUsers() {
     console.log('Loading online users...');
     $.ajax({
-        url: '../src/controllers/chat-controller.php?action=get_online_count',
+        url: getApiPath('src/controllers/chat-controller.php?action=get_online_count'),
         type: 'GET',
         dataType: 'json',
         success: function(data) {
@@ -1826,7 +1781,7 @@ function loadMessages(conversationId) {
     }
     
     $.ajax({
-        url: `../src/controllers/chat-controller.php?action=get_messages&conversation_id=${conversationId}`,
+        url: getApiPath(`src/controllers/chat-controller.php?action=get_messages&conversation_id=${conversationId}`),
         type: 'GET',
         dataType: 'json',
         timeout: 10000,
@@ -2595,7 +2550,7 @@ function sendMessage() {
     sendButton.prop('disabled', true);
     
     $.ajax({
-        url: '../src/controllers/chat-controller.php?action=send_message',
+        url: getApiPath('src/controllers/chat-controller.php?action=send_message'),
         type: 'POST',
         dataType: 'json',
         timeout: 10000,
@@ -2794,7 +2749,7 @@ function stopPollingMode() {
 function checkForNewMessages() {
     if (!currentConversationId) return;
     
-    $.getJSON('../src/controllers/chat-controller.php?action=get_messages&conversation_id=' + currentConversationId, function(res) {
+    $.getJSON(getApiPath('src/controllers/chat-controller.php?action=get_messages&conversation_id=' + currentConversationId), function(res) {
         if (res.success && res.messages) {
             const currentMessageCount = $('#chatMessages .message').length;
             const newMessageCount = res.messages.length;
@@ -3001,7 +2956,7 @@ function escapeHtml(text) {
 // Search conversations
 function searchConversations(query) {
     $.ajax({
-        url: '../src/controllers/chat-controller.php?action=search_conversations',
+        url: getApiPath('src/controllers/chat-controller.php?action=search_conversations'),
         type: 'GET',
         data: { query: query },
         dataType: 'json',
@@ -3029,12 +2984,13 @@ $(document).on('click', '.template-item', function() {
 // and by Socket.IO events when connected, so this global interval is not needed
 // Removed to prevent duplicate intervals
 
-// ==================== CALL FUNCTIONS ====================
+// ==================== CÁC HÀM CALL (WebRTC + Socket.IO) ====================
 
-// ==================== CÁC HÀM CALL (Stringee SDK) ====================
+// Biến lưu trữ call state
+let currentCall = null;
 
 /**
- * Khởi tạo cuộc gọi (Voice hoặc Video) sử dụng Stringee SDK
+ * Khởi tạo cuộc gọi (Voice hoặc Video) với WebRTC
  */
 async function initiateCall(callType) {
     if (!currentConversationId) {
@@ -3042,16 +2998,16 @@ async function initiateCall(callType) {
         return;
     }
     
-    if (!window.StringeeHelper) {
-        alert('Stringee SDK chưa được load. Vui lòng refresh trang.');
+    if (!window.WebRTCHelper) {
+        alert('WebRTC Helper chưa được load. Vui lòng refresh trang.');
         return;
     }
     
     try {
         // Tạo call session trên server
-        const response = await $.post('../src/controllers/call-controller.php?action=initiate_call', {
-        conversation_id: currentConversationId,
-        call_type: callType
+        const response = await $.post(getApiPath('src/controllers/call-controller.php?action=initiate_call'), {
+            conversation_id: currentConversationId,
+            call_type: callType
         });
         
         if (!response.success) {
@@ -3060,53 +3016,122 @@ async function initiateCall(callType) {
         }
         
         // Lưu thông tin call
-            currentCall = {
-                id: response.call_id,
-                type: response.call_type,
-                receiver_id: response.receiver_id,
-                receiver_name: response.receiver_name,
-                status: response.status
-            };
-            
+        currentCall = {
+            id: response.call_id,
+            type: response.call_type,
+            receiver_id: response.receiver_id,
+            receiver_name: response.receiver_name,
+            status: response.status
+        };
+        
         // Hiển thị modal
-            showCallModal('outgoing', response.receiver_name, callType);
-            
-        // Lấy token và join call với Stringee
-        await window.StringeeHelper.getTokenAndJoin(response.call_id, callType, true);
-            
-            // Phát sự kiện call qua socket
-            if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
+        showCallModal('outgoing', response.receiver_name, callType);
+        
+        // Phát sự kiện call qua socket (receiver sẽ nhận và hiển thị modal)
+        if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
             chatSocket.emit('call_initiated', {
-                    call_id: response.call_id,
-                    caller_id: currentUserId,
-                    receiver_id: response.receiver_id,
-                    call_type: callType,
-                    conversation_id: currentConversationId
+                call_id: response.call_id,
+                caller_id: currentUserId,
+                receiver_id: response.receiver_id,
+                call_type: callType,
+                conversation_id: currentConversationId
             });
         }
+        
+        // Initiate WebRTC call
+        await window.WebRTCHelper.initiateCall(
+            response.call_id,
+            callType,
+            response.receiver_id
+        );
+        
     } catch (error) {
         console.error('❌ Error initiating call:', error);
         alert('Lỗi khởi tạo cuộc gọi: ' + error.message);
         $('#callModal').modal('hide');
         currentCall = null;
+        if (window.WebRTCHelper) {
+            window.WebRTCHelper.cleanup();
+        }
     }
 }
 
-// Setup Stringee event handlers
-function setupStringeeEventHandlers() {
-    if (!window.StringeeHelper) {
-        console.warn('⚠️ StringeeHelper chưa được load');
-    return;
+/**
+ * Setup WebRTC event handlers
+ */
+function setupWebRTCEventHandlers() {
+    if (!chatSocket || !window.WebRTCHelper) {
+        console.warn('⚠️ Socket or WebRTC Helper not available');
+        return;
     }
     
-    // Setup incoming call handler
-    window.onStringeeIncomingCall = function(incomingCall) {
-        console.log('📞 Incoming call received via Stringee:', incomingCall);
+    // Handle incoming offer (receiver)
+    chatSocket.on('call-offer', async (data) => {
+        console.log('📞 Received call offer:', data);
+        if (data.receiver_id == currentUserId && currentCall && data.call_id == currentCall.id) {
+            try {
+                await window.WebRTCHelper.handleIncomingOffer(data);
+            } catch (error) {
+                console.error('❌ Error handling incoming offer:', error);
+            }
+        }
+    });
+    
+    // Handle incoming answer (caller)
+    chatSocket.on('call-answer', async (data) => {
+        console.log('📞 Received call answer:', data);
+        if (currentCall && data.call_id == currentCall.id) {
+            try {
+                await window.WebRTCHelper.handleIncomingAnswer(data);
+            } catch (error) {
+                console.error('❌ Error handling incoming answer:', error);
+            }
+        }
+    });
+    
+    // Handle ICE candidates
+    chatSocket.on('ice-candidate', async (data) => {
+        if (currentCall && data.call_id == currentCall.id) {
+            try {
+                await window.WebRTCHelper.handleICECandidate(data);
+            } catch (error) {
+                console.error('❌ Error handling ICE candidate:', error);
+            }
+        }
+    });
+    
+    // WebRTC call connected
+    window.onCallConnected = function() {
+        console.log('✅ WebRTC call connected');
+        if (currentCall && currentCall.type === 'video') {
+            $('#callModal').modal('hide');
+            $('#videoCallContainer').addClass('show').css({
+                'display': 'block',
+                'visibility': 'visible',
+                'opacity': '1',
+                'z-index': '10000'
+            });
+        } else {
+            showVoiceCallUI();
+        }
     };
     
-    // Setup local stream handler
-    window.onStringeeLocalStreamAdded = function(stream) {
-        console.log('✅ Local stream added:', stream);
+    // WebRTC call disconnected
+    window.onCallDisconnected = function() {
+        console.log('📞 WebRTC call disconnected');
+        cleanupCall();
+    };
+    
+    // WebRTC call failed
+    window.onCallFailed = function(message) {
+        console.error('❌ WebRTC call failed:', message);
+        alert('Cuộc gọi thất bại: ' + message);
+        cleanupCall();
+    };
+    
+    // Local stream handler
+    window.onLocalStream = function(stream) {
+        console.log('✅ Local stream:', stream);
         const localVideo = document.getElementById('localVideo');
         if (localVideo && stream.getVideoTracks().length > 0) {
             localVideo.srcObject = stream;
@@ -3114,15 +3139,13 @@ function setupStringeeEventHandlers() {
         }
     };
     
-    // Setup remote stream handler
-    window.onStringeeRemoteStreamAdded = function(stream) {
-        console.log('✅ Remote stream added:', stream);
-        
+    // Remote stream handler
+    window.onRemoteStream = function(stream) {
+        console.log('✅ Remote stream:', stream);
         const remoteVideo = document.getElementById('remoteVideo');
         if (remoteVideo && stream.getVideoTracks().length > 0) {
             remoteVideo.srcObject = stream;
             remoteVideo.play().catch(err => console.error('Error playing remote video:', err));
-            
             $('#videoCallContainer').addClass('show').css({
                 'display': 'block',
                 'visibility': 'visible',
@@ -3137,74 +3160,31 @@ function setupStringeeEventHandlers() {
             remoteAudio.play().catch(err => console.error('Error playing remote audio:', err));
         }
     };
-    
-    // Setup call answered handler
-    window.onCallAnswered = function() {
-        console.log('✅ Call answered');
-        if (currentCall && currentCall.type === 'video') {
-            $('#callModal').modal('hide');
-            $('#videoCallContainer').addClass('show').css({
-                'display': 'block',
-                'visibility': 'visible',
-                'opacity': '1',
-                'z-index': '10000'
-            });
-        } else {
-            showVoiceCallUI();
-        }
-    };
-    
-    // Setup call ended handler
-    window.onCallEnded = function() {
-        console.log('📞 Call ended');
-        cleanupCall();
-    };
-    
-    // Setup call rejected handler
-    window.onCallRejected = function() {
-        console.log('❌ Call rejected');
-        cleanupCall();
-    };
-    
-    // Setup call busy handler
-    window.onCallBusy = function() {
-        console.log('📞 Call busy');
-        cleanupCall();
-    };
-    
-    // Setup call error handler
-    window.onCallError = function(error) {
-        console.error('❌ Call error:', error);
-        alert('Lỗi cuộc gọi: ' + (error.message || error));
-        cleanupCall();
-    };
 }
 
-// Cleanup call
+/**
+ * Cleanup call
+ */
 function cleanupCall() {
     $('#callModal').modal('hide');
     $('#videoCallContainer').hide();
-    currentCall = null;
     
-    if (window.StringeeHelper) {
-        window.StringeeHelper.cleanup();
+    if (window.WebRTCHelper) {
+        window.WebRTCHelper.cleanup();
     }
+    
+    currentCall = null;
 }
 
-
-
-// Show call modal
+/**
+ * Hiển thị modal cuộc gọi
+ */
 function showCallModal(type, name, callType) {
-    console.log('📞 Admin showCallModal called:', { type, name, callType });
-    
     $('#callerName').text(name);
     $('#callType').text(callType === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại');
     
     if (type === 'incoming') {
         $('#callStatus').text('Cuộc gọi đến...');
-        // Clear existing buttons first
-        $('#callControls').empty();
-        // Add both accept and reject buttons with inline styles to ensure visibility
         $('#callControls').html(`
             <button class="btn btn-success btn-lg me-2" onclick="acceptCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
                 <i class="fas fa-phone"></i>
@@ -3213,147 +3193,37 @@ function showCallModal(type, name, callType) {
                 <i class="fas fa-phone-slash"></i>
             </button>
         `);
-        console.log('✅ Admin incoming call - Added accept and reject buttons');
     } else {
         $('#callStatus').text('Đang gọi...');
-        // Clear existing buttons first
-        $('#callControls').empty();
-        // Add end call button with direct onclick to ensure it works
         $('#callControls').html(`
-            <button class="btn btn-danger btn-lg" id="endCallBtn" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; z-index: 10001;">
+            <button class="btn btn-danger btn-lg" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
                 <i class="fas fa-phone-slash"></i>
             </button>
         `);
-        
-        // Also attach event listener as backup
-        $('#endCallBtn').off('click').on('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('📞 End call button clicked (outgoing) - via event listener');
-            endCall();
-        });
-        
-        console.log('📤 Admin outgoing call - Added end button only');
     }
     
-    // Show modal using Bootstrap
     const modalElement = document.getElementById('callModal');
     if (modalElement) {
-        // ✅ FIX: Đảm bảo modal có z-index cao và hiển thị đúng
-        $(modalElement).css({
-            'z-index': '10050',
-            'display': 'block'
-        });
-        
-        // ✅ FIX: Đảm bảo backdrop có z-index phù hợp
-        if ($('.modal-backdrop').length === 0) {
-            $('body').append('<div class="modal-backdrop fade show" style="z-index: 10040;"></div>');
-        } else {
-            $('.modal-backdrop').css('z-index', '10040').addClass('show');
-        }
-        
-        // Try to get existing modal instance
         let modal = bootstrap.Modal.getInstance(modalElement);
-        
-        // If no instance exists, create new one
         if (!modal) {
-            modal = new bootstrap.Modal(modalElement, {
-                backdrop: true,
-                keyboard: false,
-                focus: true
-            });
+            modal = new bootstrap.Modal(modalElement);
         }
-        
-        // Show modal
         modal.show();
-        console.log('✅ Admin call modal shown with type:', type);
-        
-        // ✅ FIX: Force show modal với nhiều cách để đảm bảo hiển thị
-        setTimeout(() => {
-            $(modalElement).addClass('show').css({
-                'display': 'block',
-                'visibility': 'visible',
-                'opacity': '1',
-                'z-index': '10050'
-            });
-            
-            // Đảm bảo backdrop hiển thị
-            $('.modal-backdrop').addClass('show').css({
-                'z-index': '10040',
-                'display': 'block'
-            });
-            
-            // Scroll to top để đảm bảo modal trong viewport
-            $('html, body').animate({ scrollTop: 0 }, 0);
-        }, 100);
-        
-        // ✅ FIX: Double check sau 300ms
-        setTimeout(() => {
-            if (!$(modalElement).hasClass('show') || $(modalElement).css('display') === 'none') {
-                console.warn('⚠️ Modal still not visible, forcing show again');
-                $(modalElement).removeClass('fade').addClass('show').css({
-                    'display': 'block !important',
-                    'visibility': 'visible !important',
-                    'opacity': '1 !important',
-                    'z-index': '10050 !important'
-                });
-            }
-        }, 300);
-    } else {
-        console.error('❌ Call modal element not found!');
     }
-    
-    // Debug: Check if buttons are in DOM
-    setTimeout(() => {
-        const acceptBtn = $('#callControls .btn-success');
-        const rejectBtn = $('#callControls .btn-danger');
-        const endBtn = $('#callControls .btn-danger');
-        console.log('🔍 Admin button check:', {
-            acceptBtn: acceptBtn.length,
-            rejectBtn: rejectBtn.length,
-            endBtn: endBtn.length,
-            acceptBtnVisible: acceptBtn.is(':visible'),
-            rejectBtnVisible: rejectBtn.is(':visible'),
-            endBtnVisible: endBtn.is(':visible'),
-            callControlsHTML: $('#callControls').html(),
-            modalVisible: $('#callModal').hasClass('show'),
-            modalDisplay: $('#callModal').css('display')
-        });
-        
-        // Force show buttons if not visible
-        if (type === 'incoming') {
-            if (acceptBtn.length > 0 && !acceptBtn.is(':visible')) {
-                acceptBtn.css('display', 'inline-flex');
-            }
-            if (rejectBtn.length > 0 && !rejectBtn.is(':visible')) {
-                rejectBtn.css('display', 'inline-flex');
-            }
-        }
-    }, 100);
 }
 
 /**
- * ✅ Chấp nhận cuộc gọi với Stringee
- * Viết lại theo stringee-helper.js
- */
-/**
- * Chấp nhận cuộc gọi với Stringee SDK
+ * Chấp nhận cuộc gọi
  */
 async function acceptCall() {
-    if (!currentCall) {
-        console.error('No current call to accept');
-        return;
-    }
-    
-    if (!window.StringeeHelper) {
-        alert('Stringee SDK chưa được load. Vui lòng refresh trang.');
+    if (!currentCall || !window.WebRTCHelper) {
         return;
     }
     
     try {
         // Accept call trên server
-        const response = await $.post('../src/controllers/call-controller.php?action=accept_call', {
-        call_id: currentCall.id
+        const response = await $.post(getApiPath('src/controllers/call-controller.php?action=accept_call'), {
+            call_id: currentCall.id
         });
         
         if (!response.success) {
@@ -3361,21 +3231,23 @@ async function acceptCall() {
             return;
         }
         
-        // Lấy token và join call với Stringee
-        await window.StringeeHelper.getTokenAndJoin(currentCall.id, currentCall.type, false);
-            
-            // Emit accept event
-            if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
-                chatSocket.emit('call_accepted', {
-                    call_id: currentCall.id,
-                    caller_id: currentCall.caller_id || currentCall.receiver_id,
-                    receiver_id: currentUserId
-                });
-            }
+        // Phát sự kiện accept
+        if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
+            chatSocket.emit('call_accepted', {
+                call_id: currentCall.id,
+                caller_id: currentCall.caller_id || currentCall.receiver_id,
+                receiver_id: currentUserId
+            });
+        }
+        
+        // WebRTC sẽ tự động handle offer/answer qua socket events
+        // Không cần gọi thêm function nào ở đây
+        // Offer sẽ được handle trong setupWebRTCEventHandlers()
+        
     } catch (error) {
         console.error('❌ Error accepting call:', error);
         alert('Lỗi: ' + error.message);
-        }
+    }
 }
 
 /**
@@ -3383,29 +3255,24 @@ async function acceptCall() {
  */
 function rejectCall() {
     if (!currentCall) {
-        $('#callModal').modal('hide');
+        cleanupCall();
         return;
     }
     
     const callId = currentCall.id;
-    const callerId = currentCall.caller_id || currentCall.receiver_id;
     
-    // Cleanup Stringee call
-    if (window.StringeeHelper) {
-        window.StringeeHelper.cleanup();
+    if (window.WebRTCHelper) {
+        window.WebRTCHelper.cleanup();
     }
     
-    // Gọi backend để reject
-    $.post('../src/controllers/call-controller.php?action=reject_call', {
+    $.post(getApiPath('src/controllers/call-controller.php?action=reject_call'), {
         call_id: callId
     }, function(response) {
         cleanupCall();
-        
-        // Emit reject event
         if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
             chatSocket.emit('call_rejected', {
                 call_id: callId,
-                caller_id: callerId,
+                caller_id: currentCall.caller_id || currentCall.receiver_id,
                 receiver_id: currentUserId
             });
         }
@@ -3415,76 +3282,56 @@ function rejectCall() {
 }
 
 /**
- * Kết thúc cuộc gọi với Stringee SDK
+ * Kết thúc cuộc gọi
  */
 function endCall() {
     const callId = currentCall ? currentCall.id : null;
     
-    // Cleanup Stringee call ngay lập tức
-    if (window.StringeeHelper) {
-        window.StringeeHelper.endCall();
-        window.StringeeHelper.cleanup();
+    if (window.WebRTCHelper) {
+        window.WebRTCHelper.endCall();
     }
     
-    // Cleanup UI
     cleanupCall();
     
-    // Gọi backend để kết thúc cuộc gọi (async)
     if (callId) {
-    $.post('../src/controllers/call-controller.php?action=end_call', {
-        call_id: callId
-    }, function(response) {
-        // Emit end event via socket
-        if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
-            chatSocket.emit('call_ended', {
-                call_id: callId,
-                caller_id: currentUserId
-            });
+        $.post(getApiPath('src/controllers/call-controller.php?action=end_call'), {
+            call_id: callId
+        }, function(response) {
+            if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
+                chatSocket.emit('call_ended', {
+                    call_id: callId,
+                    caller_id: currentUserId
+                });
             }
         }, 'json').fail(function() {
-        // Vẫn emit end event ngay cả khi backend fail
-        if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
-            chatSocket.emit('call_ended', {
-                call_id: callId,
-                caller_id: currentUserId
-            });
-        }
-    });
+            if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
+                chatSocket.emit('call_ended', {
+                    call_id: callId,
+                    caller_id: currentUserId
+                });
+            }
+        });
     }
 }
 
-// Make endCall globally accessible
 window.endCall = endCall;
 
-// Show voice call UI
+/**
+ * Hiển thị UI cuộc gọi thoại
+ */
 function showVoiceCallUI() {
-    // Get caller/receiver name
     const conversation = conversations.find(c => c.id == currentConversationId);
     const otherUserName = conversation ? conversation.other_user_name : 'Người gọi';
     
-    // Update call modal to show active call state
     $('#callerName').text(otherUserName);
     $('#callType').text('Cuộc gọi thoại');
     $('#callStatus').text('Đang gọi...');
-    
-    // Clear existing buttons first
-    $('#callControls').empty();
-    // Show end call button only with direct onclick
     $('#callControls').html(`
-        <button class="btn btn-danger btn-lg" id="endCallBtn" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; z-index: 10001;">
+        <button class="btn btn-danger btn-lg" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
             <i class="fas fa-phone-slash"></i>
         </button>
     `);
     
-    // Also attach event listener as backup
-    $('#endCallBtn').off('click').on('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('📞 End call button clicked (voice call) - via event listener');
-        endCall();
-    });
-    
-    // QUAN TRỌNG: Đảm bảo modal hiển thị và không bị ẩn
     const modalElement = document.getElementById('callModal');
     if (modalElement) {
         let modal = bootstrap.Modal.getInstance(modalElement);
@@ -3492,67 +3339,46 @@ function showVoiceCallUI() {
             modal = new bootstrap.Modal(modalElement);
         }
         modal.show();
-        
-        // Force show với CSS để đảm bảo hiển thị
-        $(modalElement).addClass('show').css({
-            'display': 'block',
-            'visibility': 'visible',
-            'opacity': '1',
-            'z-index': '10000'
-        });
     }
     
-    // Ẩn video container nếu đang hiển thị
     $('#videoCallContainer').hide();
-    
-    console.log('✅ Admin voice call UI shown with end call button');
 }
 
 // Setup Stringee event handlers khi page load
 $(document).ready(function() {
-    const checkStringeeHelper = setInterval(function() {
-        if (window.StringeeHelper) {
-            clearInterval(checkStringeeHelper);
-            setupStringeeEventHandlers();
-            console.log('✅ Stringee event handlers setup completed');
-        }
-    }, 100);
-    
-    setTimeout(function() {
-        clearInterval(checkStringeeHelper);
-        if (!window.StringeeHelper) {
-            console.warn('⚠️ StringeeHelper chưa được load sau 5 giây');
-        }
-    }, 5000);
+    // Initialize WebRTC Helper khi socket đã kết nối
+    if (chatSocket && window.WebRTCHelper) {
+        window.WebRTCHelper.init(chatSocket);
+        setupWebRTCEventHandlers();
+        console.log('✅ WebRTC Helper initialized');
+    }
 });
 
-// Toggle mute với Stringee SDK
+/**
+ * Toggle mute
+ */
 function toggleMute() {
-    if (window.StringeeHelper) {
-        isMuted = window.StringeeHelper.toggleMute();
+    if (window.WebRTCHelper && window.WebRTCHelper.toggleMute) {
+        isMuted = window.WebRTCHelper.toggleMute();
         const icon = $('#muteBtn i');
-        if (isMuted) {
-            icon.removeClass('fa-microphone').addClass('fa-microphone-slash');
-        } else {
-            icon.removeClass('fa-microphone-slash').addClass('fa-microphone');
-        }
+        icon.toggleClass('fa-microphone fa-microphone-slash');
     }
 }
 
-// Toggle camera với Stringee SDK
+/**
+ * Toggle camera
+ */
 function toggleCamera() {
-    if (window.StringeeHelper) {
-        isCameraOff = window.StringeeHelper.toggleCamera();
+    if (window.WebRTCHelper && window.WebRTCHelper.toggleCamera) {
+        isCameraOff = window.WebRTCHelper.toggleCamera();
         const icon = $('#cameraBtn i');
-        if (isCameraOff) {
-            icon.removeClass('fa-video').addClass('fa-video-slash');
-        } else {
-            icon.removeClass('fa-video-slash').addClass('fa-video');
-        }
+        icon.toggleClass('fa-video fa-video-slash');
     }
 }
 
-// End video call
+/**
+ * End video call
+ */
 function endVideoCall() {
     endCall();
 }
@@ -3602,7 +3428,7 @@ function uploadFile(file) {
     $('#attachButton').prop('disabled', true);
     
     $.ajax({
-        url: '../src/controllers/media-upload.php',
+        url: getApiPath('src/controllers/media-upload.php'),
         type: 'POST',
         data: formData,
         processData: false,

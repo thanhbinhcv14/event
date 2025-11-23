@@ -42,6 +42,9 @@ try {
         case 'make_call':
             makeStringeeCall($userId);
             break;
+        case 'update_stringee_call_id':
+            updateStringeeCallId($userId);
+            break;
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Action không hợp lệ: ' . $action]);
@@ -102,6 +105,23 @@ function getStringeeToken($userId) {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         $userName = $user ? $user['name'] : 'User ' . $userId;
         
+        // QUAN TRỌNG: Lấy receiver_id và caller_id từ call session để truyền cho Stringee
+        $receiverId = null;
+        $callerId = null;
+        if (!empty($callId)) {
+            $stmt = $pdo->prepare("
+                SELECT caller_id, receiver_id 
+                FROM call_sessions 
+                WHERE id = ?
+            ");
+            $stmt->execute([$callId]);
+            $callSession = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($callSession) {
+                $callerId = (string)$callSession['caller_id'];
+                $receiverId = (string)$callSession['receiver_id'];
+            }
+        }
+        
         // Đảm bảo API SID được trim và validate
         $apiSid = trim(STRINGEE_API_SID);
         if (empty($apiSid)) {
@@ -116,7 +136,9 @@ function getStringeeToken($userId) {
             'user_id' => $stringeeUserId,
             'user_name' => $userName,
             'call_type' => $callType,
-            'conversation_id' => $conversationId
+            'conversation_id' => $conversationId,
+            'caller_id' => $callerId ?: $stringeeUserId,
+            'receiver_id' => $receiverId
         ]);
         
     } catch (Exception $e) {
@@ -245,6 +267,57 @@ function makeStringeeCall($userId) {
     } catch (Exception $e) {
         error_log('Stringee call error: ' . $e->getMessage());
         echo json_encode(['success' => false, 'error' => 'Lỗi tạo cuộc gọi: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * Update Stringee Call ID
+ * Cập nhật stringee_call_id vào database sau khi makeCall() thành công
+ */
+function updateStringeeCallId($userId) {
+    $callId = $_POST['call_id'] ?? ''; // Database call ID
+    $stringeeCallId = $_POST['stringee_call_id'] ?? ''; // Stringee call ID
+    
+    if (empty($callId) || empty($stringeeCallId)) {
+        echo json_encode(['success' => false, 'error' => 'Thiếu call_id hoặc stringee_call_id']);
+        return;
+    }
+    
+    try {
+        $pdo = getDBConnection();
+        
+        // Kiểm tra quyền: chỉ caller hoặc receiver mới được update
+        $stmt = $pdo->prepare("
+            SELECT id, caller_id, receiver_id 
+            FROM call_sessions 
+            WHERE id = ? AND (caller_id = ? OR receiver_id = ?)
+        ");
+        $stmt->execute([$callId, $userId, $userId]);
+        $callSession = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$callSession) {
+            echo json_encode(['success' => false, 'error' => 'Không có quyền cập nhật cuộc gọi này']);
+            return;
+        }
+        
+        // Update stringee_call_id
+        $stmt = $pdo->prepare("
+            UPDATE call_sessions 
+            SET stringee_call_id = ? 
+            WHERE id = ?
+        ");
+        $stmt->execute([$stringeeCallId, $callId]);
+        
+        if ($stmt->rowCount() > 0) {
+            error_log('Updated stringee_call_id: ' . $stringeeCallId . ' for call session: ' . $callId);
+            echo json_encode(['success' => true, 'message' => 'Đã cập nhật stringee_call_id']);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Không thể cập nhật stringee_call_id']);
+        }
+        
+    } catch (Exception $e) {
+        error_log('Update stringee_call_id error: ' . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Lỗi cập nhật: ' . $e->getMessage()]);
     }
 }
 
