@@ -86,7 +86,7 @@ const userActiveCalls = new Map(); // Map userId sang call_id (để track user 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Debug middleware - Log requests
+// Middleware debug - Ghi log requests
 app.use((req, res, next) => {
     console.log(`📥 ${req.method} ${req.url} (original: ${req.originalUrl || req.url})`);
     next();
@@ -100,7 +100,7 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
     const originalUrl = req.url;
     
-    // Normalize Socket.IO path: /nodeapp/socket.io/... → /socket.io/...
+    // Chuẩn hóa đường dẫn Socket.IO: /nodeapp/socket.io/... → /socket.io/...
     if (req.url && req.url.startsWith('/nodeapp/socket.io')) {
         req.url = req.url.replace(/^\/nodeapp\/socket\.io/, '/socket.io');
         
@@ -114,7 +114,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// Strip prefix /nodeapp/ cho các routes khác (không phải Socket.IO)
+// Loại bỏ prefix /nodeapp/ cho các routes khác (không phải Socket.IO)
 app.use((req, res, next) => {
     if (req.url.startsWith('/socket.io')) {
         return next();
@@ -135,7 +135,7 @@ app.use((req, res, next) => {
 // ⚠️ QUAN TRỌNG: Route này chỉ handle requests không phải Socket.IO
 // Socket.IO requests đã được xử lý bởi Socket.IO TRƯỚC khi đến Express routes
 app.get('/', (req, res) => {
-    // Bỏ qua Socket.IO requests - Socket.IO đã xử lý ở trên
+    // Bỏ qua các request Socket.IO - Socket.IO đã xử lý ở trên
     if (req.url && (req.url.startsWith('/socket.io') || req.originalUrl && req.originalUrl.startsWith('/nodeapp/socket.io'))) {
         // Request đã được Socket.IO xử lý, không cần response ở đây
         return;
@@ -180,9 +180,9 @@ app.post('/api/emit', express.json(), (req, res) => {
         
         console.log(`📡 PHP đang emit event: ${event}`, data);
         
-        // Emit event đến các rooms phù hợp dựa trên loại event
+        // Phát event đến các rooms phù hợp dựa trên loại event
         if (event === 'event_registered') {
-            // Thông báo cho tất cả admins
+            // Thông báo cho tất cả admin
             io.to('admin_room').emit('new_event_registration', {
                 type: 'new_event',
                 message: `Sự kiện mới: ${data.eventName} từ ${data.userName}`,
@@ -205,7 +205,7 @@ app.post('/api/emit', express.json(), (req, res) => {
                 });
             }
             
-            // Thông báo cho admins
+            // Thông báo cho admin
             io.to('admin_room').emit('admin_notification', {
                 type: 'status_updated',
                 message: `${data.adminName} đã ${data.status === 'approved' ? 'duyệt' : 'từ chối'} sự kiện "${data.eventName}"`,
@@ -236,7 +236,7 @@ app.post('/api/emit', express.json(), (req, res) => {
                 timestamp: new Date()
             });
         } else {
-            // Emit event tổng quát - broadcast đến tất cả
+            // Phát event tổng quát - phát sóng đến tất cả
             io.emit(event, data);
         }
         
@@ -929,6 +929,7 @@ io.on('connection', (socket) => {
             // Notify caller to send WebRTC offer now
             io.to(`user_${caller_id}`).emit('receiver_accepted', {
                 call_id,
+                caller_id, // ✅ QUAN TRỌNG: Thêm caller_id để caller có thể verify
                 receiver_id
             });
             

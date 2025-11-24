@@ -416,7 +416,7 @@ try {
             break;
             
         case 'get_equipment_suggestions':
-            // Get equipment suggestions based on event type and location
+            // Lấy gợi ý thiết bị dựa trên loại sự kiện và địa điểm
             $eventType = $_GET['event_type'] ?? '';
             $locationId = $_GET['location_id'] ?? '';
             
@@ -436,8 +436,8 @@ try {
                     exit();
                 }
                 
-                // Get equipment suggestions based on event type from sukien_thietbi table
-                // This is a mapping table that suggests equipment for different event types
+                // Lấy gợi ý thiết bị dựa trên loại sự kiện từ bảng sukien_thietbi
+                // Đây là bảng mapping gợi ý thiết bị cho các loại sự kiện khác nhau
                 $stmt = $pdo->prepare("
                     SELECT DISTINCT t.*
                     FROM thietbi t
@@ -463,7 +463,7 @@ try {
             // Verify CSRF token
             requireCSRF();
             
-            // Register new event using datlichsukien table
+            // Đăng ký sự kiện mới sử dụng bảng datlichsukien
             // Sử dụng getCachedInput() để tránh lỗi php://input chỉ đọc được một lần
             $jsonInput = getCachedInput();
             $input = json_decode($jsonInput, true);
@@ -471,7 +471,7 @@ try {
                 $input = $_POST;
             }
             
-            // Debug input
+            // Ghi log input để debug
             error_log("Debug - Register input: " . print_r($input, true));
             
             // Get user ID from session

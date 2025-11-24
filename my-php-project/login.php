@@ -410,12 +410,12 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         $(document).ready(function() {
-            // Clear any existing alerts and form data
+            // Xóa tất cả cảnh báo và dữ liệu form hiện có
             $('.alert').hide();
             $('#email').val('');
             $('#password').val('');
             
-            // Get CSRF token on page load
+            // Lấy CSRF token khi trang load
             let csrfToken = null;
             $.get('src/controllers/login.php?action=get_csrf_token', function(response) {
                 if (response && response.success) {
@@ -436,7 +436,7 @@
                      .html(`<i class="fas fa-exclamation-circle me-2"></i>${message}`)
                      .show();
                 
-                // Auto hide sau 5 giây
+                // Tự động ẩn sau 5 giây
                 setTimeout(function() {
                     alert.fadeOut();
                 }, 5000);
@@ -449,21 +449,21 @@
 
                 console.log('Login attempt:', { email, password: '***' });
                 
-                // Validate input
+                // Kiểm tra dữ liệu đầu vào
                 if (!email || !password) {
                     showAlert('Vui lòng nhập đầy đủ thông tin');
                     return;
                 }
                 
-                // Check if CSRF token is available
+                // Kiểm tra xem CSRF token có sẵn không
                 if (!csrfToken) {
                     showAlert('Đang tải token bảo mật, vui lòng thử lại...');
-                    // Retry getting token
+                    // Thử lại lấy token
                     $.get('src/controllers/login.php?action=get_csrf_token', function(response) {
                         if (response && response.success) {
                             csrfToken = response.csrf_token;
                             console.log('CSRF token retried:', csrfToken ? 'OK' : 'FAILED');
-                            // Retry login
+                            // Thử lại đăng nhập
                             $('#loginForm').submit();
                         } else {
                             showAlert('Không thể tải token bảo mật. Vui lòng tải lại trang.');
@@ -502,9 +502,9 @@
                        let msg = 'Có lỗi xảy ra, vui lòng thử lại sau';
                        
                        if (xhr.status === 403) {
-                           // CSRF token invalid
+                           // CSRF token không hợp lệ
                            msg = 'Phiên đăng nhập đã hết hạn. Vui lòng tải lại trang.';
-                           // Refresh CSRF token
+                           // Làm mới CSRF token
                            $.get('src/controllers/login.php?action=get_csrf_token', function(response) {
                                if (response.success) {
                                    csrfToken = response.csrf_token;

@@ -2515,7 +2515,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
     <script src="assets/js/gemini-chat-widget.js"></script>
     <!-- Socket.IO with fallback -->
     <script>
-        // Auto-detect Socket.IO server URL
+        // Tự động phát hiện URL server Socket.IO
         const getSocketServerURL = function() {
             const protocol = window.location.protocol;
             if (window.location.hostname.includes('sukien.info.vn')) {
@@ -2532,7 +2532,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         
         const socketServerURL = getSocketServerURL();
         
-        // Try to load Socket.IO from WebSocket server first
+        // Thử tải Socket.IO từ WebSocket server trước
         const socketScript = document.createElement('script');
         socketScript.src = socketServerURL + '/socket.io/socket.io.js';
         socketScript.onerror = function() {
@@ -2553,7 +2553,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         document.head.appendChild(socketScript);
     </script>
     <script>
-        // Sidebar Toggle Functionality
+        // Chức năng bật/tắt Sidebar
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.querySelector('.sidebar-overlay');
@@ -2568,7 +2568,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             }
         }
         
-        // Close sidebar when clicking outside
+        // Đóng sidebar khi click bên ngoài
         document.addEventListener('click', function(event) {
             const sidebar = document.getElementById('sidebar');
             const toggle = document.querySelector('.sidebar-toggle');
@@ -2581,7 +2581,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             }
         });
         
-        // Close sidebar on escape key
+        // Đóng sidebar khi nhấn phím Escape
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
                 const sidebar = document.getElementById('sidebar');
@@ -2591,7 +2591,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             }
         });
         
-        // Banner Carousel Functionality
+        // Chức năng Banner Carousel
         class BannerCarousel {
             constructor() {
                 this.slides = document.querySelectorAll('.banner-slide');
@@ -2625,12 +2625,12 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             }
 
             updateSlide() {
-                // Remove active class from all slides, dots, and hero images
+                // Xóa class active khỏi tất cả slides, dots và hero images
                 this.slides.forEach(slide => slide.classList.remove('active'));
                 this.dots.forEach(dot => dot.classList.remove('active'));
                 this.heroImages.forEach(image => image.classList.remove('active'));
 
-                // Add active class to current slide, dot, and hero image
+                // Thêm class active vào slide, dot và hero image hiện tại
                 this.slides[this.currentSlide].classList.add('active');
                 this.dots[this.currentSlide].classList.add('active');
                 this.heroImages[this.currentSlide].classList.add('active');
@@ -2661,16 +2661,16 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             }
         }
 
-        // Initialize banner carousel when DOM is loaded
+        // Khởi tạo banner carousel khi DOM đã load
         document.addEventListener('DOMContentLoaded', function() {
             new BannerCarousel();
         });
 
-        // Smooth scrolling for anchor links
+        // Cuộn mượt cho các liên kết anchor
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 const href = this.getAttribute('href');
-                // Skip if href is just '#' or empty
+                // Bỏ qua nếu href chỉ là '#' hoặc rỗng
                 if (!href || href === '#' || href.length <= 1) {
                     return; // Let default behavior handle it
                 }
@@ -2690,7 +2690,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             });
         });
 
-        // Navbar background on scroll
+        // Nền Navbar khi cuộn
         window.addEventListener('scroll', function() {
             const navbar = document.querySelector('.navbar');
             if (window.scrollY > 50) {
@@ -2700,7 +2700,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             }
         });
         
-        // Chat Widget is now handled by chat-widget.php
+        // Chat Widget hiện được xử lý bởi chat-widget.php
         
         // ✅ Đã bỏ logic auto-hide chat widget để chat không bị đóng khi load trang
         // Chat widget sẽ giữ nguyên trạng thái mở/đóng dựa trên localStorage
@@ -2708,7 +2708,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
     
     
     <script>
-        // Check if user is logged in (from PHP)
+        // Kiểm tra xem người dùng đã đăng nhập chưa (từ PHP)
         const isUserLoggedIn = <?php echo isset($user) && $user ? 'true' : 'false'; ?>;
         
         // Ensure jQuery is loaded before chat widget

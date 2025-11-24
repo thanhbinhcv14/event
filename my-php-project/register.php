@@ -634,15 +634,15 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         $(document).ready(function() {
-            // Populate birthday dropdowns
+            // Điền dữ liệu cho các dropdown ngày sinh
             function populateBirthdayDropdowns() {
-                // Populate days (1-31)
+                // Điền các ngày (1-31)
                 const daySelect = $('#day');
                 for (let i = 1; i <= 31; i++) {
                     daySelect.append(`<option value="${i}">${i}</option>`);
                 }
                 
-                // Populate months
+                // Điền các tháng
                 const monthSelect = $('#month');
                 const months = [
                     'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
@@ -652,7 +652,7 @@
                     monthSelect.append(`<option value="${index + 1}">${month}</option>`);
                 });
                 
-                // Populate years (current year - 100 to current year)
+                // Điền các năm (từ năm hiện tại - 100 đến năm hiện tại)
                 const yearSelect = $('#year');
                 const currentYear = new Date().getFullYear();
                 for (let i = currentYear; i >= currentYear - 100; i--) {
@@ -660,7 +660,7 @@
                 }
             }
             
-            // Update hidden birthday field when dropdowns change
+            // Cập nhật trường ngày sinh ẩn khi các dropdown thay đổi
             function updateBirthdayField() {
                 const day = $('#day').val();
                 const month = $('#month').val();
@@ -674,10 +674,10 @@
                 }
             }
             
-            // Initialize dropdowns
+            // Khởi tạo các dropdown
             populateBirthdayDropdowns();
             
-            // Bind change events
+            // Gắn các sự kiện thay đổi
             $('#day, #month, #year').on('change', updateBirthdayField);
             
             function showAlert(message, type = 'danger') {
@@ -707,7 +707,7 @@
             }
 
 
-            // Get CSRF token on page load
+            // Lấy CSRF token khi trang load
             let csrfToken = null;
             $.get('src/controllers/register.php?action=get_csrf_token', function(response) {
                 if (response.success) {
@@ -744,14 +744,14 @@
                     return;
                 }
                 
-                // Check if CSRF token is available
+                // Kiểm tra xem CSRF token có sẵn không
                 if (!csrfToken) {
                     showAlert('Đang tải token bảo mật, vui lòng thử lại...');
-                    // Retry getting token
+                    // Thử lại lấy token
                     $.get('src/controllers/register.php?action=get_csrf_token', function(response) {
                         if (response.success) {
                             csrfToken = response.csrf_token;
-                            // Retry registration
+                            // Thử lại đăng ký
                             $('#registerForm').submit();
                         }
                     });
@@ -788,9 +788,9 @@
                     error: function(xhr) {
                         let msg = 'Có lỗi xảy ra, vui lòng thử lại sau';
                         if (xhr.status === 403) {
-                            // CSRF token invalid
+                            // CSRF token không hợp lệ
                             msg = 'Phiên đăng ký đã hết hạn. Vui lòng tải lại trang.';
-                            // Refresh CSRF token
+                            // Làm mới CSRF token
                             $.get('src/controllers/register.php?action=get_csrf_token', function(response) {
                                 if (response.success) {
                                     csrfToken = response.csrf_token;

@@ -1,4 +1,7 @@
 <?php
+// Bao gồm config để có BASE_PATH
+require_once __DIR__ . '/../config/config.php';
+
 // Bao gồm header admin
 include 'includes/admin-header.php';
 
@@ -219,10 +222,10 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
                 <p id="callType" class="text-muted">Cuộc gọi thoại</p>
                 <div class="call-status mb-3" id="callStatus">Đang kết nối...</div>
                 <div class="call-controls" id="callControls">
-                    <button class="btn btn-success btn-lg me-2" onclick="acceptCall()">
+                    <button class="btn btn-success btn-lg me-2" id="acceptCallBtn">
                         <i class="fas fa-phone"></i>
                     </button>
-                    <button class="btn btn-danger btn-lg" onclick="rejectCall()">
+                    <button class="btn btn-danger btn-lg" id="rejectCallBtn">
                         <i class="fas fa-phone-slash"></i>
                     </button>
                 </div>
@@ -967,22 +970,34 @@ error_log("Admin chat - Session data: " . json_encode($_SESSION));
                 console.error('Failed to load Socket.IO from CDN');
             };
         } else {
-            // Development: Thử local server trước
+            // Development: Thử local server trước, nhưng không log lỗi nếu fail
+            // Vì server có thể không chạy và đó là bình thường
             socketScript.src = 'http://localhost:3000/socket.io/socket.io.js';
             socketScript.onerror = function() {
-                console.warn('Local Socket.IO server not available, using CDN fallback');
+                // ✅ Không log error ở đây vì đây là expected behavior khi server không chạy
+                // Chỉ log warning một lần
+                if (!window.socketIOFallbackLogged) {
+                    console.warn('⚠️ Local Socket.IO server not available, using CDN fallback');
+                    window.socketIOFallbackLogged = true;
+                }
                 const cdnScript = document.createElement('script');
                 cdnScript.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
                 cdnScript.onload = function() {
-                    console.log('Socket.IO loaded from CDN');
+                    console.log('✅ Socket.IO loaded from CDN (fallback)');
+                    if (typeof triggerSocketIOReady === 'function') {
+                        triggerSocketIOReady();
+                    }
                 };
                 cdnScript.onerror = function() {
-                    console.error('Failed to load Socket.IO from both server and CDN');
+                    console.error('❌ Failed to load Socket.IO from both server and CDN');
                 };
                 document.head.appendChild(cdnScript);
             };
             socketScript.onload = function() {
-                console.log('Socket.IO loaded from local server');
+                console.log('✅ Socket.IO loaded from local server');
+                if (typeof triggerSocketIOReady === 'function') {
+                    triggerSocketIOReady();
+                }
             };
         }
         
@@ -997,52 +1012,178 @@ let isConnected = false;
 let currentUserId = <?php echo $currentUserId; ?>;
 let currentUserName = '<?php echo htmlspecialchars($currentUserName); ?>';
 
+// ✅ Base path từ PHP để đảm bảo đường dẫn đúng
+const BASE_PATH = '<?php 
+    $scriptPath = $_SERVER["SCRIPT_NAME"] ?? "";
+    $pathParts = explode("/", trim($scriptPath, "/"));
+    $adminIndex = array_search("admin", $pathParts);
+    if ($adminIndex !== false) {
+        // Đang ở trong admin/, cần quay về root
+        $basePath = "";
+        for ($i = 0; $i < $adminIndex; $i++) {
+            $basePath .= "/" . $pathParts[$i];
+        }
+        echo rtrim($basePath, "/");
+    } else {
+        // Không có admin trong path
+        $basePath = defined("BASE_PATH") ? BASE_PATH : "";
+        echo rtrim($basePath, "/");
+    }
+?>';
+console.log('📁 BASE_PATH from PHP:', BASE_PATH);
+
 // Biến cho Media và Call (WebRTC)
-// Note: currentCall được khai báo trong phần call functions
+// Lưu ý: currentCall được khai báo trong phần call functions
 let isMuted = false;
 let isCameraOff = false;
 
-// ID của các interval cho polling/auto-refresh (để tránh nhiều interval)
+// ID của các interval cho polling/tự động làm mới (để tránh nhiều interval)
 let pollingInterval1 = null;
 let pollingInterval2 = null;
 let autoRefreshInterval = null;
 let activityInterval = null;
+
+// ✅ Flag để tránh gọi initSocket() nhiều lần cùng lúc
+let isInitializingSocket = false;
 
 // ✅ Hàm helper để tự động phát hiện đường dẫn API đúng
 function getApiPath(relativePath) {
     const path = window.location.pathname;
     const hostname = window.location.hostname;
     
+    // Ưu tiên sử dụng BASE_PATH từ PHP nếu có
+    if (BASE_PATH && BASE_PATH !== '') {
+        const apiPath = BASE_PATH + '/' + relativePath;
+        console.log('📡 Using BASE_PATH from PHP:', apiPath);
+        return apiPath;
+    }
+    
     // Domain production (sukien.info.vn) - không có my-php-project
     if (hostname.includes('sukien.info.vn') || hostname.includes('sukien')) {
-        return '/' + relativePath;
+        const apiPath = '/' + relativePath;
+        console.log('📡 Production API Path:', apiPath);
+        return apiPath;
     }
     
-    // Localhost development - giữ nguyên để test local
+    // Localhost development
+    // Kiểm tra đường dẫn hiện tại để xác định base path
+    if (path.includes('/admin/')) {
+        // Đang ở trong admin/, cần quay về root
+        if (path.includes('/event/my-php-project/admin/')) {
+            const apiPath = '/event/my-php-project/' + relativePath;
+            console.log('📡 Localhost API Path (from /event/my-php-project/admin/):', apiPath);
+            return apiPath;
+        } else if (path.includes('/my-php-project/admin/')) {
+            const apiPath = '/my-php-project/' + relativePath;
+            console.log('📡 Localhost API Path (from /my-php-project/admin/):', apiPath);
+            return apiPath;
+        } else {
+            // Fallback: relative path từ admin/
+            const apiPath = '../' + relativePath;
+            console.log('📡 Fallback API Path (relative from admin/):', apiPath);
+            return apiPath;
+        }
+    }
+    
+    // Nếu không có /admin/ trong path
     if (path.includes('/my-php-project/')) {
-        return '/my-php-project/' + relativePath;
+        const apiPath = '/my-php-project/' + relativePath;
+        console.log('📡 Localhost API Path (from /my-php-project/):', apiPath);
+        return apiPath;
     } else if (path.includes('/event/')) {
-        return '/event/my-php-project/' + relativePath;
+        const apiPath = '/event/my-php-project/' + relativePath;
+        console.log('📡 Localhost API Path (from /event/):', apiPath);
+        return apiPath;
     }
     
-    // Fallback: đường dẫn tương đối từ admin/
-    return '../' + relativePath;
+    // Fallback cuối cùng: đường dẫn tương đối từ admin/
+    const apiPath = '../' + relativePath;
+    console.log('📡 Final Fallback API Path:', apiPath);
+    return apiPath;
 }
 
 // Khởi tạo chat
 $(document).ready(function() {
-    initializeSocket();
-    setUserOnline(); // Đặt admin online
-    loadConversations();
-    loadOnlineUsers();
-    setupEventHandlers();
-    startAutoRefresh();
+    // Test API path trước
+    const testApiPath = getApiPath('src/controllers/chat-controller.php?action=get_conversations');
+    console.log('🔍 Testing API Path:', testApiPath);
+    console.log('🔍 Current Location:', window.location.href);
+    console.log('🔍 Current Pathname:', window.location.pathname);
+    
+    // ✅ Đợi Socket.IO load xong trước khi khởi tạo socket
+    // Nếu Socket.IO đã load, khởi tạo ngay
+    if (typeof io !== 'undefined') {
+        console.log('✅ Socket.IO already loaded, initializing...');
+        initializeChat();
+    } else {
+        // Nếu chưa load, đợi một chút rồi thử lại
+        let socketIOCheckCount = 0;
+        const checkSocketIO = setInterval(function() {
+            socketIOCheckCount++;
+            if (typeof io !== 'undefined') {
+                console.log('✅ Socket.IO loaded, initializing chat...');
+                clearInterval(checkSocketIO);
+                initializeChat();
+            } else if (socketIOCheckCount >= 20) {
+                // Sau 10 giây (20 * 500ms), nếu Socket.IO vẫn chưa load, khởi tạo chat anyway
+                console.warn('⚠️ Socket.IO not loaded after 10 seconds, initializing chat in offline mode');
+                clearInterval(checkSocketIO);
+                initializeChat();
+            }
+        }, 500);
+    }
     
     // Đặt user offline khi đóng trang
     $(window).on('beforeunload', function() {
         setUserOffline();
     });
 });
+
+// ✅ Hàm khởi tạo chat (tách ra để có thể gọi từ nhiều nơi)
+function initializeChat() {
+    // Test kết nối API
+    const testApiPath = getApiPath('src/controllers/chat-controller.php?action=get_conversations');
+    
+    $.ajax({
+        url: testApiPath,
+        type: 'GET',
+        dataType: 'json',
+        timeout: 5000,
+        success: function(data) {
+            console.log('✅ API connection test successful');
+            initializeSocket();
+            setUserOnline(); // Đặt admin online
+            loadConversations();
+            loadOnlineUsers();
+            setupEventHandlers();
+            startAutoRefresh();
+        },
+        error: function(xhr, status, error) {
+            console.error('❌ API connection test failed:', error);
+            console.error('❌ Test URL:', testApiPath);
+            console.error('❌ Response:', xhr.responseText);
+            
+            // Hiển thị lỗi chi tiết
+            $('#conversationsList').html(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <strong>Lỗi kết nối API</strong><br>
+                    <small>URL: ${testApiPath}</small><br>
+                    <small>Status: ${xhr.status} - ${error}</small><br>
+                    <small>Vui lòng kiểm tra đường dẫn và đảm bảo file chat-controller.php tồn tại.</small>
+                    <br><button class="btn btn-sm btn-outline-secondary mt-2" onclick="location.reload()">
+                        <i class="fas fa-refresh"></i> Tải lại trang
+                    </button>
+                </div>
+            `);
+            
+            // Vẫn khởi tạo socket và các chức năng khác
+            initializeSocket();
+            setUserOnline();
+            setupEventHandlers();
+        }
+    });
+}
 
 // Đặt user online
 function setUserOnline() {
@@ -1105,18 +1246,47 @@ function updateUserActivity() {
 
 // Khởi tạo kết nối Socket.IO với fallback tốt hơn
 function initializeSocket() {
-    console.log('Initializing Socket.IO...');
-    
-    // Kiểm tra Socket.IO có sẵn không
-    if (typeof io === 'undefined') {
-        console.warn('Socket.IO not loaded, using AJAX fallback');
-        isConnected = false;
-        updateConnectionStatus('disconnected', 'Chế độ offline - Sử dụng AJAX');
-        startPollingMode();
+    // ✅ Tránh gọi nhiều lần cùng lúc
+    if (isInitializingSocket) {
+        console.log('📡 Socket initialization already in progress, skipping...');
         return;
     }
     
-    console.log('Socket.IO available, creating connection...');
+    console.log('🚀 Initializing Socket.IO...');
+    
+    // Kiểm tra Socket.IO có sẵn không
+    if (typeof io === 'undefined') {
+        console.warn('⚠️ Socket.IO not loaded, using AJAX fallback');
+        isConnected = false;
+        updateConnectionStatus('disconnected', 'Chế độ offline - Sử dụng AJAX');
+        // ✅ Bật polling mode khi Socket.IO không khả dụng
+        if (!pollingInterval1 && !pollingInterval2) {
+            startPollingMode();
+        }
+        // ✅ Reset flag
+        isInitializingSocket = false;
+        return;
+    }
+    
+    // ✅ Đặt flag để tránh gọi lại
+    isInitializingSocket = true;
+    
+    console.log('✅ Socket.IO available, creating connection...');
+    
+    // QUAN TRỌNG: Nếu socket đã tồn tại và đang connected, không tạo lại
+    if (chatSocket && chatSocket.connected) {
+        console.log('📡 Socket already connected, skipping re-init');
+        isInitializingSocket = false;
+        return;
+    }
+    
+    // QUAN TRỌNG: Nếu socket đã tồn tại nhưng disconnected, đóng nó trước khi tạo mới
+    if (chatSocket && !chatSocket.connected) {
+        console.log('📡 Closing existing disconnected socket before re-init');
+        chatSocket.removeAllListeners();
+        chatSocket.disconnect();
+        chatSocket = null;
+    }
     
     // Phát hiện môi trường và thiết lập URL server Socket.IO
     // ✅ FIX: Dùng base URL với mount point, path là relative
@@ -1196,26 +1366,35 @@ function initializeSocket() {
             path: socketPath,
             fullPath: socketServerURL + socketPath
         });
-    } catch (error) {
-        console.error('❌ Failed to create Socket.IO connection:', error);
-        console.error('Error stack:', error.stack);
-        updateConnectionStatus('disconnected', 'Lỗi tạo kết nối: ' + (error.message || 'Unknown error'));
-        return;
-    }
+        } catch (error) {
+            console.error('❌ Failed to create Socket.IO connection:', error);
+            console.error('Error stack:', error.stack);
+            updateConnectionStatus('disconnected', 'Lỗi tạo kết nối: ' + (error.message || 'Unknown error'));
+            // ✅ Reset flag khi có lỗi
+            isInitializingSocket = false;
+            // ✅ Bật polling mode khi không thể tạo socket
+            if (!pollingInterval1 && !pollingInterval2) {
+                startPollingMode();
+            }
+            return;
+        }
     
     chatSocket.on('connect', function() {
+        console.log('✅ Admin chat connected successfully');
+        isConnected = true;
+        // ✅ Reset flag khi đã connect thành công
+        isInitializingSocket = false;
+        updateConnectionStatus('connected', 'Đã kết nối');
+        
+        // ✅ Dừng chế độ polling khi đã kết nối
+        stopPollingMode();
+        
         // Initialize WebRTC Helper khi socket đã kết nối
         if (window.WebRTCHelper) {
             window.WebRTCHelper.init(chatSocket);
             setupWebRTCEventHandlers();
             console.log('✅ WebRTC Helper initialized');
         }
-        console.log('✅ Admin chat connected successfully');
-        isConnected = true;
-        updateConnectionStatus('connected', 'Đã kết nối');
-        
-        // Dừng chế độ polling khi đã kết nối
-        stopPollingMode();
         
         // Tham gia admin room
         chatSocket.emit('authenticate', {
@@ -1239,51 +1418,62 @@ function initializeSocket() {
     
     console.log('Socket.IO event handlers set up successfully');
     
+    // ✅ Flag để tránh log lỗi quá nhiều lần
+    let connectionErrorLogged = false;
+    let connectionErrorCount = 0;
+    
     chatSocket.on('connect_error', function(error) {
-        console.error('❌ Admin chat connection error:', error);
-        console.error('Error type:', error.type);
-        console.error('Error message:', error.message);
-        console.error('Error description:', error.description);
-        console.error('Connection URL:', socketServerURL);
-        console.error('Connection Path:', socketPath);
-        console.error('Full connection URL:', socketServerURL + socketPath);
+        connectionErrorCount++;
         
-        // Kiểm tra server có thể truy cập không
-        const healthCheckUrl = socketServerURL + (socketPath.includes('/nodeapp') ? '/nodeapp/health' : '/health');
-        console.log('🔍 Checking server health at:', healthCheckUrl);
-        
-        fetch(healthCheckUrl)
-            .then(response => {
-                if (response.ok) {
-                    return response.json();
-                } else {
-                    console.error('❌ Server health check failed:', response.status);
-                    throw new Error('Health check failed');
-                }
-            })
-            .then(data => {
-                console.log('✅ Server is reachable:', data);
-                console.log('💡 Possible causes: CORS issue, path mismatch, or Socket.IO not properly configured');
-                console.log('💡 Server path:', data.path || 'unknown');
-            })
-            .catch(err => {
-                console.error('❌ Cannot reach server:', err);
-                console.log('💡 Server may not be running or URL is incorrect');
-                console.log('💡 Expected server at:', socketServerURL);
-            });
+        // Chỉ log chi tiết lần đầu và mỗi 10 lần để tránh spam console
+        if (!connectionErrorLogged || connectionErrorCount % 10 === 0) {
+            console.error('❌ Admin chat connection error:', error);
+            console.error('Error type:', error.type);
+            console.error('Error message:', error.message);
+            console.error('Error description:', error.description);
+            console.error('Connection URL:', socketServerURL);
+            console.error('Connection Path:', socketPath);
+            console.error('Full connection URL:', socketServerURL + socketPath);
+            connectionErrorLogged = true;
+        } else {
+            // Log ngắn gọn cho các lần sau
+            console.warn(`⚠️ Socket.IO connection error (attempt ${connectionErrorCount}):`, error.message || error.type);
+        }
         
         isConnected = false;
-        updateConnectionStatus('disconnected', 'Lỗi kết nối: ' + (error.message || error.description || 'Unknown error'));
-        // Bắt đầu chế độ polling làm fallback
-        if (!isConnected) {
-            startPollingMode();
-        }
+        
+                // ✅ Nếu lỗi là connection refused và đã thử nhiều lần, chuyển sang fallback mode
+                if (connectionErrorCount >= 3 && (error.message?.includes('refused') || error.type === 'TransportError')) {
+                    console.warn('⚠️ Socket.IO server không khả dụng sau nhiều lần thử, chuyển sang fallback mode');
+                    updateConnectionStatus('disconnected', 'Chế độ offline - Sử dụng AJAX');
+                    // ✅ Chỉ bật polling mode nếu chưa chạy
+                    if (!pollingInterval1 && !pollingInterval2) {
+                        startPollingMode();
+                    }
+                } else {
+                    // Hiển thị connecting để người dùng biết đang thử kết nối lại
+                    updateConnectionStatus('connecting', 'Đang kết nối...');
+                }
+        
+        // Socket.IO sẽ tự động retry với cấu hình reconnection: true
+        // Không cần thêm logic retry ở đây
     });
     
     chatSocket.on('disconnect', function(reason) {
         console.warn('⚠️ Admin chat disconnected:', reason);
         isConnected = false;
-        updateConnectionStatus('disconnected', 'Mất kết nối');
+        
+        // Chỉ hiển thị offline nếu không phải là reconnect attempt
+        if (reason !== 'io server disconnect' && reason !== 'transport close') {
+            updateConnectionStatus('disconnected', 'Mất kết nối');
+            // ✅ Bật polling mode khi disconnect (không phải reconnect attempt)
+            if (!pollingInterval1 && !pollingInterval2) {
+                startPollingMode();
+            }
+        } else {
+            // Nếu là transport close, có thể đang reconnect
+            updateConnectionStatus('connecting', 'Đang kết nối lại...');
+        }
     });
     
     chatSocket.on('reconnect', function(attemptNumber) {
@@ -1316,7 +1506,10 @@ function initializeSocket() {
         console.error('❌ Admin chat reconnection failed');
         isConnected = false;
         updateConnectionStatus('disconnected', 'Không thể kết nối lại');
-        startPollingMode();
+        // ✅ Chỉ bật polling mode nếu chưa chạy
+        if (!pollingInterval1 && !pollingInterval2) {
+            startPollingMode();
+        }
     });
     
     chatSocket.on('new_message', function(data) {
@@ -1406,20 +1599,32 @@ function initializeSocket() {
         console.log('📞 Type comparison:', typeof data.receiver_id, typeof currentUserId);
         console.log('📞 Conversation ID:', data.conversation_id);
         
+        // ✅ Đảm bảo call_id là number
+        const callId = parseInt(data.call_id);
+        if (isNaN(callId)) {
+            console.error('❌ Invalid call_id in call_initiated event:', data.call_id);
+            return;
+        }
+        
         // Dùng == thay vì === để xử lý string/number mismatch
         if (data.receiver_id == currentUserId || String(data.receiver_id) === String(currentUserId)) {
             console.log('✅ Call is for this user, showing modal');
+            
+            // ✅ Đảm bảo currentCall được set đúng với tất cả thông tin cần thiết
             currentCall = {
-                id: data.call_id,
-                type: data.call_type,
-                caller_id: data.caller_id,
-                receiver_id: currentUserId,
-                conversation_id: data.conversation_id,
-                status: 'ringing'
+                id: callId, // ✅ Dùng parsed number
+                type: data.call_type || 'voice',
+                caller_id: parseInt(data.caller_id) || data.caller_id, // ✅ Đảm bảo là number
+                receiver_id: parseInt(currentUserId), // ✅ Đảm bảo là number
+                conversation_id: parseInt(data.conversation_id) || data.conversation_id,
+                status: 'ringing',
+                caller_name: data.caller_name || 'Người gọi' // ✅ Lưu tên caller nếu có
             };
             
+            console.log('📞 currentCall set to:', currentCall);
+            
             const conversation = conversations.find(c => c.id == data.conversation_id);
-            const callerName = conversation ? conversation.other_user_name : 'Người gọi';
+            const callerName = data.caller_name || (conversation ? conversation.other_user_name : 'Người gọi');
             
             console.log('📞 Showing call modal for:', callerName);
             console.log('📞 Call type:', data.call_type);
@@ -1429,6 +1634,39 @@ function initializeSocket() {
             
             // Hiển thị modal với nút chấp nhận/từ chối
             showCallModal('incoming', callerName, data.call_type);
+            
+            // ✅ Đảm bảo event listeners được gắn lại sau khi show modal
+            // Vì showCallModal có thể tạo lại HTML, cần gắn lại listeners
+            setTimeout(() => {
+                // ✅ Gắn lại event listeners cho accept/reject buttons
+                $('#acceptCallBtn').off('click').on('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('📞 Accept button clicked (from call_initiated)');
+                    if (typeof acceptCall === 'function') {
+                        acceptCall();
+                    } else if (typeof window.acceptCall === 'function') {
+                        window.acceptCall();
+                    } else {
+                        console.error('❌ acceptCall function not found');
+                        alert('Lỗi: Hàm acceptCall không tìm thấy. Vui lòng refresh trang.');
+                    }
+                });
+                
+                $('#rejectCallBtn').off('click').on('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('📞 Reject button clicked (from call_initiated)');
+                    if (typeof rejectCall === 'function') {
+                        rejectCall();
+                    } else if (typeof window.rejectCall === 'function') {
+                        window.rejectCall();
+                    } else {
+                        console.error('❌ rejectCall function not found');
+                        alert('Lỗi: Hàm rejectCall không tìm thấy. Vui lòng refresh trang.');
+                    }
+                });
+            }, 100);
             
             // Ép hiển thị modal nếu Bootstrap modal không hiển thị
             setTimeout(() => {
@@ -1440,6 +1678,59 @@ function initializeSocket() {
                         const newModal = new bootstrap.Modal(modalElement);
                         newModal.show();
                     }
+                    
+                    // ✅ Đảm bảo modal hiển thị đúng với nút accept/reject cho incoming call
+                    const callStatus = $('#callStatus').text();
+                    const controlsHtml = $('#callControls').html();
+                    console.log('🔍 Modal check after show:', {
+                        callStatus: callStatus,
+                        hasAcceptButton: controlsHtml.includes('acceptCall'),
+                        hasRejectButton: controlsHtml.includes('rejectCall'),
+                        currentCall: currentCall
+                    });
+                    
+                    // ✅ Nếu không có nút accept, thêm lại (đảm bảo cho incoming call)
+                    if (!controlsHtml.includes('acceptCallBtn') && currentCall && currentCall.status === 'ringing') {
+                        console.warn('⚠️ Accept button missing for incoming call, re-adding...');
+                        $('#callStatus').text('Cuộc gọi đến...');
+                        $('#callControls').html(`
+                            <button class="btn btn-success btn-lg me-2" id="acceptCallBtn" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;">
+                                <i class="fas fa-phone"></i>
+                            </button>
+                            <button class="btn btn-danger btn-lg" id="rejectCallBtn" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;">
+                                <i class="fas fa-phone-slash"></i>
+                            </button>
+                        `);
+                        
+                        // ✅ Thêm lại event listeners
+                        $('#acceptCallBtn').off('click').on('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('📞 Accept button clicked (re-added)');
+                            if (typeof acceptCall === 'function') {
+                                acceptCall();
+                            } else if (typeof window.acceptCall === 'function') {
+                                window.acceptCall();
+                            } else {
+                                console.error('❌ acceptCall function not found');
+                                alert('Lỗi: Hàm acceptCall không tìm thấy. Vui lòng refresh trang.');
+                            }
+                        });
+                        
+                        $('#rejectCallBtn').off('click').on('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('📞 Reject button clicked (re-added)');
+                            if (typeof rejectCall === 'function') {
+                                rejectCall();
+                            } else if (typeof window.rejectCall === 'function') {
+                                window.rejectCall();
+                            } else {
+                                console.error('❌ rejectCall function not found');
+                                alert('Lỗi: Hàm rejectCall không tìm thấy. Vui lòng refresh trang.');
+                            }
+                        });
+                    }
                 }
             }, 100);
         } else {
@@ -1449,19 +1740,46 @@ function initializeSocket() {
     });
     
     chatSocket.on('call_accepted', function(data) {
-        console.log('Received call_accepted event:', data);
-        // ✅ WebRTC: Logic đã được xử lý trong acceptCall và WebRTC handlers
-        if (data.caller_id === currentUserId && currentCall) {
-            // WebRTC call đã được connected qua offer/answer exchange
-            console.log('✅ Call accepted, WebRTC call should be connected');
+        console.log('📞 Received call_accepted event:', data);
+        console.log('📞 Current call:', currentCall);
+        
+        // ✅ QUAN TRỌNG: Nếu caller (người gọi) nhận được event này, cập nhật status
+        if (data.caller_id == currentUserId && currentCall && data.call_id == currentCall.id) {
+            console.log('✅ Call accepted by receiver, updating caller UI');
+            // ✅ Cập nhật status để onCallConnected() có thể chuyển UI
+            currentCall.status = 'accepted';
+            console.log('✅ Current call status updated to:', currentCall.status);
         }
+        
+        // ✅ WebRTC: Logic đã được xử lý trong acceptCall và WebRTC handlers
+        // WebRTC call sẽ được connected qua offer/answer exchange
     });
     
-    // Receiver accepted - Caller gửi offer
-    chatSocket.on('receiver_accepted', function(data) {
-        console.log('📞 Receiver accepted, sending offer:', data);
-        if (currentCall && data.call_id == currentCall.id && window.WebRTCHelper) {
-            window.WebRTCHelper.sendOfferToReceiver();
+    // Receiver accepted - Gửi lại offer sau khi receiver accept
+    chatSocket.on('receiver_accepted', async function(data) {
+        // ✅ QUAN TRỌNG: Reset mute/camera state trước khi gửi offer
+        resetMuteCameraState();
+        console.log('📞 Receiver accepted call:', data);
+        console.log('📞 Current call:', currentCall);
+        
+        // ✅ QUAN TRỌNG: Nếu caller nhận được event này, gửi lại offer
+        if (data.caller_id == currentUserId && currentCall && data.call_id == currentCall.id) {
+            console.log('✅ Receiver accepted, resending WebRTC offer...');
+            
+            // ✅ Gửi lại offer sau khi receiver accept
+            if (window.WebRTCHelper) {
+                try {
+                    await window.WebRTCHelper.initiateCall(
+                        currentCall.id,
+                        currentCall.type,
+                        currentCall.receiver_id
+                    );
+                    console.log('✅ Offer resent successfully');
+                } catch (error) {
+                    console.error('❌ Error resending offer:', error);
+                    alert('Lỗi gửi lại offer: ' + (error.message || 'Unknown error'));
+                }
+            }
         }
     });
     
@@ -1476,6 +1794,9 @@ function initializeSocket() {
     
     chatSocket.on('call_ended', function(data) {
         console.log('📞 Received call_ended event:', data);
+        
+        // ✅ QUAN TRỌNG: Dừng timer TRƯỚC khi cleanup
+        stopCallTimer();
         
         // QUAN TRỌNG: Cleanup đầy đủ khi bên kia tắt cuộc gọi
         // Ẩn modal và video container
@@ -1507,12 +1828,17 @@ function initializeSocket() {
             window.WebRTCHelper.cleanup();
         }
         
+        // ✅ Reset currentCall để timer tự động dừng
+        currentCall = null;
+        
         // Hiển thị thông báo
         if (data.message) {
             showNotification(data.message, 'info');
         } else {
             showNotification('Cuộc gọi đã kết thúc', 'info');
         }
+        
+        console.log('✅ Call cleanup completed');
         
         currentCall = null;
         console.log('✅ Call cleanup completed');
@@ -1583,31 +1909,64 @@ function initializeSocket() {
 
 // Tải danh sách cuộc trò chuyện
 function loadConversations() {
+    const apiUrl = getApiPath('src/controllers/chat-controller.php?action=get_conversations');
+    console.log('🔍 Loading conversations from:', apiUrl);
+    console.log('🔍 Current location:', window.location.href);
+    console.log('🔍 Current pathname:', window.location.pathname);
+    
     $.ajax({
-        url: getApiPath('src/controllers/chat-controller.php?action=get_conversations'),
+        url: apiUrl,
         type: 'GET',
         dataType: 'json',
+        timeout: 10000,
         success: function(data) {
-            console.log('Conversations loaded:', data);
-            if (data.success) {
-                conversations = data.conversations;
+            console.log('✅ Conversations loaded:', data);
+            if (data && data.success) {
+                conversations = data.conversations || [];
                 displayConversations();
             } else {
+                console.error('❌ Error loading conversations:', data ? data.error : 'Response is undefined');
                 $('#conversationsList').html(`
                     <div class="alert alert-warning">
                         <i class="fas fa-exclamation-triangle"></i>
-                        ${data.error || 'Không thể tải danh sách cuộc trò chuyện.'}
+                        <strong>Lỗi tải cuộc trò chuyện</strong><br>
+                        <small>${data ? data.error : 'Không nhận được phản hồi từ server'}</small>
+                        <br><button class="btn btn-sm btn-outline-secondary mt-2" onclick="loadConversations()">
+                            <i class="fas fa-refresh"></i> Thử lại
+                        </button>
                     </div>
                 `);
             }
         },
         error: function(xhr, status, error) {
-            console.error('AJAX Error:', error);
-            console.error('Response:', xhr.responseText);
+            console.error('❌ AJAX Error loading conversations:', error);
+            console.error('❌ Status:', status);
+            console.error('❌ XHR Status:', xhr.status);
+            console.error('❌ Response:', xhr.responseText);
+            console.error('❌ Request URL:', apiUrl);
+            
+            let errorMessage = 'Lỗi kết nối';
+            if (xhr.status === 404) {
+                errorMessage = 'Không tìm thấy API endpoint. Vui lòng kiểm tra đường dẫn.';
+            } else if (xhr.status === 500) {
+                errorMessage = 'Lỗi server. Vui lòng thử lại sau.';
+            } else if (status === 'timeout') {
+                errorMessage = 'Timeout. Vui lòng kiểm tra kết nối mạng.';
+            } else if (xhr.responseText && xhr.responseText.includes('<!doctype')) {
+                errorMessage = 'Server trả về trang HTML thay vì JSON. Có thể đường dẫn không đúng.';
+            } else {
+                errorMessage = `Lỗi: ${error || status || 'Unknown error'}`;
+            }
+            
             $('#conversationsList').html(`
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-circle"></i>
-                    Lỗi kết nối: ${error}
+                    <strong>${errorMessage}</strong><br>
+                    <small>URL: ${apiUrl}</small><br>
+                    <small>Status: ${xhr.status} - ${error}</small><br>
+                    <button class="btn btn-sm btn-outline-secondary mt-2" onclick="loadConversations()">
+                        <i class="fas fa-refresh"></i> Thử lại
+                    </button>
                 </div>
             `);
         }
@@ -1648,8 +2007,11 @@ function loadOnlineUsers() {
             }
         },
         error: function(xhr, status, error) {
-            console.error('Error loading online count:', error);
-            console.error('XHR response:', xhr.responseText);
+            console.error('❌ Error loading online count:', error);
+            console.error('❌ Status:', status);
+            console.error('❌ XHR Status:', xhr.status);
+            console.error('❌ XHR response:', xhr.responseText);
+            console.error('❌ Request URL:', getApiPath('src/controllers/chat-controller.php?action=get_online_count'));
             $('#onlineCount').text('?');
         }
     });
@@ -2627,27 +2989,32 @@ function sendMessage() {
 // Cập nhật trạng thái kết nối
 function updateConnectionStatus(status, message) {
     const statusEl = $('#connectionStatus');
-    statusEl.removeClass('connected disconnected').addClass(status);
+    statusEl.removeClass('connected disconnected connecting').addClass(status);
     
     if (status === 'connected') {
         statusEl.html(`<i class="fas fa-check-circle text-success"></i> <span class="text-success">${message}</span>`);
         statusEl.css('background', 'linear-gradient(135deg, #d4edda, #c3e6cb)');
+    } else if (status === 'connecting') {
+        statusEl.html(`<i class="fas fa-spinner fa-spin text-warning"></i> <span class="text-warning">${message}</span>`);
+        statusEl.css('background', 'linear-gradient(135deg, #fff3cd, #ffeaa7)');
     } else {
-        statusEl.html(`<i class="fas fa-exclamation-circle text-warning"></i> <span class="text-warning">${message}</span>`);
+        statusEl.html(`<i class="fas fa-exclamation-circle text-danger"></i> <span class="text-danger">${message}</span>`);
         statusEl.css('background', 'linear-gradient(135deg, #f8d7da, #f5c6cb)');
     }
     
     // Update real-time status
     if (status === 'connected') {
-        console.log('Admin real-time connection established');
+        console.log('✅ Admin real-time connection established');
+        // ✅ Dừng polling mode khi đã kết nối
+        stopPollingMode();
         // Rejoin current conversation if any
         if (currentConversationId && chatSocket) {
             chatSocket.emit('join_conversation', { conversation_id: currentConversationId });
         }
     } else {
-        console.log('Admin real-time connection lost, using fallback mode');
+        console.log('⚠️ Admin real-time connection lost, using fallback mode');
         // Start polling mode if not already started
-        if (!isConnected) {
+        if (!isConnected && status !== 'connecting') {
             startPollingMode();
         }
     }
@@ -2707,27 +3074,42 @@ function startAutoRefresh() {
 function startPollingMode() {
     // Prevent multiple polling modes from running
     if (pollingInterval1 || pollingInterval2) {
-        console.log('Polling mode already running, skipping...');
+        console.log('⚠️ Polling mode already running, skipping...');
         return;
     }
     
-    console.log('Starting polling mode for real-time messaging');
+    // ✅ Kiểm tra nếu đã connected thì không cần polling
+    if (isConnected) {
+        console.log('✅ Already connected, skipping polling mode');
+        return;
+    }
     
-    // Poll for new messages every 2 seconds
+    console.log('🔄 Starting polling mode for real-time messaging');
+    
+    // Poll for new messages every 3 seconds (giảm từ 2s để giảm tải server)
     pollingInterval1 = setInterval(function() {
+        // ✅ Kiểm tra lại connection status trước khi poll
         if (!isConnected) {
             if (currentConversationId) {
                 checkForNewMessages();
             }
-            loadConversations();
-            loadOnlineUsers();
+        } else {
+            // Nếu đã connected, dừng polling
+            console.log('✅ Connection restored, stopping polling mode');
+            stopPollingMode();
         }
-    }, 2000);
+    }, 3000); // Tăng từ 2s lên 3s để giảm tải
     
     // Poll for conversation updates every 5 seconds
     pollingInterval2 = setInterval(function() {
+        // ✅ Kiểm tra lại connection status trước khi poll
         if (!isConnected) {
             loadConversations();
+            loadOnlineUsers();
+        } else {
+            // Nếu đã connected, dừng polling
+            console.log('✅ Connection restored, stopping polling mode');
+            stopPollingMode();
         }
     }, 5000);
 }
@@ -2749,22 +3131,34 @@ function stopPollingMode() {
 function checkForNewMessages() {
     if (!currentConversationId) return;
     
-    $.getJSON(getApiPath('src/controllers/chat-controller.php?action=get_messages&conversation_id=' + currentConversationId), function(res) {
-        if (res.success && res.messages) {
-            const currentMessageCount = $('#chatMessages .message').length;
-            const newMessageCount = res.messages.length;
-            
-            if (newMessageCount > currentMessageCount) {
-                // New messages detected, reload and scroll to bottom
-                displayMessages(res.messages);
-                scrollToBottom();
+    const apiUrl = getApiPath('src/controllers/chat-controller.php?action=get_messages&conversation_id=' + currentConversationId);
+    
+    $.ajax({
+        url: apiUrl,
+        type: 'GET',
+        dataType: 'json',
+        timeout: 5000,
+        success: function(res) {
+            if (res && res.success && res.messages) {
+                const currentMessageCount = $('#chatMessages .message').length;
+                const newMessageCount = res.messages.length;
                 
-                // Show notification for new messages
-                showNewMessageNotification();
+                if (newMessageCount > currentMessageCount) {
+                    // New messages detected, reload and scroll to bottom
+                    displayMessages(res.messages);
+                    scrollToBottom();
+                    
+                    // Show notification for new messages
+                    showNewMessageNotification();
+                }
+            }
+        },
+        error: function(xhr, status, error) {
+            // Chỉ log lỗi nếu không phải do timeout hoặc network (để tránh spam)
+            if (status !== 'timeout' && status !== 'abort') {
+                console.warn('⚠️ Failed to check for new messages:', error);
             }
         }
-    }).fail(function() {
-        console.log('Failed to check for new messages');
     });
 }
 
@@ -2988,6 +3382,8 @@ $(document).on('click', '.template-item', function() {
 
 // Biến lưu trữ call state
 let currentCall = null;
+let callTimer = null; // Timer để tính giây cuộc gọi
+let callStartTime = null; // Thời gian bắt đầu cuộc gọi
 
 /**
  * Khởi tạo cuộc gọi (Voice hoặc Video) với WebRTC
@@ -3024,17 +3420,18 @@ async function initiateCall(callType) {
             status: response.status
         };
         
-        // Hiển thị modal
+        // Hiển thị modal cho caller (outgoing call)
         showCallModal('outgoing', response.receiver_name, callType);
         
-        // Phát sự kiện call qua socket (receiver sẽ nhận và hiển thị modal)
+        // Phát sự kiện call qua socket (receiver sẽ nhận và hiển thị modal với accept/reject buttons)
         if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
             chatSocket.emit('call_initiated', {
                 call_id: response.call_id,
                 caller_id: currentUserId,
                 receiver_id: response.receiver_id,
                 call_type: callType,
-                conversation_id: currentConversationId
+                conversation_id: currentConversationId,
+                caller_name: currentUserName // ✅ Gửi tên caller để receiver hiển thị
             });
         }
         
@@ -3068,12 +3465,42 @@ function setupWebRTCEventHandlers() {
     // Handle incoming offer (receiver)
     chatSocket.on('call-offer', async (data) => {
         console.log('📞 Received call offer:', data);
+        console.log('📞 Current call status:', currentCall?.status);
+        
         if (data.receiver_id == currentUserId && currentCall && data.call_id == currentCall.id) {
+            // ✅ QUAN TRỌNG: Chỉ xử lý offer nếu call đã được accept
+            if (currentCall.status !== 'accepted' && currentCall.status !== 'connected') {
+                console.warn('⚠️ Call not accepted yet, ignoring offer. Status:', currentCall.status);
+                console.warn('⚠️ User needs to accept call first before handling offer.');
+                // ✅ Lưu offer để xử lý sau khi accept (nếu cần)
+                // Offer sẽ được gửi lại từ caller sau khi receiver accept
+                return;
+            }
+            
+            console.log('✅ Offer is for this user and call is accepted, handling...');
             try {
+                // ✅ Cập nhật status trong modal
+                $('#callStatus').text('Đang thiết lập kết nối...');
+                
                 await window.WebRTCHelper.handleIncomingOffer(data);
+                console.log('✅ Offer handled successfully');
             } catch (error) {
                 console.error('❌ Error handling incoming offer:', error);
+                
+                // ✅ Xử lý lỗi permission cụ thể
+                let errorMessage = 'Lỗi thiết lập cuộc gọi: ' + (error.message || 'Unknown error');
+                if (error.message && error.message.includes('Permission dismissed')) {
+                    errorMessage = error.message;
+                }
+                
+                alert(errorMessage);
+                cleanupCall();
             }
+        } else {
+            console.warn('⚠️ Offer not for this user or no current call');
+            console.warn('⚠️ Receiver ID match:', data.receiver_id == currentUserId);
+            console.warn('⚠️ Call ID match:', data.call_id == currentCall?.id);
+            console.warn('⚠️ Current call:', currentCall);
         }
     });
     
@@ -3083,9 +3510,19 @@ function setupWebRTCEventHandlers() {
         if (currentCall && data.call_id == currentCall.id) {
             try {
                 await window.WebRTCHelper.handleIncomingAnswer(data);
+                console.log('✅ Answer handled successfully');
             } catch (error) {
                 console.error('❌ Error handling incoming answer:', error);
+                // ✅ Không cleanup nếu là InvalidStateError (có thể do answer đã được set rồi)
+                if (error.name !== 'InvalidStateError') {
+                    console.warn('⚠️ Non-InvalidStateError, may need cleanup');
+                }
             }
+        } else {
+            console.warn('⚠️ Answer not for current call:', {
+                answerCallId: data.call_id,
+                currentCallId: currentCall?.id
+            });
         }
     });
     
@@ -3103,7 +3540,43 @@ function setupWebRTCEventHandlers() {
     // WebRTC call connected
     window.onCallConnected = function() {
         console.log('✅ WebRTC call connected');
-        if (currentCall && currentCall.type === 'video') {
+        console.log('✅ Current call:', currentCall);
+        console.log('✅ Current call status:', currentCall?.status);
+        
+        // ✅ Đảm bảo currentCall tồn tại
+        if (!currentCall) {
+            console.warn('⚠️ No current call, cannot switch UI');
+            return;
+        }
+        
+        // ✅ QUAN TRỌNG: Reset mute/camera state về trạng thái ban đầu khi call được kết nối
+        resetMuteCameraState();
+        
+        // ✅ QUAN TRỌNG: Chỉ chuyển UI nếu call đã được accept (status = 'accepted' hoặc 'connected')
+        // Nếu status vẫn là 'ringing', có thể user chưa accept call
+        if (currentCall.status !== 'accepted' && currentCall.status !== 'connected') {
+            console.warn('⚠️ Call not accepted yet, status:', currentCall.status);
+            console.warn('⚠️ Waiting for call to be accepted...');
+            // ✅ Cập nhật status thành 'accepted' nếu đang là 'ringing' (fallback cho caller)
+            if (currentCall.status === 'ringing') {
+                console.log('⚠️ Call status is ringing, updating to accepted (fallback for caller)');
+                currentCall.status = 'accepted';
+            } else {
+                return; // Không chuyển UI nếu status không hợp lệ
+            }
+        }
+        
+        // ✅ Cập nhật status thành 'connected'
+        currentCall.status = 'connected';
+        
+        // ✅ QUAN TRỌNG: Reset mute/camera state về trạng thái ban đầu khi call được kết nối
+        resetMuteCameraState();
+        
+        // ✅ Bắt đầu timer tính giây cuộc gọi
+        startCallTimer();
+        
+        if (currentCall.type === 'video') {
+            console.log('✅ Switching to video call UI');
             $('#callModal').modal('hide');
             $('#videoCallContainer').addClass('show').css({
                 'display': 'block',
@@ -3112,7 +3585,33 @@ function setupWebRTCEventHandlers() {
                 'z-index': '10000'
             });
         } else {
-            showVoiceCallUI();
+            console.log('✅ Switching to voice call UI with timer');
+            // ✅ Cập nhật modal để hiển thị timer thay vì "Đang gọi..."
+            const conversation = conversations.find(c => c.id == currentConversationId);
+            const otherUserName = conversation ? conversation.other_user_name : (currentCall?.caller_name || 'Người gọi');
+            
+            $('#callerName').text(otherUserName);
+            $('#callType').text('Cuộc gọi thoại');
+            $('#callStatus').text('00:00'); // ✅ Timer sẽ tự động cập nhật
+            $('#callControls').html(`
+                <button class="btn btn-danger btn-lg" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            `);
+            
+            // ✅ Đảm bảo modal vẫn hiển thị
+            const modalElement = document.getElementById('callModal');
+            if (modalElement) {
+                let modal = bootstrap.Modal.getInstance(modalElement);
+                if (!modal) {
+                    modal = new bootstrap.Modal(modalElement);
+                }
+                if (!modal._isShown) {
+                    modal.show();
+                }
+            }
+            
+            $('#videoCallContainer').hide();
         }
     };
     
@@ -3134,18 +3633,35 @@ function setupWebRTCEventHandlers() {
         console.log('✅ Local stream:', stream);
         const localVideo = document.getElementById('localVideo');
         if (localVideo && stream.getVideoTracks().length > 0) {
-            localVideo.srcObject = stream;
-            localVideo.play().catch(err => console.error('Error playing local video:', err));
+            // ✅ QUAN TRỌNG: Không play() lại ở đây vì đã play trong webrtc-helper.js
+            // Chỉ set srcObject nếu chưa được set để tránh AbortError
+            if (localVideo.srcObject !== stream) {
+                localVideo.srcObject = stream;
+            }
+        }
+        
+        // ✅ Xử lý local audio nếu có
+        const localAudio = document.getElementById('localAudio');
+        if (localAudio && stream.getAudioTracks().length > 0) {
+            // ✅ QUAN TRỌNG: Không play() lại ở đây vì đã play trong webrtc-helper.js
+            if (localAudio.srcObject !== stream) {
+                localAudio.srcObject = stream;
+            }
         }
     };
     
+    // Remote stream handler
     // Remote stream handler
     window.onRemoteStream = function(stream) {
         console.log('✅ Remote stream:', stream);
         const remoteVideo = document.getElementById('remoteVideo');
         if (remoteVideo && stream.getVideoTracks().length > 0) {
-            remoteVideo.srcObject = stream;
-            remoteVideo.play().catch(err => console.error('Error playing remote video:', err));
+            // ✅ QUAN TRỌNG: Không play() lại ở đây vì đã play trong webrtc-helper.js
+            // Chỉ set srcObject nếu chưa được set để tránh AbortError
+            if (remoteVideo.srcObject !== stream) {
+                remoteVideo.srcObject = stream;
+            }
+            // ✅ Chỉ show UI, không play() lại
             $('#videoCallContainer').addClass('show').css({
                 'display': 'block',
                 'visibility': 'visible',
@@ -3154,10 +3670,13 @@ function setupWebRTCEventHandlers() {
             });
         }
         
+        // ✅ QUAN TRỌNG: Không play() audio ở đây vì đã play trong webrtc-helper.js
+        // Chỉ set srcObject nếu chưa được set để tránh AbortError
         const remoteAudio = document.getElementById('remoteAudio');
         if (remoteAudio && stream.getAudioTracks().length > 0) {
-            remoteAudio.srcObject = stream;
-            remoteAudio.play().catch(err => console.error('Error playing remote audio:', err));
+            if (remoteAudio.srcObject !== stream) {
+                remoteAudio.srcObject = stream;
+            }
         }
     };
 }
@@ -3166,6 +3685,9 @@ function setupWebRTCEventHandlers() {
  * Cleanup call
  */
 function cleanupCall() {
+    // ✅ Dừng timer cuộc gọi
+    stopCallTimer();
+    
     $('#callModal').modal('hide');
     $('#videoCallContainer').hide();
     
@@ -3180,20 +3702,69 @@ function cleanupCall() {
  * Hiển thị modal cuộc gọi
  */
 function showCallModal(type, name, callType) {
+    console.log('📞 showCallModal called with:', { type, name, callType });
+    
     $('#callerName').text(name);
     $('#callType').text(callType === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại');
     
     if (type === 'incoming') {
+        console.log('✅ Showing incoming call modal with accept/reject buttons');
         $('#callStatus').text('Cuộc gọi đến...');
         $('#callControls').html(`
-            <button class="btn btn-success btn-lg me-2" onclick="acceptCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
+            <button class="btn btn-success btn-lg me-2" id="acceptCallBtn" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;">
                 <i class="fas fa-phone"></i>
             </button>
-            <button class="btn btn-danger btn-lg" onclick="rejectCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
+            <button class="btn btn-danger btn-lg" id="rejectCallBtn" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;">
                 <i class="fas fa-phone-slash"></i>
             </button>
         `);
+        
+        // ✅ Đảm bảo các hàm có sẵn trong global scope
+        if (typeof window.acceptCall === 'undefined') {
+            window.acceptCall = acceptCall;
+        }
+        if (typeof window.rejectCall === 'undefined') {
+            window.rejectCall = rejectCall;
+        }
+        
+        // ✅ Sử dụng event listener thay vì onclick để tránh vấn đề scope
+        $('#acceptCallBtn').off('click').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📞 Accept button clicked');
+            if (typeof acceptCall === 'function') {
+                acceptCall();
+            } else if (typeof window.acceptCall === 'function') {
+                window.acceptCall();
+            } else {
+                console.error('❌ acceptCall function not found');
+                alert('Lỗi: Hàm acceptCall không tìm thấy. Vui lòng refresh trang.');
+            }
+        });
+        
+        $('#rejectCallBtn').off('click').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📞 Reject button clicked');
+            if (typeof rejectCall === 'function') {
+                rejectCall();
+            } else if (typeof window.rejectCall === 'function') {
+                window.rejectCall();
+            } else {
+                console.error('❌ rejectCall function not found');
+                alert('Lỗi: Hàm rejectCall không tìm thấy. Vui lòng refresh trang.');
+            }
+        });
+        
+        console.log('✅ Accept/Reject buttons created with event listeners, functions available:', {
+            acceptCall: typeof acceptCall,
+            windowAcceptCall: typeof window.acceptCall,
+            rejectCall: typeof rejectCall,
+            windowRejectCall: typeof window.rejectCall,
+            currentCall: currentCall
+        });
     } else {
+        console.log('✅ Showing outgoing call modal with end call button');
         $('#callStatus').text('Đang gọi...');
         $('#callControls').html(`
             <button class="btn btn-danger btn-lg" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
@@ -3202,6 +3773,7 @@ function showCallModal(type, name, callType) {
         `);
     }
     
+    // ✅ Đảm bảo modal được hiển thị
     const modalElement = document.getElementById('callModal');
     if (modalElement) {
         let modal = bootstrap.Modal.getInstance(modalElement);
@@ -3209,6 +3781,39 @@ function showCallModal(type, name, callType) {
             modal = new bootstrap.Modal(modalElement);
         }
         modal.show();
+        
+        // ✅ Kiểm tra lại sau một chút để đảm bảo modal đã hiển thị
+        setTimeout(() => {
+            const isShown = modalElement.classList.contains('show') || $(modalElement).hasClass('show');
+            const controlsHtml = $('#callControls').html();
+            console.log('🔍 Modal check after show:', {
+                isShown: isShown,
+                type: type,
+                controlsHtml: controlsHtml,
+                status: $('#callStatus').text()
+            });
+            
+            if (!isShown) {
+                console.warn('⚠️ Modal not shown, forcing show again');
+                modal.show();
+            }
+            
+            // ✅ Đảm bảo nút accept/reject được hiển thị đúng cho incoming call
+            if (type === 'incoming' && !controlsHtml.includes('acceptCall')) {
+                console.warn('⚠️ Accept button missing, re-adding...');
+                $('#callControls').html(`
+                    <button class="btn btn-success btn-lg me-2" id="acceptCallBtn" onclick="if(typeof acceptCall === 'function') { acceptCall(); } else { console.error('acceptCall function not found'); alert('Lỗi: Hàm acceptCall không tìm thấy. Vui lòng refresh trang.'); }" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;">
+                        <i class="fas fa-phone"></i>
+                    </button>
+                    <button class="btn btn-danger btn-lg" id="rejectCallBtn" onclick="if(typeof rejectCall === 'function') { rejectCall(); } else { console.error('rejectCall function not found'); alert('Lỗi: Hàm rejectCall không tìm thấy. Vui lòng refresh trang.'); }" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;">
+                        <i class="fas fa-phone-slash"></i>
+                    </button>
+                `);
+                $('#callStatus').text('Cuộc gọi đến...');
+            }
+        }, 200);
+    } else {
+        console.error('❌ Call modal element not found!');
     }
 }
 
@@ -3216,37 +3821,140 @@ function showCallModal(type, name, callType) {
  * Chấp nhận cuộc gọi
  */
 async function acceptCall() {
-    if (!currentCall || !window.WebRTCHelper) {
+    console.log('📞 acceptCall() called');
+    console.log('📞 currentCall:', currentCall);
+    console.log('📞 WebRTCHelper available:', typeof window.WebRTCHelper !== 'undefined');
+    if (!currentCall) {
+        console.error('❌ No current call to accept');
+        alert('Không có cuộc gọi để chấp nhận');
         return;
     }
     
+    if (!window.WebRTCHelper) {
+        console.error('❌ WebRTC Helper not available');
+        alert('WebRTC Helper chưa được load. Vui lòng refresh trang.');
+        return;
+    }
+    
+    console.log('📞 Accepting call:', currentCall);
+    
     try {
-        // Accept call trên server
-        const response = await $.post(getApiPath('src/controllers/call-controller.php?action=accept_call'), {
-            call_id: currentCall.id
-        });
-        
-        if (!response.success) {
-            alert('Lỗi chấp nhận cuộc gọi: ' + (response.error || 'Unknown error'));
+        // ✅ Đảm bảo call_id là number (không phải string)
+        const callId = parseInt(currentCall.id);
+        if (isNaN(callId)) {
+            console.error('❌ Invalid call ID:', currentCall.id);
+            alert('ID cuộc gọi không hợp lệ');
             return;
         }
         
-        // Phát sự kiện accept
-        if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
+        console.log('📞 Sending accept_call request with call_id:', callId);
+        
+        // Accept call trên server
+        const response = await $.ajax({
+            url: getApiPath('src/controllers/call-controller.php?action=accept_call'),
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                call_id: callId
+            },
+            timeout: 10000
+        });
+        
+        console.log('📞 Accept call response:', response);
+        
+        if (!response || !response.success) {
+            const errorMsg = response?.error || 'Unknown error';
+            console.error('❌ Accept call failed:', errorMsg);
+            alert('Lỗi chấp nhận cuộc gọi: ' + errorMsg);
+            
+            // ✅ Nếu call không tồn tại, cleanup và đóng modal
+            if (errorMsg.includes('không tồn tại') || errorMsg.includes('không thể chấp nhận')) {
+                console.warn('⚠️ Call not found, cleaning up...');
+                cleanupCall();
+            }
+            return;
+        }
+        
+        console.log('✅ Call accepted successfully on server');
+        
+        // ✅ Đảm bảo currentCall tồn tại trước khi cập nhật
+        if (!currentCall) {
+            console.error('❌ currentCall is null when updating call info');
+            return;
+        }
+        
+        // ✅ Cập nhật currentCall với thông tin từ server
+        if (response.call_id) {
+            currentCall.id = response.call_id;
+        }
+        if (response.caller_id) {
+            currentCall.caller_id = response.caller_id;
+        }
+        if (response.call_type) {
+            currentCall.type = response.call_type;
+        }
+        currentCall.status = 'accepted';
+        
+        // Phát sự kiện accept qua socket
+        if (isConnected && chatSocket && typeof chatSocket.emit === 'function' && currentCall) {
+            // ✅ Đảm bảo caller_id có giá trị (tránh null reference)
+            const callerId = currentCall.caller_id || currentCall.receiver_id || currentUserId;
+            
+            console.log('📞 Emitting call_accepted event:', {
+                call_id: currentCall.id,
+                caller_id: callerId,
+                receiver_id: currentUserId
+            });
+            
             chatSocket.emit('call_accepted', {
                 call_id: currentCall.id,
-                caller_id: currentCall.caller_id || currentCall.receiver_id,
+                caller_id: callerId,
                 receiver_id: currentUserId
             });
         }
         
+        // ✅ KHÔNG đóng modal ngay - đợi đến khi call connected
+        // Modal sẽ được đóng trong onCallConnected() khi WebRTC connection established
+        // Chỉ cập nhật status trong modal
+        $('#callStatus').text('Đang kết nối...');
+        
+        // ✅ Disable nút accept/reject để tránh click nhiều lần
+        $('#callControls button').prop('disabled', true);
+        
         // WebRTC sẽ tự động handle offer/answer qua socket events
-        // Không cần gọi thêm function nào ở đây
         // Offer sẽ được handle trong setupWebRTCEventHandlers()
+        console.log('✅ Call accepted, waiting for WebRTC offer...');
         
     } catch (error) {
         console.error('❌ Error accepting call:', error);
-        alert('Lỗi: ' + error.message);
+        console.error('❌ Error details:', {
+            message: error.message,
+            status: error.status,
+            responseText: error.responseText
+        });
+        
+        let errorMessage = 'Lỗi: ' + (error.message || 'Unknown error');
+        
+        // ✅ Xử lý lỗi chi tiết hơn
+        if (error.responseJSON && error.responseJSON.error) {
+            errorMessage = error.responseJSON.error;
+        } else if (error.responseText) {
+            try {
+                const errorResponse = JSON.parse(error.responseText);
+                if (errorResponse.error) {
+                    errorMessage = errorResponse.error;
+                }
+            } catch (e) {
+                // Không phải JSON, giữ nguyên error message
+            }
+        }
+        
+        alert(errorMessage);
+        
+        // ✅ Cleanup nếu có lỗi
+        if (error.status === 404 || errorMessage.includes('không tồn tại')) {
+            cleanupCall();
+        }
     }
 }
 
@@ -3259,7 +3967,9 @@ function rejectCall() {
         return;
     }
     
+    // ✅ Lưu các giá trị cần thiết trước khi cleanup (vì cleanup sẽ set currentCall = null)
     const callId = currentCall.id;
+    const callerId = currentCall.caller_id || currentCall.receiver_id || currentUserId;
     
     if (window.WebRTCHelper) {
         window.WebRTCHelper.cleanup();
@@ -3269,15 +3979,24 @@ function rejectCall() {
         call_id: callId
     }, function(response) {
         cleanupCall();
+        // ✅ Sử dụng callerId đã lưu trước đó, không đọc từ currentCall (đã null)
         if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
             chatSocket.emit('call_rejected', {
                 call_id: callId,
-                caller_id: currentCall.caller_id || currentCall.receiver_id,
+                caller_id: callerId,
                 receiver_id: currentUserId
             });
         }
     }, 'json').fail(function() {
         cleanupCall();
+        // ✅ Vẫn gửi socket event ngay cả khi server request fail
+        if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
+            chatSocket.emit('call_rejected', {
+                call_id: callId,
+                caller_id: callerId,
+                receiver_id: currentUserId
+            });
+        }
     });
 }
 
@@ -3314,6 +4033,9 @@ function endCall() {
     }
 }
 
+// ✅ Expose các hàm ra global scope để có thể gọi từ onclick
+window.acceptCall = acceptCall;
+window.rejectCall = rejectCall;
 window.endCall = endCall;
 
 /**
@@ -3321,11 +4043,11 @@ window.endCall = endCall;
  */
 function showVoiceCallUI() {
     const conversation = conversations.find(c => c.id == currentConversationId);
-    const otherUserName = conversation ? conversation.other_user_name : 'Người gọi';
+    const otherUserName = conversation ? conversation.other_user_name : (currentCall?.caller_name || 'Người gọi');
     
     $('#callerName').text(otherUserName);
     $('#callType').text('Cuộc gọi thoại');
-    $('#callStatus').text('Đang gọi...');
+    $('#callStatus').text('00:00'); // ✅ Hiển thị timer bắt đầu từ 00:00
     $('#callControls').html(`
         <button class="btn btn-danger btn-lg" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
             <i class="fas fa-phone-slash"></i>
@@ -3344,8 +4066,101 @@ function showVoiceCallUI() {
     $('#videoCallContainer').hide();
 }
 
-// Setup Stringee event handlers khi page load
+/**
+ * Bắt đầu timer tính giây cuộc gọi
+ */
+function startCallTimer() {
+    // ✅ Dừng timer cũ nếu có
+    if (callTimer) {
+        clearInterval(callTimer);
+        callTimer = null;
+    }
+    
+    // ✅ Lưu thời gian bắt đầu
+    callStartTime = Date.now();
+    
+    console.log('⏱️ Starting call timer');
+    
+    // ✅ Cập nhật timer mỗi giây
+    callTimer = setInterval(function() {
+        // ✅ QUAN TRỌNG: Tự động dừng timer nếu call đã kết thúc
+        if (!callStartTime || !currentCall) {
+            stopCallTimer();
+            return;
+        }
+        
+        const elapsed = Math.floor((Date.now() - callStartTime) / 1000); // Thời gian đã trôi qua (giây)
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        
+        // ✅ Format: MM:SS
+        const timeString = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+        
+        // ✅ Cập nhật UI
+        $('#callStatus').text(timeString);
+        
+        console.log('⏱️ Call duration:', timeString);
+    }, 1000);
+}
+
+/**
+ * Dừng timer cuộc gọi
+ */
+function stopCallTimer() {
+    if (callTimer) {
+        clearInterval(callTimer);
+        callTimer = null;
+    }
+    callStartTime = null;
+    console.log('⏱️ Call timer stopped');
+}
+
+// Setup WebRTC event handlers khi page load
 $(document).ready(function() {
+    // ✅ Expose các hàm call ra global scope ngay từ đầu
+    // Đảm bảo các hàm có sẵn trước khi modal được hiển thị
+    if (typeof window.acceptCall === 'undefined') {
+        window.acceptCall = acceptCall;
+        console.log('✅ acceptCall exposed to global scope');
+    }
+    if (typeof window.rejectCall === 'undefined') {
+        window.rejectCall = rejectCall;
+        console.log('✅ rejectCall exposed to global scope');
+    }
+    if (typeof window.endCall === 'undefined') {
+        window.endCall = endCall;
+        console.log('✅ endCall exposed to global scope');
+    }
+    
+    // ✅ Thêm event listeners cho các nút trong HTML ban đầu (nếu có)
+    $('#acceptCallBtn').off('click').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('📞 Accept button clicked (from initial HTML)');
+        if (typeof acceptCall === 'function') {
+            acceptCall();
+        } else if (typeof window.acceptCall === 'function') {
+            window.acceptCall();
+        } else {
+            console.error('❌ acceptCall function not found');
+            alert('Lỗi: Hàm acceptCall không tìm thấy. Vui lòng refresh trang.');
+        }
+    });
+    
+    $('#rejectCallBtn').off('click').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('📞 Reject button clicked (from initial HTML)');
+        if (typeof rejectCall === 'function') {
+            rejectCall();
+        } else if (typeof window.rejectCall === 'function') {
+            window.rejectCall();
+        } else {
+            console.error('❌ rejectCall function not found');
+            alert('Lỗi: Hàm rejectCall không tìm thấy. Vui lòng refresh trang.');
+        }
+    });
+    
     // Initialize WebRTC Helper khi socket đã kết nối
     if (chatSocket && window.WebRTCHelper) {
         window.WebRTCHelper.init(chatSocket);
@@ -3353,6 +4168,31 @@ $(document).ready(function() {
         console.log('✅ WebRTC Helper initialized');
     }
 });
+
+/**
+ * Toggle mute
+ */
+/**
+ * Reset mute/camera state về trạng thái ban đầu (đều bật)
+ */
+function resetMuteCameraState() {
+    // ✅ Reset state variables
+    isMuted = false;
+    isCameraOff = false;
+    
+    // ✅ Reset UI icons về trạng thái ban đầu (mic và camera đều bật)
+    const muteIcon = $('#muteBtn i');
+    if (muteIcon.length) {
+        muteIcon.removeClass('fa-microphone-slash').addClass('fa-microphone');
+    }
+    
+    const cameraIcon = $('#cameraBtn i');
+    if (cameraIcon.length) {
+        cameraIcon.removeClass('fa-video-slash').addClass('fa-video');
+    }
+    
+    console.log('✅ Mute/Camera state reset to default (both enabled)');
+}
 
 /**
  * Toggle mute

@@ -829,7 +829,7 @@ function getOnlineUsers($pdo) {
  */
 function getOnlineCount($pdo) {
     try {
-        // Debug: Ghi log query
+        // Ghi log query để debug
         error_log("getOnlineCount - Executing query");
         
         // Đếm users có OnlineStatus = 'Online' và LastActivity trong 5 phút gần đây
@@ -844,7 +844,7 @@ function getOnlineCount($pdo) {
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        // Debug: Ghi log kết quả
+        // Ghi log kết quả để debug
         error_log("getOnlineCount - Result: " . print_r($result, true));
         
         // Cũng lấy thông tin chi tiết để debug

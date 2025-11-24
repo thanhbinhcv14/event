@@ -185,27 +185,27 @@ function createPayment() {
             $userId = $_SESSION['user']['ID_User'];
             $baseAmount = floatval($amount);
             
-            // Only apply discount for full payment (1 time), not for deposit or remaining payment
+            // Chỉ áp dụng giảm giá cho thanh toán đủ (1 lần), không cho đặt cọc hoặc thanh toán còn lại
             if ($paymentType === 'full') {
-                // If discount_id and discount_amount are provided, validate them
+                // Nếu discount_id và discount_amount được cung cấp, xác minh chúng
                 if (!empty($_POST['discount_id']) && isset($_POST['discount_amount'])) {
                     $discountCodeId = intval($_POST['discount_id']);
                     $frontendDiscountAmount = floatval($_POST['discount_amount']);
                     
-                    // Validate discount code from database
+                    // Xác minh mã giảm giá từ database
                     $stmt = $pdo->prepare("SELECT * FROM magiamgia WHERE ID_MaGiamGia = ? AND TrangThai = 'Hoạt động'");
                     $stmt->execute([$discountCodeId]);
                     $codeData = $stmt->fetch(PDO::FETCH_ASSOC);
                     
                     if ($codeData) {
-                        // Recalculate discount to ensure security
+                        // Tính lại giảm giá để đảm bảo bảo mật
                         $discountAmount = calculateDiscountAmount($codeData, $baseAmount, $userId);
                         if ($discountAmount > 0) {
                             $discountCode = $codeData['MaCode'];
-                            // Verify the discount amount matches (allow small floating point differences)
+                            // Xác minh số tiền giảm giá khớp (cho phép sai số nhỏ do floating point)
                             if (abs($discountAmount - $frontendDiscountAmount) > 0.01) {
                                 error_log("Discount amount mismatch: frontend={$frontendDiscountAmount}, backend={$discountAmount}");
-                                // Use backend calculated amount for security
+                                // Sử dụng số tiền tính từ backend để đảm bảo bảo mật
                             }
                         } else {
                             $discountCodeId = null;
@@ -213,7 +213,7 @@ function createPayment() {
                         }
                     }
                 } else if (!empty($_POST['discount_code'])) {
-                    // If only discount code is provided, validate it
+                    // Nếu chỉ có mã giảm giá được cung cấp, xác minh nó
                     $code = trim($_POST['discount_code']);
                     $stmt = $pdo->prepare("SELECT * FROM magiamgia WHERE MaCode = ? AND TrangThai = 'Hoạt động'");
                     $stmt->execute([$code]);

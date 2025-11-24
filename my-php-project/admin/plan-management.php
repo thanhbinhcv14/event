@@ -661,7 +661,7 @@ try {
             console.log('=== EDIT PLAN DEBUG ===');
             console.log('Editing plan ID:', planId);
             
-            // Fetch plan data
+            // Lấy dữ liệu kế hoạch
             fetch(`../src/controllers/event-planning.php?action=get_plan&plan_id=${planId}`)
                 .then(response => {
                     console.log('Response status:', response.status);
@@ -674,7 +674,7 @@ try {
                         const plan = data.plan;
                         console.log('Plan object:', plan);
                         
-                        // Check if form fields exist
+                        // Kiểm tra xem các trường form có tồn tại không
                         const editPlanId = document.getElementById('editPlanId');
                         const editPlanName = document.getElementById('editPlanName');
                         const editPlanContent = document.getElementById('editPlanContent');
@@ -700,7 +700,7 @@ try {
                             return;
                         }
                         
-                        // Fill form
+                        // Điền dữ liệu vào form
                         editPlanId.value = plan.ID_KeHoach;
                         editPlanName.value = plan.ten_kehoach || '';
                         editPlanContent.value = plan.NoiDung || '';
@@ -812,10 +812,10 @@ try {
                     if (data.success && data.staff) {
                         const staffSelect = document.getElementById('editStaff');
                         if (staffSelect) {
-                            // Clear existing options
+                            // Xóa các tùy chọn hiện có
                             staffSelect.innerHTML = '<option value="">Chọn nhân viên</option>';
                             
-                            // Add staff options
+                            // Thêm các tùy chọn nhân viên
                             data.staff.forEach(staff => {
                                 const option = document.createElement('option');
                                 option.value = staff.ID_NhanVien;

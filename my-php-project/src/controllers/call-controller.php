@@ -100,6 +100,27 @@ function initiateCall($pdo, $userId) {
     // Xác định người nhận
     $receiverId = ($conversation['user1_id'] == $userId) ? $conversation['user2_id'] : $conversation['user1_id'];
     
+    // ✅ VALIDATION: Kiểm tra quyền gọi dựa trên role
+    // Lấy role của caller và receiver
+    $stmt = $pdo->prepare("SELECT ID_Role FROM users WHERE ID_User = ?");
+    $stmt->execute([$userId]);
+    $callerRole = $stmt->fetchColumn();
+    
+    $stmt = $pdo->prepare("SELECT ID_Role FROM users WHERE ID_User = ?");
+    $stmt->execute([$receiverId]);
+    $receiverRole = $stmt->fetchColumn();
+    
+    // Nếu caller là role 5 (khách hàng), chỉ cho phép gọi với role 1 (admin) và role 3 (quản lý sự kiện)
+    if ($callerRole == 5) {
+        if (!in_array($receiverRole, [1, 3])) {
+            echo json_encode([
+                'success' => false, 
+                'error' => 'Bạn chỉ có thể gọi với quản trị viên hoặc quản lý sự kiện'
+            ]);
+            return;
+        }
+    }
+    
     // QUAN TRỌNG: Cleanup tất cả call sessions cũ trước khi kiểm tra busy
     try {
         // 1. Cleanup call sessions cũ hơn 10 phút (bất kỳ status nào)
@@ -152,7 +173,7 @@ function initiateCall($pdo, $userId) {
         $stmt->execute([$userId]);
         
     } catch (Exception $e) {
-        // Log error but continue
+        // Ghi log lỗi nhưng vẫn tiếp tục
         error_log('Error cleaning up old call sessions: ' . $e->getMessage());
     }
     
@@ -172,7 +193,7 @@ function initiateCall($pdo, $userId) {
     $stmt->execute([$receiverId, $conversationId]);
     $activeCall = $stmt->fetch();
     if ($activeCall) {
-        // Log để debug
+        // Ghi log để debug
         error_log("Call blocked: Receiver {$receiverId} has active call session ID: {$activeCall['id']}, status: {$activeCall['status']}, started_at: {$activeCall['started_at']}");
         echo json_encode(['success' => false, 'error' => 'Người nhận đang bận']);
         return;
@@ -214,7 +235,7 @@ function initiateCall($pdo, $userId) {
         ");
         $stmt->execute([$conversationId, $userId, $messageText, $callType . '_call']);
         
-        // Update conversation timestamp
+        // Cập nhật timestamp của cuộc trò chuyện
         $stmt = $pdo->prepare("
             UPDATE conversations 
             SET updated_at = NOW()
@@ -258,18 +279,52 @@ function acceptCall($pdo, $userId) {
         return;
     }
     
-    // Kiểm tra quyền và trạng thái cuộc gọi
+    // ✅ Kiểm tra quyền và trạng thái cuộc gọi
+    // Cho phép accept cả 'initiated', 'ringing', và 'accepted' (nếu đã accept nhưng chưa connect)
     $stmt = $pdo->prepare("
-        SELECT id, caller_id, receiver_id, call_type, status 
+        SELECT id, caller_id, receiver_id, call_type, status, started_at
         FROM call_sessions 
-        WHERE id = ? AND receiver_id = ? AND status IN ('initiated', 'ringing')
+        WHERE id = ? AND receiver_id = ? AND status IN ('initiated', 'ringing', 'accepted')
     ");
     $stmt->execute([$callId, $userId]);
     $call = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$call) {
-        echo json_encode(['success' => false, 'error' => 'Cuộc gọi không tồn tại hoặc không thể chấp nhận']);
+        // ✅ Log chi tiết để debug
+        error_log("Accept call failed - Call ID: {$callId}, User ID: {$userId}");
+        
+        // Kiểm tra xem call có tồn tại không (có thể đã bị timeout hoặc cleanup)
+        $stmt = $pdo->prepare("SELECT id, status, receiver_id FROM call_sessions WHERE id = ?");
+        $stmt->execute([$callId]);
+        $existingCall = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$existingCall) {
+            error_log("Call {$callId} does not exist in database");
+            echo json_encode(['success' => false, 'error' => 'Cuộc gọi không tồn tại. Có thể đã bị hủy hoặc timeout.']);
+        } else if ($existingCall['receiver_id'] != $userId) {
+            error_log("Call {$callId} receiver mismatch - Expected: {$userId}, Found: {$existingCall['receiver_id']}");
+            echo json_encode(['success' => false, 'error' => 'Bạn không có quyền chấp nhận cuộc gọi này']);
+        } else if ($existingCall['status'] === 'ended' || $existingCall['status'] === 'rejected') {
+            error_log("Call {$callId} already ended/rejected with status: {$existingCall['status']}");
+            echo json_encode(['success' => false, 'error' => 'Cuộc gọi đã kết thúc hoặc bị từ chối']);
+        } else {
+            error_log("Call {$callId} has invalid status: {$existingCall['status']}");
+            echo json_encode(['success' => false, 'error' => 'Cuộc gọi không thể chấp nhận. Trạng thái: ' . $existingCall['status']]);
+        }
         return;
+    }
+    
+    // ✅ Kiểm tra timeout (30 giây)
+    if ($call['started_at']) {
+        $startTime = strtotime($call['started_at']);
+        $currentTime = time();
+        $elapsed = $currentTime - $startTime;
+        
+        if ($elapsed > 30) {
+            error_log("Call {$callId} timeout - Elapsed: {$elapsed} seconds");
+            echo json_encode(['success' => false, 'error' => 'Cuộc gọi đã hết thời gian chờ (30 giây)']);
+            return;
+        }
     }
     
     try {
@@ -374,7 +429,7 @@ function endCall($pdo, $userId) {
     $call = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$call) {
-        // Nếu không tìm thấy call, vẫn trả về success để frontend có thể cleanup
+        // Nếu không tìm thấy cuộc gọi, vẫn trả về success để frontend có thể cleanup
         echo json_encode([
             'success' => true,
             'call_id' => $callId,
@@ -385,14 +440,14 @@ function endCall($pdo, $userId) {
     }
     
     try {
-        // Tính toán thời lượng cuộc gọi (nếu có started_at)
+        // Tính toán thời lượng cuộc gọi (nếu có thời gian bắt đầu)
         $duration = 0;
         if ($call['started_at']) {
             try {
                 $startedAt = new DateTime($call['started_at']);
                 $endedAt = new DateTime();
                 $duration = $endedAt->getTimestamp() - $startedAt->getTimestamp();
-                // Đảm bảo duration không âm
+                // Đảm bảo thời lượng không âm
                 if ($duration < 0) {
                     $duration = 0;
                 }
@@ -420,7 +475,7 @@ function endCall($pdo, $userId) {
         
     } catch (Exception $e) {
         error_log('Error ending call: ' . $e->getMessage());
-        // Vẫn trả về success để frontend có thể cleanup
+        // Vẫn trả về success để frontend có thể dọn dẹp
         echo json_encode([
             'success' => true,
             'call_id' => $callId,

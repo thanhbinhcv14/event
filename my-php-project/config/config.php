@@ -1,5 +1,5 @@
 <?php
-// Load .env
+// Tải file .env
 function loadEnv($path) {
     if (!file_exists($path)) return;
     $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -10,13 +10,13 @@ function loadEnv($path) {
     }
 }
 
-// Set default values if .env doesn't exist
+// Đặt giá trị mặc định nếu file .env không tồn tại
 if (!file_exists(__DIR__ . '/../.env')) {
     $_ENV['DB_HOST'] = 'localhost';
     $_ENV['DB_NAME'] = 'event';
     $_ENV['DB_USER'] = 'root';
     $_ENV['DB_PASS'] = '';
-    // Generate a secure random JWT secret if not exists
+    // Tạo JWT secret ngẫu nhiên an toàn nếu chưa tồn tại
     if (!isset($_ENV['JWT_SECRET'])) {
         $_ENV['JWT_SECRET'] = bin2hex(random_bytes(32));
     }
@@ -24,52 +24,52 @@ if (!file_exists(__DIR__ . '/../.env')) {
     loadEnv(__DIR__ . '/../.env');
 }
 
-// Define constants
+// Định nghĩa các hằng số
 define('JWT_SECRET', $_ENV['JWT_SECRET']);
 
-// Base URL configuration - Auto detect from server
+// Cấu hình Base URL - Tự động phát hiện từ server
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
 $basePath = dirname($scriptName);
 
-// Remove filename if present
+// Xóa tên file nếu có
 $basePath = str_replace(basename($scriptName), '', $basePath);
 $basePath = rtrim($basePath, '/');
 
-// If basePath is empty or just '/', use root
+// Nếu basePath rỗng hoặc chỉ là '/', sử dụng root
 if (empty($basePath) || $basePath === '/') {
     $basePath = '';
 } else {
     $basePath = $basePath;
 }
 
-// Base URL (for API calls)
+// Base URL (cho các lời gọi API)
 define('BASE_URL', $protocol . '://' . $host . $basePath);
 
-// Base Path (for assets, relative paths)
+// Base Path (cho assets, đường dẫn tương đối)
 define('BASE_PATH', $basePath);
 
 // Session Security Configuration
 // CHỈ start session nếu chưa được start (tránh conflict với các file khác)
 if (session_status() === PHP_SESSION_NONE) {
-    // Secure session configuration
+    // Cấu hình session an toàn
     ini_set('session.cookie_httponly', 1);
     ini_set('session.use_strict_mode', 1);
     ini_set('session.cookie_lifetime', 0); // Until browser close
     ini_set('session.gc_maxlifetime', 3600); // 1 hour
     
-    // Only set secure flag if using HTTPS
+    // Chỉ đặt cờ secure nếu đang dùng HTTPS
     if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
         ini_set('session.cookie_secure', 1);
     }
     
-    // SameSite cookie attribute (PHP 7.3+)
+    // Thuộc tính SameSite cho cookie (PHP 7.3+)
     if (version_compare(PHP_VERSION, '7.3.0', '>=')) {
         ini_set('session.cookie_samesite', 'Strict');
     }
     
-    // Start session với error handling
+    // Bắt đầu session với xử lý lỗi
     try {
         session_start();
     } catch (Exception $e) {

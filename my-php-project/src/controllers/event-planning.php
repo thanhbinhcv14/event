@@ -2,13 +2,13 @@
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../auth/auth.php';
 
-// Start session
+// Bắt đầu session
 session_start();
 
-// Set JSON header
+// Thiết lập header JSON
 header('Content-Type: application/json');
 
-// Check if user is logged in and has role 2
+// Kiểm tra người dùng đã đăng nhập và có role phù hợp
 if (!isLoggedIn()) {
     error_log("Event Planning API: User not logged in. Session data: " . print_r($_SESSION, true));
     error_log("Event Planning API: Request URI: " . $_SERVER['REQUEST_URI']);
@@ -27,7 +27,7 @@ if (!in_array($user['ID_Role'], [1, 2, 3])) {
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
-// Debug action
+// Ghi log action để debug
 error_log("Event Planning Action: " . $action);
 error_log("All GET data: " . json_encode($_GET));
 error_log("All POST data: " . json_encode($_POST));
@@ -138,7 +138,7 @@ try {
 
 function getEvents($pdo) {
     try {
-        // Get all approved events with their planning status
+        // Lấy tất cả sự kiện đã duyệt cùng với trạng thái kế hoạch
         $sql = "
             SELECT 
                 dl.ID_DatLich,
@@ -242,12 +242,12 @@ function deletePlan($pdo) {
         $eventId = $_POST['event_id'] ?? '';
         
         if (!empty($planId)) {
-            // Delete by plan ID
-            // Delete related steps first
+            // Xóa theo ID kế hoạch
+            // Xóa các bước liên quan trước
             $stmt = $pdo->prepare("DELETE FROM chitietkehoach WHERE ID_KeHoach = ?");
             $stmt->execute([$planId]);
             
-            // Delete the plan
+            // Xóa kế hoạch
             $stmt = $pdo->prepare("DELETE FROM kehoachthuchien WHERE ID_KeHoach = ?");
             $result = $stmt->execute([$planId]);
             
@@ -264,7 +264,7 @@ function deletePlan($pdo) {
             }
             return;
         } elseif (!empty($eventId)) {
-            // Delete by event ID (legacy)
+            // Xóa theo ID sự kiện (legacy - giữ lại để tương thích)
             $sql = "DELETE FROM kehoachthuchien WHERE ID_SuKien = ?";
             $stmt = $pdo->prepare($sql);
             $result = $stmt->execute([$eventId]);
@@ -307,7 +307,7 @@ function addPlanStep($pdo) {
         $priority = $_POST['priority'] ?? '';
         $note = $_POST['note'] ?? '';
         
-        // Debug variables
+        // Ghi log các biến để debug
         error_log("=== ADD PLAN STEP DEBUG ===");
         error_log("eventId: '$eventId'");
         error_log("stepName: '$stepName'");
@@ -333,7 +333,7 @@ function addPlanStep($pdo) {
             return;
         }
         
-        // Get plan ID from event ID - tìm kế hoạch thông qua datlichsukien
+        // Lấy ID kế hoạch từ ID sự kiện - tìm kế hoạch thông qua datlichsukien
         $planStmt = $pdo->prepare("
             SELECT kht.ID_KeHoach 
             FROM kehoachthuchien kht
@@ -351,7 +351,7 @@ function addPlanStep($pdo) {
             return;
         }
         
-        // Insert new step
+        // Thêm bước mới vào database
         $sql = "
             INSERT INTO chitietkehoach 
             (ID_KeHoach, TenBuoc, MoTa, NgayBatDau, NgayKetThuc, TrangThai, ID_NhanVien, GhiChu)
@@ -369,11 +369,11 @@ function addPlanStep($pdo) {
             $note
         ]);
         
-        // If step was created successfully and staff is assigned, create work schedule
+        // Nếu bước được tạo thành công và có nhân viên được phân công, tạo lịch làm việc
         if ($result && $staffId) {
             $stepId = $pdo->lastInsertId();
             
-            // Get event details for work schedule
+            // Lấy thông tin sự kiện để tạo lịch làm việc
             $eventStmt = $pdo->prepare("
                 SELECT dl.ID_DatLich, dl.TenSuKien
                 FROM datlichsukien dl
@@ -384,7 +384,7 @@ function addPlanStep($pdo) {
             $event = $eventStmt->fetch(PDO::FETCH_ASSOC);
             
             if ($event) {
-                // Create work schedule entry
+                // Tạo bản ghi lịch làm việc
                 $scheduleSql = "
                     INSERT INTO lichlamviec 
                     (ID_DatLich, ID_NhanVien, NhiemVu, NgayBatDau, NgayKetThuc, TrangThai, ID_ChiTiet, CongViec, NgayTao)
@@ -596,7 +596,7 @@ function getEventSteps($pdo) {
         $stmt->execute([$eventId, $eventId]);
         $steps = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // For each step, get all assigned staff IDs from lichlamviec
+        // Với mỗi bước, lấy tất cả ID nhân viên được phân công từ lichlamviec
         foreach ($steps as &$step) {
             $staffStmt = $pdo->prepare("
                 SELECT DISTINCT llv.ID_NhanVien, nv.HoTen, nv.ChucVu
@@ -671,7 +671,7 @@ function getPlans($pdo) {
             $params[] = $eventId;
         }
         
-        // First, update all plan statuses before fetching
+        // Cập nhật tất cả trạng thái kế hoạch trước khi lấy dữ liệu
         updateAllPlanStatuses($pdo, $eventId);
         
         $sql = "
@@ -739,44 +739,44 @@ function createPlan($pdo) {
         $content = $_POST['planContent'] ?? $_POST['planDescription'] ?? $_POST['content'] ?? '';
         $notes = $_POST['notes'] ?? '';
         
-        // Force get planContent if content is empty
+        // Ép buộc lấy planContent nếu content rỗng
         if (empty($content) && !empty($_POST['planContent'])) {
             $content = $_POST['planContent'];
         }
         
-        // Force get planDescription if content is empty
+        // Ép buộc lấy planDescription nếu content rỗng
         if (empty($content) && !empty($_POST['planDescription'])) {
             $content = $_POST['planDescription'];
         }
         
-        // Additional fallback - check all possible field names
+        // Fallback bổ sung - kiểm tra tất cả tên trường có thể
         if (empty($content)) {
             $content = $_POST['planContent'] ?? $_POST['planDescription'] ?? $_POST['content'] ?? $_POST['plan_content'] ?? '';
         }
         
-        // Final fallback - explicitly check planContent field
+        // Fallback cuối cùng - kiểm tra rõ ràng trường planContent
         if (empty($content) && isset($_POST['planContent'])) {
             $content = $_POST['planContent'];
         }
         
-        // Final fallback - explicitly check planDescription field
+        // Fallback cuối cùng - kiểm tra rõ ràng trường planDescription
         if (empty($content) && isset($_POST['planDescription'])) {
             $content = $_POST['planDescription'];
         }
         
-        // Ultimate fallback - check if planContent exists and content is still empty
+        // Fallback tối đa - kiểm tra nếu planContent tồn tại và content vẫn rỗng
         if (empty($content) && !empty($_POST['planContent'])) {
             $content = trim($_POST['planContent']);
             error_log("Ultimate fallback: Set content from planContent = '$content'");
         }
         
-        // Ultimate fallback - check if planDescription exists and content is still empty
+        // Fallback tối đa - kiểm tra nếu planDescription tồn tại và content vẫn rỗng
         if (empty($content) && !empty($_POST['planDescription'])) {
             $content = trim($_POST['planDescription']);
             error_log("Ultimate fallback: Set content from planDescription = '$content'");
         }
         
-        // Debug each field individually
+        // Ghi log từng trường riêng lẻ để debug
         error_log("=== FIELD DEBUG ===");
         error_log("Field check - eventId: '" . ($_POST['eventId'] ?? 'NOT_SET') . "'");
         error_log("Field check - planName: '" . ($_POST['planName'] ?? 'NOT_SET') . "'");
@@ -789,16 +789,16 @@ function createPlan($pdo) {
         error_log("Content empty check: " . (empty($content) ? 'TRUE' : 'FALSE'));
         error_log("Content length: " . strlen($content));
         
-        // Debug POST data
+        // Ghi log dữ liệu POST để debug
         error_log("Create Plan POST data: " . print_r($_POST, true));
         error_log("Raw POST: " . file_get_contents('php://input'));
         error_log("Parsed data - eventId: '$eventId', planName: '$planName', startDate: '$startDate', endDate: '$endDate', content: '$content'");
         
-        // Debug all POST keys
+        // Ghi log tất cả keys trong POST để debug
         error_log("All POST keys: " . implode(', ', array_keys($_POST)));
         error_log("POST values: " . json_encode($_POST));
         
-        // Debug validation
+        // Ghi log quá trình validation để debug
         error_log("Validation check - eventId: '$eventId', planName: '$planName', startDate: '$startDate', endDate: '$endDate', content: '$content'");
         
         if (empty($eventId) || empty($planName) || empty($startDate) || empty($endDate) || empty($content)) {
@@ -809,7 +809,7 @@ function createPlan($pdo) {
             if (empty($endDate)) $missing[] = 'endDate';
             if (empty($content)) $missing[] = 'planContent/planDescription';
             
-            // Additional debug for content field
+            // Ghi log bổ sung cho trường content
             error_log("Content field debug:");
             error_log("  - \$_POST['planContent']: '" . ($_POST['planContent'] ?? 'NOT_SET') . "'");
             error_log("  - \$_POST['planDescription']: '" . ($_POST['planDescription'] ?? 'NOT_SET') . "'");
@@ -824,7 +824,7 @@ function createPlan($pdo) {
             return;
         }
         
-        // Check payment status - only allow creating plan if payment is sufficient or deposit is made
+        // Kiểm tra trạng thái thanh toán - chỉ cho phép tạo kế hoạch nếu đã thanh toán đủ hoặc đã đặt cọc
         $paymentCheckStmt = $pdo->prepare("
             SELECT TrangThaiThanhToan, TrangThaiDuyet
             FROM datlichsukien
@@ -841,7 +841,7 @@ function createPlan($pdo) {
             return;
         }
         
-        // Check if event is approved
+        // Kiểm tra xem sự kiện đã được duyệt chưa
         if ($paymentInfo['TrangThaiDuyet'] !== 'Đã duyệt') {
             echo json_encode([
                 'success' => false,
@@ -850,7 +850,7 @@ function createPlan($pdo) {
             return;
         }
         
-        // Check payment status - must be "Đã thanh toán đủ" or "Đã đặt cọc"
+        // Kiểm tra trạng thái thanh toán - phải là "Đã thanh toán đủ" hoặc "Đã đặt cọc"
         $paymentStatus = $paymentInfo['TrangThaiThanhToan'] ?? 'Chưa thanh toán';
         if ($paymentStatus !== 'Đã thanh toán đủ' && $paymentStatus !== 'Đã đặt cọc') {
             echo json_encode([
@@ -860,7 +860,7 @@ function createPlan($pdo) {
             return;
         }
         
-        // Check if plan already exists for this event
+        // Kiểm tra xem đã có kế hoạch cho sự kiện này chưa
         $checkSql = "
             SELECT kht.ID_KeHoach 
             FROM kehoachthuchien kht
@@ -878,7 +878,7 @@ function createPlan($pdo) {
             return;
         }
         
-        // Get current user's employee ID
+        // Lấy ID nhân viên của người dùng hiện tại
         $user = getCurrentUser();
         $employeeId = null;
         
@@ -891,7 +891,7 @@ function createPlan($pdo) {
             }
         }
         
-        // Get sukien ID from datlichsukien
+        // Lấy ID sự kiện từ datlichsukien
         $sukienStmt = $pdo->prepare("SELECT ID_SuKien FROM sukien WHERE ID_DatLich = ?");
         $sukienStmt->execute([$eventId]);
         $sukienResult = $sukienStmt->fetch(PDO::FETCH_ASSOC);
