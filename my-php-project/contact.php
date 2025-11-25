@@ -537,7 +537,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="blog.php">
-                            <i class="fas fa-blog me-1"></i>Blog
+                            <i class="fas fa-blog me-1"></i>Bài viết
                         </a>
                     </li>
                     <li class="nav-item">

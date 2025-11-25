@@ -381,6 +381,11 @@
                     </label>
                     <input type="password" class="form-control" id="password" name="password" required placeholder="Nhập mật khẩu">
                 </div>
+                <div class="mb-3 text-end">
+                    <a href="#" class="link-register" onclick="event.preventDefault(); showForgotPasswordModal();" style="font-size: 0.9rem;">
+                        Quên mật khẩu
+                    </a>
+                </div>
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary">
                         <i class="fa fa-sign-in-alt me-2"></i>Đăng nhập
@@ -396,19 +401,71 @@
             <div class="social-section">
                 <p class="social-title text-center">Hoặc đăng nhập bằng</p>
                 <div class="social-buttons">
-                    <a href="social-login.php?provider=Facebook" class="btn btn-facebook d-flex align-items-center justify-content-center">
+                    <!-- Facebook Login với JavaScript SDK -->
+                    <button type="button" 
+                            id="fb-login-btn" 
+                            class="btn btn-facebook d-flex align-items-center justify-content-center w-100 mb-2"
+                            onclick="loginWithFacebook()">
                         <i class="fab fa-facebook-f me-2"></i> Facebook
-                    </a>
+                    </button>
+                    <!-- Google Login với Hybridauth -->
                     <a href="social-login.php?provider=Google" class="btn btn-google d-flex align-items-center justify-content-center">
                         <i class="fab fa-google me-2"></i> Google
                     </a>
+                </div>
+            </div>
+            
+            <!-- Facebook JavaScript SDK -->
+            <script src="assets/js/facebook-sdk.js"></script>
+        </div>
+    </div>
+
+    <!-- Modal Quên Mật Khẩu -->
+    <div class="modal fade" id="forgotPasswordModal" tabindex="-1" aria-labelledby="forgotPasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 15px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                <div class="modal-header" style="border-bottom: 2px solid #e9ecef; background: linear-gradient(45deg, #667eea, #764ba2); color: white; border-radius: 15px 15px 0 0;">
+                    <h5 class="modal-title" id="forgotPasswordModalLabel">
+                        <i class="fa fa-key me-2"></i>Quên mật khẩu
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="padding: 2rem;">
+                    <p class="text-muted mb-3">Nhập email của bạn để nhận mật khẩu mới qua email.</p>
+                    <form id="forgotPasswordForm">
+                        <div class="mb-3">
+                            <label for="forgotEmail" class="form-label">
+                                <i class="fa fa-envelope me-2"></i>Email
+                            </label>
+                            <input type="email" class="form-control" id="forgotEmail" name="email" required placeholder="Nhập email của bạn">
+                        </div>
+                        <div class="alert alert-danger" id="forgotPasswordError" style="display: none;"></div>
+                        <div class="alert alert-success" id="forgotPasswordSuccess" style="display: none;"></div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary" id="forgotPasswordBtn">
+                                <i class="fa fa-paper-plane me-2"></i>Gửi mật khẩu mới
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fa fa-times me-2"></i>Hủy
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Function quên mật khẩu - phải ở global scope để gọi từ inline onclick
+        function showForgotPasswordModal() {
+            $('#forgotPasswordModal').modal('show');
+            $('#forgotPasswordError').hide();
+            $('#forgotPasswordSuccess').hide();
+            $('#forgotEmail').val('');
+        }
+        
         $(document).ready(function() {
             // Xóa tất cả cảnh báo và dữ liệu form hiện có
             $('.alert').hide();
@@ -522,6 +579,88 @@
                        }
                        showAlert(msg);
                    }
+                 });
+             });
+             
+             // Xử lý form quên mật khẩu
+             $('#forgotPasswordForm').on('submit', function(e) {
+                 e.preventDefault();
+                 
+                 const email = $('#forgotEmail').val().trim();
+                 
+                 if (!email) {
+                     $('#forgotPasswordError').text('Vui lòng nhập email').show();
+                     return;
+                 }
+                 
+                 // Validate email format
+                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                 if (!emailRegex.test(email)) {
+                     $('#forgotPasswordError').text('Email không hợp lệ').show();
+                     return;
+                 }
+                 
+                 // Disable button và hiển thị loading
+                 const btn = $('#forgotPasswordBtn');
+                 const originalText = btn.html();
+                 btn.prop('disabled', true);
+                 btn.html('<i class="fa fa-spinner fa-spin me-2"></i>Đang xử lý...');
+                 
+                 $('#forgotPasswordError').hide();
+                 $('#forgotPasswordSuccess').hide();
+                 
+                 // Gửi request
+                 $.ajax({
+                     url: 'src/controllers/forgot-password.php',
+                     type: 'POST',
+                     contentType: 'application/json',
+                     data: JSON.stringify({ email: email }),
+                     success: function(response) {
+                         if (response.success) {
+                             $('#forgotPasswordSuccess').html('<i class="fa fa-check-circle me-2"></i>' + (response.message || 'Mật khẩu mới đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.')).show();
+                             $('#forgotEmail').val('');
+                             setTimeout(function() {
+                                 $('#forgotPasswordModal').modal('hide');
+                             }, 3000);
+                         } else {
+                             $('#forgotPasswordError').html('<i class="fa fa-exclamation-circle me-2"></i>' + (response.error || response.message || 'Có lỗi xảy ra')).show();
+                         }
+                         btn.prop('disabled', false);
+                         btn.html(originalText);
+                     },
+                     error: function(xhr) {
+                         let errorMsg = 'Có lỗi xảy ra, vui lòng thử lại sau';
+                         
+                         // Log chi tiết để debug
+                         console.error('Forgot password error:', xhr);
+                         
+                         if (xhr.responseJSON) {
+                             if (xhr.responseJSON.error) {
+                                 errorMsg = xhr.responseJSON.error;
+                             } else if (xhr.responseJSON.message) {
+                                 errorMsg = xhr.responseJSON.message;
+                             }
+                             
+                             // Hiển thị debug info nếu có (chỉ trong development)
+                             if (xhr.responseJSON.debug) {
+                                 console.error('Debug info:', xhr.responseJSON.debug);
+                             }
+                         } else if (xhr.responseText) {
+                             // Nếu response không phải JSON, log để debug
+                             console.error('Response text:', xhr.responseText);
+                             try {
+                                 const response = JSON.parse(xhr.responseText);
+                                 errorMsg = response.error || response.message || errorMsg;
+                             } catch (e) {
+                                 console.error('Failed to parse response:', e);
+                                 errorMsg = 'Lỗi kết nối server. Vui lòng kiểm tra console để xem chi tiết.';
+                             }
+                         }
+                         
+                         $('#forgotPasswordError').html('<i class="fa fa-exclamation-circle me-2"></i>' + errorMsg).show();
+                         btn.prop('disabled', false);
+                         btn.html(originalText);
+                     }
                  });
              });
          });

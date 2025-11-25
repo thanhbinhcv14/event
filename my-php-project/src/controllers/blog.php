@@ -557,13 +557,29 @@ function getAllPosts($pdo) {
         $sql .= " ORDER BY bp.created_at DESC";
         
         $stmt = $pdo->prepare($sql);
+        if (!$stmt) {
+            throw new Exception("Lỗi khi chuẩn bị query: " . implode(", ", $pdo->errorInfo()));
+        }
+        
         $stmt->execute($params);
         $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Định dạng ngày tháng
         foreach ($posts as &$post) {
-            $post['created_at'] = date('d/m/Y H:i', strtotime($post['created_at']));
-            $post['updated_at'] = date('d/m/Y H:i', strtotime($post['updated_at']));
+            if (isset($post['created_at']) && $post['created_at']) {
+                try {
+                    $post['created_at'] = date('d/m/Y H:i', strtotime($post['created_at']));
+                } catch (Exception $e) {
+                    // Giữ nguyên nếu format lỗi
+                }
+            }
+            if (isset($post['updated_at']) && $post['updated_at']) {
+                try {
+                    $post['updated_at'] = date('d/m/Y H:i', strtotime($post['updated_at']));
+                } catch (Exception $e) {
+                    // Giữ nguyên nếu format lỗi
+                }
+            }
         }
         
         echo json_encode(['success' => true, 'posts' => $posts]);

@@ -2082,7 +2082,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="blog.php">
-                            <i class="fas fa-blog me-1"></i>Blog
+                            <i class="fas fa-blog me-1"></i>Bài viết
                         </a>
                     </li>
                     <li class="nav-item">
@@ -2198,7 +2198,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         </div>
     </section>
 
-    <!-- Blog Section -->
+    <!-- Bài viết Section -->
     <section id="blog" class="py-5 bg-light">
         <div class="container">
             <div class="text-center mb-5">
@@ -2209,7 +2209,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                 </a>
             </div>
             <div class="row g-4" id="blogPostsContainer">
-                <!-- Blog posts will be loaded here via JavaScript -->
+                <!-- Bài viết sẽ được tải ở đây qua JavaScript -->
                 <div class="col-12 text-center">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Đang tải...</span>
@@ -3273,33 +3273,33 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             }, 3000);
         }
         
-        // Load blog posts (first 4)
+        // Load bài viết (first 4)
         function loadEventTypes() {
-            console.log('Loading blog posts...');
+            console.log('Loading bài viết...');
             
             $.ajax({
                 url: 'src/controllers/blog.php?action=get_all_public&limit=4',
                 method: 'GET',
                 dataType: 'json',
                 success: function(response) {
-                    console.log('Blog posts API response:', response);
+                    console.log('Bài viết API response:', response);
                     
                     if (response.success && response.posts && response.posts.length > 0) {
-                        console.log('Displaying', response.posts.length, 'blog posts');
+                        console.log('Displaying', response.posts.length, 'bài viết');
                         displayBlogPosts(response.posts);
                     } else {
-                        console.log('No blog posts found');
+                        console.log('No bài viết found');
                         displayNoBlogPosts();
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('Error loading blog posts:', error);
+                    console.error('Error loading bài viết:', error);
                     displayNoBlogPosts();
                 }
             });
         }
         
-        // Display blog posts
+        // Display bài viết
         function displayBlogPosts(posts) {
             const container = $('#blogPostsContainer');
             let html = '';
@@ -3337,7 +3337,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             container.html(html);
         }
         
-        // Display no blog posts message
+        // Display no bài viết message
         function displayNoBlogPosts() {
             const container = $('#blogPostsContainer');
             container.html(`
@@ -3351,7 +3351,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             `);
         }
         
-        // View blog post
+        // View bài viết
         function viewBlogPost(postId) {
             window.location.href = `blog.php?post_id=${postId}`;
         }

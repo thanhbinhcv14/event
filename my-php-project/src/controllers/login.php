@@ -72,15 +72,22 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 try {
     $pdo = getDBConnection();
     
+    // Kiểm tra email có tồn tại trong hệ thống không
     $stmt = $pdo->prepare("SELECT * FROM users WHERE Email = ?");
     $stmt->execute([$email]);
-    $user = $stmt->fetch();
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Check if user exists and password is correct
-    // Không phân biệt giữa "tài khoản không tồn tại" và "sai mật khẩu" để bảo mật
-    if (!$user || !password_verify($password, $user['Password'] ?? '')) {
+    // Kiểm tra tài khoản có tồn tại không
+    if (!$user) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Tài khoản không tồn tại']);
+        exit;
+    }
+
+    // Kiểm tra mật khẩu
+    if (empty($user['Password']) || !password_verify($password, $user['Password'])) {
         http_response_code(401);
-        echo json_encode(['error' => 'Email hoặc mật khẩu không đúng']);
+        echo json_encode(['error' => 'Mật khẩu không đúng']);
         exit;
     }
 

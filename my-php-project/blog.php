@@ -15,7 +15,7 @@ $typeId = $_GET['type_id'] ?? null;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blog - Hệ thống tổ chức sự kiện</title>
+    <title>Bài viết - Hệ thống tổ chức sự kiện</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="icon" href="img/logo/logo.jpg">
@@ -618,7 +618,7 @@ $typeId = $_GET['type_id'] ?? null;
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" href="blog.php">
-                            <i class="fas fa-blog me-1"></i>Blog
+                            <i class="fas fa-blog me-1"></i>Bài viết
                         </a>
                     </li>
                     <li class="nav-item">
@@ -691,17 +691,17 @@ $typeId = $_GET['type_id'] ?? null;
         </div>
     </nav>
 
-    <!-- Blog Header -->
+    <!-- Bài viết Header -->
     <section class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 60px 0; margin-top: 70px; margin-bottom: 40px;">
         <div class="container">
             <div class="text-center">
-                <h1 class="display-4 fw-bold mb-3">Blog sự kiện</h1>
+                <h1 class="display-4 fw-bold mb-3">Bài viết sự kiện</h1>
                 <p class="lead">Khám phá các bài viết về tổ chức sự kiện</p>
             </div>
         </div>
     </section>
 
-    <!-- Blog Posts Section -->
+    <!-- Bài viết Posts Section -->
     <section class="py-0">
         <div class="container" style="max-width: 1200px; margin: 0 auto;">
             <div id="blogPostsContainer">

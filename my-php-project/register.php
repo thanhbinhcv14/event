@@ -620,14 +620,22 @@
             <div class="social-section">
                 <p class="social-title text-center">Hoặc đăng ký bằng</p>
                 <div class="social-buttons">
-                    <a href="social-login.php?provider=Facebook" class="btn btn-facebook d-flex align-items-center justify-content-center">
+                    <!-- Facebook Login với JavaScript SDK -->
+                    <button type="button" 
+                            id="fb-register-btn" 
+                            class="btn btn-facebook d-flex align-items-center justify-content-center w-100 mb-2"
+                            onclick="loginWithFacebook()">
                         <i class="fab fa-facebook-f me-2"></i> Facebook
-                    </a>
+                    </button>
+                    <!-- Google Login với Hybridauth -->
                     <a href="social-login.php?provider=Google" class="btn btn-google d-flex align-items-center justify-content-center">
                         <i class="fab fa-google me-2"></i> Google
                     </a>
                 </div>
             </div>
+            
+            <!-- Facebook JavaScript SDK -->
+            <script src="assets/js/facebook-sdk.js"></script>
         </div>
     </div>
 

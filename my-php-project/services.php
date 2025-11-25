@@ -1075,7 +1075,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="blog.php">
-                            <i class="fas fa-blog me-1"></i>Blog
+                            <i class="fas fa-blog me-1"></i>Bài viết
                         </a>
                     </li>
                     <li class="nav-item">
@@ -1114,19 +1114,19 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                                 <span>Sự kiện</span>
                             </button>
                             <ul class="dropdown-menu navbar-event-dropdown" aria-labelledby="eventsDropdown">
-                                <li><a class="dropdown-item" href="events/register.php">
-                                    <i class="fas fa-calendar-plus me-2"></i>Đăng ký sự kiện
-                                </a></li>
-                                <li><a class="dropdown-item" href="events/my-events.php">
-                                    <i class="fas fa-list-alt me-2"></i>Sự kiện của tôi
-                                </a></li>
-                                <?php if (in_array($userRole, [1, 2, 3, 4])): ?>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="admin/event-registrations.php">
-                                    <i class="fas fa-cogs me-2"></i>Quản lý sự kiện
-                                </a></li>
-                                <?php endif; ?>
-                            </ul>
+                            <li><a class="dropdown-item" href="events/register.php">
+                                <i class="fas fa-calendar-plus me-2"></i>Đăng ký sự kiện
+                            </a></li>
+                            <li><a class="dropdown-item" href="events/my-events.php">
+                                <i class="fas fa-list-alt me-2"></i>Sự kiện của tôi
+                            </a></li>
+                            <?php if (in_array($userRole, [1, 2, 3, 4])): ?>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="admin/event-registrations.php">
+                                <i class="fas fa-cogs me-2"></i>Quản lý sự kiện
+                            </a></li>
+                            <?php endif; ?>
+                        </ul>
                         </div>
                         
                         <a href="profile.php" class="btn btn-outline-primary">
@@ -1358,7 +1358,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                         <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
                         <p class="text-muted">Chưa có mã giảm giá nào được lưu</p>
                         <p class="text-muted small">Lưu mã giảm giá trên trang chủ để sử dụng khi đăng ký sự kiện</p>
-                    </div>
+                        </div>
                 `);
                 return;
             }
@@ -1398,16 +1398,16 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                                                 <div class="d-flex align-items-center mb-2">
                                                     <span class="badge bg-warning text-dark me-2" style="font-size: 0.9rem;">${code.code}</span>
                                                     <h6 class="mb-0">${code.name}</h6>
-                                                </div>
+                            </div>
                                                 <p class="mb-1 text-success fw-bold">${code.display_text}</p>
                                                 <p class="mb-1 text-muted small">${code.description || 'Mã giảm giá đặc biệt'}</p>
                                                 <div class="small text-muted mb-2">
                                                     <i class="fas fa-info-circle text-warning"></i> ${minAmountText}
-                                                </div>
+                            </div>
                                                 <div class="small text-danger">
                                                     <i class="fas fa-clock"></i> Hết hạn: ${endDateFormatted}
-                                                </div>
-                                            </div>
+                        </div>
+                    </div>
                                             <div class="d-flex flex-column gap-2">
                                                 <button class="btn btn-sm btn-outline-primary" onclick="copyDiscountCode('${code.code}')" title="Sao chép mã">
                                                     <i class="fas fa-copy"></i>
@@ -1415,9 +1415,9 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                                                 <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${code.code}')" title="Xóa khỏi giỏ">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
-                                            </div>
-                                        </div>
-                                    </div>
+                </div>
+                        </div>
+                    </div>
                                 `;
                             });
                         } else {
@@ -1429,12 +1429,12 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                                             <div>
                                                 <span class="badge bg-warning text-dark me-2">${code}</span>
                                                 <span class="text-muted small">Mã này có thể đã hết hạn hoặc không còn hoạt động</span>
-                                            </div>
+                </div>
                                             <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${code}')" title="Xóa khỏi giỏ">
                                                 <i class="fas fa-trash"></i>
                                             </button>
-                                        </div>
-                                    </div>
+                        </div>
+                    </div>
                                 `;
                             });
                         }
@@ -1446,7 +1446,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                             <div class="text-center py-4">
                                 <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
                                 <p class="text-muted">Không thể tải thông tin mã giảm giá</p>
-                            </div>
+                        </div>
                         `);
                     }
                 },
@@ -1455,7 +1455,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                         <div class="text-center py-4">
                             <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
                             <p class="text-muted">Lỗi khi tải thông tin mã giảm giá</p>
-                        </div>
+                    </div>
                     `);
                 }
             });

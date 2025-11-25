@@ -32,6 +32,7 @@ class ComposerStaticInite6d3927c8e4a6f71d6259807b5eb008d
             'Psr\\Http\\Client\\' => 16,
             'PhpParser\\' => 10,
             'PhpOption\\' => 10,
+            'PHPMailer\\PHPMailer\\' => 20,
         ),
         'H' => 
         array (
@@ -97,6 +98,10 @@ class ComposerStaticInite6d3927c8e4a6f71d6259807b5eb008d
         'PhpOption\\' => 
         array (
             0 => __DIR__ . '/..' . '/phpoption/phpoption/src/PhpOption',
+        ),
+        'PHPMailer\\PHPMailer\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
         ),
         'Hybridauth\\' => 
         array (

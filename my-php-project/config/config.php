@@ -31,6 +31,15 @@ define('JWT_SECRET', $_ENV['JWT_SECRET']);
 // Lấy từ environment variable hoặc dùng giá trị mặc định
 define('GEMINI_API_KEY', $_ENV['GEMINI_API_KEY'] ?? 'AIzaSyAT4nAOSfEwiO-8DozSXwncJ1rIj-nmpVk');
 
+// Email SMTP Configuration
+define('SMTP_HOST', $_ENV['SMTP_HOST'] ?? 'smtp.gmail.com');
+define('SMTP_PORT', $_ENV['SMTP_PORT'] ?? 587);
+define('SMTP_USERNAME', $_ENV['SMTP_USERNAME'] ?? 'thanhbinh14062003@gmail.com');
+define('SMTP_PASSWORD', $_ENV['SMTP_PASSWORD'] ?? 'fqawwkwjysmslukr'); // App Password từ Gmail (đã loại bỏ khoảng trắng)
+define('SMTP_FROM_EMAIL', $_ENV['SMTP_FROM_EMAIL'] ?? 'thanhbinh14062003@gmail.com');
+define('SMTP_FROM_NAME', $_ENV['SMTP_FROM_NAME'] ?? 'Hệ thống sự kiện');
+define('SMTP_ENCRYPTION', $_ENV['SMTP_ENCRYPTION'] ?? 'tls'); // tls hoặc ssl
+
 // Cấu hình Base URL - Tự động phát hiện từ server
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
