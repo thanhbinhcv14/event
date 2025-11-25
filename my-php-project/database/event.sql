@@ -929,6 +929,7 @@ CREATE TABLE `phong` (
   `GiaThueNgay` decimal(15,2) DEFAULT NULL,
   `LoaiThue` enum('Theo giờ','Theo ngày','Cả hai') DEFAULT 'Cả hai',
   `MoTa` text DEFAULT NULL,
+  `HinhAnh` varchar(255) DEFAULT NULL,
   `TrangThai` enum('Sẵn sàng','Đang sử dụng','Bảo trì') DEFAULT 'Sẵn sàng',
   `NgayTao` timestamp NOT NULL DEFAULT current_timestamp(),
   `NgayCapNhat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -938,35 +939,35 @@ CREATE TABLE `phong` (
 -- Đang đổ dữ liệu cho bảng `phong`
 --
 
-INSERT INTO `phong` (`ID_Phong`, `ID_DD`, `TenPhong`, `SucChua`, `GiaThueGio`, `GiaThueNgay`, `LoaiThue`, `MoTa`, `TrangThai`, `NgayTao`, `NgayCapNhat`) VALUES
+INSERT INTO `phong` (`ID_Phong`, `ID_DD`, `TenPhong`, `SucChua`, `GiaThueGio`, `GiaThueNgay`, `LoaiThue`, `MoTa`, `HinhAnh`, `TrangThai`, `NgayTao`, `NgayCapNhat`) VALUES
 -- Phòng cho ID_DD 1: Trung tâm Hội nghị White Palace (đã có 3 phòng)
-(1, 1, 'Phòng Hội nghị A', 300, 1500000.00, 25000000.00, 'Cả hai', 'Phòng hội nghị lớn, trang bị đầy đủ thiết bị', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(2, 1, 'Phòng Hội nghị B', 200, 1200000.00, 20000000.00, 'Cả hai', 'Phòng hội nghị vừa, phù hợp họp nhóm', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(3, 1, 'Phòng Tiệc C', 500, 2000000.00, 35000000.00, 'Cả hai', 'Phòng tiệc lớn, sang trọng', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(1, 1, 'Phòng Hội nghị A', 300, 1500000.00, 25000000.00, 'Cả hai', 'Phòng hội nghị lớn, trang bị đầy đủ thiết bị', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(2, 1, 'Phòng Hội nghị B', 200, 1200000.00, 20000000.00, 'Cả hai', 'Phòng hội nghị vừa, phù hợp họp nhóm', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(3, 1, 'Phòng Tiệc C', 500, 2000000.00, 35000000.00, 'Cả hai', 'Phòng tiệc lớn, sang trọng', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
 -- Phòng cho ID_DD 2: Nhà hát Thành phố Hồ Chí Minh (thêm 2 phòng)
-(4, 2, 'Sân khấu chính', 500, 3000000.00, 60000000.00, 'Cả hai', 'Sân khấu chính của nhà hát', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(9, 2, 'Phòng Hội nghị 1', 150, 800000.00, 12000000.00, 'Cả hai', 'Phòng hội nghị nhỏ, phù hợp họp nhóm', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(10, 2, 'Phòng Hội nghị 2', 200, 1000000.00, 15000000.00, 'Cả hai', 'Phòng hội nghị vừa, trang bị đầy đủ', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(4, 2, 'Sân khấu chính', 500, 3000000.00, 60000000.00, 'Cả hai', 'Sân khấu chính của nhà hát', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(9, 2, 'Phòng Hội nghị 1', 150, 800000.00, 12000000.00, 'Cả hai', 'Phòng hội nghị nhỏ, phù hợp họp nhóm', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(10, 2, 'Phòng Hội nghị 2', 200, 1000000.00, 15000000.00, 'Cả hai', 'Phòng hội nghị vừa, trang bị đầy đủ', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
 -- Phòng cho ID_DD 3: Nhà thi đấu Quân khu 7 (thêm 3 phòng)
-(11, 3, 'Phòng Hội nghị 1', 300, 1000000.00, 15000000.00, 'Cả hai', 'Phòng hội nghị tầng 1, rộng rãi', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(12, 3, 'Phòng Hội nghị 2', 250, 900000.00, 12000000.00, 'Cả hai', 'Phòng hội nghị tầng 2, tiện nghi', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(13, 3, 'Phòng Hội nghị 3', 200, 800000.00, 10000000.00, 'Cả hai', 'Phòng hội nghị tầng 3, phù hợp họp nhóm', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(11, 3, 'Phòng Hội nghị 1', 300, 1000000.00, 15000000.00, 'Cả hai', 'Phòng hội nghị tầng 1, rộng rãi', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(12, 3, 'Phòng Hội nghị 2', 250, 900000.00, 12000000.00, 'Cả hai', 'Phòng hội nghị tầng 2, tiện nghi', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(13, 3, 'Phòng Hội nghị 3', 200, 800000.00, 10000000.00, 'Cả hai', 'Phòng hội nghị tầng 3, phù hợp họp nhóm', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
 -- Phòng cho ID_DD 4: Trung tâm GEM Center (đã có 3 phòng)
-(5, 4, 'Phòng Hội nghị 1', 250, 1500000.00, 25000000.00, 'Cả hai', 'Phòng hội nghị tầng 1', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(6, 4, 'Phòng Hội nghị 2', 300, 1800000.00, 30000000.00, 'Cả hai', 'Phòng hội nghị tầng 2', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(7, 4, 'Phòng Hội nghị 3', 200, 1200000.00, 20000000.00, 'Cả hai', 'Phòng hội nghị tầng 3', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(5, 4, 'Phòng Hội nghị 1', 250, 1500000.00, 25000000.00, 'Cả hai', 'Phòng hội nghị tầng 1', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(6, 4, 'Phòng Hội nghị 2', 300, 1800000.00, 30000000.00, 'Cả hai', 'Phòng hội nghị tầng 2', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(7, 4, 'Phòng Hội nghị 3', 200, 1200000.00, 20000000.00, 'Cả hai', 'Phòng hội nghị tầng 3', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
 -- Phòng cho ID_DD 5: Trung tâm Hội nghị Riverside Palace (thêm 3 phòng)
-(14, 5, 'Phòng Hội nghị 1', 280, 1200000.00, 20000000.00, 'Cả hai', 'Phòng hội nghị tầng 1, sang trọng', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(15, 5, 'Phòng Hội nghị 2', 250, 1100000.00, 18000000.00, 'Cả hai', 'Phòng hội nghị tầng 2, tiện nghi', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(16, 5, 'Phòng Tiệc', 400, 1500000.00, 25000000.00, 'Cả hai', 'Phòng tiệc lớn, phù hợp tiệc cưới', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(14, 5, 'Phòng Hội nghị 1', 280, 1200000.00, 20000000.00, 'Cả hai', 'Phòng hội nghị tầng 1, sang trọng', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(15, 5, 'Phòng Hội nghị 2', 250, 1100000.00, 18000000.00, 'Cả hai', 'Phòng hội nghị tầng 2, tiện nghi', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(16, 5, 'Phòng Tiệc', 400, 1500000.00, 25000000.00, 'Cả hai', 'Phòng tiệc lớn, phù hợp tiệc cưới', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
 -- Phòng cho ID_DD 7: Nhà thi đấu Phú Thọ (thêm 3 phòng)
-(17, 7, 'Phòng Hội nghị 1', 300, 1000000.00, 15000000.00, 'Cả hai', 'Phòng hội nghị tầng 1, rộng rãi', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(18, 7, 'Phòng Hội nghị 2', 250, 900000.00, 12000000.00, 'Cả hai', 'Phòng hội nghị tầng 2, tiện nghi', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(19, 7, 'Phòng Hội nghị 3', 200, 800000.00, 10000000.00, 'Cả hai', 'Phòng hội nghị tầng 3, phù hợp họp nhóm', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(17, 7, 'Phòng Hội nghị 1', 300, 1000000.00, 15000000.00, 'Cả hai', 'Phòng hội nghị tầng 1, rộng rãi', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(18, 7, 'Phòng Hội nghị 2', 250, 900000.00, 12000000.00, 'Cả hai', 'Phòng hội nghị tầng 2, tiện nghi', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(19, 7, 'Phòng Hội nghị 3', 200, 800000.00, 10000000.00, 'Cả hai', 'Phòng hội nghị tầng 3, phù hợp họp nhóm', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
 -- Phòng cho ID_DD 13: Capella Park View (thêm 2 phòng)
-(8, 13, 'Phòng vip', 200, 1000.00, 2000.00, 'Cả hai', 'Phòng VIP sang trọng', 'Sẵn sàng', '2025-11-16 21:57:19', '2025-11-16 21:57:19'),
-(20, 13, 'Phòng Hội nghị 1', 100, 500000.00, 8000000.00, 'Cả hai', 'Phòng hội nghị tầng 1, phù hợp họp nhóm nhỏ', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
-(21, 13, 'Phòng Hội nghị 2', 120, 600000.00, 10000000.00, 'Cả hai', 'Phòng hội nghị tầng 2, tiện nghi', 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00');
+(8, 13, 'Phòng vip', 200, 1000.00, 2000.00, 'Cả hai', 'Phòng VIP sang trọng', NULL, 'Sẵn sàng', '2025-11-16 21:57:19', '2025-11-16 21:57:19'),
+(20, 13, 'Phòng Hội nghị 1', 100, 500000.00, 8000000.00, 'Cả hai', 'Phòng hội nghị tầng 1, phù hợp họp nhóm nhỏ', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00'),
+(21, 13, 'Phòng Hội nghị 2', 120, 600000.00, 10000000.00, 'Cả hai', 'Phòng hội nghị tầng 2, tiện nghi', NULL, 'Sẵn sàng', '2025-11-02 15:00:00', '2025-11-02 15:00:00');
 -- --------------------------------------------------------
 
 --
@@ -1136,6 +1137,97 @@ INSERT INTO `users` (`ID_User`, `Email`, `Password`, `FacebookID`, `GoogleID`, `
 (124, 'thaoanh@gmail.com', '$2y$10$DS4Pte9et5u.xNby9OQBMORbphO0mz36abpCh0/1NussDlaCOSo8e', NULL, NULL, 5, 'Hoạt động', '2025-09-25 02:09:32', '2025-10-09 03:12:13', 'Offline', NULL),
 (129, 'thanhbinhcv14@gmail.com', '$2y$10$1vfLe/IHU2NCclc2S9sqq.7nQwDpwD/rFfXa.Pe72mg9hu5yDyzRu', NULL, NULL, 3, 'Hoạt động', '2025-10-25 09:07:59', '2025-10-28 20:16:31', 'Online', '2025-10-26 07:59:55'),
 (130, 'nam', '$2y$10$ECe7qP2VhD2pcLBsGS6FH.WZHEFCNxftLX5LyEVtlTiFdXbxod9D2', NULL, NULL, 5, 'Hoạt động', '2025-10-26 01:27:44', '2025-10-26 01:27:44', 'Offline', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `blog_posts`
+--
+
+CREATE TABLE `blog_posts` (
+  `id` int(11) NOT NULL,
+  `event_type_id` int(11) NOT NULL COMMENT 'ID loại sự kiện',
+  `title` varchar(255) NOT NULL COMMENT 'Tiêu đề bài viết',
+  `content` text NOT NULL COMMENT 'Nội dung bài viết',
+  `excerpt` text DEFAULT NULL COMMENT 'Tóm tắt bài viết',
+  `featured_image` varchar(500) DEFAULT NULL COMMENT 'Ảnh đại diện',
+  `author_id` int(11) DEFAULT NULL COMMENT 'ID người viết',
+  `status` enum('draft','published','archived') DEFAULT 'published' COMMENT 'Trạng thái',
+  `views` int(11) DEFAULT 0 COMMENT 'Số lượt xem',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `blog_posts`
+--
+
+INSERT INTO `blog_posts` (`id`, `event_type_id`, `title`, `content`, `excerpt`, `author_id`, `status`, `views`) VALUES
+(1, 1, 'Hướng dẫn tổ chức hội nghị chuyên nghiệp', 
+'<p>Hội nghị là một trong những loại sự kiện quan trọng nhất trong doanh nghiệp. Để tổ chức một hội nghị thành công, bạn cần chuẩn bị kỹ lưỡng về:</p>
+<ul>
+<li>Lựa chọn địa điểm phù hợp với số lượng người tham dự</li>
+<li>Chuẩn bị thiết bị âm thanh, ánh sáng và trình chiếu</li>
+<li>Lên kế hoạch chi tiết về thời gian và nội dung chương trình</li>
+<li>Chuẩn bị tài liệu và quà tặng cho người tham dự</li>
+</ul>
+<p>Với kinh nghiệm nhiều năm trong lĩnh vực tổ chức sự kiện, chúng tôi cam kết mang đến cho bạn những hội nghị chuyên nghiệp và ấn tượng nhất.</p>',
+'Khám phá các bí quyết tổ chức hội nghị thành công với đội ngũ chuyên nghiệp của chúng tôi.',
+3, 'published', 0),
+
+(2, 2, 'Nghệ thuật biểu diễn: Từ ý tưởng đến hiện thực',
+'<p>Văn hóa và nghệ thuật là linh hồn của mỗi sự kiện. Một buổi biểu diễn nghệ thuật thành công không chỉ cần tài năng của nghệ sĩ mà còn cần:</p>
+<ul>
+<li>Hệ thống âm thanh chất lượng cao</li>
+<li>Ánh sáng sân khấu chuyên nghiệp</li>
+<li>Không gian biểu diễn phù hợp</li>
+<li>Đội ngũ kỹ thuật viên giàu kinh nghiệm</li>
+</ul>
+<p>Chúng tôi tự hào đã tổ chức hàng trăm buổi biểu diễn nghệ thuật lớn nhỏ, từ liveshow ca nhạc đến nhạc kịch, từ biểu diễn dân gian đến hiện đại.</p>',
+'Khám phá thế giới nghệ thuật biểu diễn và cách chúng tôi biến ý tưởng thành hiện thực.',
+3, 'published', 0),
+
+(3, 3, 'Triển lãm thương mại: Cơ hội quảng bá thương hiệu',
+'<p>Triển lãm thương mại là cơ hội tuyệt vời để doanh nghiệp quảng bá sản phẩm và dịch vụ. Để có một triển lãm thành công:</p>
+<ul>
+<li>Thiết kế gian hàng ấn tượng và thu hút</li>
+<li>Chuẩn bị tài liệu quảng cáo chuyên nghiệp</li>
+<li>Tổ chức các hoạt động tương tác với khách tham quan</li>
+<li>Sử dụng công nghệ hiện đại như VR, AR để trải nghiệm</li>
+</ul>
+<p>Với đội ngũ thiết kế và tổ chức sự kiện chuyên nghiệp, chúng tôi sẽ giúp bạn tạo nên một triển lãm đáng nhớ.</p>',
+'Khám phá cách tổ chức triển lãm thương mại hiệu quả để quảng bá thương hiệu của bạn.',
+3, 'published', 0),
+
+(4, 4, 'Tiệc cưới hoàn hảo: Kỷ niệm ngày trọng đại',
+'<p>Tiệc cưới là một trong những ngày quan trọng nhất trong cuộc đời. Để có một tiệc cưới hoàn hảo, bạn cần:</p>
+<ul>
+<li>Lựa chọn địa điểm phù hợp với phong cách và số lượng khách</li>
+<li>Trang trí không gian đẹp mắt và lãng mạn</li>
+<li>Chuẩn bị menu ẩm thực phong phú và chất lượng</li>
+<li>Tổ chức các hoạt động giải trí cho khách mời</li>
+<li>Ghi lại những khoảnh khắc đẹp với dịch vụ quay phim, chụp ảnh</li>
+</ul>
+<p>Chúng tôi hiểu rằng mỗi tiệc cưới đều là duy nhất, và chúng tôi sẽ làm việc cùng bạn để tạo nên một ngày đáng nhớ nhất.</p>',
+'Khám phá cách tổ chức tiệc cưới hoàn hảo với những gợi ý và dịch vụ chuyên nghiệp.',
+3, 'published', 0);
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `blog_comments`
+--
+
+CREATE TABLE `blog_comments` (
+  `id` int(11) NOT NULL,
+  `post_id` int(11) NOT NULL COMMENT 'ID bài viết',
+  `user_id` int(11) NOT NULL COMMENT 'ID người bình luận',
+  `parent_comment_id` int(11) DEFAULT NULL COMMENT 'ID bình luận cha (nếu là reply)',
+  `content` text NOT NULL COMMENT 'Nội dung bình luận',
+  `status` enum('pending','approved','rejected') DEFAULT 'approved' COMMENT 'Trạng thái',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -1502,6 +1594,25 @@ ALTER TABLE `webhook_logs`
   ADD KEY `idx_unprocessed` (`processed`,`created_at`);
 
 --
+-- Chỉ mục cho bảng `blog_posts`
+--
+ALTER TABLE `blog_posts`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `event_type_id` (`event_type_id`),
+  ADD KEY `author_id` (`author_id`),
+  ADD KEY `status` (`status`);
+
+--
+-- Chỉ mục cho bảng `blog_comments`
+--
+ALTER TABLE `blog_comments`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `post_id` (`post_id`),
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `status` (`status`),
+  ADD KEY `parent_comment_id` (`parent_comment_id`);
+
+--
 -- AUTO_INCREMENT cho các bảng đã đổ
 --
 
@@ -1686,6 +1797,18 @@ ALTER TABLE `webhook_logs`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT cho bảng `blog_posts`
+--
+ALTER TABLE `blog_posts`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT cho bảng `blog_comments`
+--
+ALTER TABLE `blog_comments`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- Các ràng buộc cho các bảng đã đổ
 --
 
@@ -1863,7 +1986,53 @@ ALTER TABLE `users`
 --
 ALTER TABLE `webhook_logs`
   ADD CONSTRAINT `fk_webhook_payment` FOREIGN KEY (`payment_id`) REFERENCES `thanhtoan` (`ID_ThanhToan`) ON DELETE SET NULL;
-COMMIT;
+
+--
+-- Các ràng buộc cho bảng `blog_posts`
+--
+ALTER TABLE `blog_posts`
+  ADD CONSTRAINT `fk_blog_posts_event_type` FOREIGN KEY (`event_type_id`) REFERENCES `loaisukien` (`ID_LoaiSK`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_blog_posts_author` FOREIGN KEY (`author_id`) REFERENCES `users` (`ID_User`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
+-- Các ràng buộc cho bảng `blog_comments`
+--
+ALTER TABLE `blog_comments`
+  ADD CONSTRAINT `fk_blog_comments_post` FOREIGN KEY (`post_id`) REFERENCES `blog_posts` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_blog_comments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`ID_User`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_blog_comments_parent` FOREIGN KEY (`parent_comment_id`) REFERENCES `blog_comments` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- --------------------------------------------------------
+
+--
+-- Thêm cột NgayTao và NgayCapNhat vào bảng phong (nếu chưa có)
+-- Chạy các lệnh ALTER TABLE này nếu database đã tồn tại và chưa có các cột timestamp
+-- Lưu ý: Nếu các cột đã tồn tại, sẽ báo lỗi nhưng không ảnh hưởng đến database
+--
+
+--
+-- Thêm cột parent_comment_id vào bảng blog_comments (nếu chưa có)
+-- Chạy các lệnh ALTER TABLE này nếu database đã tồn tại và chưa có cột parent_comment_id
+-- Lưu ý: Nếu cột đã tồn tại, sẽ báo lỗi nhưng không ảnh hưởng đến database
+--
+
+-- Thêm cột parent_comment_id
+ALTER TABLE `blog_comments` 
+ADD COLUMN `parent_comment_id` int(11) DEFAULT NULL COMMENT 'ID bình luận cha (nếu là reply)' AFTER `user_id`;
+
+-- Thêm index cho parent_comment_id (bỏ qua nếu đã tồn tại)
+ALTER TABLE `blog_comments`
+ADD INDEX `parent_comment_id` (`parent_comment_id`);
+
+-- Thêm foreign key constraint (bỏ qua nếu đã tồn tại)
+ALTER TABLE `blog_comments`
+ADD CONSTRAINT `fk_blog_comments_parent` 
+FOREIGN KEY (`parent_comment_id`) 
+REFERENCES `blog_comments` (`id`) 
+ON DELETE CASCADE 
+ON UPDATE CASCADE;
+
+
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;

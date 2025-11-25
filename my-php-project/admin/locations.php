@@ -339,6 +339,21 @@ include 'includes/admin-header.php';
         .modal.show {
             background-color: rgba(0, 0, 0, 0.1);
         }
+        
+        /* Hiệu ứng phóng to hình ảnh khi hover */
+        .location-image-hover {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: zoom-in;
+            display: inline-block;
+        }
+        
+        .location-image-hover:hover {
+            transform: scale(2.5);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            position: relative;
+            border-radius: 8px;
+        }
     </style>
 
     <script>
@@ -957,27 +972,27 @@ include 'includes/admin-header.php';
                 if (response.success) {
                     const location = response.location;
                     $('#viewModalBody').html(`
-                        <div class="row">
+                        <div class="row" style="font-size: 0.9rem;">
                             <div class="col-md-6">
-                                <h6><i class="fas fa-map-marker-alt"></i> Thông tin cơ bản</h6>
-                                <table class="table table-sm">
-                                    <tr><td><strong>Tên địa điểm:</strong></td><td>${location.TenDiaDiem}</td></tr>
-                                    <tr><td><strong>Loại:</strong></td><td>${location.LoaiDiaDiem}</td></tr>
-                                    <tr><td><strong>Địa chỉ:</strong></td><td>${location.DiaChi}</td></tr>
-                                    <tr><td><strong>Sức chứa:</strong></td><td>${location.SucChua.toLocaleString()} người</td></tr>
-                                    <tr><td><strong>Giá thuê/giờ:</strong></td><td>${location.GiaThueGio ? AdminPanel.formatCurrency(location.GiaThueGio) : 'Chưa có'}</td></tr>
-                                    <tr><td><strong>Giá thuê/ngày:</strong></td><td>${location.GiaThueNgay ? AdminPanel.formatCurrency(location.GiaThueNgay) : 'Chưa có'}</td></tr>
-                                    <tr><td><strong>Loại thuê:</strong></td><td><span class="badge bg-${location.LoaiThue === 'Cả hai' ? 'success' : (location.LoaiThue === 'Theo giờ' ? 'info' : 'warning')}">${location.LoaiThue || 'Chưa xác định'}</span></td></tr>
-                                    <tr><td><strong>Trạng thái:</strong></td><td><span class="status-badge status-${location.TrangThaiHoatDong ? location.TrangThaiHoatDong.toLowerCase().replace(/\s+/g, '-') : 'unknown'}">${location.TrangThaiHoatDong || 'Không xác định'}</span></td></tr>
+                                <h6 style="font-size: 0.95rem;"><i class="fas fa-map-marker-alt"></i> Thông tin cơ bản</h6>
+                                <table class="table table-sm table-borderless" style="font-size: 0.9rem;">
+                                    <tr><td style="width: 40%; padding: 0.3rem 0;"><strong>Tên địa điểm:</strong></td><td style="padding: 0.3rem 0;">${location.TenDiaDiem}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Loại:</strong></td><td style="padding: 0.3rem 0;">${location.LoaiDiaDiem}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Địa chỉ:</strong></td><td style="padding: 0.3rem 0;">${location.DiaChi}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Sức chứa:</strong></td><td style="padding: 0.3rem 0;">${location.SucChua.toLocaleString()} người</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Giá thuê/giờ:</strong></td><td style="padding: 0.3rem 0;">${location.GiaThueGio ? AdminPanel.formatCurrency(location.GiaThueGio) : 'Chưa có'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Giá thuê/ngày:</strong></td><td style="padding: 0.3rem 0;">${location.GiaThueNgay ? AdminPanel.formatCurrency(location.GiaThueNgay) : 'Chưa có'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Loại thuê:</strong></td><td style="padding: 0.3rem 0;"><span class="badge bg-${location.LoaiThue === 'Cả hai' ? 'success' : (location.LoaiThue === 'Theo giờ' ? 'info' : 'warning')}">${location.LoaiThue || 'Chưa xác định'}</span></td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Trạng thái:</strong></td><td style="padding: 0.3rem 0;"><span class="status-badge status-${location.TrangThaiHoatDong ? location.TrangThaiHoatDong.toLowerCase().replace(/\s+/g, '-') : 'unknown'}">${location.TrangThaiHoatDong || 'Không xác định'}</span></td></tr>
                                 </table>
                             </div>
                             <div class="col-md-6">
-                                <h6><i class="fas fa-info-circle"></i> Thông tin khác</h6>
-                                <table class="table table-sm">
-                                    <tr><td><strong>Mô tả:</strong></td><td>${location.MoTa || 'Không có mô tả'}</td></tr>
-                                    <tr><td><strong>Hình ảnh:</strong></td><td>${location.HinhAnh ? `<img src="../img/diadiem/${location.HinhAnh}" alt="${location.TenDiaDiem}" class="img-fluid rounded" style="max-width: 200px; max-height: 150px; object-fit: cover;">` : 'Không có hình ảnh'}</td></tr>
-                                    <tr><td><strong>Ngày tạo:</strong></td><td>${AdminPanel.formatDate(location.NgayTao, 'dd/mm/yyyy hh:mm')}</td></tr>
-                                    <tr><td><strong>Cập nhật:</strong></td><td>${AdminPanel.formatDate(location.NgayCapNhat, 'dd/mm/yyyy hh:mm')}</td></tr>
+                                <h6 style="font-size: 0.95rem;"><i class="fas fa-info-circle"></i> Thông tin khác</h6>
+                                <table class="table table-sm table-borderless" style="font-size: 0.9rem;">
+                                    <tr><td style="width: 40%; padding: 0.3rem 0;"><strong>Mô tả:</strong></td><td style="padding: 0.3rem 0;">${location.MoTa || 'Không có mô tả'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Hình ảnh:</strong></td><td style="padding: 0.3rem 0;">${location.HinhAnh ? `<img src="../img/diadiem/${location.HinhAnh}" alt="${location.TenDiaDiem}" class="img-fluid rounded location-image-hover" style="max-width: 150px; max-height: 120px; object-fit: cover;" onerror="this.src='../img/diadiem/default.php'">` : 'Không có hình ảnh'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Ngày tạo:</strong></td><td style="padding: 0.3rem 0;">${AdminPanel.formatDate(location.NgayTao, 'dd/mm/yyyy hh:mm')}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Cập nhật:</strong></td><td style="padding: 0.3rem 0;">${AdminPanel.formatDate(location.NgayCapNhat, 'dd/mm/yyyy hh:mm')}</td></tr>
                                 </table>
                             </div>
                         </div>

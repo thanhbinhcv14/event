@@ -2,63 +2,21 @@
 // Include admin header
 include 'includes/admin-header.php';
 
-// Get dashboard data based on user role
+// Lấy dữ liệu từ controller
+require_once __DIR__ . '/../src/controllers/dashboard.php';
+
 $dashboardData = [];
 $userRole = $user['ID_Role'];
+$userId = $_SESSION['user']['ID_User'] ?? null;
 
 try {
-    // Include database connection
-    require_once __DIR__ . '/../config/database.php';
     $pdo = getDBConnection();
     
     // ============================================
     // ROLE 1: ADMIN - Tất cả thống kê
     // ============================================
     if ($userRole == 1) {
-        // Total event registrations
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_registrations FROM datlichsukien");
-        $dashboardData['total_registrations'] = $stmt->fetchColumn();
-        
-        // Pending registrations
-        $stmt = $pdo->query("SELECT COUNT(*) AS pending_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
-        $dashboardData['pending_registrations'] = $stmt->fetchColumn();
-        
-        // Approved registrations
-        $stmt = $pdo->query("SELECT COUNT(*) AS approved_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
-        $dashboardData['approved_registrations'] = $stmt->fetchColumn();
-        
-        // Rejected registrations
-        $stmt = $pdo->query("SELECT COUNT(*) AS rejected_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Từ chối'");
-        $dashboardData['rejected_registrations'] = $stmt->fetchColumn();
-        
-        // Total locations
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_locations FROM diadiem");
-        $dashboardData['total_locations'] = $stmt->fetchColumn();
-        
-        // Total equipment
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_equipment FROM thietbi");
-        $dashboardData['total_equipment'] = $stmt->fetchColumn();
-        
-        // Total staff
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_staff FROM nhanvieninfo");
-        $dashboardData['total_staff'] = $stmt->fetchColumn();
-        
-        // Total customers
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_customers FROM users WHERE ID_Role = 5");
-        $dashboardData['total_customers'] = $stmt->fetchColumn();
-        
-        // Recent registrations
-        $stmt = $pdo->query("
-            SELECT dl.*, kh.HoTen AS TenKhachHang, dd.TenDiaDiem, lsk.TenLoai
-            FROM datlichsukien dl
-            JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-            JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-            JOIN loaisukien lsk ON dl.ID_LoaiSK = lsk.ID_LoaiSK
-            ORDER BY dl.NgayTao DESC
-            LIMIT 5
-        ");
-        $dashboardData['recent_registrations'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+        $dashboardData = getDashboardDataForAdmin($pdo);
         $dashboardTitle = "Tổng quan hệ thống quản lý sự kiện";
     }
     
@@ -66,55 +24,7 @@ try {
     // ROLE 2: QUẢN LÝ TỔ CHỨC - Quản lý và duyệt
     // ============================================
     elseif ($userRole == 2) {
-        // Pending registrations (cần duyệt)
-        $stmt = $pdo->query("SELECT COUNT(*) AS pending_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
-        $dashboardData['pending_registrations'] = $stmt->fetchColumn();
-        
-        // Approved registrations
-        $stmt = $pdo->query("SELECT COUNT(*) AS approved_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
-        $dashboardData['approved_registrations'] = $stmt->fetchColumn();
-        
-        // Total locations (quản lý)
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_locations FROM diadiem");
-        $dashboardData['total_locations'] = $stmt->fetchColumn();
-        
-        // Active locations
-        $stmt = $pdo->query("SELECT COUNT(*) AS active_locations FROM diadiem WHERE TrangThaiHoatDong = 'Hoạt động'");
-        $dashboardData['active_locations'] = $stmt->fetchColumn();
-        
-        // Total rooms
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_rooms FROM phong WHERE TrangThai = 'Sẵn sàng'");
-        $dashboardData['total_rooms'] = $stmt->fetchColumn();
-        
-        // Total staff
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_staff FROM nhanvieninfo");
-        $dashboardData['total_staff'] = $stmt->fetchColumn();
-        
-        // Total equipment
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_equipment FROM thietbi WHERE TrangThai = 'Sẵn sàng'");
-        $dashboardData['total_equipment'] = $stmt->fetchColumn();
-        
-        // Total customers
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_customers FROM users WHERE ID_Role = 5");
-        $dashboardData['total_customers'] = $stmt->fetchColumn();
-        
-        // Pending payments
-        $stmt = $pdo->query("SELECT COUNT(*) AS pending_payments FROM thanhtoan WHERE TrangThai = 'Chờ thanh toán'");
-        $dashboardData['pending_payments'] = $stmt->fetchColumn();
-        
-        // Recent pending registrations
-        $stmt = $pdo->query("
-            SELECT dl.*, kh.HoTen AS TenKhachHang, dd.TenDiaDiem, lsk.TenLoai
-            FROM datlichsukien dl
-            JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-            JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-            JOIN loaisukien lsk ON dl.ID_LoaiSK = lsk.ID_LoaiSK
-            WHERE dl.TrangThaiDuyet = 'Chờ duyệt'
-            ORDER BY dl.NgayTao DESC
-            LIMIT 5
-        ");
-        $dashboardData['recent_registrations'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+        $dashboardData = getDashboardDataForManager($pdo);
         $dashboardTitle = "Tổng quan quản lý tổ chức sự kiện";
     }
     
@@ -122,52 +32,7 @@ try {
     // ROLE 3: QUẢN LÝ SỰ KIỆN - Đăng ký và xem
     // ============================================
     elseif ($userRole == 3) {
-        // Total registrations (đã đăng ký)
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_registrations FROM datlichsukien");
-        $dashboardData['total_registrations'] = $stmt->fetchColumn();
-        
-        // Pending registrations (chờ duyệt)
-        $stmt = $pdo->query("SELECT COUNT(*) AS pending_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
-        $dashboardData['pending_registrations'] = $stmt->fetchColumn();
-        
-        // Approved registrations
-        $stmt = $pdo->query("SELECT COUNT(*) AS approved_registrations FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
-        $dashboardData['approved_registrations'] = $stmt->fetchColumn();
-        
-        // Upcoming events (sắp diễn ra)
-        $stmt = $pdo->query("
-            SELECT COUNT(*) AS upcoming_events 
-            FROM datlichsukien 
-            WHERE TrangThaiDuyet = 'Đã duyệt' 
-            AND NgayBatDau >= CURDATE()
-        ");
-        $dashboardData['upcoming_events'] = $stmt->fetchColumn();
-        
-        // Today's events
-        $stmt = $pdo->query("
-            SELECT COUNT(*) AS today_events 
-            FROM datlichsukien 
-            WHERE TrangThaiDuyet = 'Đã duyệt' 
-            AND DATE(NgayBatDau) = CURDATE()
-        ");
-        $dashboardData['today_events'] = $stmt->fetchColumn();
-        
-        // Total customers
-        $stmt = $pdo->query("SELECT COUNT(*) AS total_customers FROM users WHERE ID_Role = 5");
-        $dashboardData['total_customers'] = $stmt->fetchColumn();
-        
-        // Recent registrations
-        $stmt = $pdo->query("
-            SELECT dl.*, kh.HoTen AS TenKhachHang, dd.TenDiaDiem, lsk.TenLoai
-            FROM datlichsukien dl
-            JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-            JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-            JOIN loaisukien lsk ON dl.ID_LoaiSK = lsk.ID_LoaiSK
-            ORDER BY dl.NgayTao DESC
-            LIMIT 5
-        ");
-        $dashboardData['recent_registrations'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+        $dashboardData = getDashboardDataForEventManager($pdo);
         $dashboardTitle = "Tổng quan quản lý sự kiện";
     }
     
@@ -175,89 +40,7 @@ try {
     // ROLE 4: NHÂN VIÊN - Lịch làm việc và nhiệm vụ
     // ============================================
     elseif ($userRole == 4) {
-        // Get staff ID
-        $userId = $_SESSION['user']['ID_User'];
-        $stmt = $pdo->prepare("SELECT ID_NhanVien FROM nhanvieninfo WHERE ID_User = ? LIMIT 1");
-        $stmt->execute([$userId]);
-        $staffInfo = $stmt->fetch(PDO::FETCH_ASSOC);
-        $staffId = $staffInfo ? $staffInfo['ID_NhanVien'] : null;
-        
-        if ($staffId) {
-            // Total assignments (tổng nhiệm vụ)
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) AS total_assignments 
-                FROM lichlamviec 
-                WHERE ID_NhanVien = ?
-            ");
-            $stmt->execute([$staffId]);
-            $dashboardData['total_assignments'] = $stmt->fetchColumn();
-            
-            // Pending tasks (nhiệm vụ chưa hoàn thành)
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) AS pending_tasks 
-                FROM lichlamviec 
-                WHERE ID_NhanVien = ? 
-                AND TrangThai IN ('Chưa bắt đầu', 'Đang thực hiện')
-            ");
-            $stmt->execute([$staffId]);
-            $dashboardData['pending_tasks'] = $stmt->fetchColumn();
-            
-            // Completed tasks (nhiệm vụ đã hoàn thành)
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) AS completed_tasks 
-                FROM lichlamviec 
-                WHERE ID_NhanVien = ? 
-                AND TrangThai = 'Hoàn thành'
-            ");
-            $stmt->execute([$staffId]);
-            $dashboardData['completed_tasks'] = $stmt->fetchColumn();
-            
-            // Today's tasks (nhiệm vụ hôm nay)
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) AS today_tasks 
-                FROM lichlamviec 
-                WHERE ID_NhanVien = ? 
-                AND DATE(NgayBatDau) = CURDATE()
-                AND TrangThai != 'Hoàn thành'
-            ");
-            $stmt->execute([$staffId]);
-            $dashboardData['today_tasks'] = $stmt->fetchColumn();
-            
-            // Upcoming tasks (nhiệm vụ sắp tới - 7 ngày)
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) AS upcoming_tasks 
-                FROM lichlamviec 
-                WHERE ID_NhanVien = ? 
-                AND NgayBatDau BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
-                AND TrangThai != 'Hoàn thành'
-            ");
-            $stmt->execute([$staffId]);
-            $dashboardData['upcoming_tasks'] = $stmt->fetchColumn();
-            
-            // Recent assignments
-            $stmt = $pdo->prepare("
-                SELECT llv.*, dl.TenSuKien, dd.TenDiaDiem
-                FROM lichlamviec llv
-                LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
-                LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-                WHERE llv.ID_NhanVien = ?
-                ORDER BY llv.NgayBatDau DESC
-                LIMIT 5
-            ");
-            $stmt->execute([$staffId]);
-            $dashboardData['recent_assignments'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } else {
-            // No staff info found
-            $dashboardData = [
-                'total_assignments' => 0,
-                'pending_tasks' => 0,
-                'completed_tasks' => 0,
-                'today_tasks' => 0,
-                'upcoming_tasks' => 0,
-                'recent_assignments' => []
-            ];
-        }
-        
+        $dashboardData = getDashboardDataForStaff($pdo, $userId);
         $dashboardTitle = "Tổng quan lịch làm việc và nhiệm vụ";
     }
     

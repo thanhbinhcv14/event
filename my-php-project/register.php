@@ -601,7 +601,7 @@
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="terms" required>
                     <label class="form-check-label" for="terms">
-                        Tôi đồng ý với <a href="#" class="link-login">điều khoản sử dụng</a> và <a href="#" class="link-login">chính sách bảo mật</a>
+                        Tôi đồng ý với <a href="#" class="link-login">điều khoản sử dụng</a>
                     </label>
                 </div>
                 

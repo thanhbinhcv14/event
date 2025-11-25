@@ -279,6 +279,21 @@ include 'includes/admin-header.php';
         .modal.show {
             background-color: rgba(0, 0, 0, 0.1);
         }
+        
+        /* Hiệu ứng phóng to hình ảnh khi hover */
+        .device-image-hover {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: zoom-in;
+            display: inline-block;
+        }
+        
+        .device-image-hover:hover {
+            transform: scale(2.5);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            position: relative;
+            border-radius: 8px;
+        }
     </style>
 
     <script>
@@ -605,7 +620,7 @@ include 'includes/admin-header.php';
                                 <h6><i class="fas fa-image"></i> Hình ảnh thiết bị</h6>
                                 <img src="../img/thietbi/${device.HinhAnh}" 
                                      alt="${device.TenThietBi}" 
-                                     class="img-fluid rounded shadow-sm" 
+                                     class="img-fluid rounded shadow-sm device-image-hover" 
                                      style="max-height: 200px; max-width: 100%;"
                                      onerror="this.src='../img/logo/logo.jpg'; this.alt='Hình ảnh không tìm thấy';">
                             </div>

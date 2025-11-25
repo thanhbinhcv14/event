@@ -86,7 +86,6 @@ function showWelcomeMessage() {
         "Bạn cần hỗ trợ gì?";
     
     addChatMessage(welcomeMsg, 'assistant');
-    showQuickSuggestions();
 }
 
 // Khôi phục cuộc trò chuyện trước đó
@@ -109,7 +108,6 @@ async function sendChatMessage() {
     const message = input.value.trim();
     
     if (!message || isLoading) {
-        console.log('Message empty or already loading');
         return;
     }
     
@@ -121,16 +119,10 @@ async function sendChatMessage() {
     showLoadingIndicator();
     
     try {
-        console.log('Sending message to API:', message);
-        console.log('Conversation history:', conversationHistory);
-        
         // Xác định đường dẫn API - sử dụng đường dẫn tương đối đơn giản
-        // Giống như cách các controller khác được gọi trong project (events.php, etc.)
         const currentPath = window.location.pathname;
-        console.log('Current path:', currentPath);
         
         // Sử dụng đường dẫn tương đối đơn giản - giống như events.php trong index.php
-        // Từ index.php: 'src/controllers/gemini-ai.php'
         let apiUrl = 'src/controllers/gemini-ai.php';
         
         // Nếu đang ở subdirectory (như admin/, events/), cần lùi lại
@@ -138,13 +130,9 @@ async function sendChatMessage() {
             apiUrl = '../src/controllers/gemini-ai.php';
         }
         
-        console.log('API URL (relative):', apiUrl);
-        
         // Tạo đường dẫn tuyệt đối để fallback
-        // Từ /event/my-php-project/index.php -> /event/my-php-project/src/controllers/gemini-ai.php
         const basePath = currentPath.substring(0, currentPath.lastIndexOf('/'));
         const absoluteUrl = window.location.origin + basePath + '/src/controllers/gemini-ai.php';
-        console.log('API URL (absolute fallback):', absoluteUrl);
         
         const requestBody = new URLSearchParams({
             action: 'chat',
@@ -155,15 +143,11 @@ async function sendChatMessage() {
             })))
         });
         
-        console.log('Request body:', requestBody.toString());
-        
         // Thử gọi API với đường dẫn tương đối trước
         let response;
         let usedUrl = apiUrl;
-        let fetchError = null;
         
         try {
-            console.log('Attempting fetch with relative URL:', apiUrl);
             response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
@@ -171,16 +155,12 @@ async function sendChatMessage() {
                 },
                 body: requestBody
             });
-            console.log('Fetch successful, status:', response.status);
         } catch (error) {
-            console.error('Fetch error with relative URL:', error);
-            fetchError = error;
             response = null;
         }
         
         // Nếu thất bại hoặc 404, thử đường dẫn tuyệt đối
         if (!response || response.status === 404) {
-            console.warn('Relative URL failed or returned 404, trying absolute URL:', absoluteUrl);
             usedUrl = absoluteUrl;
             try {
                 response = await fetch(absoluteUrl, {
@@ -190,19 +170,12 @@ async function sendChatMessage() {
                     },
                     body: requestBody
                 });
-                console.log('Absolute URL fetch successful, status:', response.status);
             } catch (absError) {
-                console.error('Absolute URL also failed:', absError);
                 hideLoadingIndicator();
                 addChatMessage('Xin lỗi, không thể kết nối với server. Vui lòng kiểm tra đường dẫn API và thử lại.', 'assistant');
                 return;
             }
         }
-        
-        console.log('Final used API URL:', usedUrl);
-        
-        console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
         
         // Kiểm tra response status
         if (!response || !response.ok) {
@@ -234,11 +207,8 @@ async function sendChatMessage() {
         let data;
         try {
             const responseText = await response.text();
-            console.log('Response text:', responseText);
             data = JSON.parse(responseText);
-            console.log('Parsed data:', data);
         } catch (parseError) {
-            console.error('JSON Parse Error:', parseError);
             hideLoadingIndicator();
             addChatMessage('Xin lỗi, không thể đọc phản hồi từ server. Vui lòng thử lại sau.', 'assistant');
             return;
@@ -247,19 +217,8 @@ async function sendChatMessage() {
         hideLoadingIndicator();
         
         if (data.success) {
-            console.log('Success! Message:', data.message);
             addChatMessage(data.message, 'assistant');
-            
-            // Hiển thị gợi ý nếu có
-            if (data.suggestions && data.suggestions.length > 0) {
-                console.log('Showing suggestions:', data.suggestions);
-                showSuggestions(data.suggestions);
-            } else {
-                console.log('Showing quick suggestions');
-                showQuickSuggestions();
-            }
         } else {
-            console.error('API returned error:', data.error);
             hideLoadingIndicator();
             const errorMsg = data.error || 'Có lỗi xảy ra. Vui lòng thử lại sau.';
             addChatMessage('Xin lỗi, ' + errorMsg, 'assistant');
@@ -352,7 +311,7 @@ function showLoadingIndicator() {
     loadingDiv.innerHTML = `
         <div class="message-content">
             <div class="typing-indicator">
-                <span>.</span><span>.</span><span>.</span>
+                <span></span><span></span><span></span>
             </div>
         </div>
     `;
@@ -372,93 +331,7 @@ function hideLoadingIndicator() {
 }
 
 // Hiển thị gợi ý nhanh
-function showQuickSuggestions() {
-    const quickSuggestions = document.getElementById('quickSuggestions');
-    if (!quickSuggestions) return;
-    
-    quickSuggestions.innerHTML = `
-        <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn đăng ký sự kiện')">
-            <i class="fas fa-calendar-plus"></i>
-            <span>Đăng ký sự kiện</span>
-        </div>
-        <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn xem giá dịch vụ')">
-            <i class="fas fa-dollar-sign"></i>
-            <span>Xem giá</span>
-        </div>
-        <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn xem địa điểm')">
-            <i class="fas fa-map-marker-alt"></i>
-            <span>Xem địa điểm</span>
-        </div>
-        <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn xem thiết bị')">
-            <i class="fas fa-tools"></i>
-            <span>Xem thiết bị</span>
-        </div>
-        <div class="suggestion-item" onclick="sendQuickMessage('Tôi cần tư vấn')">
-            <i class="fas fa-question-circle"></i>
-            <span>Tư vấn</span>
-        </div>
-        <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn kiểm tra trạng thái sự kiện')">
-            <i class="fas fa-search"></i>
-            <span>Trạng thái</span>
-        </div>
-    `;
-    
-    quickSuggestions.style.display = 'grid';
-}
-
-// Hiển thị gợi ý từ AI
-function showSuggestions(suggestions) {
-    const quickSuggestions = document.getElementById('quickSuggestions');
-    if (!quickSuggestions || !suggestions || suggestions.length === 0) {
-        showQuickSuggestions();
-        return;
-    }
-    
-    let html = '';
-    suggestions.forEach(suggestion => {
-        const action = suggestion.action || 'chat';
-        const text = suggestion.text || suggestion;
-        html += `
-            <div class="suggestion-item" onclick="handleSuggestion('${action}', '${escapeHtml(text)}')">
-                <i class="fas fa-lightbulb"></i>
-                <span>${text}</span>
-            </div>
-        `;
-    });
-    
-    quickSuggestions.innerHTML = html;
-    quickSuggestions.style.display = 'grid';
-}
-
-// Xử lý khi click vào gợi ý
-function handleSuggestion(action, text) {
-    if (action === 'register') {
-        window.location.href = 'events/register.php';
-    } else if (action === 'pricing') {
-        window.location.href = 'services.php';
-    } else if (action === 'locations') {
-        window.location.href = 'services.php#locations';
-    } else if (action === 'equipment') {
-        window.location.href = 'services.php#equipment';
-    } else {
-        sendQuickMessage(text);
-    }
-}
-
-// Gửi tin nhắn nhanh
-function sendQuickMessage(message) {
-    const input = document.getElementById('chatInput');
-    if (input) {
-        input.value = message;
-        sendChatMessage();
-    }
-    
-    // Ẩn gợi ý nhanh
-    const quickSuggestions = document.getElementById('quickSuggestions');
-    if (quickSuggestions) {
-        quickSuggestions.style.display = 'none';
-    }
-}
+// Đã xóa quick suggestions - không còn sử dụng
 
 // Escape HTML để bảo mật
 function escapeHtml(text) {
@@ -509,11 +382,9 @@ window.addEventListener('pagehide', function(e) {
     // Nếu persisted là false, trang đang được đóng
     if (e.persisted === true || isNavigating) {
         // Trang đang được refresh hoặc điều hướng sang trang khác - giữ lịch sử
-        console.log('Lịch sử chat được giữ lại: Trang được refresh/điều hướng');
     } else if (e.persisted === false && !isNavigating) {
         // Trang đang được đóng (không phải refresh) - xóa lịch sử chat
         localStorage.removeItem('geminiChatHistory');
-        console.log('Lịch sử chat đã được xóa: Trang được đóng');
     }
 });
 
@@ -531,7 +402,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // ✅ Khôi phục trạng thái mở/đóng của chat widget từ localStorage
     const savedChatState = localStorage.getItem('chatWidgetOpen');
     if (savedChatState === 'true') {
-        console.log('✅ Khôi phục trạng thái chat: Mở');
         // Đợi một chút để đảm bảo DOM đã sẵn sàng
         setTimeout(function() {
             const chatWidget = document.getElementById('chatWidget');
@@ -581,7 +451,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedChatState !== 'true') {
         autoOpenTimer = setTimeout(function() {
             if (!isChatOpen && !userHasInteracted) {
-                console.log('Tự động mở chat box sau 5 giây');
                 openChatWidget();
                 
                 // Thêm animation pulse cho nút chat để thu hút sự chú ý
@@ -605,7 +474,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (autoOpenTimer) {
             clearTimeout(autoOpenTimer);
             autoOpenTimer = null;
-            console.log('Đã hủy auto-open vì người dùng mở chat thủ công');
         }
         originalOpenChatWidget();
     };

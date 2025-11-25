@@ -5,9 +5,9 @@ require_once __DIR__ . '/../config/config.php';
 // Bao gồm header admin
 include 'includes/admin-header.php';
 
-// Kiểm tra quyền admin/nhân viên
+// Kiểm tra quyền - Chỉ role 1, 3, 5 mới được sử dụng chat
 $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? 0;
-if (!in_array($userRole, [1, 2, 3, 4])) {
+if (!in_array($userRole, [1, 3, 5])) {
     echo '<script>window.location.href = "index.php";</script>';
     exit;
 }
@@ -22,8 +22,8 @@ if ($currentUserId > 0) {
     try {
         $pdo = getDBConnection();
         
-        // Kiểm tra nếu user là nhân viên (role 1,2,3,4) - lấy từ nhanvieninfo
-        if (in_array($currentUserRole, [1, 2, 3, 4])) {
+        // Kiểm tra nếu user là nhân viên (role 1,3) - lấy từ nhanvieninfo
+        if (in_array($currentUserRole, [1, 3])) {
             $stmt = $pdo->prepare("SELECT HoTen FROM nhanvieninfo WHERE ID_User = ?");
             $stmt->execute([$currentUserId]);
             $staffData = $stmt->fetch(PDO::FETCH_ASSOC);

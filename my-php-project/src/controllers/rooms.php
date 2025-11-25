@@ -216,8 +216,42 @@ try {
                 $trangThai = 'Sẵn sàng';
             }
             
-            $sql = "INSERT INTO phong (ID_DD, TenPhong, SucChua, GiaThueGio, GiaThueNgay, LoaiThue, MoTa, TrangThai) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            // Xử lý upload hình ảnh
+            $imageName = null;
+            if (isset($_FILES['HinhAnh']) && $_FILES['HinhAnh']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = __DIR__ . '/../../img/phong/';
+                
+                // Tạo thư mục nếu chưa tồn tại
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+                
+                $fileInfo = pathinfo($_FILES['HinhAnh']['name']);
+                $imageName = uniqid() . '_' . time() . '.' . $fileInfo['extension'];
+                $uploadPath = $uploadDir . $imageName;
+                
+                // Xác thực loại file
+                $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                if (!in_array(strtolower($fileInfo['extension']), $allowedTypes)) {
+                    echo json_encode(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
+                    exit();
+                }
+                
+                // Xác thực kích thước file (tối đa 5MB)
+                if ($_FILES['HinhAnh']['size'] > 5 * 1024 * 1024) {
+                    echo json_encode(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
+                    exit();
+                }
+                
+                // Di chuyển file đã upload
+                if (!move_uploaded_file($_FILES['HinhAnh']['tmp_name'], $uploadPath)) {
+                    echo json_encode(['success' => false, 'error' => 'Không thể upload file']);
+                    exit();
+                }
+            }
+            
+            $sql = "INSERT INTO phong (ID_DD, TenPhong, SucChua, GiaThueGio, GiaThueNgay, LoaiThue, MoTa, HinhAnh, TrangThai) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             $stmt = $pdo->prepare($sql);
             $result = $stmt->execute([
@@ -228,6 +262,7 @@ try {
                 isset($data['GiaThueNgay']) && $data['GiaThueNgay'] !== '' ? floatval($data['GiaThueNgay']) : null,
                 $loaiThue,
                 isset($data['MoTa']) ? trim($data['MoTa']) : null,
+                $imageName,
                 $trangThai
             ]);
             
@@ -358,6 +393,45 @@ try {
                 $trangThai = 'Sẵn sàng';
             }
             
+            // Xử lý upload hình ảnh
+            $imageName = $existingRoom['HinhAnh']; // Giữ nguyên ảnh cũ nếu không upload mới
+            if (isset($_FILES['HinhAnh']) && $_FILES['HinhAnh']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = __DIR__ . '/../../img/phong/';
+                
+                // Tạo thư mục nếu chưa tồn tại
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+                
+                // Xóa ảnh cũ nếu có
+                if ($existingRoom['HinhAnh'] && file_exists($uploadDir . $existingRoom['HinhAnh'])) {
+                    @unlink($uploadDir . $existingRoom['HinhAnh']);
+                }
+                
+                $fileInfo = pathinfo($_FILES['HinhAnh']['name']);
+                $imageName = uniqid() . '_' . time() . '.' . $fileInfo['extension'];
+                $uploadPath = $uploadDir . $imageName;
+                
+                // Xác thực loại file
+                $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                if (!in_array(strtolower($fileInfo['extension']), $allowedTypes)) {
+                    echo json_encode(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
+                    exit();
+                }
+                
+                // Xác thực kích thước file (tối đa 5MB)
+                if ($_FILES['HinhAnh']['size'] > 5 * 1024 * 1024) {
+                    echo json_encode(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
+                    exit();
+                }
+                
+                // Di chuyển file đã upload
+                if (!move_uploaded_file($_FILES['HinhAnh']['tmp_name'], $uploadPath)) {
+                    echo json_encode(['success' => false, 'error' => 'Không thể upload file']);
+                    exit();
+                }
+            }
+            
             $sql = "UPDATE phong SET 
                     " . (isset($data['ID_DD']) && $data['ID_DD'] != $existingRoom['ID_DD'] ? "ID_DD = ?, " : "") . "
                     TenPhong = ?, 
@@ -366,6 +440,7 @@ try {
                     GiaThueNgay = ?, 
                     LoaiThue = ?, 
                     MoTa = ?, 
+                    HinhAnh = ?,
                     TrangThai = ? 
                     WHERE ID_Phong = ?";
             
@@ -379,6 +454,7 @@ try {
             $params[] = isset($data['GiaThueNgay']) && $data['GiaThueNgay'] !== '' ? floatval($data['GiaThueNgay']) : null;
             $params[] = $loaiThue;
             $params[] = isset($data['MoTa']) ? trim($data['MoTa']) : null;
+            $params[] = $imageName;
             $params[] = $trangThai;
             $params[] = $roomId;
             

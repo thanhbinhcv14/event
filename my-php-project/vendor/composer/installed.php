@@ -3,7 +3,7 @@
         'name' => 'myphp/event-system',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'd1910f897f921ae2fa99fdc5de195f45c81cba9a',
+        'reference' => '2f26ec6449e672ebcea8557787c786f408992cdc',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -85,7 +85,7 @@
         'myphp/event-system' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'd1910f897f921ae2fa99fdc5de195f45c81cba9a',
+            'reference' => '2f26ec6449e672ebcea8557787c786f408992cdc',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

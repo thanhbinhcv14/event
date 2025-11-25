@@ -20,16 +20,8 @@ try {
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
-// Debug: Ghi log thông tin request
-error_log('Gemini AI API called - Action: ' . $action);
-error_log('Request method: ' . $_SERVER['REQUEST_METHOD']);
-error_log('Request URI: ' . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
-error_log('POST data: ' . print_r($_POST, true));
-error_log('GET data: ' . print_r($_GET, true));
-
 try {
     $pdo = getDBConnection();
-    error_log('Database connection successful');
     
     switch ($action) {
         case 'chat':
@@ -58,56 +50,25 @@ try {
  * Xử lý chat với Gemini AI
  */
 function handleChat($pdo) {
-    // Ghi log để debug
-    error_log('Chat request received');
-    error_log('POST data: ' . print_r($_POST, true));
-    
     $message = $_POST['message'] ?? '';
     $conversationHistory = json_decode($_POST['history'] ?? '[]', true);
     
     if (empty($message)) {
-        error_log('Error: Empty message');
         echo json_encode(['success' => false, 'error' => 'Thiếu tin nhắn']);
         return;
     }
     
-    error_log('Processing message: ' . $message);
-    error_log('History count: ' . count($conversationHistory));
-    
     try {
         // Lấy thông tin hệ thống từ database
-        error_log('Getting system info...');
         $systemInfo = getSystemInfoForAI($pdo);
-        error_log('System info retrieved: ' . count($systemInfo['event_types']) . ' event types, ' . count($systemInfo['locations']) . ' locations');
-        
-        // Debug: Ghi log thông tin phòng
-        $totalRooms = 0;
-        foreach ($systemInfo['rooms'] ?? [] as $rooms) {
-            $totalRooms += count($rooms);
-        }
-        error_log('System info - Total rooms: ' . $totalRooms . ' across ' . count($systemInfo['rooms'] ?? []) . ' locations');
         
         // Tạo prompt với context từ database
-        error_log('Building prompt...');
         $prompt = buildPrompt($message, $conversationHistory, $systemInfo);
-        error_log('Prompt length: ' . strlen($prompt) . ' characters');
-        
-        // Debug: Kiểm tra xem prompt có chứa thông tin phòng không
-        if (strpos($prompt, 'Các phòng có sẵn') !== false) {
-            error_log('Gemini AI - SUCCESS: Prompt contains room information');
-            // Đếm số lần xuất hiện "phòng" trong prompt
-            $roomCount = substr_count($prompt, '•');
-            error_log('Gemini AI - Found ' . $roomCount . ' room entries in prompt');
-        } else {
-            error_log('Gemini AI - WARNING: Prompt does NOT contain room information');
-        }
         
         // Gọi Gemini AI API
-        error_log('Calling Gemini API...');
         $response = callGeminiAPI($prompt);
         
         if ($response['success']) {
-            error_log('Gemini API success');
             echo json_encode([
                 'success' => true,
                 'message' => $response['message'],
@@ -166,12 +127,6 @@ function getSystemInfoForAI($pdo) {
         ");
         $allRooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Debug: Ghi log số lượng phòng lấy được
-        error_log("Gemini AI - Total rooms loaded: " . count($allRooms));
-        if (!empty($allRooms)) {
-            error_log("Gemini AI - Sample room data: " . json_encode($allRooms[0]));
-        }
-        
         // Nhóm phòng theo ID_DD
         $info['rooms'] = [];
         foreach ($allRooms as $room) {
@@ -180,12 +135,6 @@ function getSystemInfoForAI($pdo) {
                 $info['rooms'][$locationId] = [];
             }
             $info['rooms'][$locationId][] = $room;
-        }
-        
-        // Debug: Ghi log số lượng địa điểm có phòng
-        error_log("Gemini AI - Locations with rooms: " . count($info['rooms']));
-        foreach ($info['rooms'] as $locId => $rooms) {
-            error_log("Gemini AI - Location ID {$locId} has " . count($rooms) . " rooms");
         }
         
         // Lấy thiết bị
@@ -251,9 +200,15 @@ function buildPrompt($message, $conversationHistory, $systemInfo) {
     }
     $systemContext .= "\n";
     
-    // Địa điểm
-    $systemContext .= "CÁC ĐỊA ĐIỂM CÓ SẴN:\n";
-    foreach (array_slice($systemInfo['locations'] ?? [], 0, 10) as $location) {
+    // Địa điểm - Hiển thị nhiều hơn để AI có đủ thông tin tư vấn
+    $locationsToShow = $systemInfo['locations'] ?? [];
+    $systemContext .= "CÁC ĐỊA ĐIỂM CÓ SẴN (Tổng: " . count($locationsToShow) . " địa điểm):\n";
+    // Hiển thị tối đa 30 địa điểm để đủ thông tin tư vấn
+    if (count($locationsToShow) > 30) {
+        $systemContext .= "(Hiển thị 30 địa điểm đầu tiên, còn " . (count($locationsToShow) - 30) . " địa điểm khác)\n";
+        $locationsToShow = array_slice($locationsToShow, 0, 30);
+    }
+    foreach ($locationsToShow as $location) {
         $systemContext .= "- {$location['TenDiaDiem']} ({$location['LoaiDiaDiem']})\n";
         
         // Hiển thị địa chỉ đầy đủ (từ DiaChi hoặc tự tạo từ các thành phần)
@@ -299,9 +254,6 @@ function buildPrompt($message, $conversationHistory, $systemInfo) {
             $locationId = $location['ID_DD'];
             $rooms = $systemInfo['rooms'][$locationId] ?? [];
             
-            // Debug: Ghi log thông tin phòng cho địa điểm này
-            error_log("Gemini AI - Location ID {$locationId} ({$location['TenDiaDiem']}) - Rooms found: " . count($rooms));
-            
             if (!empty($rooms)) {
                 $systemContext .= "  Các phòng có sẵn:\n";
                 foreach ($rooms as $room) {
@@ -325,12 +277,8 @@ function buildPrompt($message, $conversationHistory, $systemInfo) {
                     }
                     $systemContext .= "\n";
                 }
-                
-                // Debug: Ghi log để kiểm tra prompt có chứa thông tin phòng
-                error_log("Gemini AI - Added " . count($rooms) . " rooms to prompt for location {$locationId}");
             } else {
                 $systemContext .= "  Lưu ý: Địa điểm trong nhà có các phòng riêng, giá thuê được tính theo từng phòng (chưa có thông tin phòng chi tiết)\n";
-                error_log("Gemini AI - WARNING: Location ID {$locationId} ({$location['TenDiaDiem']}) is indoor but has no rooms!");
             }
         }
         
@@ -341,8 +289,8 @@ function buildPrompt($message, $conversationHistory, $systemInfo) {
         $systemContext .= "\n";
     }
     
-    // Thiết bị
-    $systemContext .= "THIẾT BỊ CÓ SẴN:\n";
+    // Thiết bị - Hiển thị đầy đủ để AI có thể tư vấn
+    $systemContext .= "THIẾT BỊ CÓ SẴN (Tổng: " . count($systemInfo['equipment'] ?? []) . " thiết bị):\n";
     $equipmentByType = [];
     foreach ($systemInfo['equipment'] ?? [] as $equip) {
         $type = $equip['LoaiThietBi'] ?? 'Khác';
@@ -352,22 +300,65 @@ function buildPrompt($message, $conversationHistory, $systemInfo) {
         $equipmentByType[$type][] = $equip;
     }
     foreach ($equipmentByType as $type => $items) {
-        $systemContext .= "- {$type}:\n";
-        foreach (array_slice($items, 0, 5) as $item) {
-            $systemContext .= "  + {$item['TenThietBi']}";
-            if ($item['GiaThue']) {
-                $systemContext .= " (" . number_format($item['GiaThue'], 0, ',', '.') . " VNĐ)";
+        $systemContext .= "- {$type} (" . count($items) . " thiết bị):\n";
+        // Hiển thị tối đa 10 thiết bị mỗi loại
+        foreach (array_slice($items, 0, 10) as $item) {
+            $systemContext .= "  + {$item['TenThietBi']} - " . number_format($item['GiaThue'] ?? 0, 0, ',', '.') . " VNĐ";
+            if (!empty($item['MoTa'])) {
+                $systemContext .= " ({$item['MoTa']})";
             }
             $systemContext .= "\n";
+        }
+        if (count($items) > 10) {
+            $systemContext .= "  ... và " . (count($items) - 10) . " thiết bị khác\n";
         }
     }
     $systemContext .= "\n";
     
     // Combo
     if (!empty($systemInfo['combos'])) {
-        $systemContext .= "COMBO DỊCH VỤ:\n";
-        foreach (array_slice($systemInfo['combos'] ?? [], 0, 5) as $combo) {
+        $systemContext .= "COMBO DỊCH VỤ (Tiết kiệm hơn khi thuê riêng lẻ):\n";
+        foreach (array_slice($systemInfo['combos'] ?? [], 0, 10) as $combo) {
             $systemContext .= "- {$combo['TenCombo']} (" . number_format($combo['GiaCombo'], 0, ',', '.') . " VNĐ)\n";
+            if (!empty($combo['MoTa'])) {
+                $systemContext .= "  Mô tả: {$combo['MoTa']}\n";
+            }
+            // Hiển thị thiết bị trong combo nếu có
+            if (!empty($combo['equipment'])) {
+                $systemContext .= "  Bao gồm: ";
+                $equipList = [];
+                foreach ($combo['equipment'] as $eq) {
+                    $equipList[] = $eq['TenThietBi'] . ($eq['SoLuong'] > 1 ? " x{$eq['SoLuong']}" : "");
+                }
+                $systemContext .= implode(', ', $equipList) . "\n";
+            }
+        }
+        $systemContext .= "\n";
+    }
+    
+    // Mã giảm giá
+    if (!empty($systemInfo['discount_codes'])) {
+        $systemContext .= "MÃ GIẢM GIÁ ĐANG ÁP DỤNG:\n";
+        foreach ($systemInfo['discount_codes'] as $code) {
+            $discountText = '';
+            if ($code['LoaiGiamGia'] === 'Phần trăm') {
+                $discountText = "Giảm {$code['GiaTriGiamGia']}%";
+            } else {
+                $discountText = "Giảm " . number_format($code['GiaTriGiamGia'], 0, ',', '.') . " VNĐ";
+            }
+            
+            $systemContext .= "- Mã: {$code['MaCode']} - {$code['TenMa']}\n";
+            $systemContext .= "  {$discountText}";
+            
+            if ($code['SoTienToiThieu'] > 0) {
+                $systemContext .= " (Áp dụng cho đơn hàng từ " . number_format($code['SoTienToiThieu'], 0, ',', '.') . " VNĐ)";
+            }
+            
+            if (!empty($code['MoTa'])) {
+                $systemContext .= "\n  Mô tả: {$code['MoTa']}";
+            }
+            
+            $systemContext .= "\n";
         }
         $systemContext .= "\n";
     }
@@ -390,24 +381,60 @@ function buildPrompt($message, $conversationHistory, $systemInfo) {
     $fullPrompt .= "Hãy trả lời như một nhân viên tư vấn thật sự - tự nhiên, thân thiện, chuyên nghiệp và hữu ích. ";
     $fullPrompt .= "Sử dụng ngôn ngữ giao tiếp tự nhiên như đang nói chuyện trực tiếp với khách hàng.\n\n";
     
-    $fullPrompt .= "HƯỚNG DẪN ĐỀ XUẤT ĐẶT SỰ KIỆN:\n";
-    $fullPrompt .= "1. Khi khách hàng hỏi về đăng ký sự kiện, hãy:\n";
+    $fullPrompt .= "HƯỚNG DẪN TƯ VẤN VÀ ĐỀ XUẤT (QUAN TRỌNG - PHẢI TUÂN THEO):\n";
+    $fullPrompt .= "1. Khi khách hàng hỏi về đăng ký sự kiện hoặc tư vấn, hãy:\n";
     $fullPrompt .= "   - Thu thập thông tin: loại sự kiện, số người, ngày giờ, địa điểm mong muốn, ngân sách\n";
-    $fullPrompt .= "   - Đưa ra gợi ý cụ thể dựa trên thông tin hệ thống (địa điểm phù hợp, thiết bị cần thiết)\n";
-    $fullPrompt .= "   - Tính toán chi phí ước tính dựa trên giá từ database\n";
+    $fullPrompt .= "   - Đưa ra gợi ý CỤ THỂ dựa trên thông tin hệ thống (PHẢI dùng dữ liệu thực tế từ database):\n";
+    $fullPrompt .= "     + Địa điểm: Chọn địa điểm có sức chứa phù hợp với số người (ưu tiên địa điểm có sức chứa >= số người)\n";
+    $fullPrompt .= "       * Nêu TÊN ĐỊA ĐIỂM cụ thể, địa chỉ, sức chứa, giá thuê (theo giờ/ngày)\n";
+    $fullPrompt .= "       * Nếu địa điểm trong nhà, đề xuất PHÒNG CỤ THỂ với tên phòng, sức chứa, giá thuê\n";
+    $fullPrompt .= "     + Thiết bị: Đề xuất thiết bị CỤ THỂ dựa trên loại sự kiện:\n";
+    $fullPrompt .= "       * Hội thảo: micro, loa, máy chiếu, bàn ghế, màn chiếu\n";
+    $fullPrompt .= "       * Tiệc sinh nhật: âm thanh, ánh sáng, bàn ghế, trang trí\n";
+    $fullPrompt .= "       * Đám cưới: âm thanh, ánh sáng, trang trí, bàn tiệc\n";
+    $fullPrompt .= "       * Nêu TÊN THIẾT BỊ cụ thể và GIÁ THUÊ từ database\n";
+    $fullPrompt .= "     + Combo: Nếu có combo phù hợp, đề xuất để tiết kiệm chi phí (nêu tên combo và giá)\n";
+    $fullPrompt .= "   - Tính toán chi phí ước tính CHI TIẾT:\n";
+    $fullPrompt .= "     + Giá cơ bản loại sự kiện (từ database)\n";
+    $fullPrompt .= "     + Giá thuê địa điểm/phòng (theo giờ hoặc ngày tùy loại, từ database)\n";
+    $fullPrompt .= "     + Giá thuê thiết bị (từng thiết bị hoặc giá combo nếu đề xuất combo, từ database)\n";
+    $fullPrompt .= "     + Tổng chi phí = Giá cơ bản + Giá địa điểm + Giá thiết bị\n";
+    $fullPrompt .= "     + Đề xuất mã giảm giá nếu có và phù hợp (kiểm tra số tiền tối thiểu)\n";
+    $fullPrompt .= "     + Tính tổng chi phí sau giảm giá (nếu có mã giảm giá)\n";
+    $fullPrompt .= "     + Hiển thị kết quả theo định dạng: \"Tổng chi phí ước tính: X.XXX.XXX VNĐ\"\n";
     $fullPrompt .= "   - Đề xuất đặt sự kiện ngay khi đã có đủ thông tin\n\n";
     
-    $fullPrompt .= "2. Khi khách hàng cung cấp thông tin sự kiện (ví dụ: 'Tôi muốn tổ chức tiệc sinh nhật cho 50 người vào ngày 15/1'), hãy:\n";
-    $fullPrompt .= "   - Xác nhận lại thông tin\n";
-    $fullPrompt .= "   - Đề xuất địa điểm phù hợp với số người\n";
-    $fullPrompt .= "   - Đề xuất thiết bị cần thiết (âm thanh, ánh sáng, v.v.)\n";
-    $fullPrompt .= "   - Tính toán chi phí ước tính\n";
+    $fullPrompt .= "2. Khi khách hàng cung cấp thông tin sự kiện (ví dụ: 'Tôi có 10tr cần đặt phòng hội thảo' hoặc 'Tôi muốn tổ chức tiệc sinh nhật cho 50 người'), hãy:\n";
+    $fullPrompt .= "   - Xác nhận lại thông tin đầy đủ: loại sự kiện, số người, ngày giờ, địa điểm mong muốn (nếu có), ngân sách (nếu có)\n";
+    $fullPrompt .= "   - Đề xuất địa điểm/phòng phù hợp CỤ THỂ:\n";
+    $fullPrompt .= "     + Tìm địa điểm có sức chứa >= số người (ưu tiên địa điểm có sức chứa gần với số người nhất)\n";
+    $fullPrompt .= "     + Nếu địa điểm trong nhà, đề xuất PHÒNG CỤ THỂ có sức chứa phù hợp (nêu tên phòng, sức chứa, giá)\n";
+    $fullPrompt .= "     + Nêu rõ: Tên địa điểm, địa chỉ, sức chứa, giá thuê (theo giờ/ngày)\n";
+    $fullPrompt .= "     + Nếu khách hàng có ngân sách, chỉ đề xuất địa điểm/phòng phù hợp với ngân sách\n";
+    $fullPrompt .= "   - Đề xuất thiết bị cần thiết CỤ THỂ:\n";
+    $fullPrompt .= "     + Dựa trên loại sự kiện: hội thảo cần micro, loa, máy chiếu, bàn ghế\n";
+    $fullPrompt .= "     + Đề xuất combo nếu có combo phù hợp (tiết kiệm hơn thuê riêng lẻ)\n";
+    $fullPrompt .= "     + Nêu rõ: Tên thiết bị, giá thuê (hoặc tên combo, giá combo)\n";
+    $fullPrompt .= "   - Tính toán chi phí ước tính CHI TIẾT:\n";
+    $fullPrompt .= "     + Liệt kê từng khoản:\n";
+    $fullPrompt .= "       • Giá cơ bản loại sự kiện: X.XXX.XXX VNĐ\n";
+    $fullPrompt .= "       • Giá thuê địa điểm/phòng: X.XXX.XXX VNĐ\n";
+    $fullPrompt .= "       • Giá thuê thiết bị/combo: X.XXX.XXX VNĐ\n";
+    $fullPrompt .= "       • Tổng chi phí: X.XXX.XXX VNĐ\n";
+    $fullPrompt .= "     + Kiểm tra mã giảm giá có thể áp dụng (nếu tổng >= số tiền tối thiểu)\n";
+    $fullPrompt .= "     + Nếu có mã giảm giá: Giảm X% hoặc X.XXX.XXX VNĐ\n";
+    $fullPrompt .= "     + Tổng sau giảm giá: X.XXX.XXX VNĐ\n";
     $fullPrompt .= "   - Mạnh dạn đề xuất: 'Bạn có muốn tôi giúp bạn đăng ký sự kiện này ngay không? Tôi có thể hướng dẫn bạn từng bước.'\n\n";
     
     $fullPrompt .= "3. Khi khách hàng hỏi về giá cả hoặc dịch vụ, hãy:\n";
-    $fullPrompt .= "   - Cung cấp thông tin giá cụ thể từ database\n";
+    $fullPrompt .= "   - Cung cấp thông tin giá CỤ THỂ từ database:\n";
+    $fullPrompt .= "     + Giá cơ bản các loại sự kiện\n";
+    $fullPrompt .= "     + Giá thuê địa điểm/phòng (theo giờ hoặc ngày)\n";
+    $fullPrompt .= "     + Giá thuê thiết bị (theo loại)\n";
+    $fullPrompt .= "     + Giá combo (nếu có, thường rẻ hơn thuê riêng lẻ)\n";
+    $fullPrompt .= "   - Giới thiệu mã giảm giá đang có (nếu có)\n";
     $fullPrompt .= "   - So sánh các gói dịch vụ nếu có\n";
-    $fullPrompt .= "   - Đề xuất: 'Bạn có muốn tôi giúp bạn tính toán chi phí cho sự kiện không? Chỉ cần cho tôi biết loại sự kiện và số người tham dự.'\n\n";
+    $fullPrompt .= "   - Đề xuất: 'Bạn có muốn tôi giúp bạn tính toán chi phí cho sự kiện không? Chỉ cần cho tôi biết loại sự kiện và số người tham dự, tôi sẽ tính toán chi tiết cho bạn.'\n\n";
     
     $fullPrompt .= "4. Luôn kết thúc bằng cách:\n";
     $fullPrompt .= "   - Hỏi xem khách hàng có cần hỗ trợ gì thêm không\n";
@@ -423,7 +450,8 @@ function buildPrompt($message, $conversationHistory, $systemInfo) {
  * Gọi Gemini AI API
  */
 function callGeminiAPI($prompt) {
-    $apiKey = 'AIzaSyDtCMBxxPV1ryIWhWR6oRsPhA8Pchi7rZ8';
+    // Lấy API key từ config (bảo mật hơn)
+    $apiKey = defined('GEMINI_API_KEY') ? GEMINI_API_KEY : 'AIzaSyAT4nAOSfEwiO-8DozSXwncJ1rIj-nmpVk';
     
     // Thử các model khác nhau nếu một model không hoạt động
     // Sắp xếp theo thứ tự ưu tiên: nhanh nhất và đã test thành công trước
@@ -459,8 +487,6 @@ function callGeminiAPI($prompt) {
     // Thử từng model cho đến khi thành công
     foreach ($models as $model) {
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
-        error_log("Trying Gemini API with model: {$model}");
-        error_log("URL: {$url}");
         
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -472,10 +498,16 @@ function callGeminiAPI($prompt) {
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
         
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
+        try {
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+        } finally {
+            if (is_resource($ch)) { 
+                @curl_close($ch); 
+            }
+            unset($ch);
+        }
         
         if ($error) {
             error_log("Gemini API CURL Error (model {$model}): " . $error);
@@ -483,11 +515,8 @@ function callGeminiAPI($prompt) {
             continue; // Thử model tiếp theo
         }
         
-        error_log("Gemini API Response (model {$model}): HTTP {$httpCode}");
-        
         if ($httpCode === 200) {
             // Thành công!
-            error_log("Gemini API success with model: {$model}");
             $result = json_decode($response, true);
             
             if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {

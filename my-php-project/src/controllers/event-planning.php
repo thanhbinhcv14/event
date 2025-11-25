@@ -3,39 +3,43 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../auth/auth.php';
 
 // Bắt đầu session
-session_start();
-
-// Thiết lập header JSON
-header('Content-Type: application/json');
-
-// Kiểm tra người dùng đã đăng nhập và có role phù hợp
-if (!isLoggedIn()) {
-    error_log("Event Planning API: User not logged in. Session data: " . print_r($_SESSION, true));
-    error_log("Event Planning API: Request URI: " . $_SERVER['REQUEST_URI']);
-    error_log("Event Planning API: Request method: " . $_SERVER['REQUEST_METHOD']);
-    http_response_code(401);
-    echo json_encode(['success' => false, 'error' => 'Chưa đăng nhập', 'message' => 'Vui lòng đăng nhập để tiếp tục']);
-    exit;
-}
-
-$user = getCurrentUser();
-if (!in_array($user['ID_Role'], [1, 2, 3])) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
-    exit;
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
-// Ghi log action để debug
-error_log("Event Planning Action: " . $action);
-error_log("All GET data: " . json_encode($_GET));
-error_log("All POST data: " . json_encode($_POST));
+// Chỉ chạy API logic nếu có action (để view có thể require và gọi hàm helper)
+if (!empty($action)) {
+    // Thiết lập header JSON cho API request
+    header('Content-Type: application/json');
+    
+    // Kiểm tra người dùng đã đăng nhập và có role phù hợp
+    if (!isLoggedIn()) {
+        error_log("Event Planning API: User not logged in. Session data: " . print_r($_SESSION, true));
+        error_log("Event Planning API: Request URI: " . $_SERVER['REQUEST_URI']);
+        error_log("Event Planning API: Request method: " . $_SERVER['REQUEST_METHOD']);
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Chưa đăng nhập', 'message' => 'Vui lòng đăng nhập để tiếp tục']);
+        exit;
+    }
+    
+    $user = getCurrentUser();
+    if (!in_array($user['ID_Role'], [1, 2, 3])) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
+        exit;
+    }
+    
+    // Ghi log action để debug
+    error_log("Event Planning Action: " . $action);
+    error_log("All GET data: " . json_encode($_GET));
+    error_log("All POST data: " . json_encode($_POST));
+    
+    try {
+        $pdo = getDBConnection();
 
-try {
-    $pdo = getDBConnection();
-
-    switch ($action) {
+        switch ($action) {
         case 'get_events':
             getEvents($pdo);
             break;
@@ -123,18 +127,20 @@ try {
             deletePlan($pdo);
             break;
             
-        default:
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Action không hợp lệ']);
-            break;
+            default:
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Action không hợp lệ']);
+                break;
+        }
+    } catch (Exception $e) {
+        error_log("Event Planning Error: " . $e->getMessage());
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
+        exit;
     }
-} catch (Exception $e) {
-    error_log("Event Planning Error: " . $e->getMessage());
-    http_response_code(500);
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
-    exit;
 }
+// Nếu không có action, không làm gì - để view có thể require và gọi hàm helper
 
 function getEvents($pdo) {
     try {
@@ -2033,6 +2039,255 @@ function updateAllPlanStatuses($pdo, $eventId = null) {
         
     } catch (Exception $e) {
         error_log("ERROR: updateAllPlanStatuses - " . $e->getMessage());
+    }
+}
+
+// ============================================
+// Hàm helper cho view (không trả về JSON)
+// ============================================
+
+/**
+ * Lấy danh sách kế hoạch cho view plan-management.php
+ */
+function getPlansForView($pdo) {
+    try {
+        $stmt = $pdo->query("
+            SELECT 
+                kht.ID_KeHoach,
+                kht.ID_SuKien,
+                kht.TenKeHoach AS ten_kehoach,
+                kht.NoiDung,
+                kht.NgayBatDau,
+                kht.NgayKetThuc,
+                kht.TrangThai,
+                kht.LoaiKeHoach,
+                kht.TongSoBuoc,
+                kht.SoBuocHoanThanh,
+                kht.ID_NhanVien,
+                kht.NgayTao AS ngay_tao,
+                nv.HoTen AS TenNhanVien,
+                dl.TenSuKien
+            FROM kehoachthuchien kht
+            LEFT JOIN nhanvieninfo nv ON kht.ID_NhanVien = nv.ID_NhanVien
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+            ORDER BY kht.ngay_tao DESC
+        ");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error fetching plans for view: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Lấy danh sách nhân viên cho view plan-management.php
+ */
+function getStaffForView($pdo) {
+    try {
+        $stmt = $pdo->query("
+            SELECT 
+                nv.ID_NhanVien,
+                nv.HoTen,
+                nv.ChucVu
+            FROM nhanvieninfo nv
+            JOIN users u ON nv.ID_User = u.ID_User
+            WHERE u.TrangThai = 'Hoạt động'
+            ORDER BY nv.HoTen
+        ");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error fetching staff for view: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Lấy danh sách sự kiện đã duyệt cho view event-planning.php
+ */
+function getApprovedEventsForView($pdo) {
+    try {
+        $sql = "
+            SELECT 
+                dl.ID_DatLich,
+                dl.TenSuKien,
+                dl.NgayBatDau,
+                dl.NgayKetThuc,
+                dl.SoNguoiDuKien,
+                dl.NganSach,
+                dl.TrangThaiDuyet,
+                dl.TrangThaiThanhToan,
+                COALESCE(s.TrangThaiThucTe, 'Chưa bắt đầu') as TrangThaiThucTe,
+                COALESCE(s.TrangThaiThucTe, 'Chưa bắt đầu') as TrangThaiSuKien,
+                (SELECT kht.TrangThai 
+                 FROM kehoachthuchien kht 
+                 INNER JOIN sukien s2 ON kht.ID_SuKien = s2.ID_SuKien 
+                 WHERE s2.ID_DatLich = dl.ID_DatLich 
+                 ORDER BY CASE WHEN kht.TrangThai = 'Hoàn thành' THEN 0 ELSE 1 END, kht.ID_KeHoach DESC 
+                 LIMIT 1) as TrangThaiKeHoach,
+                (SELECT kht.ID_KeHoach 
+                 FROM kehoachthuchien kht 
+                 INNER JOIN sukien s2 ON kht.ID_SuKien = s2.ID_SuKien 
+                 WHERE s2.ID_DatLich = dl.ID_DatLich 
+                 ORDER BY CASE WHEN kht.TrangThai = 'Hoàn thành' THEN 0 ELSE 1 END, kht.ID_KeHoach DESC 
+                 LIMIT 1) as ID_KeHoach,
+                COALESCE(dd.TenDiaDiem, 'Chưa xác định') as TenDiaDiem,
+                COALESCE(dd.DiaChi, 'Chưa xác định') as DiaChi,
+                COALESCE(ls.TenLoai, 'Chưa phân loại') as TenLoaiSK,
+                COALESCE(kh.HoTen, 'Chưa có thông tin') as TenKhachHang,
+                COALESCE(kh.SoDienThoai, 'Chưa có') as SoDienThoai
+            FROM datlichsukien dl
+            LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+            LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+            LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+            WHERE dl.TrangThaiDuyet = 'Đã duyệt' 
+                AND dl.TrangThaiThanhToan IN ('Đã đặt cọc', 'Đã thanh toán đủ')
+            ORDER BY 
+                CASE 
+                    WHEN COALESCE(s.TrangThaiThucTe, '') = 'Hoàn thành' 
+                         OR (SELECT kht.TrangThai 
+                             FROM kehoachthuchien kht 
+                             INNER JOIN sukien s2 ON kht.ID_SuKien = s2.ID_SuKien 
+                             WHERE s2.ID_DatLich = dl.ID_DatLich 
+                             ORDER BY CASE WHEN kht.TrangThai = 'Hoàn thành' THEN 0 ELSE 1 END, kht.ID_KeHoach DESC 
+                             LIMIT 1) = 'Hoàn thành' THEN 1
+                    ELSE 0
+                END ASC,
+                dl.NgayBatDau DESC
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error fetching approved events for view: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Lấy danh sách kế hoạch hiện có cho view event-planning.php
+ */
+function getExistingPlansForView($pdo) {
+    try {
+        $sql = "
+            SELECT 
+                kht.ID_KeHoach,
+                kht.ID_SuKien,
+                kht.TenKeHoach,
+                kht.NoiDung,
+                kht.NgayBatDau,
+                kht.NgayKetThuc,
+                kht.TrangThai,
+                kht.ID_NhanVien AS ID_NhanVien,
+                nv.HoTen AS TenNhanVien,
+                s.ID_DatLich,
+                dl.TenSuKien
+            FROM kehoachthuchien kht
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+            LEFT JOIN nhanvien nv ON kht.ID_NhanVien = nv.ID_NhanVien
+            ORDER BY kht.NgayBatDau ASC
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error fetching existing plans for view: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Cập nhật trạng thái tất cả kế hoạch (helper cho view)
+ */
+function updateAllPlanStatusesForView($pdo) {
+    try {
+        // Lấy tất cả ID kế hoạch
+        $sql = "SELECT DISTINCT ID_KeHoach FROM kehoachthuchien";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+        $planIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Cập nhật trạng thái cho từng kế hoạch
+        foreach ($planIds as $planId) {
+            // Lấy tất cả các bước của kế hoạch này với trạng thái thực tế từ lichlamviec
+            $stepStmt = $pdo->prepare("
+                SELECT 
+                    ck.ID_ChiTiet,
+                    ck.TrangThai as chitiet_status,
+                    COUNT(llv.ID_LLV) as total_assignments,
+                    SUM(CASE WHEN llv.TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_assignments,
+                    SUM(CASE WHEN llv.TrangThai = 'Đang làm' THEN 1 ELSE 0 END) as inprogress_assignments
+                FROM chitietkehoach ck
+                LEFT JOIN lichlamviec llv ON ck.ID_ChiTiet = llv.ID_ChiTiet
+                WHERE ck.ID_KeHoach = ?
+                GROUP BY ck.ID_ChiTiet, ck.TrangThai
+            ");
+            $stepStmt->execute([$planId]);
+            $steps = $stepStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (empty($steps)) {
+                continue;
+            }
+            
+            $totalSteps = count($steps);
+            $completedSteps = 0;
+            $inProgressSteps = 0;
+            
+            foreach ($steps as $step) {
+                $totalAssignments = (int)$step['total_assignments'];
+                $completedAssignments = (int)$step['completed_assignments'];
+                $inProgressAssignments = (int)$step['inprogress_assignments'];
+                
+                // Nếu bước có assignments trong lichlamviec, sử dụng chúng để xác định trạng thái
+                if ($totalAssignments > 0) {
+                    // Bước hoàn thành chỉ khi TẤT CẢ assignments đều hoàn thành
+                    if ($completedAssignments === $totalAssignments && $totalAssignments > 0) {
+                        $completedSteps++;
+                    } 
+                    // Bước đang làm nếu có ít nhất một assignment đang làm hoặc đã hoàn thành (nhưng chưa tất cả)
+                    else if ($inProgressAssignments > 0 || $completedAssignments > 0) {
+                        $inProgressSteps++;
+                    }
+                } else {
+                    // Không có assignments trong lichlamviec, sử dụng trạng thái từ chitietkehoach
+                    if ($step['chitiet_status'] === 'Hoàn thành') {
+                        $completedSteps++;
+                    } else if ($step['chitiet_status'] === 'Đang làm') {
+                        $inProgressSteps++;
+                    }
+                }
+            }
+            
+            // Xác định trạng thái kế hoạch mới
+            $newPlanStatus = null;
+            if ($completedSteps === $totalSteps && $totalSteps > 0) {
+                // Tất cả các bước đã hoàn thành
+                $newPlanStatus = 'Hoàn thành';
+            } else if ($inProgressSteps > 0 || $completedSteps > 0) {
+                // Có ít nhất một bước đang làm hoặc đã hoàn thành
+                $newPlanStatus = 'Đang thực hiện';
+            } else {
+                // Tất cả các bước đều "Chưa làm"
+                $newPlanStatus = 'Chưa bắt đầu';
+            }
+            
+            // Cập nhật trạng thái kế hoạch
+            if ($newPlanStatus) {
+                $updateStmt = $pdo->prepare("
+                    UPDATE kehoachthuchien 
+                    SET TrangThai = ? 
+                    WHERE ID_KeHoach = ?
+                ");
+                $updateStmt->execute([$newPlanStatus, $planId]);
+            }
+        }
+        
+    } catch (Exception $e) {
+        error_log("ERROR: updateAllPlanStatusesForView - " . $e->getMessage());
     }
 }
 

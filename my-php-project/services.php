@@ -15,11 +15,11 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dịch vụ - Event Management System</title>
     <link rel="icon" href="img/logo/logo.jpg">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background: white;
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             position: relative;
@@ -27,82 +27,34 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             padding-top: 80px;
         }
         
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.2) 0%, transparent 50%);
-            z-index: -1;
-            animation: backgroundShift 20s ease-in-out infinite;
-        }
-        
-        @keyframes backgroundShift {
-            0%, 100% { transform: translateX(0) translateY(0); }
-            25% { transform: translateX(-10px) translateY(-5px); }
-            50% { transform: translateX(10px) translateY(5px); }
-            75% { transform: translateX(-5px) translateY(10px); }
-        }
-        
         .hero-section {
-            padding: 100px 0;
+            padding: 40px 0 20px;
             text-align: center;
-            color: white;
+            color: #333;
             position: relative;
+            background: white;
         }
         
         .hero-section h1 {
-            font-size: 3.5rem;
-            font-weight: 800;
-            margin-bottom: 1rem;
-            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            animation: titleGlow 3s ease-in-out infinite alternate;
-        }
-        
-        @keyframes titleGlow {
-            0% { text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); }
-            100% { text-shadow: 0 4px 30px rgba(255, 255, 255, 0.5); }
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: #333;
         }
         
         .hero-section p {
-            font-size: 1.3rem;
-            opacity: 0.9;
-            margin-bottom: 2rem;
-        }
-        
-        .services-container {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 25px;
-            box-shadow: 
-                0 25px 50px rgba(0, 0, 0, 0.15),
-                0 0 0 1px rgba(255, 255, 255, 0.2);
-            margin: -50px auto 50px;
-            padding: 60px 40px;
-            max-width: 1200px;
-            position: relative;
-            z-index: 1;
-            animation: containerFloat 6s ease-in-out infinite;
-        }
-        
-        @keyframes containerFloat {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-5px); }
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 1.5rem;
         }
         
         .service-card {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 2.5rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
@@ -181,54 +133,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             font-weight: bold;
         }
         
-        .pricing-card {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border-radius: 20px;
-            padding: 2.5rem;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .pricing-card::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-            animation: pricingShine 8s ease-in-out infinite;
-        }
-        
-        @keyframes pricingShine {
-            0%, 100% { transform: rotate(0deg) scale(1); }
-            50% { transform: rotate(180deg) scale(1.1); }
-        }
-        
-        .pricing-card h3 {
-            font-size: 2rem;
-            font-weight: 800;
-            margin-bottom: 1rem;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .pricing-card .price {
-            font-size: 3rem;
-            font-weight: 900;
-            margin-bottom: 1rem;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .pricing-card p {
-            opacity: 0.9;
-            position: relative;
-            z-index: 1;
-        }
-        
         /* Navigation Styles */
         .navbar {
             background: rgba(255, 255, 255, 0.95) !important;
@@ -240,6 +144,40 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         
         .navbar .container-fluid {
             padding: 0 1rem;
+        }
+        
+        /* Right side buttons - compact and aligned right */
+        .navbar .d-flex.gap-1 {
+            margin-left: 1rem;
+            margin-right: 0;
+        }
+        
+        /* Reduce padding for navbar buttons */
+        .navbar .btn {
+            padding: 0.4rem 0.8rem !important;
+            font-size: 0.9rem;
+        }
+        
+        .navbar .navbar-event-btn {
+            padding: 8px 18px !important;
+            font-size: 0.9rem;
+        }
+        
+        /* Align buttons to right edge */
+        @media (min-width: 992px) {
+            .navbar .container-fluid {
+                padding-right: 0.5rem;
+            }
+            
+            .navbar .d-flex.gap-1 {
+                margin-left: 1rem;
+                margin-right: 0;
+            }
+        }
+        
+        .navbar.scrolled {
+            background: rgba(255, 255, 255, 0.98) !important;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.15);
         }
         
         .navbar-nav .nav-link {
@@ -298,22 +236,209 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             transform: translateX(5px);
         }
         
+        .dropdown-item i {
+            width: 20px;
+            text-align: center;
+        }
+        
+        .dropdown-divider {
+            margin: 0.5rem 0;
+            border-color: #e9ecef;
+        }
+        
+        /* ✅ Nút Sự kiện nổi bật bên phải navbar - Màu sáng dịu nhẹ */
+        .navbar-event-btn {
+            background: linear-gradient(135deg, #c5d9f0 0%, #d5c9ed 50%, #e5c9ea 100%);
+            color: #5a5a5a !important;
+            border: 2px solid rgba(197, 217, 240, 0.5);
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(197, 217, 240, 0.25);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+            margin-right: 10px;
+        }
+        
+        .navbar-event-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .navbar-event-btn:hover::before {
+            left: 100%;
+        }
+        
+        .navbar-event-btn:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 6px 20px rgba(197, 217, 240, 0.35);
+            background: linear-gradient(135deg, #d5e5f5 0%, #e5d9f2 50%, #f5d9ef 100%);
+            border-color: rgba(197, 217, 240, 0.8);
+        }
+        
+        .navbar-event-btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+        
+        .navbar-event-btn i {
+            font-size: 1.2rem;
+            color: #667eea;
+            animation: bounce-icon-nav 2s ease-in-out infinite;
+        }
+        
+        @keyframes bounce-icon-nav {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-2px);
+            }
+        }
+        
+        /* ✅ Dropdown menu cho nút Sự kiện - Màu sáng dịu nhẹ */
+        .navbar-event-dropdown {
+            min-width: 250px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(197, 217, 240, 0.2);
+            border: 1px solid rgba(197, 217, 240, 0.4);
+            margin-top: 10px !important;
+            background: white;
+            padding: 8px;
+        }
+        
+        .navbar-event-dropdown .dropdown-item {
+            padding: 12px 20px;
+            font-weight: 500;
+            border-radius: 10px;
+            margin: 4px 0;
+            transition: all 0.3s ease;
+            color: #5a5a5a;
+            border: 1px solid transparent;
+        }
+        
+        .navbar-event-dropdown .dropdown-item:hover {
+            background: linear-gradient(135deg, #e8f2fa 0%, #f0e8f7 100%);
+            color: #667eea;
+            transform: translateX(5px);
+            border-color: rgba(197, 217, 240, 0.5);
+        }
+        
+        .navbar-event-dropdown .dropdown-item:first-child {
+            background: linear-gradient(135deg, #d5e5f5 0%, #e5d9f2 100%);
+            color: #667eea;
+            font-weight: 600;
+            border-color: rgba(197, 217, 240, 0.6);
+        }
+        
+        .navbar-event-dropdown .dropdown-item:first-child:hover {
+            background: linear-gradient(135deg, #e5eff8 0%, #f0e8f7 100%);
+            transform: translateX(5px) scale(1.02);
+            border-color: rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(197, 217, 240, 0.3);
+        }
+        
+        .navbar-event-dropdown .dropdown-item i {
+            color: #667eea;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .navbar-event-dropdown .dropdown-divider {
+            margin: 8px 0;
+            border-color: rgba(197, 217, 240, 0.3);
+        }
+        
+        .navbar-brand img {
+            height: 40px;
+            width: auto;
+            transition: transform 0.3s ease;
+        }
+        
+        .navbar-brand:hover img {
+            transform: scale(1.05);
+        }
+        
+        /* Discount Cart Icon Styles */
+        .discount-cart-btn {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .discount-cart-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .discount-cart-btn .badge {
+            font-size: 0.7rem;
+            padding: 0.25em 0.5em;
+            animation: pulse-badge 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-badge {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+        
+        /* Navbar discount cart link styles */
+        .nav-link.position-relative {
+            padding-right: 1.5rem !important;
+        }
+        
+        .nav-link .badge {
+            font-size: 0.65rem;
+            padding: 0.2em 0.5em;
+            animation: pulse-badge 2s ease-in-out infinite;
+            margin-left: 5px;
+            min-width: 18px;
+            text-align: center;
+            line-height: 1.2;
+            z-index: 10;
+        }
+        
+        .nav-link:hover .badge {
+            animation-play-state: paused;
+        }
+        
+        /* Ensure badge is visible when displayed */
+        #discountCartBadge[style*="display: block"],
+        #discountCartBadge:not([style*="display: none"]) {
+            display: inline-block !important;
+        }
+        
         /* Service Cards Styles */
         .service-item-card {
             background: white;
-            border-radius: 20px;
+            border-radius: 15px;
             padding: 0;
-            margin-bottom: 2rem;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
             transition: all 0.3s ease;
             border: none;
             overflow: hidden;
             position: relative;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
         
         .service-item-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
         }
         
         .service-item-image {
@@ -340,20 +465,23 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         }
         
         .service-item-content {
-            padding: 1.5rem;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
         }
         
         .service-item-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 1rem;
-            gap: 1rem;
+            margin-bottom: 0.75rem;
+            gap: 0.75rem;
         }
         
         .service-item-title {
-            font-size: 1.3rem;
-            font-weight: 700;
+            font-size: 1.1rem;
+            font-weight: 600;
             color: #2c3e50;
             margin: 0;
             line-height: 1.3;
@@ -371,24 +499,11 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             letter-spacing: 0.5px;
         }
         
-        .service-item-price {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-            padding: 0.6rem 1rem;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 0.9rem;
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
-            white-space: nowrap;
-            min-width: 120px;
-        }
-        
         .service-item-description {
             color: #6c757d;
-            font-size: 0.95rem;
+            font-size: 0.875rem;
             line-height: 1.5;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             line-clamp: 2;
@@ -421,21 +536,47 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding-top: 1rem;
+            padding-top: 0.75rem;
             border-top: 1px solid #e9ecef;
-            margin-top: 1rem;
+            margin-top: auto;
         }
         
         .service-item-capacity {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
+            padding: 0.4rem 0.8rem;
+            border-radius: 15px;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.4rem;
+        }
+        
+        .btn-register-now {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            box-shadow: 0 3px 10px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn-register-now:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+            color: white;
+        }
+        
+        .btn-register-now i {
+            font-size: 0.85rem;
         }
         
         .service-item-events {
@@ -501,28 +642,29 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             border-bottom: none;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 0.5rem;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
+            border-radius: 15px;
+            padding: 0.4rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 1.5rem;
             display: flex;
             justify-content: center;
-            gap: 0.5rem;
+            gap: 0.4rem;
         }
         
         .nav-tabs .nav-link {
             border: none;
             color: #666;
             font-weight: 600;
-            padding: 1rem 2.5rem;
-            border-radius: 15px;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
             margin-right: 0;
             transition: all 0.3s ease;
             position: relative;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.4rem;
             background: transparent;
+            font-size: 0.9rem;
         }
         
         .nav-tabs .nav-link i {
@@ -546,10 +688,10 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         .search-container {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
         }
         
         .search-box {
@@ -645,14 +787,16 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             border: none;
             border-radius: 20px;
             padding: 8px 20px;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.9rem;
             transition: all 0.3s ease;
+            color: white;
         }
         
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            color: white;
         }
         
         .btn-outline-primary {
@@ -660,15 +804,151 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             color: #667eea;
             border-radius: 20px;
             padding: 6px 18px;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.9rem;
             transition: all 0.3s ease;
+            background: transparent;
         }
         
         .btn-outline-primary:hover {
             background: #667eea;
             color: white;
             transform: translateY(-2px);
+            border-color: #667eea;
+        }
+        
+        /* ✅ Nút Sự kiện nổi bật bên phải navbar - Màu sáng dịu nhẹ */
+        .navbar-event-btn {
+            background: linear-gradient(135deg, #c5d9f0 0%, #d5c9ed 50%, #e5c9ea 100%);
+            color: #5a5a5a !important;
+            border: 2px solid rgba(197, 217, 240, 0.5);
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(197, 217, 240, 0.25);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+            margin-right: 10px;
+        }
+        
+        .navbar-event-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .navbar-event-btn:hover::before {
+            left: 100%;
+        }
+        
+        .navbar-event-btn:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 6px 20px rgba(197, 217, 240, 0.35);
+            background: linear-gradient(135deg, #d5e5f5 0%, #e5d9f2 50%, #f5d9ef 100%);
+            border-color: rgba(197, 217, 240, 0.8);
+        }
+        
+        .navbar-event-btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+        
+        .navbar-event-btn i {
+            font-size: 1.2rem;
+            color: #667eea;
+            animation: bounce-icon-nav 2s ease-in-out infinite;
+        }
+        
+        @keyframes bounce-icon-nav {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-2px);
+            }
+        }
+        
+        /* Dropdown menu cho nút Sự kiện */
+        .navbar-event-dropdown {
+            min-width: 250px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(197, 217, 240, 0.2);
+            border: 1px solid rgba(197, 217, 240, 0.4);
+            margin-top: 10px !important;
+            background: white;
+            padding: 8px;
+        }
+        
+        .navbar-event-dropdown .dropdown-item {
+            padding: 12px 20px;
+            font-weight: 500;
+            border-radius: 10px;
+            margin: 4px 0;
+            transition: all 0.3s ease;
+            color: #5a5a5a;
+            border: 1px solid transparent;
+        }
+        
+        .navbar-event-dropdown .dropdown-item:hover {
+            background: linear-gradient(135deg, #e8f2fa 0%, #f0e8f7 100%);
+            color: #667eea;
+            transform: translateX(5px);
+            border-color: rgba(197, 217, 240, 0.5);
+        }
+        
+        .navbar-event-dropdown .dropdown-item:first-child {
+            background: linear-gradient(135deg, #d5e5f5 0%, #e5d9f2 100%);
+            color: #667eea;
+            font-weight: 600;
+            border-color: rgba(197, 217, 240, 0.6);
+        }
+        
+        .navbar-event-dropdown .dropdown-item:first-child:hover {
+            background: linear-gradient(135deg, #e5eff8 0%, #f0e8f7 100%);
+            transform: translateX(5px) scale(1.02);
+            border-color: rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(197, 217, 240, 0.3);
+        }
+        
+        .navbar-event-dropdown .dropdown-item i {
+            color: #667eea;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .navbar-event-dropdown .dropdown-divider {
+            margin: 8px 0;
+            border-color: rgba(197, 217, 240, 0.3);
+        }
+        
+        
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 50px 0 20px;
+        }
+        
+        .footer a {
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .footer a:hover {
+            color: #3498db;
+        }
+        
+        .footer-logo {
+            border-radius: 5px;
         }
         
         /* Empty state styles */
@@ -755,6 +1035,13 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                 font-size: 0.8rem;
                 padding: 0.4rem 0.8rem;
             }
+            
+            .navbar-event-btn {
+                margin-right: 0;
+                margin-bottom: 10px;
+                width: 100%;
+                justify-content: center;
+            }
         }
         
     </style>
@@ -763,7 +1050,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light fixed-top">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">
+            <a class="navbar-brand" href="index.php">
                 <img src="img/logo/logo.jpg" alt="Logo">
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -782,6 +1069,16 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="du-an.php">
+                            <i class="fas fa-project-diagram me-1"></i>Dự án
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="blog.php">
+                            <i class="fas fa-blog me-1"></i>Blog
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="about.php">
                             <i class="fas fa-info-circle me-1"></i>Giới thiệu
                         </a>
@@ -791,41 +1088,47 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                             <i class="fas fa-phone me-1"></i>Liên hệ
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="privacy-policy.php">
-                            <i class="fas fa-shield-alt me-1"></i>Chính sách bảo mật
-                        </a>
-                    </li>
                     <?php if ($user): ?>
                     <!-- Chức năng dành cho người dùng đã đăng nhập -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="eventsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-calendar-alt me-1"></i>Sự kiện
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="eventsDropdown">
-                            <li><a class="dropdown-item" href="events/register.php">
-                                <i class="fas fa-calendar-plus me-2"></i>Đăng ký sự kiện
-                            </a></li>
-                            <li><a class="dropdown-item" href="events/my-events.php">
-                                <i class="fas fa-list-alt me-2"></i>Sự kiện của tôi
-                            </a></li>
-                            <?php if (in_array($userRole, [1, 2, 3, 4])): ?>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="admin/event-registrations.php">
-                                <i class="fas fa-cogs me-2"></i>Quản lý sự kiện
-                            </a></li>
-                            <?php endif; ?>
-                        </ul>
-                    </li>
                     <li class="nav-item">
                         <a class="nav-link" href="chat.php">
                             <i class="fas fa-comments me-1"></i>Chat hỗ trợ
                         </a>
                     </li>
+                    <!-- ✅ Giỏ mã giảm giá trong menu -->
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="#" onclick="openDiscountCartModal(); return false;" title="Mã giảm giá đã lưu">
+                            <i class="fas fa-ticket-alt me-1"></i>Mã giảm giá
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" 
+                                  id="discountCartBadge" style="display: none; font-size: 0.65rem; padding: 0.2em 0.5em; min-width: 18px; text-align: center; line-height: 1.2;">0</span>
+                        </a>
+                    </li>
                     <?php endif; ?>
                 </ul>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-1 align-items-center">
                     <?php if ($user): ?>
+                        <!-- Nút Sự kiện nổi bật bên phải -->
+                        <div class="dropdown">
+                            <button class="navbar-event-btn dropdown-toggle" type="button" id="eventsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-calendar-plus"></i>
+                                <span>Sự kiện</span>
+                            </button>
+                            <ul class="dropdown-menu navbar-event-dropdown" aria-labelledby="eventsDropdown">
+                                <li><a class="dropdown-item" href="events/register.php">
+                                    <i class="fas fa-calendar-plus me-2"></i>Đăng ký sự kiện
+                                </a></li>
+                                <li><a class="dropdown-item" href="events/my-events.php">
+                                    <i class="fas fa-list-alt me-2"></i>Sự kiện của tôi
+                                </a></li>
+                                <?php if (in_array($userRole, [1, 2, 3, 4])): ?>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="admin/event-registrations.php">
+                                    <i class="fas fa-cogs me-2"></i>Quản lý sự kiện
+                                </a></li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                        
                         <a href="profile.php" class="btn btn-outline-primary">
                             <i class="fa fa-user me-1"></i> Tài khoản
                         </a>
@@ -967,173 +1270,257 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         </div>
     </div>
     
-    <!-- Services Section -->
-    <div class="container">
-        <div class="services-container">
-            <div class="row">
-                <!-- Service 1 -->
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="service-card">
-                        <div class="service-icon">
-                            <i class="fas fa-calendar-alt"></i>
-                        </div>
-                        <h3>Tổ chức sự kiện</h3>
-                        <p>Chúng tôi chuyên tổ chức các sự kiện từ quy mô nhỏ đến lớn với đội ngũ chuyên nghiệp.</p>
-                        <ul class="service-features">
-                            <li>Lập kế hoạch chi tiết</li>
-                            <li>Quản lý thời gian</li>
-                            <li>Điều phối nhân sự</li>
-                            <li>Hỗ trợ 24/7</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <!-- Service 2 -->
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="service-card">
-                        <div class="service-icon">
-                            <i class="fas fa-microphone"></i>
-                        </div>
-                        <h3>Thiết bị âm thanh</h3>
-                        <p>Cung cấp và lắp đặt hệ thống âm thanh chất lượng cao cho mọi loại sự kiện.</p>
-                        <ul class="service-features">
-                            <li>Micro không dây</li>
-                            <li>Loa chuyên nghiệp</li>
-                            <li>Mixer âm thanh</li>
-                            <li>Bảo trì thiết bị</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <!-- Service 3 -->
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="service-card">
-                        <div class="service-icon">
-                            <i class="fas fa-lightbulb"></i>
-                        </div>
-                        <h3>Hệ thống ánh sáng</h3>
-                        <p>Thiết kế và lắp đặt hệ thống ánh sáng chuyên nghiệp tạo không gian ấn tượng.</p>
-                        <ul class="service-features">
-                            <li>Đèn LED chuyên nghiệp</li>
-                            <li>Hiệu ứng ánh sáng</li>
-                            <li>Điều khiển tự động</li>
-                            <li>Tiết kiệm năng lượng</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <!-- Service 4 -->
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="service-card">
-                        <div class="service-icon">
-                            <i class="fas fa-map-marker-alt"></i>
-                        </div>
-                        <h3>Địa điểm tổ chức</h3>
-                        <p>Hỗ trợ tìm kiếm và đặt địa điểm tổ chức sự kiện phù hợp với yêu cầu.</p>
-                        <ul class="service-features">
-                            <li>Nhiều địa điểm</li>
-                            <li>Giá cả hợp lý</li>
-                            <li>Vị trí thuận tiện</li>
-                            <li>Hỗ trợ đặt chỗ</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Dynamic Pricing Section -->
-            <div class="row mt-5">
-                <div class="col-12">
-                    <h2 class="text-center mb-5" style="color: #333; font-weight: 700;">Bảng giá dịch vụ (Giá biến động)</h2>
-                    
-                    <!-- Dynamic Pricing Info -->
-                    <div class="alert alert-info mb-4">
-                        <h5><i class="fas fa-info-circle"></i> Giá Biến Động Theo Thời Gian</h5>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6>Thời gian trong ngày:</h6>
-                                <ul class="list-unstyled">
-                                    <li><i class="fas fa-sun text-warning"></i> Buổi sáng (6:00-12:00): <strong>Giá gốc</strong></li>
-                                    <li><i class="fas fa-cloud-sun text-info"></i> Buổi chiều (12:00-18:00): <strong>+10%</strong></li>
-                                    <li><i class="fas fa-moon text-primary"></i> Buổi tối (18:00-22:00): <strong>+25%</strong></li>
-                                    <li><i class="fas fa-moon text-dark"></i> Ban đêm (22:00-6:00): <strong>+30%</strong></li>
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <h6>Ngày trong tuần:</h6>
-                                <ul class="list-unstyled">
-                                    <li><i class="fas fa-calendar-day text-success"></i> Ngày thường (T2-T6): <strong>Giá gốc</strong></li>
-                                    <li><i class="fas fa-calendar-weekend text-warning"></i> Cuối tuần (T7-CN): <strong>+20%</strong></li>
-                                    <li><i class="fas fa-calendar-check text-danger"></i> Ngày lễ: <strong>+40%</strong></li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="pricing-card">
-                        <h3>Gói Cơ bản</h3>
-                        <div class="price">2.000.000đ</div>
-                        <p>Phù hợp cho sự kiện nhỏ</p>
-                        <div class="alert alert-warning small">
-                            <strong>Lưu ý:</strong> Giá địa điểm có thể tăng 10-40% tùy thời gian
-                        </div>
-                        <ul class="service-features mt-3">
-                            <li>Tối đa 50 khách</li>
-                            <li>Thiết bị cơ bản</li>
-                            <li>Hỗ trợ 8 giờ</li>
-                            <li>Bảo hiểm sự kiện</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="pricing-card">
-                        <h3>Gói Chuyên nghiệp</h3>
-                        <div class="price">5.000.000đ</div>
-                        <p>Phù hợp cho sự kiện trung bình</p>
-                        <div class="alert alert-warning small">
-                            <strong>Lưu ý:</strong> Giá địa điểm có thể tăng 10-40% tùy thời gian
-                        </div>
-                        <ul class="service-features mt-3">
-                            <li>Tối đa 150 khách</li>
-                            <li>Thiết bị cao cấp</li>
-                            <li>Hỗ trợ 12 giờ</li>
-                            <li>Quay phim cơ bản</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="pricing-card">
-                        <h3>Gói Cao cấp</h3>
-                        <div class="price">10.000.000đ</div>
-                        <p>Phù hợp cho sự kiện lớn</p>
-                        <div class="alert alert-warning small">
-                            <strong>Lưu ý:</strong> Giá địa điểm có thể tăng 10-40% tùy thời gian
-                        </div>
-                        <ul class="service-features mt-3">
-                            <li>Không giới hạn khách</li>
-                            <li>Thiết bị chuyên nghiệp</li>
-                            <li>Hỗ trợ 24/7</li>
-                            <li>Quay phim 4K</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <!-- Demo Button -->
-                <div class="col-12 text-center mt-4">
-                    <a href="dynamic-pricing-demo.php" class="btn btn-primary btn-lg">
-                        <i class="fas fa-calculator"></i> Demo Tính Giá Động
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
     
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        // Navbar scroll effect
+        window.addEventListener('scroll', function() {
+            const navbar = document.querySelector('.navbar');
+            if (navbar) {
+                if (window.scrollY > 50) {
+                    navbar.classList.add('scrolled');
+                } else {
+                    navbar.classList.remove('scrolled');
+                }
+            }
+        });
+        
+        // Discount Cart Modal Functions
+        const isUserLoggedIn = <?php echo isset($user) && $user ? 'true' : 'false'; ?>;
+        
+        // Get saved discount codes from localStorage
+        function getSavedDiscountCodes() {
+            try {
+                const saved = localStorage.getItem('savedDiscountCodes');
+                return saved ? JSON.parse(saved) : [];
+            } catch (e) {
+                console.error('Error reading saved discount codes:', e);
+                return [];
+            }
+        }
+        
+        // Update discount cart badge
+        function updateDiscountCartBadge() {
+            const savedCodes = getSavedDiscountCodes();
+            const badge = document.getElementById('discountCartBadge');
+            
+            if (badge) {
+                if (savedCodes.length > 0) {
+                    badge.textContent = savedCodes.length;
+                    badge.style.display = 'block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        }
+        
+        // Open discount cart modal
+        function openDiscountCartModal() {
+            console.log('openDiscountCartModal called, isUserLoggedIn:', isUserLoggedIn);
+            
+            // Check if user is logged in
+            if (!isUserLoggedIn) {
+                if (confirm('Bạn cần đăng nhập để xem mã giảm giá đã lưu. Bạn có muốn đăng nhập ngay không?')) {
+                    window.location.href = 'login.php?redirect=' + encodeURIComponent(window.location.href);
+                }
+                return false;
+            }
+            
+            try {
+                const modalElement = document.getElementById('discountCartModal');
+                if (!modalElement) {
+                    console.error('Modal element not found');
+                    alert('Không tìm thấy modal mã giảm giá');
+                    return false;
+                }
+                
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+                loadDiscountCart();
+                return false;
+            } catch (error) {
+                console.error('Error opening discount cart modal:', error);
+                alert('Có lỗi xảy ra khi mở giỏ mã giảm giá');
+                return false;
+            }
+        }
+        
+        // Load discount cart content
+        function loadDiscountCart() {
+            const savedCodes = getSavedDiscountCodes();
+            const container = $('#discountCartContent');
+            
+            if (savedCodes.length === 0) {
+                container.html(`
+                    <div class="text-center py-4">
+                        <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Chưa có mã giảm giá nào được lưu</p>
+                        <p class="text-muted small">Lưu mã giảm giá trên trang chủ để sử dụng khi đăng ký sự kiện</p>
+                    </div>
+                `);
+                return;
+            }
+            
+            // Load full discount code details from API
+            $.ajax({
+                url: 'src/controllers/magiamgia-controller.php',
+                method: 'GET',
+                data: {
+                    action: 'get_available_codes'
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success && response.codes) {
+                        // Filter only saved codes
+                        const savedCodeDetails = response.codes.filter(code => savedCodes.includes(code.code));
+                        
+                        let html = '<div class="list-group">';
+                        
+                        if (savedCodeDetails.length > 0) {
+                            savedCodeDetails.forEach(function(code) {
+                                const minAmountText = code.min_amount > 0 
+                                    ? `Đơn hàng tối thiểu: ${new Intl.NumberFormat('vi-VN').format(code.min_amount)} VNĐ` 
+                                    : 'Không có điều kiện tối thiểu';
+                                
+                                const endDate = new Date(code.end_date);
+                                const endDateFormatted = endDate.toLocaleDateString('vi-VN', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                });
+                                
+                                html += `
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <span class="badge bg-warning text-dark me-2" style="font-size: 0.9rem;">${code.code}</span>
+                                                    <h6 class="mb-0">${code.name}</h6>
+                                                </div>
+                                                <p class="mb-1 text-success fw-bold">${code.display_text}</p>
+                                                <p class="mb-1 text-muted small">${code.description || 'Mã giảm giá đặc biệt'}</p>
+                                                <div class="small text-muted mb-2">
+                                                    <i class="fas fa-info-circle text-warning"></i> ${minAmountText}
+                                                </div>
+                                                <div class="small text-danger">
+                                                    <i class="fas fa-clock"></i> Hết hạn: ${endDateFormatted}
+                                                </div>
+                                            </div>
+                                            <div class="d-flex flex-column gap-2">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="copyDiscountCode('${code.code}')" title="Sao chép mã">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${code.code}')" title="Xóa khỏi giỏ">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            // Some saved codes might not be available anymore
+                            savedCodes.forEach(function(code) {
+                                html += `
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <span class="badge bg-warning text-dark me-2">${code}</span>
+                                                <span class="text-muted small">Mã này có thể đã hết hạn hoặc không còn hoạt động</span>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${code}')" title="Xóa khỏi giỏ">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        }
+                        
+                        html += '</div>';
+                        container.html(html);
+                    } else {
+                        container.html(`
+                            <div class="text-center py-4">
+                                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                                <p class="text-muted">Không thể tải thông tin mã giảm giá</p>
+                            </div>
+                        `);
+                    }
+                },
+                error: function() {
+                    container.html(`
+                        <div class="text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <p class="text-muted">Lỗi khi tải thông tin mã giảm giá</p>
+                        </div>
+                    `);
+                }
+            });
+        }
+        
+        // Copy discount code to clipboard
+        function copyDiscountCode(code) {
+            navigator.clipboard.writeText(code).then(function() {
+                showNotification('Đã sao chép mã: ' + code, 'success');
+            }, function() {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = code;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showNotification('Đã sao chép mã: ' + code, 'success');
+            });
+        }
+        
+        // Remove code from cart
+        function removeFromCart(code) {
+            let savedCodes = getSavedDiscountCodes();
+            savedCodes = savedCodes.filter(c => c !== code);
+            localStorage.setItem('savedDiscountCodes', JSON.stringify(savedCodes));
+            updateDiscountCartBadge();
+            loadDiscountCart();
+            showNotification('Đã xóa mã khỏi giỏ', 'info');
+        }
+        
+        // Show notification
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+            notification.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000; min-width: 300px;';
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'}"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        // Update badge on page load
+        $(document).ready(function() {
+            updateDiscountCartBadge();
+            
+            // Auto-load discount cart when modal is shown
+            $('#discountCartModal').on('show.bs.modal', function() {
+                if (!isUserLoggedIn) {
+                    $(this).modal('hide');
+                    if (confirm('Bạn cần đăng nhập để xem mã giảm giá đã lưu. Bạn có muốn đăng nhập ngay không?')) {
+                        window.location.href = 'login.php?redirect=' + encodeURIComponent(window.location.href);
+                    }
+                    return false;
+                }
+                loadDiscountCart();
+            });
+        });
+        
         // Global data storage
         let allLocations = [];
         let allEquipment = [];
@@ -1416,7 +1803,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             
             let html = '';
             locations.forEach(location => {
-                const priceText = getLocationPriceText(location);
                 const imagePath = location.HinhAnh ? `img/diadiem/${location.HinhAnh}` : 'img/diadiem/default.php';
                 
                 html += `
@@ -1431,14 +1817,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                                     <div class="service-item-type">${location.LoaiDiaDiem}</div>
                                 </div>
                                 
-                                <div class="service-item-description">
-                                    ${location.MoTa || 'Không có mô tả'}
-                                </div>
-                                
-                                <div class="service-item-price">
-                                    ${priceText}
-                                </div>
-                                
                                 <div class="service-item-details">
                                     <div class="service-item-detail">
                                         <i class="fas fa-map-marker-alt"></i>
@@ -1446,13 +1824,17 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                                     </div>
                                 </div>
                                 
+                                <div class="service-item-description">
+                                    ${location.MoTa || 'Không có mô tả'}
+                                </div>
+                                
                                 <div class="service-item-stats">
                                     <div class="service-item-capacity">
                                         <i class="fas fa-users"></i> ${location.SucChua || 'Chưa xác định'} người
                                     </div>
-                                    <div class="service-item-events">
-                                        <i class="fas fa-calendar-check"></i> ${location.SoSuKienDaToChuc || 0} sự kiện
-                                    </div>
+                                    <button class="btn-register-now" onclick="window.location.href='events/register.php'">
+                                        <i class="fas fa-calendar-plus"></i> Đăng ký ngay
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1514,7 +1896,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                             <div class="service-item-content">
                                 <div class="service-item-header">
                                     <h3 class="service-item-title">${item.TenThietBi}</h3>
-                                    <div class="service-item-price">${formatPrice(item.GiaThue)}</div>
                                 </div>
                                 
                                 <div class="service-item-description">
@@ -1537,10 +1918,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                                     <div class="service-item-capacity">
                                         <i class="fas fa-chart-line"></i>
                                         <span>${item.SoLanSuDung || 0} lần sử dụng</span>
-                                    </div>
-                                    <div class="service-item-events">
-                                        <i class="fas fa-money-bill-wave"></i>
-                                        <span>${formatPrice(item.GiaThue)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -1593,7 +1970,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                             <div class="service-item-content">
                                 <div class="service-item-header">
                                     <h3 class="service-item-title">${combo.TenCombo}</h3>
-                                    <div class="service-item-price">${formatPrice(combo.GiaCombo)}</div>
                                 </div>
                                 
                                 <div class="service-item-description">
@@ -1654,26 +2030,75 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             return 'fas fa-box';
         }
         
-        function getLocationPriceText(location) {
-            if (location.LoaiThue === 'Theo giờ' && location.GiaThueGio) {
-                return `${formatPrice(location.GiaThueGio)}/giờ`;
-            }
-            if (location.LoaiThue === 'Theo ngày' && location.GiaThueNgay) {
-                return `${formatPrice(location.GiaThueNgay)}/ngày`;
-            }
-            if (location.LoaiThue === 'Cả hai') {
-                if (location.GiaThueGio && location.GiaThueNgay) {
-                    return `${formatPrice(location.GiaThueGio)}/giờ hoặc ${formatPrice(location.GiaThueNgay)}/ngày`;
-                }
-            }
-            return 'Liên hệ';
-        }
-        
-        function formatPrice(price) {
-            if (!price) return 'Liên hệ';
-            return new Intl.NumberFormat('vi-VN').format(price) + ' VNĐ';
-        }
     </script>
+    
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-4 mb-4">
+                    <h5><img src="img/logo/logo.jpg" alt="Logo" height="30" class="me-2 footer-logo">Event Management</h5>
+                    <p>Chúng tôi cam kết mang đến những sự kiện hoàn hảo và đáng nhớ cho khách hàng.</p>
+                </div>
+                <div class="col-lg-2 col-md-6 mb-4">
+                    <h6>Dịch vụ</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="services.php">Xem tất cả dịch vụ</a></li>
+                        <li><a href="services.php">Tiệc sinh nhật</a></li>
+                        <li><a href="services.php">Đám cưới</a></li>
+                        <li><a href="services.php">Sự kiện doanh nghiệp</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-2 col-md-6 mb-4">
+                    <h6>Hỗ trợ</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="contact.php">Liên hệ</a></li>
+                        <li><a href="about.php">Giới thiệu</a></li>
+                        <li><a href="contact.php">FAQ</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-4 mb-4">
+                    <h6>Liên hệ</h6>
+                    <p><i class="fa fa-phone me-2"></i> 0123 456 789</p>
+                    <p><i class="fa fa-envelope me-2"></i> info@eventmanagement.com</p>
+                    <p><i class="fa fa-map-marker-alt me-2"></i> 12 NVB, Gò Vấp, TP.HCM</p>
+                </div>
+            </div>
+            <hr class="my-4">
+            <div class="text-center">
+                <p>&copy; 2025 Event Management. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Discount Cart Modal -->
+    <div class="modal fade" id="discountCartModal" tabindex="-1" aria-labelledby="discountCartModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: white;">
+                    <h5 class="modal-title" id="discountCartModalLabel">
+                        <i class="fas fa-ticket-alt"></i> Mã giảm giá đã lưu
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="discountCartContent">
+                        <div class="text-center py-4">
+                            <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Chưa có mã giảm giá nào được lưu</p>
+                            <p class="text-muted small">Lưu mã giảm giá trên trang chủ để sử dụng khi đăng ký sự kiện</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <a href="events/register.php" class="btn btn-primary">
+                        <i class="fas fa-calendar-plus"></i> Đăng ký sự kiện
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
     
 </body>
 </html>

@@ -217,6 +217,20 @@
             overflow-y: auto;
         }
         
+        .room-card-image {
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            border-radius: 8px 8px 0 0;
+            background: #f8f9fa;
+            margin: -1rem -1rem 1rem -1rem;
+        }
+        .room-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
         .room-card {
             background: #f8f9fa;
             border: 2px solid #dee2e6;
@@ -3623,10 +3637,18 @@
                 const hasHourly = giaThueGio > 0 && (room.LoaiThue === 'Theo giờ' || room.LoaiThue === 'Cả hai');
                 const hasDaily = giaThueNgay > 0 && (room.LoaiThue === 'Theo ngày' || room.LoaiThue === 'Cả hai');
                 
+                const imagePath = room.HinhAnh ? `img/phong/${room.HinhAnh}` : 'img/phong/default.php';
+                
                 html += `
                     <div class="room-card ${isSelected ? 'selected' : ''}" 
                          onclick="selectRoomFromCard(${locationId}, ${room.ID_Phong})" 
                          data-room-id="${room.ID_Phong}">
+                        ${room.HinhAnh ? `
+                            <div class="room-card-image">
+                                <img src="${imagePath}" alt="${room.TenPhong || 'Phòng'}" 
+                                     onerror="this.src='img/phong/default.php'">
+                            </div>
+                        ` : ''}
                         <div class="room-card-header">
                             <h6 class="room-card-title">${room.TenPhong || 'Phòng không tên'}</h6>
                             ${isSelected ? '<span class="room-card-badge"><i class="fas fa-check"></i> Đã chọn</span>' : ''}
@@ -4221,11 +4243,19 @@
                 const roomMoTa = room.MoTa ? room.MoTa.replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
                 const roomTrangThai = (room.TrangThai || 'Sẵn sàng').replace(/'/g, "\\'");
                 
+                const imagePath = room.HinhAnh ? `img/phong/${room.HinhAnh}` : 'img/phong/default.php';
+                
                 html += `
                     <div class="col-md-6">
                         <div class="room-card" 
                              onclick="selectRoomInModal(${room.ID_Phong}, '${roomName.replace(/'/g, "\\'")}', ${price}, '${rentalType}')"
                              data-room-id="${room.ID_Phong}">
+                            ${room.HinhAnh ? `
+                                <div class="room-card-image">
+                                    <img src="${imagePath}" alt="${room.TenPhong || 'Phòng'}" 
+                                         onerror="this.src='img/phong/default.php'">
+                                </div>
+                            ` : ''}
                             <div class="room-card-header">
                                 <h6 class="room-card-title">${room.TenPhong || 'Phòng không tên'}</h6>
                             </div>

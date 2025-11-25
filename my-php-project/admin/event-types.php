@@ -1,5 +1,5 @@
 <?php
-// Include admin header
+// Bao gồm header admin
 include 'includes/admin-header.php';
 ?>
     
@@ -65,7 +65,7 @@ include 'includes/admin-header.php';
                     <select class="form-select" id="sortBy">
                         <option value="TenLoai">Tên loại</option>
                         <option value="GiaCoBan">Giá cơ bản</option>
-                        <option value="NgayTao">Ngày tạo</option>
+                        <option value="NgayTao" selected>Ngày tạo</option>
                         <option value="NgayCapNhat">Ngày cập nhật</option>
                     </select>
                 </div>
@@ -112,7 +112,7 @@ include 'includes/admin-header.php';
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Data will be loaded via AJAX -->
+                        <!-- Dữ liệu sẽ được tải qua AJAX -->
                     </tbody>
                 </table>
             </div>
@@ -174,7 +174,7 @@ include 'includes/admin-header.php';
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="viewEventTypeModalBody">
-                    <!-- Event type details will be populated here -->
+                    <!-- Chi tiết loại sự kiện sẽ được điền vào đây -->
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
@@ -184,18 +184,18 @@ include 'includes/admin-header.php';
     </div>
 
     <style>
-        /* Remove modal backdrop completely */
+        /* Xóa hoàn toàn modal backdrop */
         .modal-backdrop {
             display: none !important;
         }
         
-        /* Ensure body doesn't get locked when modal is open */
+        /* Đảm bảo body không bị khóa khi modal mở */
         body.modal-open {
             overflow: auto !important;
             padding-right: 0 !important;
         }
         
-        /* Optional: Add a subtle overlay effect if you want some visual indication */
+        /* Tùy chọn: Thêm hiệu ứng overlay nhẹ nếu muốn có chỉ báo trực quan */
         .modal.show {
             background-color: rgba(0, 0, 0, 0.1);
         }
@@ -205,7 +205,7 @@ include 'includes/admin-header.php';
         let eventTypesTable;
         let currentFilters = {};
 
-        // Initialize page
+        // Khởi tạo trang
         document.addEventListener('DOMContentLoaded', function() {
             initializeDataTable();
             loadStatistics();
@@ -213,7 +213,7 @@ include 'includes/admin-header.php';
         });
 
         function initializeDataTable() {
-            // Check if DataTables is available
+            // Kiểm tra DataTables có sẵn không
             if (typeof $.fn.DataTable === 'undefined') {
                 console.error('DataTables not available');
                 AdminPanel.showError('DataTables không khả dụng');
@@ -306,7 +306,7 @@ include 'includes/admin-header.php';
                             }
                         }
                     ],
-                    order: [[1, 'asc']], // Sort by name by default
+                    order: [[4, 'desc']], // Sắp xếp theo ngày tạo mặc định (mới nhất lên trước)
                     language: {
                         processing: "Đang xử lý...",
                         search: "Tìm kiếm:",
@@ -334,7 +334,7 @@ include 'includes/admin-header.php';
         }
 
         function setupEventListeners() {
-            // Search input
+            // Ô tìm kiếm
             $('#searchInput').on('keyup', function() {
                 eventTypesTable.search(this.value).draw();
             });
@@ -344,43 +344,57 @@ include 'includes/admin-header.php';
             const searchTerm = $('#searchInput').val();
             const sortBy = $('#sortBy').val();
             
-            // Apply search
+            // Áp dụng tìm kiếm
             if (searchTerm) {
                 eventTypesTable.search(searchTerm).draw();
             } else {
                 eventTypesTable.search('').draw();
             }
             
-            // Apply sorting
-            let sortColumn = 1; // Default to name column
-            let sortDir = 'asc';
+            // Áp dụng sắp xếp
+            // Map giá trị từ dropdown sang số cột trong DataTable:
+            // Column 0: ID_LoaiSK
+            // Column 1: TenLoai
+            // Column 2: GiaCoBan
+            // Column 3: MoTa
+            // Column 4: NgayTao
+            // Column 5: NgayCapNhat
+            // Column 6: Actions (không sắp xếp được)
+            let sortColumn = 4; // Mặc định sắp xếp theo ngày tạo (column 4) - mới nhất lên trước
+            let sortDir = 'desc';
             
             switch(sortBy) {
                 case 'TenLoai':
-                    sortColumn = 1;
+                    sortColumn = 1; // Cột Tên loại
                     sortDir = 'asc';
                     break;
                 case 'GiaCoBan':
-                    sortColumn = 2;
-                    sortDir = 'desc';
+                    sortColumn = 2; // Cột Giá cơ bản
+                    sortDir = 'desc'; // Sắp xếp giảm dần (giá cao nhất trước)
                     break;
                 case 'NgayTao':
-                    sortColumn = 4;
-                    sortDir = 'desc';
+                    sortColumn = 4; // Cột Ngày tạo
+                    sortDir = 'desc'; // Sắp xếp giảm dần (mới nhất trước)
                     break;
                 case 'NgayCapNhat':
-                    sortColumn = 5;
+                    sortColumn = 5; // Cột Ngày cập nhật
+                    sortDir = 'desc'; // Sắp xếp giảm dần (cập nhật gần nhất trước)
+                    break;
+                default:
+                    // Nếu không khớp, giữ giá trị mặc định (sắp xếp theo ngày tạo - mới nhất lên trước)
+                    sortColumn = 4;
                     sortDir = 'desc';
                     break;
             }
             
+            // Áp dụng sắp xếp vào DataTable
             eventTypesTable.order([sortColumn, sortDir]).draw();
         }
 
         function clearFilters() {
             $('#searchInput').val('');
-            $('#sortBy').val('TenLoai');
-            eventTypesTable.search('').order([[1, 'asc']]).draw();
+            $('#sortBy').val('NgayTao');
+            eventTypesTable.search('').order([[4, 'desc']]).draw();
         }
 
         function clearSearch() {
@@ -388,7 +402,7 @@ include 'includes/admin-header.php';
             eventTypesTable.search('').draw();
         }
 
-        // Load statistics
+        // Tải thống kê
         function loadStatistics() {
             AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', {
                 action: 'get_stats'
@@ -405,7 +419,7 @@ include 'includes/admin-header.php';
             });
         }
 
-        // Show add event type modal
+        // Hiển thị modal thêm loại sự kiện
         function showAddEventTypeModal() {
             document.getElementById('eventTypeModalTitle').innerHTML = '<i class="fas fa-plus"></i> Thêm loại sự kiện';
             document.getElementById('eventTypeForm').reset();
@@ -415,7 +429,7 @@ include 'includes/admin-header.php';
             modal.show();
         }
 
-        // Edit event type
+        // Chỉnh sửa loại sự kiện
         function editEventType(id) {
             AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', {
                 action: 'get',
@@ -441,7 +455,7 @@ include 'includes/admin-header.php';
             });
         }
 
-        // View event type
+        // Xem loại sự kiện
         function viewEventType(id) {
             AdminPanel.showLoading('#viewEventTypeModalBody');
             
@@ -497,7 +511,7 @@ include 'includes/admin-header.php';
             });
         }
         
-        // Save event type
+        // Lưu loại sự kiện
         function saveEventType() {
             if (!AdminPanel.validateForm('eventTypeForm')) {
                 return;
@@ -514,14 +528,14 @@ include 'includes/admin-header.php';
                 if (response.success) {
                     AdminPanel.showSuccess(isEdit ? 'Đã cập nhật loại sự kiện thành công' : 'Đã thêm loại sự kiện thành công');
                     
-                    // Close modal
+                    // Đóng modal
                     const modalElement = document.getElementById('eventTypeModal');
                     const modal = bootstrap.Modal.getInstance(modalElement);
                     if (modal) {
                         modal.hide();
                     }
                     
-                    // Reload table
+                    // Tải lại bảng
                     eventTypesTable.ajax.reload();
                     loadStatistics();
                 } else {
@@ -533,9 +547,9 @@ include 'includes/admin-header.php';
             });
         }
         
-        // Delete event type
+        // Xóa loại sự kiện
         function deleteEventType(id) {
-            // Get event type name for confirmation
+            // Lấy tên loại sự kiện để xác nhận
             AdminPanel.makeAjaxRequest('../src/controllers/event-types.php', {
                 action: 'get',
                 id: id

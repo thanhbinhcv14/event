@@ -715,14 +715,16 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             border: none;
             border-radius: 20px;
             padding: 8px 20px;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.9rem;
             transition: all 0.3s ease;
+            color: white;
         }
         
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            color: white;
         }
         
         .btn-outline-primary {
@@ -730,15 +732,17 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             color: #667eea;
             border-radius: 20px;
             padding: 6px 18px;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.9rem;
             transition: all 0.3s ease;
+            background: transparent;
         }
         
         .btn-outline-primary:hover {
             background: #667eea;
             color: white;
             transform: translateY(-2px);
+            border-color: #667eea;
         }
         
         .service-card {
@@ -754,6 +758,50 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         .service-card:hover {
             transform: translateY(-10px);
             box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+        
+        /* Blog Card Styles - Sống động và bắt mắt */
+        .blog-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+        
+        .blog-card:hover {
+            transform: translateY(-15px) scale(1.02);
+            box-shadow: 0 20px 50px rgba(102, 126, 234, 0.3);
+        }
+        
+        .blog-card-image-wrapper {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .blog-card-image {
+            transition: transform 0.5s ease;
+        }
+        
+        .blog-card:hover .blog-card-image {
+            transform: scale(1.15);
+        }
+        
+        .blog-card-overlay {
+            transition: opacity 0.3s ease;
+        }
+        
+        .blog-card:hover .blog-card-overlay {
+            opacity: 1;
+        }
+        
+        .blog-card .badge {
+            transition: all 0.3s ease;
+        }
+        
+        .blog-card:hover .badge {
+            background: linear-gradient(135deg, #667eea, #764ba2) !important;
+            transform: translateX(5px);
         }
         
         /* Event Card Styles */
@@ -1349,74 +1397,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         }
         
         
-        .quick-suggestions {
-            display: grid !important;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin-top: 15px;
-            padding: 15px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 15px;
-            border: 1px solid #dee2e6;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: relative !important;
-            z-index: 10 !important;
-            width: 100% !important;
-            box-sizing: border-box !important;
-        }
-        
-        .suggestion-item {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
-            border: 2px solid #e9ecef !important;
-            border-radius: 25px !important;
-            padding: 12px 16px !important;
-            cursor: pointer !important;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 8px !important;
-            font-size: 0.9rem !important;
-            color: #495057 !important;
-            font-weight: 500 !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-            position: relative !important;
-            overflow: hidden !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
-        
-        .suggestion-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-            transition: left 0.5s;
-        }
-        
-        .suggestion-item:hover {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-            border-color: #667eea;
-        }
-        
-        .suggestion-item:hover::before {
-            left: 100%;
-        }
-        
-        .suggestion-item i {
-            font-size: 1rem;
-            transition: transform 0.3s ease;
-        }
-        
-        .suggestion-item:hover i {
-            transform: scale(1.1);
-        }
+        /* Quick suggestions đã được xóa */
         
         .chat-message {
             margin-bottom: 15px;
@@ -2076,7 +2057,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light fixed-top">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">
+            <a class="navbar-brand" href="index.php">
                 <img src="img/logo/logo.jpg" alt="Logo">
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -2095,6 +2076,16 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="du-an.php">
+                            <i class="fas fa-project-diagram me-1"></i>Dự án
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="blog.php">
+                            <i class="fas fa-blog me-1"></i>Blog
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="about.php">
                             <i class="fas fa-info-circle me-1"></i>Giới thiệu
                         </a>
@@ -2102,11 +2093,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                     <li class="nav-item">
                         <a class="nav-link" href="contact.php">
                             <i class="fas fa-phone me-1"></i>Liên hệ
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="privacy-policy.php">
-                            <i class="fas fa-shield-alt me-1"></i>Chính sách bảo mật
                         </a>
                     </li>
                     <?php if ($user): ?>
@@ -2212,15 +2198,18 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         </div>
     </section>
 
-    <!-- Featured Events Section -->
-    <section id="featured-events" class="py-5 bg-light">
+    <!-- Blog Section -->
+    <section id="blog" class="py-5 bg-light">
         <div class="container">
             <div class="text-center mb-5">
-                <h2 class="display-5 fw-bold">Sự kiện nổi bật</h2>
-                <p class="lead text-muted">Khám phá các sự kiện đang diễn ra, sắp diễn ra và đã hoàn thành</p>
+                <h2 class="display-5 fw-bold">Bài viết nổi bật</h2>
+                <p class="lead text-muted">Khám phá các bài viết về tổ chức sự kiện</p>
+                <a href="blog.php" class="btn btn-primary btn-lg mt-3">
+                    <i class="fas fa-blog me-2"></i>Xem tất cả bài viết
+                </a>
             </div>
-            <div class="row g-4" id="events-container">
-                <!-- Events will be loaded here via JavaScript -->
+            <div class="row g-4" id="blogPostsContainer">
+                <!-- Blog posts will be loaded here via JavaScript -->
                 <div class="col-12 text-center">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Đang tải...</span>
@@ -2431,7 +2420,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                         <li><a href="contact.php">Liên hệ</a></li>
                         <li><a href="about.php">Giới thiệu</a></li>
                         <li><a href="contact.php">FAQ</a></li>
-                        <li><a href="privacy-policy.php">Chính sách bảo mật</a></li>
                     </ul>
                 </div>
                 <div class="col-lg-4 mb-4">
@@ -2465,33 +2453,6 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         
         <div class="chat-widget-body" id="chatMessages">
             
-            <!-- Quick Suggestions -->
-            <div class="quick-suggestions" id="quickSuggestions">
-                <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn đăng ký sự kiện')">
-                    <i class="fas fa-calendar-plus"></i>
-                    <span>Đăng ký sự kiện</span>
-                </div>
-                <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn xem giá dịch vụ')">
-                    <i class="fas fa-dollar-sign"></i>
-                    <span>Xem giá</span>
-                </div>
-                <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn thanh toán')">
-                    <i class="fas fa-credit-card"></i>
-                    <span>Thanh toán</span>
-                </div>
-                <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn kiểm tra trạng thái sự kiện')">
-                    <i class="fas fa-search"></i>
-                    <span>Trạng thái</span>
-                </div>
-                <div class="suggestion-item" onclick="sendQuickMessage('Tôi cần hỗ trợ')">
-                    <i class="fas fa-question-circle"></i>
-                    <span>Hỗ trợ</span>
-                </div>
-                <div class="suggestion-item" onclick="sendQuickMessage('Tôi muốn hủy sự kiện')">
-                    <i class="fas fa-times-circle"></i>
-                    <span>Hủy sự kiện</span>
-                </div>
-            </div>
         </div>
         
         <div class="chat-widget-footer">
@@ -2714,7 +2675,7 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
         // Ensure jQuery is loaded before chat widget
         $(document).ready(function() {
             console.log('jQuery loaded successfully');
-            loadFeaturedEvents();
+            loadEventTypes();
             loadDiscountCodes();
             
             // Start auto-refresh for discount codes
@@ -3312,87 +3273,60 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
             }, 3000);
         }
         
-        // Load featured events
-        function loadFeaturedEvents() {
-            console.log('Loading featured events...');
-            console.log('AJAX URL:', 'src/controllers/events.php?action=get_featured_events');
+        // Load blog posts (first 4)
+        function loadEventTypes() {
+            console.log('Loading blog posts...');
             
             $.ajax({
-                url: 'src/controllers/events.php?action=get_featured_events',
+                url: 'src/controllers/blog.php?action=get_all_public&limit=4',
                 method: 'GET',
                 dataType: 'json',
-                beforeSend: function() {
-                    console.log('AJAX request started...');
-                },
                 success: function(response) {
-                    console.log('Events API response:', response);
-                    console.log('Response type:', typeof response);
-                    console.log('Response success:', response.success);
-                    console.log('Response events length:', response.events ? response.events.length : 'undefined');
+                    console.log('Blog posts API response:', response);
                     
-                    if (response.success && response.events && response.events.length > 0) {
-                        console.log('Displaying', response.events.length, 'events');
-                        displayEvents(response.events);
+                    if (response.success && response.posts && response.posts.length > 0) {
+                        console.log('Displaying', response.posts.length, 'blog posts');
+                        displayBlogPosts(response.posts);
                     } else {
-                        console.log('No events found, displaying no events message');
-                        console.log('Reason: success=' + response.success + ', events=' + (response.events ? response.events.length : 'undefined'));
-                        displayNoEvents();
+                        console.log('No blog posts found');
+                        displayNoBlogPosts();
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error('Error loading events:', error);
-                    console.error('XHR status:', xhr.status);
-                    console.error('Response text:', xhr.responseText);
-                    console.error('Status:', status);
-                    displayNoEvents();
+                    console.error('Error loading blog posts:', error);
+                    displayNoBlogPosts();
                 }
             });
         }
         
-        // Display events
-        function displayEvents(events) {
-            console.log('displayEvents called with:', events);
-            const container = $('#events-container');
-            console.log('Container found:', container.length);
+        // Display blog posts
+        function displayBlogPosts(posts) {
+            const container = $('#blogPostsContainer');
             let html = '';
             
-            events.forEach(function(event) {
+            posts.forEach(function(post) {
+                const postId = post.ID_BlogPost || post.id || 0;
+                const title = post.TieuDe || post.title || 'Bài viết';
+                const excerpt = post.NoiDungTomTat || post.excerpt || 'Khám phá bài viết này';
+                const imageUrl = post.HinhAnhDaiDienURL || post.featured_image || 'img/logo/default-blog.jpg';
+                const views = post.views || 0;
+                const createdDate = post.NgayDang || post.created_at || '';
+                
                 html += `
-                    <div class="col-lg-4 col-md-6 mb-4">
-                        <div class="event-card">
-                            <div class="event-status status-${getStatusClass(event.TrangThaiSuKien)}">${event.TrangThaiSuKien}</div>
-                            <img src="${event.HinhAnhURL}" alt="${event.TenSuKien}" class="event-image">
-                            <div class="event-content">
-                                <h3 class="event-title">${event.TenSuKien}</h3>
-                                <p class="event-description">${event.MoTa || 'Không có mô tả'}</p>
-                                
-                                <div class="event-meta">
-                                    <i class="fas fa-calendar-alt"></i>
-                                    <span>${formatDateTime(event.NgayBatDau)} - ${formatDateTime(event.NgayKetThuc)}</span>
-                                </div>
-                                
-                                <div class="event-location">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    <span>${event.TenDiaDiem}</span>
-                                </div>
-                                
-                                <div class="event-meta">
-                                    <i class="fas fa-users"></i>
-                                    <span>${event.SoNguoiDuKien} người</span>
-                                </div>
-                                
-                                <div class="event-budget">
-                                    <i class="fas fa-money-bill-wave"></i>
-                                    <span>${event.NganSach}</span>
-                                </div>
-                                
-                                <div class="event-actions">
-                                    <button class="btn-event-detail" onclick="viewEventDetail(${event.ID_DatLich})">
-                                        <i class="fas fa-eye"></i> Chi tiết
-                                    </button>
-                                    <button class="btn-event-register" onclick="registerForEvent(${event.ID_DatLich})">
-                                        <i class="fas fa-calendar-plus"></i> Đăng ký
-                                    </button>
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="service-card blog-card" style="cursor: pointer; padding: 0; overflow: hidden; height: 100%; display: flex; flex-direction: column;" onclick="viewBlogPost(${postId})">
+                            <div class="blog-card-image-wrapper" style="position: relative; overflow: hidden; height: 200px;">
+                                <img src="${imageUrl}" alt="${title}" class="blog-card-image" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;">
+                                <div class="blog-card-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.3) 100%); opacity: 0; transition: opacity 0.3s ease;"></div>
+                            </div>
+                            <div style="padding: 1.5rem; flex: 1; display: flex; flex-direction: column;">
+                                <h4 style="font-size: 1.25rem; font-weight: 700; color: #333; margin-bottom: 0.75rem; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${title}</h4>
+                                <p style="color: #666; font-size: 0.9rem; line-height: 1.6; margin-bottom: 1rem; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">${excerpt}</p>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
+                                    <small style="color: #999;">
+                                        <i class="fas fa-eye"></i> ${views} lượt xem
+                                    </small>
+                                    <span class="badge bg-primary">Đọc thêm <i class="fas fa-arrow-right ms-1"></i></span>
                                 </div>
                             </div>
                         </div>
@@ -3400,83 +3334,26 @@ $currentUserName = $user['HoTen'] ?? $user['name'] ?? $_SESSION['user_name'] ?? 
                 `;
             });
             
-            console.log('HTML generated:', html.substring(0, 200) + '...');
             container.html(html);
-            console.log('HTML inserted into container');
         }
         
-        // Get status class for styling
-        function getStatusClass(status) {
-            switch(status) {
-                case 'Đang diễn ra':
-                    return 'ongoing';
-                case 'Sắp diễn ra':
-                    return 'upcoming';
-                case 'Đã hoàn thành':
-                    return 'completed';
-                default:
-                    return 'default';
-            }
-        }
-        
-        // Format date and time
-        function formatDateTime(dateTimeString) {
-            if (!dateTimeString) return 'N/A';
-            
-            try {
-                // Parse the date string (format: dd/mm/yyyy hh:mm)
-                const parts = dateTimeString.split(' ');
-                if (parts.length !== 2) return dateTimeString;
-                
-                const datePart = parts[0]; // dd/mm/yyyy
-                const timePart = parts[1]; // hh:mm
-                
-                const dateParts = datePart.split('/');
-                if (dateParts.length !== 3) return dateTimeString;
-                
-                const day = dateParts[0];
-                const month = dateParts[1];
-                const year = dateParts[2];
-                
-                // Create a more readable format
-                return `${day}/${month}/${year} ${timePart}`;
-            } catch (error) {
-                console.error('Error formatting date:', error, dateTimeString);
-                return dateTimeString;
-            }
-        }
-        
-        // Display no events message
-        function displayNoEvents() {
-            const container = $('#events-container');
+        // Display no blog posts message
+        function displayNoBlogPosts() {
+            const container = $('#blogPostsContainer');
             container.html(`
                 <div class="col-12">
-                    <div class="no-events">
-                        <i class="fas fa-calendar-times"></i>
-                        <h4>Chưa có sự kiện nào</h4>
-                        <p>Hiện tại chưa có sự kiện nào được duyệt. Vui lòng quay lại sau!</p>
+                    <div class="text-center py-5">
+                        <i class="fas fa-blog fa-3x text-muted mb-3"></i>
+                        <h4>Chưa có bài viết nào</h4>
+                        <p class="text-muted">Vui lòng quay lại sau!</p>
                     </div>
                 </div>
             `);
         }
         
-        // View event detail
-        function viewEventDetail(eventId) {
-            // Redirect to event detail page
-            window.location.href = `event-detail.php?id=${eventId}`;
-        }
-        
-        // Register for event
-        function registerForEvent(eventId) {
-            <?php if ($user): ?>
-                // User is logged in, redirect to registration
-                window.location.href = `events/register.php?event_id=${eventId}`;
-            <?php else: ?>
-                // User not logged in, redirect to login
-                if (confirm('Bạn cần đăng nhập để đăng ký sự kiện. Bạn có muốn đăng nhập ngay không?')) {
-                    window.location.href = 'login.php';
-                }
-            <?php endif; ?>
+        // View blog post
+        function viewBlogPost(postId) {
+            window.location.href = `blog.php?post_id=${postId}`;
         }
 
         // Gemini AI Chat Widget - Load external script

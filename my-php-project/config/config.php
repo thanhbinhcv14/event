@@ -27,6 +27,10 @@ if (!file_exists(__DIR__ . '/../.env')) {
 // Định nghĩa các hằng số
 define('JWT_SECRET', $_ENV['JWT_SECRET']);
 
+// Gemini AI API Key
+// Lấy từ environment variable hoặc dùng giá trị mặc định
+define('GEMINI_API_KEY', $_ENV['GEMINI_API_KEY'] ?? 'AIzaSyAT4nAOSfEwiO-8DozSXwncJ1rIj-nmpVk');
+
 // Cấu hình Base URL - Tự động phát hiện từ server
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';

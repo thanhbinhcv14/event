@@ -8,189 +8,26 @@ if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['ID_Role'], [1, 2, 
     exit;
 }
 
-// Dữ liệu sẽ được tải qua các lời gọi API AJAX
-// Dự phòng: Tải dữ liệu trực tiếp nếu API thất bại
+// Lấy dữ liệu từ controller
+require_once __DIR__ . '/../src/controllers/event-planning.php';
+
 $approvedEvents = [];
 $existingPlans = [];
 
 try {
     $pdo = getDBConnection();
     
-    // Lấy các sự kiện đã duyệt và trạng thái sự kiện
-    // Sử dụng subquery để lấy một kế hoạch cho mỗi sự kiện (ưu tiên kế hoạch đã hoàn thành)
-    $sql = "
-        SELECT 
-            dl.ID_DatLich,
-            dl.TenSuKien,
-            dl.NgayBatDau,
-            dl.NgayKetThuc,
-            dl.SoNguoiDuKien,
-            dl.NganSach,
-            dl.TrangThaiDuyet,
-            dl.TrangThaiThanhToan,
-            COALESCE(s.TrangThaiThucTe, 'Chưa bắt đầu') as TrangThaiThucTe,
-            COALESCE(s.TrangThaiThucTe, 'Chưa bắt đầu') as TrangThaiSuKien,
-            (SELECT kht.TrangThai 
-             FROM kehoachthuchien kht 
-             INNER JOIN sukien s2 ON kht.ID_SuKien = s2.ID_SuKien 
-             WHERE s2.ID_DatLich = dl.ID_DatLich 
-             ORDER BY CASE WHEN kht.TrangThai = 'Hoàn thành' THEN 0 ELSE 1 END, kht.ID_KeHoach DESC 
-             LIMIT 1) as TrangThaiKeHoach,
-            (SELECT kht.ID_KeHoach 
-             FROM kehoachthuchien kht 
-             INNER JOIN sukien s2 ON kht.ID_SuKien = s2.ID_SuKien 
-             WHERE s2.ID_DatLich = dl.ID_DatLich 
-             ORDER BY CASE WHEN kht.TrangThai = 'Hoàn thành' THEN 0 ELSE 1 END, kht.ID_KeHoach DESC 
-             LIMIT 1) as ID_KeHoach,
-            COALESCE(dd.TenDiaDiem, 'Chưa xác định') as TenDiaDiem,
-            COALESCE(dd.DiaChi, 'Chưa xác định') as DiaChi,
-            COALESCE(ls.TenLoai, 'Chưa phân loại') as TenLoaiSK,
-            COALESCE(kh.HoTen, 'Chưa có thông tin') as TenKhachHang,
-            COALESCE(kh.SoDienThoai, 'Chưa có') as SoDienThoai
-        FROM datlichsukien dl
-        LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
-        LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-        LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
-        LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-        WHERE dl.TrangThaiDuyet = 'Đã duyệt' 
-            AND dl.TrangThaiThanhToan IN ('Đã đặt cọc', 'Đã thanh toán đủ')
-        ORDER BY 
-            CASE 
-                WHEN COALESCE(s.TrangThaiThucTe, '') = 'Hoàn thành' 
-                     OR (SELECT kht.TrangThai 
-                         FROM kehoachthuchien kht 
-                         INNER JOIN sukien s2 ON kht.ID_SuKien = s2.ID_SuKien 
-                         WHERE s2.ID_DatLich = dl.ID_DatLich 
-                         ORDER BY CASE WHEN kht.TrangThai = 'Hoàn thành' THEN 0 ELSE 1 END, kht.ID_KeHoach DESC 
-                         LIMIT 1) = 'Hoàn thành' THEN 1
-                ELSE 0
-            END ASC,
-            dl.NgayBatDau DESC
-    ";
+    // Lấy các sự kiện đã duyệt từ controller
+    $approvedEvents = getApprovedEventsForView($pdo);
     
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-                $approvedEvents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Lấy các kế hoạch hiện có từ controller
+    $existingPlans = getExistingPlansForView($pdo);
     
-    // Lấy các kế hoạch hiện có
-    $sql = "
-        SELECT 
-            kht.ID_KeHoach,
-            kht.ID_SuKien,
-            kht.TenKeHoach,
-            kht.NoiDung,
-            kht.NgayBatDau,
-            kht.NgayKetThuc,
-            kht.TrangThai,
-            kht.ID_NhanVien AS ID_NhanVien,
-            nv.HoTen AS TenNhanVien,
-            s.ID_DatLich,
-            dl.TenSuKien
-        FROM kehoachthuchien kht
-        LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
-        LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
-        LEFT JOIN nhanvien nv ON kht.ID_NhanVien = nv.ID_NhanVien
-        ORDER BY kht.NgayBatDau ASC
-    ";
-    
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $existingPlans = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Update all plan statuses before displaying
-    updateAllPlanStatusesInPHP($pdo);
+    // Cập nhật trạng thái tất cả kế hoạch trước khi hiển thị
+    updateAllPlanStatusesForView($pdo);
     
 } catch (Exception $e) {
-    error_log("Error loading fallback data: " . $e->getMessage());
-}
-
-// Helper function to update all plan statuses
-function updateAllPlanStatusesInPHP($pdo) {
-    try {
-        // Get all plan IDs
-        $sql = "SELECT DISTINCT ID_KeHoach FROM kehoachthuchien";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute();
-        $planIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        
-        // Update status for each plan
-        foreach ($planIds as $planId) {
-            // Get all steps for this plan with their actual status from lichlamviec
-            $stepStmt = $pdo->prepare("
-                SELECT 
-                    ck.ID_ChiTiet,
-                    ck.TrangThai as chitiet_status,
-                    COUNT(llv.ID_LLV) as total_assignments,
-                    SUM(CASE WHEN llv.TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_assignments,
-                    SUM(CASE WHEN llv.TrangThai = 'Đang làm' THEN 1 ELSE 0 END) as inprogress_assignments
-                FROM chitietkehoach ck
-                LEFT JOIN lichlamviec llv ON ck.ID_ChiTiet = llv.ID_ChiTiet
-                WHERE ck.ID_KeHoach = ?
-                GROUP BY ck.ID_ChiTiet, ck.TrangThai
-            ");
-            $stepStmt->execute([$planId]);
-            $steps = $stepStmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            if (empty($steps)) {
-                continue;
-            }
-            
-            $totalSteps = count($steps);
-            $completedSteps = 0;
-            $inProgressSteps = 0;
-            
-            foreach ($steps as $step) {
-                $totalAssignments = (int)$step['total_assignments'];
-                $completedAssignments = (int)$step['completed_assignments'];
-                $inProgressAssignments = (int)$step['inprogress_assignments'];
-                
-                // If step has assignments in lichlamviec, use those to determine status
-                if ($totalAssignments > 0) {
-                    // Step is completed only if ALL assignments are completed
-                    if ($completedAssignments === $totalAssignments && $totalAssignments > 0) {
-                        $completedSteps++;
-                    } 
-                    // Step is in progress if at least one assignment is in progress or completed (but not all)
-                    else if ($inProgressAssignments > 0 || $completedAssignments > 0) {
-                        $inProgressSteps++;
-                    }
-                } else {
-                    // No assignments in lichlamviec, use chitietkehoach status
-                    if ($step['chitiet_status'] === 'Hoàn thành') {
-                        $completedSteps++;
-                    } else if ($step['chitiet_status'] === 'Đang làm') {
-                        $inProgressSteps++;
-                    }
-                }
-            }
-            
-            // Determine new plan status
-            $newPlanStatus = null;
-            if ($completedSteps === $totalSteps && $totalSteps > 0) {
-                // All steps completed
-                $newPlanStatus = 'Hoàn thành';
-            } else if ($inProgressSteps > 0 || $completedSteps > 0) {
-                // At least one step is in progress or completed
-                $newPlanStatus = 'Đang thực hiện';
-            } else {
-                // All steps are "Chưa làm"
-                $newPlanStatus = 'Chưa bắt đầu';
-            }
-            
-            // Update plan status
-            if ($newPlanStatus) {
-                $updateStmt = $pdo->prepare("
-                    UPDATE kehoachthuchien 
-                    SET TrangThai = ? 
-                    WHERE ID_KeHoach = ?
-                ");
-                $updateStmt->execute([$newPlanStatus, $planId]);
-            }
-        }
-        
-    } catch (Exception $e) {
-        error_log("ERROR: updateAllPlanStatusesInPHP - " . $e->getMessage());
-    }
+    error_log("Error loading data: " . $e->getMessage());
 }
 ?>
 
@@ -235,7 +72,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             margin-bottom: 0;
         }
         
-        /* Statistics Cards */
+        /* Thẻ Thống kê */
         .stats-card {
             background: white;
             border-radius: 15px;
@@ -262,7 +99,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             margin-bottom: 0;
         }
         
-        /* Event Planning Cards */
+        /* Thẻ Lên kế hoạch sự kiện */
         .planning-card {
             background: white;
             border: 1px solid #e9ecef;
@@ -400,7 +237,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             font-size: 1.1rem;
         }
         
-        /* Buttons */
+        /* Nút bấm */
         .btn {
             border-radius: 12px;
             font-weight: 600;
@@ -455,7 +292,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             box-shadow: 0 8px 25px rgba(23, 162, 184, 0.4);
         }
         
-        /* Existing Plans Section */
+        /* Phần Kế hoạch hiện có */
         .existing-plans-card {
             background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
             border-radius: 20px;
@@ -467,7 +304,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             overflow: hidden;
         }
 
-        /* Enhanced Step Form Styling */
+        /* Tùy chỉnh Form Bước nâng cao */
         .bg-gradient-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         }
@@ -534,13 +371,13 @@ function updateAllPlanStatusesInPHP($pdo) {
             padding: 0.75rem;
         }
         
-        /* Placeholder styling */
+        /* Tùy chỉnh Placeholder */
         .form-control::placeholder, .form-select::placeholder {
             color: #6c757d;
             opacity: 0.7;
         }
         
-        /* Enhanced timeline for steps list */
+        /* Timeline nâng cao cho danh sách bước */
         .timeline-item .card {
             border-radius: 15px;
             border: none;
@@ -579,7 +416,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             margin-bottom: 0.25rem;
         }
         
-        /* Empty state for steps */
+        /* Trạng thái trống cho bước */
         #stepsList .text-muted {
             text-align: center;
             padding: 2rem;
@@ -587,7 +424,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             font-style: italic;
         }
         
-        /* Modal improvements */
+        /* Cải thiện Modal */
         .modal-xl {
             max-width: 95%;
         }
@@ -598,7 +435,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             }
         }
         
-        /* Fix modal positioning and overflow */
+        /* Sửa vị trí modal và overflow */
         .modal-dialog {
             margin: 0;
             max-width: 95%;
@@ -610,19 +447,19 @@ function updateAllPlanStatusesInPHP($pdo) {
             width: 1200px;
         }
         
-        /* Ensure modal is properly centered */
+        /* Đảm bảo modal được căn giữa đúng cách */
         .modal.show {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
         }
         
-        /* Ensure modal content doesn't overflow */
+        /* Đảm bảo nội dung modal không bị tràn */
         .modal-body {
             overflow-x: hidden;
         }
         
-        /* Fix button positioning in modal footer */
+        /* Sửa vị trí nút trong footer modal */
         .modal-footer {
             display: flex;
             justify-content: flex-end;
@@ -635,12 +472,12 @@ function updateAllPlanStatusesInPHP($pdo) {
             margin: 0;
         }
         
-        /* Ensure form elements don't overflow */
+        /* Đảm bảo các phần tử form không bị tràn */
         .form-control, .form-select {
             max-width: 100%;
         }
         
-        /* Fix responsive issues */
+        /* Sửa các vấn đề responsive */
         @media (max-width: 768px) {
             .modal-dialog {
                 margin: 0.5rem;
@@ -666,7 +503,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             }
         }
         
-        /* Responsive improvements */
+        /* Cải thiện Responsive */
         @media (max-width: 768px) {
             .form-control-lg, .form-select-lg {
                 font-size: 0.9rem;
@@ -692,7 +529,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             }
         }
         
-        /* Force hide bottom existing plans section as requested */
+        /* Buộc ẩn phần kế hoạch hiện có ở dưới như yêu cầu */
         #existingPlansSection { 
             display: none !important; 
             visibility: hidden !important;
@@ -747,7 +584,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         
-        /* Timeline for Steps */
+        /* Timeline cho Bước */
         .timeline {
             position: relative;
             padding-left: 30px;
@@ -793,7 +630,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         }
         
-        /* Event Plans Styling */
+        /* Tùy chỉnh Kế hoạch Sự kiện */
         .event-plans-list {
             max-height: 200px;
             overflow-y: auto;
@@ -822,7 +659,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             padding: 0.25rem 0.5rem;
         }
         
-        /* Modal Styling - Fixed Z-index */
+        /* Tùy chỉnh Modal - Z-index cố định */
         .modal {
             z-index: 10000 !important;
         }
@@ -927,23 +764,23 @@ function updateAllPlanStatusesInPHP($pdo) {
             background: #f8f9fa;
         }
         
-        /* Ensure modal covers everything */
+        /* Đảm bảo modal bao phủ mọi thứ */
         .modal.show {
             background-color: rgba(0, 0, 0, 0.1) !important;
         }
         
-        /* Fix body scroll when modal is open */
+        /* Sửa cuộn body khi modal mở */
         body.modal-open {
             overflow: hidden !important;
             padding-right: 0 !important;
         }
         
-        /* Ensure sidebar doesn't interfere */
+        /* Đảm bảo sidebar không can thiệp */
         .sidebar, .admin-header, nav {
             z-index: 1030 !important;
         }
         
-        /* Form Improvements for Modal */
+        /* Cải thiện Form cho Modal */
         .modal .form-control, .modal .form-select {
             border-radius: 12px;
             border: 2px solid #e9ecef;
@@ -970,7 +807,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             letter-spacing: 0.5px;
         }
         
-        /* Card styling in modal */
+        /* Tùy chỉnh Card trong modal */
         .modal .card {
             border: none;
             border-radius: 15px;
@@ -1006,7 +843,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             background: white;
         }
         
-        /* Button styling in modal */
+        /* Tùy chỉnh Nút trong modal */
         .modal .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
@@ -1045,14 +882,14 @@ function updateAllPlanStatusesInPHP($pdo) {
             background: #5a6268;
         }
         
-        /* Loading States */
+        /* Trạng thái Tải */
         .spinner-border {
             width: 3rem;
             height: 3rem;
             border-width: 0.3em;
         }
         
-        /* Responsive Design */
+        /* Thiết kế Responsive */
         @media (max-width: 768px) {
             .container-fluid {
                 padding-top: 10px;
@@ -1088,19 +925,19 @@ function updateAllPlanStatusesInPHP($pdo) {
             }
         }
         
-        /* Ensure menu/sidebar doesn't overlap modal */
+        /* Đảm bảo menu/sidebar không chồng lên modal */
         .sidebar, .admin-header, nav {
             z-index: 1030 !important;
             pointer-events: auto !important;
         }
         
-        /* Keep body scroll when modal open */
+        /* Giữ cuộn body khi modal mở */
         body.modal-open {
             overflow: hidden !important;
             padding-right: 0 !important;
         }
         
-        /* Ensure modal is always on top */
+        /* Đảm bảo modal luôn ở trên cùng */
         .modal.show {
             z-index: 10000 !important;
             position: fixed !important;
@@ -1111,7 +948,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             background-color: rgba(0, 0, 0, 0.1) !important;
         }
         
-        /* Fix modal positioning to center properly */
+        /* Sửa vị trí modal để căn giữa đúng cách */
         .modal.show .modal-dialog {
             position: fixed !important;
             z-index: 10001 !important;
@@ -1124,15 +961,15 @@ function updateAllPlanStatusesInPHP($pdo) {
             width: 1200px;
         }
         
-        /* Ensure modal doesn't overlap with sidebar */
+        /* Đảm bảo modal không chồng lên sidebar */
         @media (min-width: 769px) {
             .modal.show .modal-dialog {
-                left: calc(50% + 125px) !important; /* Offset for sidebar width */
+                left: calc(50% + 125px) !important; /* Điều chỉnh cho chiều rộng sidebar */
                 max-width: calc(95vw - 250px);
                 width: 1000px;
             }
             
-            /* Ensure modal content fits properly */
+            /* Đảm bảo nội dung modal vừa vặn đúng cách */
             .modal-content {
                 max-width: 100%;
                 width: 100%;
@@ -1147,7 +984,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             }
         }
         
-        /* Additional responsive fixes */
+        /* Sửa lỗi responsive bổ sung */
         @media (min-width: 1200px) {
             .modal.show .modal-dialog {
                 left: calc(50% + 125px) !important;
@@ -1162,7 +999,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             }
         }
         
-        /* Alert Improvements */
+        /* Cải thiện Alert */
         .alert {
             border-radius: 10px;
             border: none;
@@ -1179,7 +1016,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             color: #721c24;
         }
         
-        /* Empty State */
+        /* Trạng thái Trống */
         .empty-state {
             text-align: center;
             padding: 3rem 2rem;
@@ -1197,7 +1034,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             margin-bottom: 1rem;
         }
         
-        /* Staff Selection Checkbox List */
+        /* Danh sách Checkbox Chọn Nhân viên */
         .staff-selection-container {
             border: 2px solid #e9ecef;
             border-radius: 10px;
@@ -1710,7 +1547,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             // Tải dữ liệu ban đầu
             loadPageData();
             
-            // Add event listeners for filters
+            // Thêm event listeners cho các bộ lọc
             const eventSearch = document.getElementById('eventSearchInput');
             const eventType = document.getElementById('eventTypeFilter');
             const eventDateFrom = document.getElementById('eventDateFrom');
@@ -1730,12 +1567,11 @@ function updateAllPlanStatusesInPHP($pdo) {
                 }
         });
         
-        // Tự động làm mới các bước mỗi 30 giây để đồng bộ với cập nhật nhân viên
-        // Auto-refresh steps every 10 seconds to update progress bars when staff updates progress
+        // Tự động làm mới các bước mỗi 10 giây để cập nhật thanh tiến trình khi nhân viên cập nhật tiến độ
         setInterval(function() {
             const currentEventId = document.getElementById('stepEventId')?.value;
             if (currentEventId) {
-                // Check if event is completed
+                // Kiểm tra xem sự kiện đã hoàn thành chưa
                 const event = approvedEvents.find(e => e.ID_DatLich == currentEventId);
                 const isReadOnly = event && event.TrangThaiSuKien === 'Hoàn thành';
                 console.log('Auto-refreshing steps for event:', currentEventId, 'isReadOnly:', isReadOnly);
@@ -1743,27 +1579,27 @@ function updateAllPlanStatusesInPHP($pdo) {
             }
         }, 10000);
         
-        // Load page data - using PHP data directly for now
+        // Tải dữ liệu trang - sử dụng dữ liệu PHP trực tiếp
         function loadPageData() {
             console.log('Loading page data from PHP variables');
             console.log('Approved events:', approvedEvents);
             console.log('Existing plans:', existingPlans);
             
-            // Data is already loaded from PHP, just display it
+            // Dữ liệu đã được tải từ PHP, chỉ cần hiển thị
             displayEvents();
             displayPlans();
             updateStatistics();
             
-            // Populate filter dropdowns
+            // Điền dữ liệu vào các dropdown bộ lọc
             populateEventFilters();
             
-            // Also load plans from API to ensure we have latest data
+            // Cũng tải kế hoạch từ API để đảm bảo có dữ liệu mới nhất
             loadPlansFromAPI();
         }
         
-        // Populate filter dropdowns with unique values
+        // Điền dữ liệu vào các dropdown bộ lọc với các giá trị duy nhất
         function populateEventFilters() {
-            // First, get unique event types from approved events (for quick display)
+            // Đầu tiên, lấy các loại sự kiện duy nhất từ các sự kiện đã duyệt (để hiển thị nhanh)
             const eventTypesFromEvents = new Set();
             approvedEvents.forEach(event => {
                 if (event.TenLoaiSK && event.TenLoaiSK !== 'Chưa phân loại') {
@@ -1771,13 +1607,13 @@ function updateAllPlanStatusesInPHP($pdo) {
                 }
             });
             
-            // Populate event type filter with event types from approved events first
+            // Điền bộ lọc loại sự kiện với các loại sự kiện từ các sự kiện đã duyệt trước
             const eventTypeFilter = document.getElementById('eventTypeFilter');
             if (eventTypeFilter) {
-                // Clear existing options except "Tất cả"
+                // Xóa các tùy chọn hiện có trừ "Tất cả"
                 eventTypeFilter.innerHTML = '<option value="">Tất cả</option>';
                 
-                // Add event types from approved events
+                // Thêm các loại sự kiện từ các sự kiện đã duyệt
                 Array.from(eventTypesFromEvents).sort().forEach(type => {
                     const option = document.createElement('option');
                     option.value = type.toLowerCase();
@@ -1786,7 +1622,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                 });
             }
             
-            // Then, fetch all event types from database to ensure we have everything
+            // Sau đó, lấy tất cả các loại sự kiện từ database để đảm bảo có đầy đủ
             fetch('../src/controllers/event-types.php?action=get_all_public', {
                 credentials: 'same-origin'
             })
@@ -1800,13 +1636,13 @@ function updateAllPlanStatusesInPHP($pdo) {
                 if (data.success && data.event_types) {
                     const eventTypeFilter = document.getElementById('eventTypeFilter');
                     if (eventTypeFilter) {
-                        // Get existing values to avoid duplicates
+                        // Lấy các giá trị hiện có để tránh trùng lặp
                         const existingValues = new Set();
                         Array.from(eventTypeFilter.options).forEach(opt => {
                             if (opt.value) existingValues.add(opt.value.toLowerCase());
                         });
                         
-                        // Add all event types from database
+                        // Thêm tất cả các loại sự kiện từ database
                         data.event_types.forEach(eventType => {
                             const typeName = eventType.TenLoai || eventType.ten_loai;
                             if (typeName && typeName !== 'Chưa phân loại' && !existingValues.has(typeName.toLowerCase())) {
@@ -1817,7 +1653,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                             }
                         });
                         
-                        // Sort options alphabetically (keep "Tất cả" at top)
+                        // Sắp xếp các tùy chọn theo thứ tự bảng chữ cái (giữ "Tất cả" ở đầu)
                         const options = Array.from(eventTypeFilter.options);
                         const allOption = options[0]; // "Tất cả"
                         const otherOptions = options.slice(1).sort((a, b) => {
@@ -1831,11 +1667,11 @@ function updateAllPlanStatusesInPHP($pdo) {
             })
             .catch(error => {
                 console.error('Error loading all event types:', error);
-                // Continue with event types from approved events only
+                // Tiếp tục với các loại sự kiện từ các sự kiện đã duyệt
             });
         }
         
-        // Filter events based on search criteria
+        // Lọc sự kiện dựa trên tiêu chí tìm kiếm
         function filterEvents() {
             const searchTerm = document.getElementById('eventSearchInput')?.value.toLowerCase() || '';
             const eventType = document.getElementById('eventTypeFilter')?.value || '';
@@ -1853,20 +1689,20 @@ function updateAllPlanStatusesInPHP($pdo) {
                 const startDate = card.getAttribute('data-start-date') || '';
                 const endDate = card.getAttribute('data-end-date') || '';
                 
-                // Search filter
+                // Bộ lọc tìm kiếm
                 const matchesSearch = !searchTerm || 
                     eventName.includes(searchTerm) || 
                     locationValue.includes(searchTerm) || 
                     customer.includes(searchTerm);
                 
-                // Event type filter
+                // Bộ lọc loại sự kiện
                 const matchesType = !eventType || eventTypeValue === eventType;
                 
-                // Date filter - check if event overlaps with date range
+                // Bộ lọc ngày - kiểm tra xem sự kiện có trùng với khoảng ngày không
                 let matchesDate = true;
                 if (dateFrom || dateTo) {
                     if (dateFrom && dateTo) {
-                        // Event must overlap with the date range
+                        // Sự kiện phải trùng với khoảng ngày
                         matchesDate = (startDate <= dateTo && endDate >= dateFrom);
                     } else if (dateFrom) {
                         matchesDate = endDate >= dateFrom;
@@ -1883,7 +1719,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                 }
             });
             
-            // Show message if no results
+            // Hiển thị thông báo nếu không có kết quả
             const eventsList = document.getElementById('eventsList');
             let noResultsMessage = eventsList.querySelector('.no-results-message');
             if (visibleCount === 0 && eventCards.length > 0) {
@@ -1905,7 +1741,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             }
         }
         
-        // Reset all filters
+        // Đặt lại tất cả các bộ lọc
         function resetEventFilters() {
             document.getElementById('eventSearchInput').value = '';
             document.getElementById('eventTypeFilter').value = '';
@@ -1914,7 +1750,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             filterEvents();
         }
         
-        // Load plans from API
+        // Tải kế hoạch từ API
         function loadPlansFromAPI() {
             fetch('../src/controllers/event-planning.php?action=get_plans', {
                 credentials: 'same-origin'
@@ -1927,7 +1763,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                     displayPlans();
                     updateStatistics();
                     
-                    // Reload plans for each event
+                    // Tải lại kế hoạch cho từng sự kiện
                     approvedEvents.forEach(event => {
                         loadEventPlans(event.ID_DatLich);
                     });
@@ -1938,7 +1774,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             });
         }
         
-        // Display events in the UI
+        // Hiển thị sự kiện trong giao diện
         function displayEvents() {
             const eventsList = document.getElementById('eventsList');
             
@@ -1994,7 +1830,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             
             let html = '';
             sortedEvents.forEach(event => {
-                // Parse datetime to get both date and time
+                // Phân tích datetime để lấy cả ngày và giờ
                 const startDateTime = new Date(event.NgayBatDau);
                 const endDateTime = new Date(event.NgayKetThuc);
                 
@@ -2003,7 +1839,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                 const endDate = endDateTime.toLocaleDateString('vi-VN');
                 const endTime = endDateTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
                 
-                // Format date for filtering (YYYY-MM-DD)
+                // Định dạng ngày để lọc (YYYY-MM-DD)
                 const startDateFilter = startDateTime.toISOString().split('T')[0];
                 const endDateFilter = endDateTime.toISOString().split('T')[0];
                 
@@ -2077,20 +1913,20 @@ function updateAllPlanStatusesInPHP($pdo) {
             
             eventsList.innerHTML = html;
             
-            // Load plans for each event (sử dụng sortedEvents để giữ thứ tự đã sắp xếp)
+            // Tải kế hoạch cho từng sự kiện (sử dụng sortedEvents để giữ thứ tự đã sắp xếp)
             sortedEvents.forEach(event => {
                 loadEventPlans(event.ID_DatLich);
             });
         }
         
-        // Load plans for a specific event
+        // Tải kế hoạch cho một sự kiện cụ thể
         function loadEventPlans(eventId) {
             const eventPlansContainer = document.getElementById(`event-plans-${eventId}`);
             if (!eventPlansContainer) return;
             
             console.log('Loading plans for event:', eventId);
             
-            // Load plans for this specific event from backend
+            // Tải kế hoạch cho sự kiện cụ thể này từ backend
             fetch(`../src/controllers/event-planning.php?action=get_plans&event_id=${eventId}`, {
                 credentials: 'same-origin'
             })
@@ -2100,16 +1936,16 @@ function updateAllPlanStatusesInPHP($pdo) {
                 
                 if (!data.success || !data.plans || data.plans.length === 0) {
                     eventPlansContainer.innerHTML = '<small class="text-muted">Chưa có kế hoạch</small>';
-                    // Update event card buttons based on whether plan exists
+                    // Cập nhật các nút thẻ sự kiện dựa trên việc kế hoạch có tồn tại không
                     updateEventCardButtons(eventId, false, false);
                     return;
                 }
                 
-                // Only show the first plan (each event should have only one plan)
+                // Chỉ hiển thị kế hoạch đầu tiên (mỗi sự kiện chỉ nên có một kế hoạch)
                 const plan = data.plans[0];
                 const allStepsCompleted = plan.TrangThai === 'Hoàn thành';
                 
-                // Handle both date and datetime formats
+                // Xử lý cả định dạng ngày và datetime
                 let startDate, endDate;
                 try {
                     if (plan.NgayBatDau.includes(' ')) {
@@ -2169,7 +2005,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             
                 eventPlansContainer.innerHTML = html;
                 
-                // Update event card buttons based on plan status
+                // Cập nhật các nút thẻ sự kiện dựa trên trạng thái kế hoạch
                 updateEventCardButtons(eventId, true, allStepsCompleted);
             })
             .catch(error => {
@@ -2179,7 +2015,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             });
         }
         
-        // Update event card buttons based on plan existence and completion status
+        // Cập nhật các nút thẻ sự kiện dựa trên việc kế hoạch tồn tại và trạng thái hoàn thành
         function updateEventCardButtons(eventId, hasPlan, allStepsCompleted) {
             const eventCard = document.querySelector(`.event-card[data-event-id="${eventId}"]`);
             if (!eventCard) return;
@@ -2190,7 +2026,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             const event = approvedEvents.find(e => e.ID_DatLich == eventId);
             if (!event) return;
             
-            // If event is completed, show read-only view
+            // Nếu sự kiện đã hoàn thành, hiển thị chế độ chỉ đọc
             if (event.TrangThaiSuKien === 'Hoàn thành') {
                 buttonContainer.innerHTML = `
                     <div class="alert alert-success mb-0">
@@ -2203,7 +2039,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                 return;
             }
             
-            // If plan exists and all steps are completed, show read-only view
+            // Nếu kế hoạch tồn tại và tất cả các bước đã hoàn thành, hiển thị chế độ chỉ đọc
             if (hasPlan && allStepsCompleted) {
                 buttonContainer.innerHTML = `
                     <div class="alert alert-info mb-0">
@@ -2216,7 +2052,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                 return;
             }
             
-            // If plan exists but not all steps completed, show manage button only
+            // Nếu kế hoạch tồn tại nhưng chưa hoàn thành tất cả các bước, chỉ hiển thị nút quản lý
             if (hasPlan && !allStepsCompleted) {
                 buttonContainer.innerHTML = `
                     <button class="btn btn-outline-info" onclick="manageSteps(${eventId}, '${escapeHtml(event.TenSuKien)}')">
@@ -2226,7 +2062,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                 return;
             }
             
-            // If no plan exists, show create plan button
+            // Nếu không có kế hoạch, hiển thị nút tạo kế hoạch
             if (!hasPlan) {
                 buttonContainer.innerHTML = `
                     <button class="btn btn-primary" onclick="createPlan(${eventId}, '${escapeHtml(event.TenSuKien)}')">
@@ -2236,12 +2072,12 @@ function updateAllPlanStatusesInPHP($pdo) {
             }
         }
         
-        // Display plans in the UI
+        // Hiển thị kế hoạch trong giao diện
         function displayPlans() {
             const existingPlansSection = document.getElementById('existingPlansSection');
             const existingPlansList = document.getElementById('existingPlansList');
             
-            // Always show section if there are plans
+            // Luôn hiển thị phần nếu có kế hoạch
             if (existingPlans.length > 0) {
                 existingPlansSection.style.display = 'block';
             } else {
@@ -2251,22 +2087,22 @@ function updateAllPlanStatusesInPHP($pdo) {
             
             let html = '';
             existingPlans.forEach(plan => {
-                // Handle both date and datetime formats
+                // Xử lý cả định dạng ngày và datetime
                 let startDate, endDate;
                 try {
                     if (plan.NgayBatDau.includes(' ')) {
-                        // It's a datetime string
+                        // Đây là chuỗi datetime
                         startDate = new Date(plan.NgayBatDau).toLocaleDateString('vi-VN');
                     } else {
-                        // It's a date string
+                        // Đây là chuỗi ngày
                         startDate = new Date(plan.NgayBatDau).toLocaleDateString('vi-VN');
                     }
                     
                     if (plan.NgayKetThuc.includes(' ')) {
-                        // It's a datetime string
+                        // Đây là chuỗi datetime
                         endDate = new Date(plan.NgayKetThuc).toLocaleDateString('vi-VN');
                     } else {
-                        // It's a date string
+                        // Đây là chuỗi ngày
                         endDate = new Date(plan.NgayKetThuc).toLocaleDateString('vi-VN');
                     }
                 } catch (e) {
@@ -2299,10 +2135,10 @@ function updateAllPlanStatusesInPHP($pdo) {
             existingPlansList.innerHTML = html;
         }
 
-        // Open edit plan modal with data
+        // Mở modal chỉnh sửa kế hoạch với dữ liệu
         function openEditPlanModal(planData) {
             try {
-                // Parse when called from inline html (escaped JSON)
+                // Phân tích khi được gọi từ inline html (JSON đã escape)
                 if (typeof planData === 'string') {
                     planData = JSON.parse(planData);
                 }
@@ -2313,7 +2149,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             document.getElementById('editPlanName').value = planData.name || planData.ten_kehoach || '';
             document.getElementById('editPlanContent').value = planData.content || planData.NoiDung || '';
 
-            // Split datetime into date and time - handle multiple formats
+            // Tách datetime thành ngày và giờ - xử lý nhiều định dạng
             let startDate = '';
             let startTime = '08:00';
             let endDate = '';
@@ -2324,17 +2160,17 @@ function updateAllPlanStatusesInPHP($pdo) {
             
             if (start) {
                 if (start.includes(' ')) {
-                    // Format: "YYYY-MM-DD HH:MM:SS"
+                    // Định dạng: "YYYY-MM-DD HH:MM:SS"
                     const parts = start.split(' ');
                     startDate = parts[0];
-                    startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Take only HH:MM
+                    startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Chỉ lấy HH:MM
                 } else if (start.includes('T')) {
-                    // Format: "YYYY-MM-DDTHH:MM:SS"
+                    // Định dạng: "YYYY-MM-DDTHH:MM:SS"
                     const parts = start.split('T');
                     startDate = parts[0];
-                    startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Take only HH:MM
+                    startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Chỉ lấy HH:MM
                 } else {
-                    // Format: "YYYY-MM-DD"
+                    // Định dạng: "YYYY-MM-DD"
                     startDate = start;
                     startTime = '08:00';
                 }
@@ -2342,17 +2178,17 @@ function updateAllPlanStatusesInPHP($pdo) {
             
             if (end) {
                 if (end.includes(' ')) {
-                    // Format: "YYYY-MM-DD HH:MM:SS"
+                    // Định dạng: "YYYY-MM-DD HH:MM:SS"
                     const parts = end.split(' ');
                     endDate = parts[0];
-                    endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Take only HH:MM
+                    endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Chỉ lấy HH:MM
                 } else if (end.includes('T')) {
-                    // Format: "YYYY-MM-DDTHH:MM:SS"
+                    // Định dạng: "YYYY-MM-DDTHH:MM:SS"
                     const parts = end.split('T');
                     endDate = parts[0];
-                    endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Take only HH:MM
+                    endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Chỉ lấy HH:MM
                 } else {
-                    // Format: "YYYY-MM-DD"
+                    // Định dạng: "YYYY-MM-DD"
                     endDate = end;
                     endTime = '17:00';
                 }
@@ -2364,7 +2200,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             document.getElementById('editEndTime').value = endTime;
             document.getElementById('editStatus').value = planData.status || planData.TrangThai || 'Chưa bắt đầu';
 
-            // Load staff options into edit select, then preselect if available
+            // Tải các tùy chọn nhân viên vào select chỉnh sửa, sau đó chọn trước nếu có
             loadStaffOptions().then(() => {
                 const staffSelect = document.getElementById('editAssignedStaff');
                 if (planData.ID_NhanVien || planData.ID_NhanVien) {
@@ -2377,7 +2213,7 @@ function updateAllPlanStatusesInPHP($pdo) {
         }
 
         function editPlan(planId) {
-            // Check if plan's event is completed
+            // Kiểm tra xem sự kiện của kế hoạch đã hoàn thành chưa
             const plan = existingPlans.find(p => (p.ID_KeHoach == planId || p.id == planId));
             if (plan) {
                 const event = approvedEvents.find(e => e.ID_DatLich == plan.ID_DatLich);
@@ -2389,7 +2225,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             
             console.log('Editing plan:', planId);
             
-            // Fetch plan data from database
+            // Lấy dữ liệu kế hoạch từ database
             fetch(`../src/controllers/event-planning.php?action=get_plan&plan_id=${planId}`)
                 .then(response => response.json())
                 .then(data => {
@@ -2397,12 +2233,12 @@ function updateAllPlanStatusesInPHP($pdo) {
                         const plan = data.plan;
                         console.log('Plan data loaded:', plan);
                         
-                        // Fill edit plan modal
+                        // Điền dữ liệu vào modal chỉnh sửa kế hoạch
                         document.getElementById('editPlanId').value = plan.ID_KeHoach || '';
                         document.getElementById('editPlanName').value = plan.TenKeHoach || '';
                         document.getElementById('editPlanContent').value = plan.NoiDung || '';
                         
-                        // Split datetime - handle multiple formats
+                        // Tách datetime - xử lý nhiều định dạng
                         let startDate = '';
                         let startTime = '08:00';
                         let endDate = '';
@@ -2412,17 +2248,17 @@ function updateAllPlanStatusesInPHP($pdo) {
                             // Handle formats: "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DDTHH:MM:SS", "YYYY-MM-DD"
                             const startDateTime = plan.NgayBatDau.toString().trim();
                             if (startDateTime.includes(' ')) {
-                                // Format: "YYYY-MM-DD HH:MM:SS"
+                                // Định dạng: "YYYY-MM-DD HH:MM:SS"
                                 const parts = startDateTime.split(' ');
                                 startDate = parts[0];
-                                startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Take only HH:MM
+                                startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Chỉ lấy HH:MM
                             } else if (startDateTime.includes('T')) {
-                                // Format: "YYYY-MM-DDTHH:MM:SS"
+                                // Định dạng: "YYYY-MM-DDTHH:MM:SS"
                                 const parts = startDateTime.split('T');
                                 startDate = parts[0];
-                                startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Take only HH:MM
+                                startTime = parts[1] ? parts[1].substring(0, 5) : '08:00'; // Chỉ lấy HH:MM
                             } else {
-                                // Format: "YYYY-MM-DD"
+                                // Định dạng: "YYYY-MM-DD"
                                 startDate = startDateTime;
                                 startTime = '08:00';
                             }
@@ -2432,17 +2268,17 @@ function updateAllPlanStatusesInPHP($pdo) {
                             // Handle formats: "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DDTHH:MM:SS", "YYYY-MM-DD"
                             const endDateTime = plan.NgayKetThuc.toString().trim();
                             if (endDateTime.includes(' ')) {
-                                // Format: "YYYY-MM-DD HH:MM:SS"
+                                // Định dạng: "YYYY-MM-DD HH:MM:SS"
                                 const parts = endDateTime.split(' ');
                                 endDate = parts[0];
-                                endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Take only HH:MM
+                                endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Chỉ lấy HH:MM
                             } else if (endDateTime.includes('T')) {
-                                // Format: "YYYY-MM-DDTHH:MM:SS"
+                                // Định dạng: "YYYY-MM-DDTHH:MM:SS"
                                 const parts = endDateTime.split('T');
                                 endDate = parts[0];
-                                endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Take only HH:MM
+                                endTime = parts[1] ? parts[1].substring(0, 5) : '17:00'; // Chỉ lấy HH:MM
                             } else {
-                                // Format: "YYYY-MM-DD"
+                                // Định dạng: "YYYY-MM-DD"
                                 endDate = endDateTime;
                                 endTime = '17:00';
                             }
@@ -2474,7 +2310,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                 });
         }
 
-        // Read data-* from button to open modal safely
+        // Đọc data-* từ nút để mở modal an toàn
         function openEditPlanFromButton(btn) {
             const planData = {
                 id: btn.getAttribute('data-plan-id') || '',
@@ -2487,7 +2323,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             openEditPlanModal(planData);
         }
 
-        // Submit edit plan
+        // Gửi chỉnh sửa kế hoạch
         function submitEditPlan() {
             const planId = document.getElementById('editPlanId').value;
             const name = document.getElementById('editPlanName').value.trim();
@@ -2528,7 +2364,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             .then(handleFetchResponse)
             .then(data => {
                 if (data.success) {
-                    // Update in local list
+                    // Cập nhật trong danh sách local
                     const idx = existingPlans.findIndex(p => (p.ID_KeHoach == planId || p.id == planId));
                     if (idx !== -1) {
                         existingPlans[idx].ten_kehoach = name;
@@ -2536,7 +2372,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                         existingPlans[idx].NgayBatDau = startDateTime;
                         existingPlans[idx].NgayKetThuc = endDateTime;
                         existingPlans[idx].TrangThai = status;
-                        // also update assigned staff name/id
+                        // cũng cập nhật tên/id nhân viên được phân công
                         existingPlans[idx].ID_NhanVien = document.getElementById('editAssignedStaff').value || null;
                         const staffName = getStaffName(existingPlans[idx].ID_NhanVien);
                         if (staffName && staffName !== 'Chưa phân công') {
@@ -2560,7 +2396,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             });
         }
         
-        // Update statistics
+        // Cập nhật thống kê
         function updateStatistics() {
             document.getElementById('approvedEventsCount').textContent = approvedEvents.length;
             document.getElementById('totalPlansCount').textContent = existingPlans.length;
@@ -2572,7 +2408,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             document.getElementById('completedPlansCount').textContent = completedCount;
         }
         
-        // Show error message for events
+        // Hiển thị thông báo lỗi cho sự kiện
         function showEventsError() {
             document.getElementById('eventsList').innerHTML = `
                 <div class="col-12">
@@ -2586,7 +2422,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             `;
         }
         
-        // Utility function to escape HTML
+        // Hàm tiện ích để escape HTML
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
@@ -2594,14 +2430,14 @@ function updateAllPlanStatusesInPHP($pdo) {
         }
 
         function createPlan(eventId, eventName) {
-            // Check if event is completed
+            // Kiểm tra xem sự kiện đã hoàn thành chưa
             const event = approvedEvents.find(e => e.ID_DatLich == eventId);
             if (event && event.TrangThaiSuKien === 'Hoàn thành') {
                 alert('Sự kiện đã hoàn thành, không thể tạo kế hoạch mới');
                 return;
             }
             
-            // Check if event already has a plan
+            // Kiểm tra xem sự kiện đã có kế hoạch chưa
             fetch(`../src/controllers/event-planning.php?action=get_plans&event_id=${eventId}`, {
                 credentials: 'same-origin'
             })
@@ -2626,7 +2462,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                 document.getElementById('startTime').value = '08:00';
                 document.getElementById('endTime').value = '17:00';
                 
-                // Clear form fields
+                // Xóa các trường form
                 document.getElementById('planName').value = '';
                 document.getElementById('planContent').value = '';
                 document.getElementById('endDate').value = '';
@@ -2673,7 +2509,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             const formData = new FormData(form);
             formData.append('action', 'create_plan');
             
-            // Check required fields
+            // Kiểm tra các trường bắt buộc
             const eventId = formData.get('eventId');
             const planName = formData.get('planName');
             const planContent = formData.get('planContent');
@@ -2695,7 +2531,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             formData.set('startDateTime', startDateTime);
             formData.set('endDateTime', endDateTime);
             
-            // Validate dates and times
+            // Xác thực ngày và giờ
             const startDateObj = new Date(startDateTime);
             const endDateObj = new Date(endDateTime);
             
@@ -2714,36 +2550,36 @@ function updateAllPlanStatusesInPHP($pdo) {
                 if (data.success) {
                     alert('Tạo kế hoạch thành công! Bây giờ bạn có thể thêm các bước thực hiện.');
                     
-                    // Add new plan to existing plans array
+                    // Thêm kế hoạch mới vào mảng kế hoạch hiện có
                     const newPlan = {
-                        ID_KeHoach: data.planId || Date.now(), // Use returned ID or fallback
+                        ID_KeHoach: data.planId || Date.now(), // Sử dụng ID trả về hoặc giá trị dự phòng
                         ten_kehoach: formData.get('planName'),
                         NoiDung: formData.get('planContent'),
                         NgayBatDau: formData.get('startDateTime'),
                         NgayKetThuc: formData.get('endDateTime'),
                         TrangThai: 'Chưa thực hiện',
-                        ID_DatLich: formData.get('eventId'), // Use ID_DatLich to match the query
+                        ID_DatLich: formData.get('eventId'), // Sử dụng ID_DatLich để khớp với truy vấn
                         ten_nhanvien: getStaffName(formData.get('assignedStaff'))
                     };
                     
-                    existingPlans.unshift(newPlan); // Add to beginning of array
+                    existingPlans.unshift(newPlan); // Thêm vào đầu mảng
                     
-                    // Update display immediately
+                    // Cập nhật hiển thị ngay lập tức
                     displayPlans();
                     updateStatistics();
                     
-                    // Update plans for the specific event
+                    // Cập nhật kế hoạch cho sự kiện cụ thể
                     loadEventPlans(formData.get('eventId'));
                     
-                    // Close create plan modal
+                    // Đóng modal tạo kế hoạch
                     const createModal = bootstrap.Modal.getInstance(document.getElementById('createPlanModal'));
                     createModal.hide();
                     
-                    // Get event info for manage steps
+                    // Lấy thông tin sự kiện để quản lý bước
                     const eventId = document.getElementById('eventId').value;
                     const eventName = document.querySelector('#createPlanModal .modal-title').textContent.replace('Tạo kế hoạch cho: ', '');
                     
-                    // Open manage steps modal
+                    // Mở modal quản lý bước
                     setTimeout(() => {
                         manageSteps(eventId, eventName);
                     }, 500);
@@ -2758,7 +2594,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             });
         }
 
-        // Reset step form
+        // Đặt lại form bước
         function resetStepForm() {
             document.getElementById('addStepForm').reset();
             const today = new Date().toISOString().split('T')[0];
@@ -2767,23 +2603,23 @@ function updateAllPlanStatusesInPHP($pdo) {
             document.getElementById('stepEndDate').value = today;
             document.getElementById('stepEndTime').value = '17:00';
             
-            // Clear checkbox staff selection
+            // Xóa lựa chọn nhân viên checkbox
             const stepStaffCheckboxes = document.querySelectorAll('#stepStaffCheckboxes input[type="checkbox"]');
             stepStaffCheckboxes.forEach(checkbox => {
                 checkbox.checked = false;
             });
         }
 
-        // Helper function to get staff name by ID
+        // Hàm helper để lấy tên nhân viên theo ID
         function getStaffName(staffId) {
             if (!staffId) return 'Chưa phân công';
             
-            // Try to find staff name from the select options
+            // Thử tìm tên nhân viên từ các tùy chọn select
             const staffSelect = document.getElementById('assignedStaff');
             if (staffSelect) {
                 const selectedOption = staffSelect.querySelector(`option[value="${staffId}"]`);
                 if (selectedOption) {
-                    return selectedOption.textContent.split(' - ')[0]; // Get name part only
+                    return selectedOption.textContent.split(' - ')[0]; // Chỉ lấy phần tên
                 }
             }
             
@@ -2793,11 +2629,11 @@ function updateAllPlanStatusesInPHP($pdo) {
         function manageSteps(eventId, eventName) {
             document.getElementById('stepEventId').value = eventId;
             
-            // Check if event is completed
+            // Kiểm tra xem sự kiện đã hoàn thành chưa
             const event = approvedEvents.find(e => e.ID_DatLich == eventId);
             const isEventCompleted = event && event.TrangThaiSuKien === 'Hoàn thành';
             
-            // Check if all steps are completed by loading steps first
+            // Kiểm tra xem tất cả các bước đã hoàn thành chưa bằng cách tải các bước trước
             fetch(`../src/controllers/event-planning.php?action=get_event_steps&event_id=${eventId}`, {
                 credentials: 'same-origin'
             })
@@ -2821,27 +2657,27 @@ function updateAllPlanStatusesInPHP($pdo) {
                         '<i class="fas fa-cogs"></i> Quản lý bước thực hiện: ' + eventName;
                 }
                 
-                // Load existing steps
+                // Tải các bước hiện có
                 loadSteps(eventId, isReadOnly);
                 
-                // Load staff options (only if not read-only)
+                // Tải các tùy chọn nhân viên (chỉ khi không phải chế độ chỉ đọc)
                 if (!isReadOnly) {
                     loadStaffOptionsForSteps();
                     
-                    // Set default dates and times
+                    // Đặt ngày và giờ mặc định
                     const today = new Date().toISOString().split('T')[0];
                     document.getElementById('stepStartDate').value = today;
                     document.getElementById('stepStartTime').value = '08:00';
                     document.getElementById('stepEndDate').value = today;
                     document.getElementById('stepEndTime').value = '17:00';
                     
-                    // Show add step form
+                    // Hiển thị form thêm bước
                     const addStepFormContainer = document.getElementById('addStepFormContainer');
                     if (addStepFormContainer) {
                         addStepFormContainer.style.display = '';
                     }
                 } else {
-                    // Hide add step form if read-only
+                    // Ẩn form thêm bước nếu ở chế độ chỉ đọc
                     const addStepFormContainer = document.getElementById('addStepFormContainer');
                     if (addStepFormContainer) {
                         addStepFormContainer.style.display = 'none';
@@ -2853,7 +2689,7 @@ function updateAllPlanStatusesInPHP($pdo) {
             })
             .catch(error => {
                 console.error('Error checking steps:', error);
-                // Fallback to loading steps normally
+                // Dự phòng để tải các bước bình thường
                 loadSteps(eventId, isEventCompleted);
                 
                 if (!isEventCompleted) {
@@ -2883,19 +2719,19 @@ function updateAllPlanStatusesInPHP($pdo) {
                 .then(data => {
                     console.log('Steps data:', data);
                     if (data.success && data.steps && data.steps.length > 0) {
-                        // Calculate completion percentage
+                        // Tính phần trăm hoàn thành
                         const totalSteps = data.steps.length;
                         const completedSteps = data.steps.filter(step => step.TrangThai === 'Hoàn thành').length;
                         const inProgressSteps = data.steps.filter(step => step.TrangThai === 'Đang làm').length;
                         const completionPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
                         
-                        // Check if all steps are completed - if so, set isReadOnly to true
+                        // Kiểm tra xem tất cả các bước đã hoàn thành chưa - nếu có, đặt isReadOnly thành true
                         const allStepsCompleted = totalSteps > 0 && completedSteps === totalSteps;
                         if (allStepsCompleted) {
                             isReadOnly = true;
                         }
                         
-                        // Build progress bar HTML
+                        // Xây dựng HTML thanh tiến trình
                         let html = `
                             <div class="mb-4">
                                 <div class="card border-0 shadow-sm">
@@ -3097,7 +2933,7 @@ function updateAllPlanStatusesInPHP($pdo) {
         }
 
         function editStep(stepId) {
-            // Check if event is completed
+            // Kiểm tra xem sự kiện đã hoàn thành chưa
             const eventId = document.getElementById('stepEventId')?.value;
             const event = approvedEvents.find(e => e.ID_DatLich == eventId);
             if (event && event.TrangThaiSuKien === 'Hoàn thành') {
@@ -3199,7 +3035,7 @@ function updateAllPlanStatusesInPHP($pdo) {
         }
 
         function submitEditStep() {
-            // Check if event is completed
+            // Kiểm tra xem sự kiện đã hoàn thành chưa
             const eventId = document.getElementById('stepEventId')?.value;
             const event = approvedEvents.find(e => e.ID_DatLich == eventId);
             if (event && event.TrangThaiSuKien === 'Hoàn thành') {
@@ -3342,7 +3178,7 @@ function updateAllPlanStatusesInPHP($pdo) {
                     if (stepEventIdElement) {
                         const currentEventId = stepEventIdElement.value;
                         if (currentEventId) {
-                            // Check if event is completed to determine read-only mode
+                            // Kiểm tra xem sự kiện đã hoàn thành chưa to determine read-only mode
                             const event = approvedEvents.find(e => e.ID_DatLich == currentEventId);
                             const isReadOnly = event && event.TrangThaiSuKien === 'Hoàn thành';
                             loadSteps(currentEventId, isReadOnly);
@@ -3427,7 +3263,7 @@ function updateAllPlanStatusesInPHP($pdo) {
         }
 
         function addStep() {
-            // Check if event is completed
+            // Kiểm tra xem sự kiện đã hoàn thành chưa
             const eventId = document.getElementById('stepEventId')?.value;
             const event = approvedEvents.find(e => e.ID_DatLich == eventId);
             if (event && event.TrangThaiSuKien === 'Hoàn thành') {
@@ -3520,7 +3356,7 @@ function updateAllPlanStatusesInPHP($pdo) {
         }
 
         function updateStepStatus(stepId, status) {
-            // Check if event is completed
+            // Kiểm tra xem sự kiện đã hoàn thành chưa
             const eventId = document.getElementById('stepEventId')?.value;
             const event = approvedEvents.find(e => e.ID_DatLich == eventId);
             if (event && event.TrangThaiSuKien === 'Hoàn thành') {
@@ -3554,7 +3390,7 @@ function updateAllPlanStatusesInPHP($pdo) {
         }
 
         function deleteStep(stepId) {
-            // Check if event is completed
+            // Kiểm tra xem sự kiện đã hoàn thành chưa
             const eventId = document.getElementById('stepEventId')?.value;
             const event = approvedEvents.find(e => e.ID_DatLich == eventId);
             if (event && event.TrangThaiSuKien === 'Hoàn thành') {

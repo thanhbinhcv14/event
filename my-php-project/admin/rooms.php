@@ -209,6 +209,24 @@ include 'includes/admin-header.php';
                             </div>
                             
                             <div class="mb-3">
+                                <label class="form-label">Hình ảnh phòng</label>
+                                <input type="file" class="form-control" id="roomImage" name="HinhAnh" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp">
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-info-circle"></i> Định dạng: JPG, PNG, GIF, WEBP. Tối đa 5MB.
+                                </small>
+                                <div id="roomImagePreview" class="mt-2" style="display: none;">
+                                    <img id="roomImagePreviewImg" src="" alt="Preview" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 1px solid #ddd;">
+                                    <button type="button" class="btn btn-sm btn-danger mt-2" onclick="removeRoomImage()">
+                                        <i class="fas fa-times"></i> Xóa ảnh
+                                    </button>
+                                </div>
+                                <div id="roomCurrentImage" class="mt-2" style="display: none;">
+                                    <label class="form-label text-muted">Ảnh hiện tại:</label>
+                                    <img id="roomCurrentImageImg" src="" alt="Current" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 1px solid #ddd;">
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
                                 <label class="form-label">Trạng thái <span class="text-danger">*</span></label>
                                 <select class="form-select" id="roomStatus" name="TrangThai" required>
                                     <option value="Sẵn sàng">Sẵn sàng</option>
@@ -228,6 +246,34 @@ include 'includes/admin-header.php';
             </div>
         </div>
 
+        <!-- Room Details Modal -->
+        <div class="modal fade" id="roomDetailsModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-info-circle"></i>
+                            Chi tiết phòng
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="roomDetailsContent">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Đang tải...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                        <button type="button" class="btn btn-warning" id="btnEditFromDetails" onclick="" style="display: none;">
+                            <i class="fas fa-edit"></i> Chỉnh sửa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     <style>
         .modal-backdrop {
             display: none !important;
@@ -241,20 +287,51 @@ include 'includes/admin-header.php';
         .modal.show {
             background-color: rgba(0, 0, 0, 0.1);
         }
+        
+        /* Hiệu ứng phóng to hình ảnh khi hover */
+        .room-image-hover {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: zoom-in;
+            display: inline-block;
+        }
+        
+        .room-image-hover:hover {
+            transform: scale(2.5);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            position: relative;
+            border-radius: 8px;
+        }
     </style>
 
     <script>
+        // Đảm bảo jQuery đã được load trước khi sử dụng
+        (function() {
+            // Kiểm tra jQuery đã load chưa
+            if (typeof jQuery === 'undefined') {
+                console.error('jQuery chưa được load. Vui lòng đợi...');
+                // Thử lại sau 100ms
+                setTimeout(arguments.callee, 100);
+                return;
+            }
+            
+            // jQuery đã sẵn sàng, khởi tạo code
+            $(document).ready(function() {
+                initRoomsPage();
+            });
+        })();
+        
         let roomsTable;
         let currentFilters = {};
         let allLocations = [];
 
         // Khởi tạo trang
-        document.addEventListener('DOMContentLoaded', function() {
+        function initRoomsPage() {
             loadLocations();
             initializeDataTable();
             loadStatistics();
             setupEventListeners();
-        });
+        }
 
         function loadLocations() {
             return AdminPanel.makeAjaxRequest('../src/controllers/locations.php', {
@@ -396,6 +473,9 @@ include 'includes/admin-header.php';
                             render: function(data, type, row) {
                                 return `
                                     <div class="action-buttons">
+                                        <button class="btn btn-info btn-sm" onclick="viewRoomDetails(${row.ID_Phong})" title="Xem chi tiết">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
                                         <button class="btn btn-warning btn-sm" onclick="editRoom(${row.ID_Phong})" title="Chỉnh sửa">
                                             <i class="fas fa-edit"></i>
                                         </button>
@@ -482,8 +562,47 @@ include 'includes/admin-header.php';
             $('#roomId').val('');
             $('#roomLocation').val('');
             $('#roomLocation').prop('disabled', false);
+            $('#roomImagePreview').hide();
+            $('#roomCurrentImage').hide();
+            $('#roomImage').val('');
             const bsModal = new bootstrap.Modal(document.getElementById('roomModal'));
             bsModal.show();
+        }
+        
+        // Xử lý preview hình ảnh khi chọn file
+        $('#roomImage').on('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Kiểm tra kích thước (5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    AdminPanel.showError('Kích thước file quá lớn. Tối đa 5MB');
+                    $(this).val('');
+                    return;
+                }
+                
+                // Kiểm tra định dạng
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                if (!allowedTypes.includes(file.type)) {
+                    AdminPanel.showError('Định dạng file không được hỗ trợ. Chỉ chấp nhận: JPG, PNG, GIF, WEBP');
+                    $(this).val('');
+                    return;
+                }
+                
+                // Hiển thị preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    $('#roomImagePreviewImg').attr('src', e.target.result);
+                    $('#roomImagePreview').show();
+                    $('#roomCurrentImage').hide();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        function removeRoomImage() {
+            $('#roomImage').val('');
+            $('#roomImagePreview').hide();
+            $('#roomImagePreviewImg').attr('src', '');
         }
 
         function editRoom(roomId) {
@@ -522,6 +641,19 @@ include 'includes/admin-header.php';
             $('#roomRentType').val(room.LoaiThue);
             $('#roomDescription').val(room.MoTa);
             $('#roomStatus').val(room.TrangThai);
+            
+            // Hiển thị hình ảnh hiện tại nếu có
+            if (room.HinhAnh) {
+                const imagePath = `../img/phong/${room.HinhAnh}`;
+                $('#roomCurrentImageImg').attr('src', imagePath);
+                $('#roomCurrentImage').show();
+                $('#roomImagePreview').hide();
+            } else {
+                $('#roomCurrentImage').hide();
+            }
+            
+            // Reset file input
+            $('#roomImage').val('');
             
             // Kiểm tra địa điểm của phòng có phải trong nhà không
             const locationExists = allLocations.find(loc => loc.ID_DD == room.ID_DD);
@@ -588,59 +720,162 @@ include 'includes/admin-header.php';
                     return;
                 }
                 
-                const formData = {
-                    action: $('#roomId').val() ? 'update_room' : 'add_room',
-                    ID_Phong: $('#roomId').val() || undefined,
-                    ID_DD: selectedLocationId,
-                    TenPhong: roomName,
-                    SucChua: capacity,
-                    GiaThueGio: priceHour ? parseFloat(priceHour) : null,
-                    GiaThueNgay: priceDay ? parseFloat(priceDay) : null,
-                    LoaiThue: $('#roomRentType').val(),
-                    MoTa: $('#roomDescription').val() ? $('#roomDescription').val().trim() : null,
-                    TrangThai: $('#roomStatus').val()
-                };
-
-                // Debug: Log form data
-                console.log('Saving room with data:', formData);
+                // Tạo FormData để hỗ trợ upload file
+                const formData = new FormData();
+                formData.append('action', $('#roomId').val() ? 'update_room' : 'add_room');
+                if ($('#roomId').val()) {
+                    formData.append('ID_Phong', $('#roomId').val());
+                }
+                formData.append('ID_DD', selectedLocationId);
+                formData.append('TenPhong', roomName);
+                formData.append('SucChua', capacity);
+                if (priceHour) formData.append('GiaThueGio', parseFloat(priceHour));
+                if (priceDay) formData.append('GiaThueNgay', parseFloat(priceDay));
+                formData.append('LoaiThue', $('#roomRentType').val());
+                if ($('#roomDescription').val()) {
+                    formData.append('MoTa', $('#roomDescription').val().trim());
+                }
+                formData.append('TrangThai', $('#roomStatus').val());
                 
-                // Sử dụng form data thay vì JSON để backend có thể đọc từ $_POST
-                AdminPanel.makeAjaxRequest('../src/controllers/rooms.php', formData, 'POST', true)
-                .then(response => {
-                    console.log('Save room response:', response);
-                    saveBtn.prop('disabled', false).html(originalText);
-                    if (response.success) {
-                        AdminPanel.showSuccess(response.message || 'Lưu phòng thành công');
-                        const bsModal = bootstrap.Modal.getInstance(document.getElementById('roomModal'));
-                        if (bsModal) {
-                            bsModal.hide();
+                // Thêm file hình ảnh nếu có
+                const imageFile = $('#roomImage')[0].files[0];
+                if (imageFile) {
+                    formData.append('HinhAnh', imageFile);
+                }
+
+                // Debug: Log form data (không log file)
+                console.log('Saving room with data:', {
+                    action: formData.get('action'),
+                    ID_Phong: formData.get('ID_Phong'),
+                    ID_DD: formData.get('ID_DD'),
+                    TenPhong: formData.get('TenPhong'),
+                    hasImage: !!imageFile
+                });
+                
+                // Gửi FormData với AJAX
+                $.ajax({
+                    url: '../src/controllers/rooms.php',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        // Parse JSON response
+                        if (typeof response === 'string') {
+                            response = JSON.parse(response);
                         }
-                        roomsTable.ajax.reload();
-                        loadStatistics();
-                    } else {
-                        const errorMsg = response.error || 'Lỗi khi lưu phòng';
-                        console.error('Save room failed:', response);
-                        if (response.debug) {
-                            console.error('Debug info:', response.debug);
+                        
+                        console.log('Save room response:', response);
+                        saveBtn.prop('disabled', false).html(originalText);
+                        if (response.success) {
+                            AdminPanel.showSuccess(response.message || 'Lưu phòng thành công');
+                            const bsModal = bootstrap.Modal.getInstance(document.getElementById('roomModal'));
+                            if (bsModal) {
+                                bsModal.hide();
+                            }
+                            roomsTable.ajax.reload();
+                            loadStatistics();
+                        } else {
+                            const errorMsg = response.error || 'Lỗi khi lưu phòng';
+                            console.error('Save room failed:', response);
+                            if (response.debug) {
+                                console.error('Debug info:', response.debug);
+                            }
+                            AdminPanel.showError(errorMsg);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        saveBtn.prop('disabled', false).html(originalText);
+                        console.error('Save room error:', error);
+                        console.error('XHR status:', xhr.status);
+                        console.error('XHR response:', xhr.responseText);
+                        
+                        let errorMsg = 'Lỗi khi lưu phòng: ' + (error || 'Lỗi không xác định');
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.error) {
+                                errorMsg = response.error;
+                            }
+                        } catch (e) {
+                            // Ignore parse error
                         }
                         AdminPanel.showError(errorMsg);
                     }
-                })
-                .catch(error => {
-                    saveBtn.prop('disabled', false).html(originalText);
-                    console.error('Save room error:', error);
-                    console.error('Error details:', {
-                        message: error.message,
-                        stack: error.stack,
-                        response: error.response
-                    });
-                    AdminPanel.showError('Lỗi khi lưu phòng: ' + (error.message || 'Lỗi không xác định'));
                 });
             } catch (error) {
                 saveBtn.prop('disabled', false).html(originalText);
                 console.error('Save room validation error:', error);
                 AdminPanel.showError('Lỗi xác thực dữ liệu: ' + error.message);
             }
+        }
+
+        function viewRoomDetails(roomId) {
+            if (!roomId) {
+                AdminPanel.showError('ID phòng không hợp lệ');
+                return;
+            }
+            
+            AdminPanel.showLoading('#roomDetailsContent');
+            
+            const modal = new bootstrap.Modal(document.getElementById('roomDetailsModal'));
+            modal.show();
+            
+            // Ẩn nút chỉnh sửa tạm thời
+            $('#btnEditFromDetails').hide();
+            
+            AdminPanel.makeAjaxRequest('../src/controllers/rooms.php', {
+                action: 'get_room',
+                id: roomId
+            })
+            .then(response => {
+                if (response.success && response.data) {
+                    const room = response.data;
+                    $('#roomDetailsContent').html(`
+                        <div class="row" style="font-size: 0.9rem;">
+                            <div class="col-md-6">
+                                <h6 style="font-size: 0.95rem;"><i class="fas fa-door-open"></i> Thông tin cơ bản</h6>
+                                <table class="table table-sm table-borderless" style="font-size: 0.9rem;">
+                                    <tr><td style="width: 40%; padding: 0.3rem 0;"><strong>ID Phòng:</strong></td><td style="padding: 0.3rem 0;">${room.ID_Phong}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Địa điểm:</strong></td><td style="padding: 0.3rem 0;">${room.TenDiaDiem || 'N/A'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Tên phòng:</strong></td><td style="padding: 0.3rem 0;">${room.TenPhong || 'N/A'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Sức chứa:</strong></td><td style="padding: 0.3rem 0;">${room.SucChua ? room.SucChua.toLocaleString() + ' người' : 'N/A'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Giá thuê/giờ:</strong></td><td style="padding: 0.3rem 0;">${room.GiaThueGio ? AdminPanel.formatCurrency(room.GiaThueGio) : 'Chưa có'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Giá thuê/ngày:</strong></td><td style="padding: 0.3rem 0;">${room.GiaThueNgay ? AdminPanel.formatCurrency(room.GiaThueNgay) : 'Chưa có'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Loại thuê:</strong></td><td style="padding: 0.3rem 0;"><span class="badge bg-${room.LoaiThue === 'Cả hai' ? 'success' : (room.LoaiThue === 'Theo giờ' ? 'info' : 'warning')}">${room.LoaiThue || 'Chưa xác định'}</span></td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Trạng thái:</strong></td><td style="padding: 0.3rem 0;"><span class="status-badge status-${room.TrangThai ? room.TrangThai.toLowerCase().replace(/\s+/g, '-') : 'unknown'}">${room.TrangThai || 'Không xác định'}</span></td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 style="font-size: 0.95rem;"><i class="fas fa-info-circle"></i> Thông tin khác</h6>
+                                <table class="table table-sm table-borderless" style="font-size: 0.9rem;">
+                                    <tr><td style="width: 40%; padding: 0.3rem 0;"><strong>Mô tả:</strong></td><td style="padding: 0.3rem 0;">${room.MoTa || 'Không có mô tả'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Hình ảnh:</strong></td><td style="padding: 0.3rem 0;">${room.HinhAnh ? `<img src="../img/phong/${room.HinhAnh}" alt="${room.TenPhong || 'Phòng'}" class="img-fluid rounded room-image-hover" style="max-width: 150px; max-height: 120px; object-fit: cover;" onerror="this.src='../img/phong/default.php'">` : 'Không có hình ảnh'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Ngày tạo:</strong></td><td style="padding: 0.3rem 0;">${room.NgayTao ? AdminPanel.formatDate(room.NgayTao, 'dd/mm/yyyy hh:mm') : 'N/A'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Cập nhật:</strong></td><td style="padding: 0.3rem 0;">${room.NgayCapNhat ? AdminPanel.formatDate(room.NgayCapNhat, 'dd/mm/yyyy hh:mm') : 'N/A'}</td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    `);
+                    
+                    // Hiển thị nút chỉnh sửa và gán sự kiện
+                    $('#btnEditFromDetails').show().attr('onclick', `editRoom(${roomId})`);
+                } else {
+                    $('#roomDetailsContent').html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            ${response.error || 'Không thể tải chi tiết phòng'}
+                        </div>
+                    `);
+                }
+            })
+            .catch(error => {
+                $('#roomDetailsContent').html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Có lỗi xảy ra khi tải chi tiết phòng
+                    </div>
+                `);
+            });
         }
 
         function deleteRoom(roomId) {

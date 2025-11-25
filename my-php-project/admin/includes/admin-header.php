@@ -39,7 +39,8 @@ $pageTitles = [
     'customeredit_content' => 'Quản lý khách hàng',
     'accstaff' => 'Quản lý nhân viên',
     'reports' => 'Thống kê báo cáo',
-    'chat' => 'Chat Hỗ trợ'
+    'chat' => 'Chat Hỗ trợ',
+    'blogs' => 'Quản lý bài viết'
 ];
 
 $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
@@ -235,21 +236,16 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
                 <span>Dashboard</span>
             </a>
             
-            <!-- Role 1: Admin - Tất cả quyền -->
+            <!-- Role 1: Quản trị viên - Chỉ quản lý tài khoản, mã giảm giá, bài viết và chat -->
             <?php if ($user['ID_Role'] == 1): ?>
-            <a href="event-registrations.php" class="menu-item <?= $currentPage === 'event-registrations' ? 'active' : '' ?>">
-                <i class="fas fa-clipboard-list"></i>
-                <span>Duyệt đăng ký sự kiện</span>
+            <a href="accstaff.php" class="menu-item <?= $currentPage === 'accstaff' ? 'active' : '' ?>">
+                <i class="fas fa-user-tie"></i>
+                <span>Quản lý nhân viên</span>
             </a>
             
-            <a href="event-planning.php" class="menu-item <?= $currentPage === 'event-planning' ? 'active' : '' ?>">
-                <i class="fas fa-calendar-check"></i>
-                <span>Lên kế hoạch thực hiện và phân công</span>
-            </a>
-            
-            <a href="event-types.php" class="menu-item <?= $currentPage === 'event-types' ? 'active' : '' ?>">
-                <i class="fas fa-tags"></i>
-                <span>Quản lý loại sự kiện</span>
+            <a href="customeredit_content.php" class="menu-item <?= $currentPage === 'customeredit_content' ? 'active' : '' ?>">
+                <i class="fas fa-users"></i>
+                <span>Quản lý khách hàng</span>
             </a>
             
             <a href="magiamgia.php" class="menu-item <?= $currentPage === 'magiamgia' ? 'active' : '' ?>">
@@ -257,34 +253,9 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
                 <span>Quản lý mã giảm giá</span>
             </a>
             
-            <a href="locations.php" class="menu-item <?= $currentPage === 'locations' ? 'active' : '' ?>">
-                <i class="fas fa-map-marker-alt"></i>
-                <span>Quản lý địa điểm</span>
-            </a>
-            
-            <a href="rooms.php" class="menu-item <?= $currentPage === 'rooms' ? 'active' : '' ?>">
-                <i class="fas fa-door-open"></i>
-                <span>Quản lý phòng</span>
-            </a>
-            
-            <a href="accstaff.php" class="menu-item <?= $currentPage === 'accstaff' ? 'active' : '' ?>">
-                <i class="fas fa-user-tie"></i>
-                <span>Quản lý nhân viên</span>
-            </a>
-            
-            <a href="device.php" class="menu-item <?= $currentPage === 'device' ? 'active' : '' ?>">
-                <i class="fas fa-tools"></i>
-                <span>Quản lý thiết bị</span>
-            </a>
-            
-            <a href="payment-management.php" class="menu-item <?= $currentPage === 'payment-management' ? 'active' : '' ?>">
-                <i class="fas fa-credit-card"></i>
-                <span>Quản lý thanh toán</span>
-            </a>
-            
-            <a href="customeredit_content.php" class="menu-item <?= $currentPage === 'customeredit_content' ? 'active' : '' ?>">
-                <i class="fas fa-users"></i>
-                <span>Quản lý khách hàng</span>
+            <a href="blogs.php" class="menu-item <?= $currentPage === 'blogs' ? 'active' : '' ?>">
+                <i class="fas fa-blog"></i>
+                <span>Quản lý bài viết</span>
             </a>
             
             <a href="reports.php" class="menu-item <?= $currentPage === 'reports' ? 'active' : '' ?>">
@@ -308,11 +279,6 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             <a href="event-types.php" class="menu-item <?= $currentPage === 'event-types' ? 'active' : '' ?>">
                 <i class="fas fa-tags"></i>
                 <span>Quản lý loại sự kiện</span>
-            </a>
-            
-            <a href="magiamgia.php" class="menu-item <?= $currentPage === 'magiamgia' ? 'active' : '' ?>">
-                <i class="fas fa-ticket-alt"></i>
-                <span>Quản lý mã giảm giá</span>
             </a>
             
             <a href="locations.php" class="menu-item <?= $currentPage === 'locations' ? 'active' : '' ?>">
@@ -366,6 +332,11 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
             <a href="event-registrations.php" class="menu-item <?= $currentPage === 'event-registrations' ? 'active' : '' ?>">
                 <i class="fas fa-eye"></i>
                 <span>Xem duyệt sự kiện</span>
+            </a>
+            
+            <a href="blogs.php" class="menu-item <?= $currentPage === 'blogs' ? 'active' : '' ?>">
+                <i class="fas fa-blog"></i>
+                <span>Quản lý bài viết</span>
             </a>
             <?php endif; ?>
             
