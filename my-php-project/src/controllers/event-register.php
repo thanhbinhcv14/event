@@ -1017,14 +1017,18 @@ try {
                             $eventStartDate = new DateTime($event['NgayBatDau']);
                             $now = new DateTime();
                             
-                            // Deadline luôn = đặt cọc + 7 ngày
-                            $deadlineDate = clone $depositDate;
-                            $deadlineDate->modify('+7 days');
+                            // Deadline = MIN(đặt cọc + 7 ngày, ngày tổ chức)
+                            // Phải thanh toán đủ trong vòng 7 ngày từ khi đặt cọc HOẶC trước ngày tổ chức (tùy cái nào đến trước)
+                            $deadlineFromDeposit = clone $depositDate;
+                            $deadlineFromDeposit->modify('+7 days');
+                            
+                            // Deadline là ngày sớm hơn giữa (đặt cọc + 7 ngày) và ngày tổ chức
+                            $deadlineDate = $deadlineFromDeposit < $eventStartDate ? $deadlineFromDeposit : $eventStartDate;
                             
                             // Tính số ngày từ đặt cọc đến ngày tổ chức (để hiển thị)
                             $daysFromDepositToEvent = $depositDate->diff($eventStartDate)->days;
                             
-                            // Kiểm tra nếu đã quá deadline và chưa thanh toán đủ
+                            // Kiểm tra nếu đã quá deadline và chưa thanh toán đủ (chỉ hủy nếu chưa đến ngày tổ chức)
                             if ($now > $deadlineDate && $now < $eventStartDate) {
                                 // Hủy sự kiện và cập nhật ghi chú
                                 $stmtCancel = $pdo->prepare("
@@ -1171,14 +1175,18 @@ try {
                         $stmtDeposit->execute([$event['ID_DatLich']]);
                         $depositPayment = $stmtDeposit->fetch(PDO::FETCH_ASSOC);
                         
-                        if ($depositPayment && !empty($depositPayment['NgayThanhToan'])) {
+                        if ($depositPayment && !empty($depositPayment['NgayThanhToan']) && !empty($event['NgayBatDau'])) {
                             $depositDate = new DateTime($depositPayment['NgayThanhToan']);
                             $eventStartDate = new DateTime($event['NgayBatDau']);
                             $now = new DateTime();
                             
-                            // Deadline luôn = đặt cọc + 7 ngày
-                            $deadlineDate = clone $depositDate;
-                            $deadlineDate->modify('+7 days');
+                            // Deadline = MIN(đặt cọc + 7 ngày, ngày tổ chức)
+                            // Phải thanh toán đủ trong vòng 7 ngày từ khi đặt cọc HOẶC trước ngày tổ chức (tùy cái nào đến trước)
+                            $deadlineFromDeposit = clone $depositDate;
+                            $deadlineFromDeposit->modify('+7 days');
+                            
+                            // Deadline là ngày sớm hơn giữa (đặt cọc + 7 ngày) và ngày tổ chức
+                            $deadlineDate = $deadlineFromDeposit < $eventStartDate ? $deadlineFromDeposit : $eventStartDate;
                             
                             // Tính số ngày từ đặt cọc đến ngày tổ chức (để hiển thị)
                             $daysFromDepositToEvent = $depositDate->diff($eventStartDate)->days;

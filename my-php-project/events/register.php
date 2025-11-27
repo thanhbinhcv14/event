@@ -2891,7 +2891,7 @@
                     // Nếu đã load, gọi filterLocations() để filter và hiển thị
                     if (suggestedLocations.length > 0) {
                         filterLocations();
-                    } else {
+                } else {
                         // Nếu suggestedLocations chưa load hoặc rỗng, vẫn gọi filterLocations() để hiển thị allLocations đã filter
                         filterLocations();
                     }
@@ -3185,15 +3185,15 @@
                 // Nếu có filter theo capacity hoặc budget, hiển thị thông báo chi tiết
                 // Nếu không, chỉ hiển thị thông báo đơn giản
                 if (hasCapacityOrBudgetFilter) {
-                    $('#suggestedLocations').html(`
+                $('#suggestedLocations').html(`
                         <div class="alert alert-info text-center">
                             <i class="fas fa-info-circle"></i>
                             <h6>Không có địa điểm đề xuất phù hợp với tiêu chí đã chọn</h6>
                             <p class="mb-0 small">
                                 Vui lòng xem phần "Tất cả địa điểm" bên dưới để tìm địa điểm phù hợp.
                             </p>
-                        </div>
-                    `);
+                    </div>
+                `);
                 } else {
                     $('#suggestedLocations').html(`
                         <div class="alert alert-warning text-center">
@@ -3386,6 +3386,34 @@
                 return;
             }
             
+            // Lấy thông tin filter để xác định địa điểm nào phù hợp (để hiển thị ngôi sao)
+            const expectedGuests = parseInt($('#expectedGuests').val()) || 0;
+            const budget = parseFloat($('#budget').val()) || 0;
+            let eventTypePrice = 0;
+            const eventTypeSelect = $('#eventType');
+            if (eventTypeSelect && eventTypeSelect.val()) {
+                const selectedEventType = eventTypes.find(type => type.ID_LoaiSK == eventTypeSelect.val());
+                if (selectedEventType && selectedEventType.GiaCoBan) {
+                    eventTypePrice = parseFloat(selectedEventType.GiaCoBan) || 0;
+                }
+            }
+            const remainingBudget = budget > 0 && eventTypePrice > 0 ? budget - eventTypePrice : budget;
+            
+            // Lấy thời gian sự kiện để tính chi phí
+            const eventDate = $('#eventDate').val();
+            const eventTime = $('#eventTime').val();
+            const eventEndDate = $('#eventEndDate').val();
+            const eventEndTime = $('#eventEndTime').val();
+            let durationHours = 0;
+            let durationDays = 0;
+            if (eventDate && eventTime && eventEndDate && eventEndTime) {
+                const startDate = new Date(eventDate + ' ' + eventTime);
+                const endDate = new Date(eventEndDate + ' ' + eventEndTime);
+                const durationMs = endDate - startDate;
+                durationHours = Math.ceil(durationMs / (1000 * 60 * 60));
+                durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+            }
+            
             let html = '';
             locationsToShow.forEach(location => {
                 // Xác định loại thuê nào để hiển thị dựa trên địa điểm đã chọn
@@ -3408,7 +3436,68 @@
                 const imagePath = location.HinhAnh ? `../img/diadiem/${location.HinhAnh}` : '../img/diadiem/default.php';
                 const isIndoor = location.LoaiDiaDiem === 'Trong nhà' || location.LoaiDiaDiem === 'Trong nha';
                 
-                console.log('Rendering location (all):', location.ID_DD, 'LoaiDiaDiem:', location.LoaiDiaDiem, 'isIndoor:', isIndoor);
+                // Kiểm tra xem địa điểm có phù hợp với filter không (để hiển thị ngôi sao "Đề xuất")
+                let isRecommended = false;
+                if (expectedGuests > 0 || budget > 0) {
+                    // Kiểm tra capacity
+                    let matchesCapacity = true;
+                    if (expectedGuests > 0) {
+                        const minCapacity = Math.max(1, Math.floor(expectedGuests * 0.8));
+                        const maxCapacity = Math.ceil(expectedGuests * 1.2);
+                        
+                        if (isIndoor && location.selectedRoom) {
+                            const roomCapacity = parseInt(location.selectedRoom.SucChua) || 0;
+                            matchesCapacity = roomCapacity >= minCapacity && roomCapacity <= maxCapacity;
+                        } else if (isIndoor) {
+                            // Kiểm tra xem có phòng nào phù hợp không
+                            const locationRooms = allRooms.filter(room => room.ID_DD == location.ID_DD);
+                            if (locationRooms.length > 0) {
+                                const hasSuitableRoom = locationRooms.some(room => {
+                                    const roomCapacity = parseInt(room.SucChua) || 0;
+                                    return roomCapacity >= minCapacity && roomCapacity <= maxCapacity;
+                                });
+                                matchesCapacity = hasSuitableRoom;
+                            } else {
+                                const capacity = parseInt(location.SucChua) || 0;
+                                matchesCapacity = capacity >= minCapacity && capacity <= maxCapacity;
+                            }
+                        } else {
+                            const capacity = parseInt(location.SucChua) || 0;
+                            matchesCapacity = capacity >= minCapacity && capacity <= maxCapacity;
+                        }
+                    }
+                    
+                    // Kiểm tra budget
+                    let matchesBudget = true;
+                    if (budget > 0 && remainingBudget > 0) {
+                        let locationCost = 0;
+                        
+                        if (isIndoor && location.selectedRoom) {
+                            const rentalType = location.selectedRoomRentalType || 'day';
+                            locationCost = rentalType === 'hour' 
+                                ? (location.selectedRoom.GiaThueGio || 0) * durationHours
+                                : (location.selectedRoom.GiaThueNgay || 0) * durationDays;
+                        } else {
+                            const rentalType = selectedRentalType || 'day';
+                            const hourlyPrice = parseFloat(location.GiaThueGio) || 0;
+                            const dailyPrice = parseFloat(location.GiaThueNgay) || 0;
+                            
+                            if (rentalType === 'hour' && hourlyPrice > 0) {
+                                locationCost = hourlyPrice * durationHours;
+                            } else if (dailyPrice > 0) {
+                                locationCost = dailyPrice * durationDays;
+                            } else if (hourlyPrice > 0) {
+                                locationCost = hourlyPrice * durationHours;
+                            }
+                        }
+                        
+                        matchesBudget = locationCost <= remainingBudget && locationCost > 0;
+                    }
+                    
+                    isRecommended = matchesCapacity && matchesBudget;
+                }
+                
+                console.log('Rendering location (all):', location.ID_DD, 'LoaiDiaDiem:', location.LoaiDiaDiem, 'isIndoor:', isIndoor, 'isRecommended:', isRecommended);
                 
                 // Thêm style highlight cho địa điểm đã chọn (giống như trong hình)
                 const selectedStyleAll = isSelected ? 'style="border: 2px solid #0d6efd; background-color: #f0f8ff;"' : '';
@@ -3420,6 +3509,12 @@
                                 <div class="location-image-container">
                                     <img src="${imagePath}" alt="${location.TenDiaDiem}" class="location-image" 
                                          onerror="this.src='../img/diadiem/default.php'">
+                                    ${isRecommended ? `
+                                    <div class="image-overlay">
+                                        <i class="fas fa-star text-warning"></i>
+                                        <span class="badge bg-warning text-dark">Đề xuất</span>
+                                    </div>
+                                    ` : ''}
                                 </div>
                             </div>
                             <div class="col-md-5">
@@ -4264,29 +4359,29 @@
                             </div>
                         ` : ''}
                         <div class="card-body">
-                            <div class="room-card-header">
-                                <h6 class="room-card-title">${room.TenPhong || 'Phòng không tên'}</h6>
-                                ${isSelected ? '<span class="room-card-badge"><i class="fas fa-check"></i> Đã chọn</span>' : ''}
+                        <div class="room-card-header">
+                            <h6 class="room-card-title">${room.TenPhong || 'Phòng không tên'}</h6>
+                            ${isSelected ? '<span class="room-card-badge"><i class="fas fa-check"></i> Đã chọn</span>' : ''}
+                        </div>
+                        
+                        <div class="room-card-info">
+                            <div class="room-info-item">
+                                <i class="fas fa-users"></i>
+                                <span>Sức chứa: ${room.SucChua || 0} người</span>
                             </div>
-                            
-                            <div class="room-card-info">
-                                <div class="room-info-item">
-                                    <i class="fas fa-users"></i>
-                                    <span>Sức chứa: ${room.SucChua || 0} người</span>
-                                </div>
-                                <div class="room-info-item">
-                                    <i class="fas fa-info-circle"></i>
-                                    <span>Trạng thái: ${room.TrangThai || 'Sẵn sàng'}</span>
-                                </div>
+                            <div class="room-info-item">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Trạng thái: ${room.TrangThai || 'Sẵn sàng'}</span>
                             </div>
-                            
-                            ${room.MoTa ? `
-                                <div class="room-card-description">
-                                    <i class="fas fa-quote-left"></i> ${room.MoTa}
-                                </div>
-                            ` : ''}
-                            
-                            <div class="room-price-info">
+                        </div>
+                        
+                        ${room.MoTa ? `
+                            <div class="room-card-description">
+                                <i class="fas fa-quote-left"></i> ${room.MoTa}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="room-price-info">
                             ${hasHourly ? `
                                 <div class="room-price-item ${rentalType === 'hour' ? 'active' : ''}">
                                     <div class="room-price-label">⏰ Theo giờ</div>
@@ -4872,28 +4967,28 @@
                                 </div>
                             ` : ''}
                             <div class="card-body">
-                                <div class="room-card-header">
-                                    <h6 class="room-card-title">${room.TenPhong || 'Phòng không tên'}</h6>
+                            <div class="room-card-header">
+                                <h6 class="room-card-title">${room.TenPhong || 'Phòng không tên'}</h6>
+                            </div>
+                            <div class="room-card-info">
+                                <div class="room-info-item">
+                                    <i class="fas fa-users"></i>
+                                    <span>Sức chứa: ${room.SucChua || 0} người</span>
                                 </div>
-                                <div class="room-card-info">
-                                    <div class="room-info-item">
-                                        <i class="fas fa-users"></i>
-                                        <span>Sức chứa: ${room.SucChua || 0} người</span>
-                                    </div>
-                                    <div class="room-info-item">
-                                        <i class="fas fa-info-circle"></i>
-                                        <span>Trạng thái: ${room.TrangThai || 'Sẵn sàng'}</span>
-                                    </div>
+                                <div class="room-info-item">
+                                    <i class="fas fa-info-circle"></i>
+                                    <span>Trạng thái: ${room.TrangThai || 'Sẵn sàng'}</span>
                                 </div>
-                                ${room.MoTa ? `
-                                    <div class="room-card-description">
-                                        <i class="fas fa-quote-left"></i> ${room.MoTa}
-                                    </div>
-                                ` : ''}
-                                <div class="room-price-info mt-3">
-                                    <div class="room-price-item active">
-                                        <div class="room-price-label">${rentalType === 'hour' ? '⏰' : '📅'} ${rentalType === 'hour' ? 'Theo giờ' : 'Theo ngày'}</div>
-                                        <div class="room-price-value">${formatCurrency(price)}/${priceText}</div>
+                            </div>
+                            ${room.MoTa ? `
+                                <div class="room-card-description">
+                                    <i class="fas fa-quote-left"></i> ${room.MoTa}
+                                </div>
+                            ` : ''}
+                            <div class="room-price-info mt-3">
+                                <div class="room-price-item active">
+                                    <div class="room-price-label">${rentalType === 'hour' ? '⏰' : '📅'} ${rentalType === 'hour' ? 'Theo giờ' : 'Theo ngày'}</div>
+                                    <div class="room-price-value">${formatCurrency(price)}/${priceText}</div>
                                     </div>
                                 </div>
                             </div>
@@ -6171,6 +6266,7 @@
                                 locationPriceText = `Phòng: ${new Intl.NumberFormat('vi-VN').format(room.GiaThueNgay)}/ngày × ${durationDays} ngày`;
                                 console.log('Using daily pricing (only daily available):', locationPriceNum);
                             }
+
                         }
                     }
                 } else {
@@ -6577,5 +6673,6 @@
     </script>
 </body>
 </html>
+
 
 

@@ -175,9 +175,16 @@ if (!$event) {
         
         if ($depositPayment && !empty($depositPayment['NgayThanhToan'])) {
             $depositDate = new DateTime($depositPayment['NgayThanhToan']);
+            $eventStartDate = new DateTime($event['NgayBatDau']);
             $now = new DateTime();
-            $deadlineDate = clone $depositDate;
-            $deadlineDate->modify('+7 days');
+            
+            // Deadline = MIN(đặt cọc + 7 ngày, ngày tổ chức)
+            // Phải thanh toán đủ trong vòng 7 ngày từ khi đặt cọc HOẶC trước ngày tổ chức
+            $deadlineFromDeposit = clone $depositDate;
+            $deadlineFromDeposit->modify('+7 days');
+            
+            // Deadline là ngày sớm hơn giữa (đặt cọc + 7 ngày) và ngày tổ chức
+            $deadlineDate = $deadlineFromDeposit < $eventStartDate ? $deadlineFromDeposit : $eventStartDate;
             
             $daysUntilDeadline = $now->diff($deadlineDate)->days;
             

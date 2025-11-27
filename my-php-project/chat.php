@@ -1374,7 +1374,7 @@ if (!in_array($userRole, [1, 3, 5])) {
                         <div class="col-md-6">
                             <div class="alert alert-info mb-0">
                                 <i class="fas fa-info-circle"></i>
-                                <small>Chỉ hiển thị nhân viên đang online (Role 1 và 3)</small>
+                                <small>Chỉ hiển thị nhân viên đang online</small>
                             </div>
                         </div>
                     </div>
@@ -1425,7 +1425,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             <button class="video-control-btn camera" id="cameraBtn" onclick="toggleCamera()">
                 <i class="fas fa-video"></i>
             </button>
-            <button class="video-control-btn end" onclick="endVideoCall()">
+            <button class="video-control-btn end" id="endVideoCallBtn" style="cursor: pointer;">
                 <i class="fas fa-phone-slash"></i>
             </button>
         </div>
@@ -1597,6 +1597,12 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         let socket = null;
         let currentConversationId = null;
+        // ✅ Set để lưu các message IDs đã thêm (tránh duplicate)
+        const addedMessageIds = new Set();
+        
+        // ✅ Lưu last message ID để chỉ lấy messages mới
+        let lastMessageId = null;
+        
         let currentUserId = <?php 
             if (isset($_SESSION['user']['ID_User'])) {
                 echo $_SESSION['user']['ID_User'];
@@ -1749,6 +1755,30 @@ if (!in_array($userRole, [1, 3, 5])) {
                         alert('Lỗi: Hàm rejectCall không tìm thấy. Vui lòng refresh trang.');
                     }
                 });
+                
+                // ✅ Thêm event listener cho nút end call trong video container
+                $(document).off('click.endVideoCall', '#endVideoCallBtn').on('click.endVideoCall', '#endVideoCallBtn', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('📞 End video call button clicked');
+                    
+                    if (typeof endVideoCall === 'function') {
+                        endVideoCall();
+                    } else if (typeof endCall === 'function') {
+                        endCall();
+                    } else if (typeof window.endCall === 'function') {
+                        window.endCall();
+                    } else {
+                        console.error('❌ endCall/endVideoCall function not found');
+                        alert('Lỗi: Hàm endCall không tìm thấy. Vui lòng refresh trang.');
+                    }
+                });
+                
+                // ✅ Expose endVideoCall ra global scope
+                if (typeof endVideoCall !== 'undefined') {
+                    window.endVideoCall = endVideoCall;
+                    console.log('✅ endVideoCall exposed to global scope');
+                }
             }, 500); // Đợi 500ms để đảm bảo tất cả các hàm đã được định nghĩa
         });
         
@@ -2116,14 +2146,81 @@ if (!in_array($userRole, [1, 3, 5])) {
             // 🟢 Nhận tin nhắn mới realtime
             socket.on('new_message', data => {
                 console.log('Received new message:', data);
-                if (data.conversation_id === currentConversationId) {
-                    // Kiểm tra xem message có phải là object với thuộc tính message không
-                    const messageData = typeof data === 'object' && data.message ? data.message : data;
+                
+                // ✅ Bỏ qua nếu là tin nhắn của chính mình (so sánh đúng kiểu)
+                const senderId = data.user_id || (data.message && data.message.sender_id) || null;
+                const isOwnMessage = senderId && (String(senderId) === String(currentUserId));
+                
+                if (isOwnMessage && data.skip_sender) {
+                    console.log('Skipping own message (skip_sender flag)');
+                    return;
+                }
+                
+                if (data.conversation_id == currentConversationId) {
+                    // ✅ QUAN TRỌNG: Không bỏ qua media messages từ PHP (message_type có giá trị)
+                    // Media messages từ PHP cần được hiển thị để đảm bảo đồng bộ
+                    const isMediaMessage = data.message && (
+                        data.message.message_type || 
+                        data.message.file_path || 
+                        data.message.file_name
+                    );
+                    
+                    // ✅ Chỉ bỏ qua text messages của chính mình (không phải media)
+                    if (isOwnMessage && !isMediaMessage) {
+                        console.log('Skipping own text message (user_id check)');
+                        return;
+                    }
+                    
+                    // ✅ Nếu là media message từ PHP, luôn hiển thị (kể cả của chính mình)
+                    if (isMediaMessage) {
+                        console.log('Received media message from PHP, displaying...');
+                    }
+                    
+                    // ✅ Server emit: { conversation_id, message, user_id, user_name, timestamp }
+                    // message có thể là string hoặc object
+                    let messageData;
+                    if (typeof data.message === 'object' && data.message !== null) {
+                        // Nếu message là object (có id, sender_id, etc.)
+                        messageData = data.message;
+                    } else {
+                        // Nếu message là string, tạo object từ data
+                        messageData = {
+                            id: data.message_id || null,
+                            conversation_id: data.conversation_id,
+                            sender_id: data.user_id,
+                            message: data.message || data.text || '',
+                            created_at: data.timestamp || new Date().toISOString(),
+                            sender_name: data.user_name || 'Người dùng',
+                            IsRead: 0
+                        };
+                    }
+                    
+                    // ✅ Đảm bảo conversation_id được set đúng
+                    if (!messageData.conversation_id) {
+                        messageData.conversation_id = currentConversationId;
+                    }
+                    
+                    // ✅ Đảm bảo có created_at
+                    if (!messageData.created_at && data.timestamp) {
+                        messageData.created_at = data.timestamp;
+                    }
+                    
                     addMessageToChat(messageData, false);
                     scrollToBottom();
                     markMessagesAsRead(currentConversationId);
+                    
+                    // ✅ Cập nhật preview của conversation hiện tại
+                    const messageText = messageData.message || messageData.text || '';
+                    updateConversationPreview(currentConversationId, messageText);
                 } else {
-                    loadConversations(); // cập nhật preview
+                    // ✅ Cập nhật preview của conversation khác ngay lập tức
+                    const messageText = typeof data.message === 'string' ? data.message : (data.message?.message || data.message?.text || '');
+                    if (messageText) {
+                        updateConversationPreview(data.conversation_id, messageText);
+                    }
+                    
+                    // ✅ Reload danh sách conversation để cập nhật unread count và timestamp
+                    loadConversations();
                 }
             });
 
@@ -2149,9 +2246,78 @@ if (!in_array($userRole, [1, 3, 5])) {
             // Xử lý tin nhắn broadcast
             socket.on('broadcast_message', data => {
                 console.log('Received broadcast message:', data);
-                if (data.conversation_id === currentConversationId && data.userId !== currentUserId) {
+                // ✅ So sánh đúng kiểu và chỉ bỏ qua nếu là tin nhắn của chính mình
+                const senderId = data.userId || (data.message && data.message.sender_id) || null;
+                const isOwnMessage = senderId && (String(senderId) === String(currentUserId));
+                
+                // ✅ QUAN TRỌNG: Media messages từ PHP cần được hiển thị cho tất cả (kể cả người gửi)
+                const isMediaMessage = data.message && (
+                    data.message.message_type || 
+                    data.message.file_path || 
+                    data.message.file_name
+                );
+                
+                // ✅ Hiển thị nếu: (1) không phải tin nhắn của chính mình, HOẶC (2) là media message
+                if (data.conversation_id == currentConversationId && (!isOwnMessage || isMediaMessage)) {
+                    // ✅ Đảm bảo conversation_id được set đúng
+                    if (data.message && !data.message.conversation_id) {
+                        data.message.conversation_id = currentConversationId;
+                    }
+                    
+                    // ✅ Đảm bảo có created_at
+                    if (data.message && !data.message.created_at && data.timestamp) {
+                        data.message.created_at = data.timestamp;
+                    }
+                    
                     addMessageToChat(data.message, false);
                     scrollToBottom();
+                    
+                    // ✅ Cập nhật preview của conversation hiện tại
+                    const messageText = data.message?.message || data.message?.text || '';
+                    if (messageText) {
+                        updateConversationPreview(currentConversationId, messageText);
+                    }
+                } else if (data.conversation_id != currentConversationId) {
+                    // ✅ Cập nhật preview của conversation khác
+                    const messageText = data.message?.message || data.message?.text || '';
+                    if (messageText) {
+                        updateConversationPreview(data.conversation_id, messageText);
+                    }
+                }
+            });
+
+            // 🖼️ Xử lý event image_uploaded để load hình ảnh realtime
+            socket.on('image_uploaded', data => {
+                console.log('🖼️ Received image_uploaded event:', data);
+                
+                if (data.conversation_id == currentConversationId) {
+                    // ✅ Đảm bảo conversation_id được set đúng
+                    if (data.message && !data.message.conversation_id) {
+                        data.message.conversation_id = currentConversationId;
+                    }
+                    
+                    // ✅ Đảm bảo có created_at
+                    if (data.message && !data.message.created_at && data.timestamp) {
+                        data.message.created_at = data.timestamp;
+                    }
+                    
+                    // ✅ Force reload hình ảnh bằng cách thêm timestamp vào URL
+                    if (data.message && data.message.file_path) {
+                        const timestamp = new Date().getTime();
+                        data.message.file_path = data.message.file_path + (data.message.file_path.includes('?') ? '&' : '?') + '_t=' + timestamp;
+                    }
+                    
+                    addMessageToChat(data.message, false);
+                    scrollToBottom();
+                    
+                    // ✅ Cập nhật preview của conversation hiện tại
+                    const messageText = data.message?.message || '[Hình ảnh]';
+                    updateConversationPreview(currentConversationId, messageText);
+                } else if (data.conversation_id != currentConversationId) {
+                    // ✅ Cập nhật preview của conversation khác
+                    const messageText = data.message?.message || '[Hình ảnh]';
+                    updateConversationPreview(data.conversation_id, messageText);
+                    loadConversations();
                 }
             });
 
@@ -2433,6 +2599,11 @@ if (!in_array($userRole, [1, 3, 5])) {
         // ✅ Khi chọn hội thoại
         function selectConversation(id) {
             currentConversationId = id;
+            
+            // ✅ Reset tracking khi chuyển conversation
+            addedMessageIds.clear();
+            lastMessageId = null;
+            
             $('.conversation-item').removeClass('active');
             $(`.conversation-item[data-id="${id}"]`).addClass('active');
             
@@ -2557,6 +2728,10 @@ if (!in_array($userRole, [1, 3, 5])) {
                 return;
             }
             
+            // ✅ Reset tracking khi load lại toàn bộ messages
+            addedMessageIds.clear();
+            lastMessageId = null;
+            
             let html = '';
             messages.forEach((message, index) => {
                 console.log(`Processing message ${index}:`, message);
@@ -2565,6 +2740,18 @@ if (!in_array($userRole, [1, 3, 5])) {
                     const messageText = (message.message || message.text || '').trim();
                     if (messageText || message.message_type) { // Chỉ hiển thị nếu có nội dung hoặc là media/file
                         html += createMessageHTML(message);
+                        
+                        // ✅ Track message ID để tránh duplicate
+                        const messageId = message.id || message.message_id;
+                        if (messageId) {
+                            addedMessageIds.add(messageId);
+                            // ✅ So sánh messageId (có thể là string hoặc number)
+                            const messageIdNum = parseInt(messageId);
+                            const lastIdNum = lastMessageId ? parseInt(lastMessageId) : 0;
+                            if (!lastMessageId || messageIdNum > lastIdNum) {
+                                lastMessageId = messageIdNum;
+                            }
+                        }
                     }
                 } catch (error) {
                     console.error(`Error processing message ${index}:`, error, message);
@@ -2576,53 +2763,13 @@ if (!in_array($userRole, [1, 3, 5])) {
             scrollToBottom();
         }
         
-        // ✅ Tạo HTML tin nhắn
-        function createMessageHTML(m){
-            const isSent=m.sender_id==currentUserId;
-            
-            // Kiểm tra tin nhắn có nội dung không (bỏ qua tin nhắn rỗng)
-            const messageText = (m.message || m.text || '').trim();
-            if (!messageText && !m.message_type) {
-                // Tin nhắn rỗng và không phải media/file - không hiển thị
-                console.warn('Skipping empty message:', m);
-                return '';
-            }
-            
-            // Xử lý thời gian với kiểm tra hợp lệ
-            let time = '--:--';
-            try {
-                if (m.created_at) {
-                    const date = new Date(m.created_at);
-                    if (!isNaN(date.getTime())) {
-                        time = date.toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
-                    } else {
-                        console.warn('Invalid date:', m.created_at);
-                        // Fallback về thời gian hiện tại nếu date không hợp lệ
-                        time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
-                    }
-                } else {
-                    // Dùng thời gian hiện tại nếu không có created_at
-                    time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
-                }
-            } catch (e) {
-                console.warn('Date parsing error:', e, 'for date:', m.created_at);
-                // Fallback về thời gian hiện tại
-                time = new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
-            }
-            
-            const messageId = m.id || m.message_id || '';
-            const displayText = messageText || (m.message_type ? 'Tin nhắn đa phương tiện' : 'Tin nhắn trống');
-            
-            return `<div class="message ${isSent?'sent':'received'}" ${messageId ? `data-message-id="${messageId}"` : ''}>
-                <div class="message-content">
-                    <div>${escapeHtml(displayText)}</div>
-                    <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
-                </div>
-            </div>`;
-        }
+        // ✅ Tạo HTML tin nhắn - Sử dụng hàm nâng cao ở dưới (dòng 3784) để xử lý media/file
+        // Hàm này đã bị xóa để tránh duplicate, sử dụng hàm createMessageHTML() nâng cao ở dưới
         
         // ✅ Thêm tin nhắn vào khung chat
         function addMessageToChat(msg,isSent){
+            console.log('Adding message to chat:', msg, 'isSent:', isSent, 'currentConversationId:', currentConversationId);
+            
             // Kiểm tra tin nhắn có nội dung không (bỏ qua tin nhắn rỗng)
             const messageText = (msg.message || msg.text || '').trim();
             if (!messageText && !msg.message_type && !msg.file_path) {
@@ -2630,19 +2777,49 @@ if (!in_array($userRole, [1, 3, 5])) {
                 return;
             }
             
-            // Kiểm tra duplicate dựa trên message_id
-            if (msg.id || msg.message_id) {
-                const messageId = msg.id || msg.message_id;
-                // Kiểm tra xem message đã tồn tại chưa
-                if ($(`.message[data-message-id="${messageId}"]`).length > 0) {
-                    console.log('Message already exists, skipping duplicate:', messageId);
+            // ✅ Kiểm tra duplicate dựa trên message_id + conversation_id
+            const messageId = msg.id || msg.message_id;
+            if (messageId) {
+                // Kiểm tra trong Set (nhanh hơn)
+                if (addedMessageIds.has(messageId)) {
+                    console.log('Message already exists in Set, skipping duplicate:', messageId);
                     return;
                 }
+                
+                // Kiểm tra trong DOM (backup check)
+                if ($(`.message[data-message-id="${messageId}"]`).length > 0) {
+                    console.log('Message already exists in DOM, skipping duplicate:', messageId);
+                    addedMessageIds.add(messageId); // Thêm vào Set để tránh check lại
+                    return;
+                }
+                
+                // ✅ Kiểm tra conversation_id phải khớp (chỉ check nếu có conversation_id)
+                if (msg.conversation_id) {
+                    if (String(msg.conversation_id) != String(currentConversationId)) {
+                        console.log('Message belongs to different conversation, skipping:', messageId, 'Expected:', currentConversationId, 'Got:', msg.conversation_id);
+                        return;
+                    }
+                } else {
+                    // Tự động set conversation_id nếu chưa có
+                    msg.conversation_id = currentConversationId;
+                }
+                
+                // ✅ Thêm vào Set để đánh dấu đã thêm
+                addedMessageIds.add(messageId);
             }
             
             const html=createMessageHTML(msg);
             if (html) { // Chỉ append nếu có HTML (không phải chuỗi rỗng)
                 $('#chatMessages').append(html);
+                
+                // ✅ Cập nhật lastMessageId (so sánh số để đảm bảo đúng)
+                if (messageId) {
+                    const messageIdNum = parseInt(messageId);
+                    const lastIdNum = lastMessageId ? parseInt(lastMessageId) : 0;
+                    if (!lastMessageId || messageIdNum > lastIdNum) {
+                        lastMessageId = messageIdNum;
+                    }
+                }
             }
         }
         
@@ -2709,18 +2886,19 @@ if (!in_array($userRole, [1, 3, 5])) {
                     if (res.success) {
                         $('#messageInput').val('');
                         
-                        // Thêm tin nhắn ngay lập tức để phản hồi tức thì
+                        // Thêm tin nhắn ngay lập tức để phản hồi tức thì (optimistic update)
                         addMessageToChat(res.message, true);
                         scrollToBottom();
                         
-                        // Phát sự kiện real-time
+                        // Phát sự kiện real-time (chỉ cho người khác, không phải mình)
                         if (isConnected && socket) {
                             if (socket && typeof socket.emit === 'function') {
                                 socket.emit('new_message', {
                                     conversation_id: currentConversationId,
-                                    message: res.message.message || res.message.text,
+                                    message: res.message,
                                     user_id: currentUserId,
-                                    user_name: currentUserName
+                                    user_name: currentUserName,
+                                    skip_sender: true // ✅ Flag để bỏ qua ở client của người gửi
                                 });
                                 
                                 socket.emit('broadcast_message', {
@@ -2885,14 +3063,36 @@ if (!in_array($userRole, [1, 3, 5])) {
         function checkForNewMessages() {
             if (!currentConversationId) return;
             
-            $.getJSON(getApiPath('src/controllers/chat-controller.php?action=get_messages&conversation_id=' + currentConversationId), function(res) {
-                if (res.success && res.messages) {
-                    const currentMessageCount = $('#chatMessages .message').length;
-                    const newMessageCount = res.messages.length;
+            // ✅ Chỉ lấy messages mới hơn lastMessageId
+            const apiUrl = getApiPath('src/controllers/chat-controller.php?action=get_messages&conversation_id=' + currentConversationId) + 
+                           (lastMessageId ? '&last_id=' + lastMessageId : '');
+            
+            $.getJSON(apiUrl, function(res) {
+                if (res.success && res.messages && res.messages.length > 0) {
+                    // ✅ Chỉ thêm messages mới, không reload toàn bộ
+                    res.messages.forEach(function(msg) {
+                        // Kiểm tra xem message đã tồn tại chưa
+                        const messageId = msg.id || msg.message_id;
+                        if (messageId && !addedMessageIds.has(messageId)) {
+                            // ✅ Đảm bảo conversation_id được set
+                            if (!msg.conversation_id) {
+                                msg.conversation_id = currentConversationId;
+                            }
+                            
+                            // ✅ Thêm tất cả messages từ polling (cả của mình và người khác)
+                            addMessageToChat(msg, msg.sender_id == currentUserId);
+                            
+                            // ✅ Cập nhật lastMessageId (so sánh số để đảm bảo đúng)
+                            const messageIdNum = parseInt(messageId);
+                            const lastIdNum = lastMessageId ? parseInt(lastMessageId) : 0;
+                            if (!lastMessageId || messageIdNum > lastIdNum) {
+                                lastMessageId = messageIdNum;
+                            }
+                        }
+                    });
                     
-                    if (newMessageCount > currentMessageCount) {
-                        // New messages detected, reload and scroll to bottom
-                        displayMessages(res.messages);
+                    // Scroll to bottom nếu có messages mới
+                    if (res.messages.length > 0) {
                         scrollToBottom();
                     }
                 }
@@ -2989,15 +3189,6 @@ if (!in_array($userRole, [1, 3, 5])) {
             // Thiết lập listeners real-time cho cuộc trò chuyện này
             if (isConnected && socket && typeof socket.emit === 'function') {
                 socket.emit('join_conversation', { conversation_id: conversationId });
-                
-                // Lắng nghe tin nhắn mới trong cuộc trò chuyện này
-                if (socket && typeof socket.on === 'function') {
-                    socket.on('new_message', function(data) {
-                        if (data.conversation_id === conversationId) {
-                            handleRealTimeMessage(data);
-                        }
-                    });
-                }
             }
         }
         
@@ -3013,16 +3204,7 @@ if (!in_array($userRole, [1, 3, 5])) {
             }
         }
         
-        // Xử lý phát tin nhắn tức thì
-        if (socket && typeof socket.on === 'function') {
-            socket.on('broadcast_message', function(data) {
-                console.log('Received broadcast message:', data);
-                if (data.conversation_id === currentConversationId && data.userId !== currentUserId) {
-                    addMessageToChat(data.message, false);
-                }
-                updateConversationPreview(data.conversation_id, data.message.message || data.message.text);
-            });
-        }
+        // ✅ Xóa duplicate socket listeners - đã có ở trên (dòng 2117 và 2150)
         
         // Quản lý chọn nhân viên
         let allManagers = []; // Lưu danh sách tất cả managers để lọc
@@ -3304,13 +3486,36 @@ if (!in_array($userRole, [1, 3, 5])) {
         
         // Cập nhật preview cuộc trò chuyện
         function updateConversationPreview(conversationId, message) {
+            if (!conversationId || !message) {
+                console.warn('updateConversationPreview: Missing conversationId or message', conversationId, message);
+                return;
+            }
+            
             const convEl = $(`.conversation-item[data-conversation-id="${conversationId}"]`);
             if (convEl.length) {
-                convEl.find('.conversation-preview').text(message);
+                // ✅ Cập nhật preview message (giới hạn độ dài)
+                const previewText = message.length > 50 ? message.substring(0, 50) + '...' : message;
+                convEl.find('.conversation-preview').text(previewText);
+                
+                // ✅ Cập nhật timestamp
                 convEl.find('.conversation-time').text(new Date().toLocaleTimeString('vi-VN', {
                     hour: '2-digit',
                     minute: '2-digit'
                 }));
+                
+                // ✅ Di chuyển conversation lên đầu danh sách (nếu không phải conversation hiện tại)
+                if (conversationId != currentConversationId) {
+                    const convItem = convEl.parent();
+                    if (convItem.length) {
+                        convItem.prependTo('#conversationsList');
+                    }
+                }
+                
+                console.log('Conversation preview updated:', conversationId, previewText);
+            } else {
+                // ✅ Nếu không tìm thấy conversation trong DOM, reload danh sách
+                console.log('Conversation not found in DOM, reloading conversations list');
+                loadConversations();
             }
         }
         
@@ -3888,12 +4093,23 @@ if (!in_array($userRole, [1, 3, 5])) {
                     </div>
                 `;
             } else {
-                // Chỉ hiển thị nếu có nội dung
-                const displayText = messageText || 'Tin nhắn trống';
+                // ✅ Chỉ hiển thị nếu có nội dung text (không phải rỗng)
+                if (!messageText || messageText.trim() === '') {
+                    console.warn('Skipping message with empty text:', m);
+                    return '';
+                }
+                
+                const displayText = messageText;
                 messageContent = `
                     <div>${escapeHtml(displayText)}</div>
                     <div class="message-time">${time}${isSent?(m.IsRead?' <i class="fas fa-check-double text-primary"></i>':' <i class="fas fa-check text-muted"></i>'):''}</div>
                 `;
+            }
+            
+            // ✅ Đảm bảo messageContent không rỗng trước khi tạo HTML
+            if (!messageContent || messageContent.trim() === '') {
+                console.warn('Skipping message with empty content:', m);
+                return '';
             }
             
             const messageId = m.id || m.message_id || '';
@@ -4319,6 +4535,27 @@ if (!in_array($userRole, [1, 3, 5])) {
                         'background': '#000'
                     });
                     
+                    // ✅ Đảm bảo nút end call trong video container hoạt động
+                    // Gắn lại event listener cho nút end call (vì có thể HTML đã được tạo động)
+                    setTimeout(() => {
+                        $(document).off('click.endVideoCall', '#endVideoCallBtn').on('click.endVideoCall', '#endVideoCallBtn', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('📞 End video call button clicked (from onCallConnected)');
+                            
+                            if (typeof endVideoCall === 'function') {
+                                endVideoCall();
+                            } else if (typeof endCall === 'function') {
+                                endCall();
+                            } else if (typeof window.endCall === 'function') {
+                                window.endCall();
+                            } else {
+                                console.error('❌ endCall/endVideoCall function not found');
+                                alert('Lỗi: Hàm endCall không tìm thấy. Vui lòng refresh trang.');
+                            }
+                        });
+                    }, 100);
+                    
                     console.log('✅ Video call UI displayed');
                 } else {
                     console.log('✅ Switching to voice call UI with timer');
@@ -4330,10 +4567,27 @@ if (!in_array($userRole, [1, 3, 5])) {
                     $('#callType').text('Cuộc gọi thoại');
                     $('#callStatus').text('00:00'); // ✅ Timer sẽ tự động cập nhật
                     $('#callControls').html(`
-                        <button class="btn btn-danger btn-lg" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
+                        <button class="btn btn-danger btn-lg" id="endCallBtnVoice" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;">
                             <i class="fas fa-phone-slash"></i>
                         </button>
                     `);
+                    
+                    // ✅ Gắn event listener cho nút end call (thay vì dùng onclick)
+                    // ✅ QUAN TRỌNG: Sử dụng event delegation để đảm bảo hoạt động ngay cả khi element được tạo động
+                    $(document).off('click.endCallVoice', '#endCallBtnVoice').on('click.endCallVoice', '#endCallBtnVoice', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('📞 End call button clicked (voice call, from onCallConnected)');
+                        
+                        if (typeof endCall === 'function') {
+                            endCall();
+                        } else if (typeof window.endCall === 'function') {
+                            window.endCall();
+                        } else {
+                            console.error('❌ endCall function not found');
+                            alert('Lỗi: Hàm endCall không tìm thấy. Vui lòng refresh trang.');
+                        }
+                    });
                     
                     // ✅ Đảm bảo modal vẫn hiển thị
                     $('#callModal').addClass('show').css({
@@ -4560,10 +4814,26 @@ if (!in_array($userRole, [1, 3, 5])) {
             } else {
                 $('#callStatus').text('Đang gọi...');
                 $('#callControls').html(`
-                    <button class="btn btn-danger btn-lg" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
+                    <button class="btn btn-danger btn-lg" id="endCallBtnOutgoing" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;">
                         <i class="fas fa-phone-slash"></i>
                     </button>
                 `);
+                
+                // ✅ Gắn event listener cho nút end call (thay vì dùng onclick)
+                $(document).off('click.endCallOutgoing', '#endCallBtnOutgoing').on('click.endCallOutgoing', '#endCallBtnOutgoing', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('📞 End call button clicked (outgoing call)');
+                    
+                    if (typeof endCall === 'function') {
+                        endCall();
+                    } else if (typeof window.endCall === 'function') {
+                        window.endCall();
+                    } else {
+                        console.error('❌ endCall function not found');
+                        alert('Lỗi: Hàm endCall không tìm thấy. Vui lòng refresh trang.');
+                    }
+                });
             }
             
             $('#callModal').addClass('show').css({
@@ -4812,6 +5082,17 @@ if (!in_array($userRole, [1, 3, 5])) {
                 $.post(getApiPath('src/controllers/call-controller.php?action=end_call'), {
                     call_id: callId
                 }, function(response) {
+                    // ✅ Hiển thị message ngay lập tức nếu có
+                    if (response.success && response.chat_message) {
+                        console.log('📞 Adding call end message to chat:', response.chat_message);
+                        addMessageToChat(response.chat_message, response.chat_message.sender_id == currentUserId);
+                        scrollToBottom();
+                        
+                        // ✅ Cập nhật preview
+                        const messageText = response.chat_message.message || '[Cuộc gọi]';
+                        updateConversationPreview(currentConversationId, messageText);
+                    }
+                    
                     if (isConnected && socket && typeof socket.emit === 'function') {
                         socket.emit('call_ended', {
                             call_id: callId,
@@ -4847,10 +5128,26 @@ if (!in_array($userRole, [1, 3, 5])) {
             $('#callType').text('Cuộc gọi thoại');
             $('#callStatus').text('00:00'); // ✅ Hiển thị timer bắt đầu từ 00:00
             $('#callControls').html(`
-                <button class="btn btn-danger btn-lg" onclick="endCall()" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
+                <button class="btn btn-danger btn-lg" id="endCallBtnVoiceUI" style="width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;">
                     <i class="fas fa-phone-slash"></i>
                 </button>
             `);
+            
+            // ✅ Gắn event listener cho nút end call (thay vì dùng onclick)
+            $(document).off('click.endCallVoiceUI', '#endCallBtnVoiceUI').on('click.endCallVoiceUI', '#endCallBtnVoiceUI', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('📞 End call button clicked (voice call UI)');
+                
+                if (typeof endCall === 'function') {
+                    endCall();
+                } else if (typeof window.endCall === 'function') {
+                    window.endCall();
+                } else {
+                    console.error('❌ endCall function not found');
+                    alert('Lỗi: Hàm endCall không tìm thấy. Vui lòng refresh trang.');
+                }
+            });
             
             $('#callModal').addClass('show').css({
                 'display': 'flex',
@@ -5237,14 +5534,42 @@ if (!in_array($userRole, [1, 3, 5])) {
                 
                 // Call rejected
                 socket.on('call_rejected', data => {
-                    console.log('Received call_rejected event:', data);
-                    if (data.caller_id === currentUserId) {
-                        $('#callModal').removeClass('show');
+                    console.log('📞 Received call_rejected event:', data);
+                    console.log('📞 Current user ID:', currentUserId);
+                    console.log('📞 Caller ID:', data.caller_id);
+                    console.log('📞 Receiver ID:', data.receiver_id);
+                    
+                    // ✅ QUAN TRỌNG: Cleanup nếu là caller (người gọi) - khi receiver (admin) reject
+                    // Hoặc nếu là receiver (người nhận) - khi caller reject
+                    const isCaller = data.caller_id == currentUserId;
+                    const isReceiver = data.receiver_id == currentUserId;
+                    
+                    if (isCaller || isReceiver) {
+                        console.log('✅ Call rejected, cleaning up UI');
+                        // ✅ Dừng timer nếu có
+                        stopCallTimer();
+                        
+                        // ✅ Ẩn modal và video container
+                        $('#callModal').removeClass('show').css('display', 'none');
+                        $('#videoCallContainer').removeClass('show').css({
+                            'display': 'none',
+                            'visibility': 'hidden',
+                            'opacity': '0'
+                        });
+                        
+                        // ✅ Cleanup WebRTC
                         if (window.WebRTCHelper) {
                             window.WebRTCHelper.cleanup();
                         }
+                        
+                        // ✅ Reset currentCall
                         currentCall = null;
+                        
+                        // ✅ Hiển thị thông báo
                         showNotification(data.message || 'Cuộc gọi bị từ chối', 'warning', 'fa-times-circle');
+                        console.log('✅ Call rejected cleanup completed');
+                    } else {
+                        console.log('⚠️ Call rejected event not for this user, ignoring');
                     }
                 });
                 
@@ -5347,4 +5672,5 @@ if (!in_array($userRole, [1, 3, 5])) {
     </script>
 
 </body>
+</html>
 </html>

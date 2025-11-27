@@ -12,6 +12,7 @@ if (session_status() === PHP_SESSION_NONE) {
 try {
     require_once __DIR__ . '/../../config/database.php';
     require_once __DIR__ . '/../auth/auth.php';
+    require_once __DIR__ . '/../socket/socket-client.php';
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Lỗi tải file: ' . $e->getMessage()]);
@@ -420,10 +421,9 @@ function endCall($pdo, $userId) {
     
     // Kiểm tra quyền và trạng thái cuộc gọi - Cho phép end ở mọi trạng thái
     $stmt = $pdo->prepare("
-        SELECT id, caller_id, receiver_id, call_type, status, started_at 
+        SELECT id, caller_id, receiver_id, call_type, status, started_at, conversation_id
         FROM call_sessions 
-        WHERE id = ? AND (caller_id = ? OR receiver_id = ?) 
-        AND status IN ('initiated', 'ringing', 'accepted')
+        WHERE id = ? AND (caller_id = ? OR receiver_id = ?)
     ");
     $stmt->execute([$callId, $userId, $userId]);
     $call = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -465,12 +465,96 @@ function endCall($pdo, $userId) {
         ");
         $stmt->execute([$duration, $callId]);
         
+        // ✅ Tạo message trong chat để hiển thị bong bóng
+        // Lấy conversation_id từ call (đã có trong query trên)
+        $conversationId = $call['conversation_id'] ?? null;
+        $formattedMessage = null; // ✅ Khởi tạo biến để tránh warning
+        
+        if ($conversationId) {
+            // Format thời lượng cuộc gọi
+            $minutes = floor($duration / 60);
+            $seconds = $duration % 60;
+            $durationText = sprintf('%02d:%02d', $minutes, $seconds);
+            
+            // Tạo message text
+            $callTypeText = $call['call_type'] === 'video' ? 'Video Call' : 'Voice Call';
+            $messageText = $callTypeText . ' - Thời lượng: ' . $durationText;
+            
+            // Insert message vào database
+            $stmt = $pdo->prepare("
+                INSERT INTO messages (conversation_id, sender_id, MessageText, message_type, IsRead, SentAt) 
+                VALUES (?, ?, ?, ?, 0, NOW())
+            ");
+            $messageType = $call['call_type'] === 'video' ? 'video_call' : 'voice_call';
+            $stmt->execute([$conversationId, $userId, $messageText, $messageType]);
+            $messageId = $pdo->lastInsertId();
+            
+            // Lấy message đã chèn với thông tin đầy đủ
+            $stmt = $pdo->prepare("
+                SELECT m.*, 
+                       COALESCE(nv.HoTen, kh.HoTen, u.Email) as sender_name,
+                       m.SentAt as created_at,
+                       m.MessageText as message
+                FROM messages m
+                LEFT JOIN users u ON m.sender_id = u.ID_User
+                LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User
+                LEFT JOIN khachhanginfo kh ON u.ID_User = kh.ID_User
+                WHERE m.id = ?
+            ");
+            $stmt->execute([$messageId]);
+            $messageData = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($messageData) {
+                // Định dạng message cho frontend
+                $formattedMessage = [
+                    'id' => $messageData['id'],
+                    'conversation_id' => $messageData['conversation_id'],
+                    'sender_id' => $messageData['sender_id'],
+                    'message' => $messageData['message'],
+                    'message_type' => $messageData['message_type'],
+                    'created_at' => $messageData['created_at'],
+                    'IsRead' => $messageData['IsRead'],
+                    'sender_name' => $messageData['sender_name']
+                ];
+                
+                // Cập nhật conversation timestamp
+                $stmt = $pdo->prepare("
+                    UPDATE conversations 
+                    SET updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $stmt->execute([$conversationId]);
+                
+                // ✅ Emit socket để realtime
+                try {
+                    $socketClient = new SocketClient();
+                    $socketClient->sendToSocket('new_message', [
+                        'conversation_id' => $conversationId,
+                        'message' => $formattedMessage,
+                        'user_id' => $userId,
+                        'user_name' => $messageData['sender_name'],
+                        'timestamp' => $messageData['created_at']
+                    ]);
+                    
+                    $socketClient->sendToSocket('broadcast_message', [
+                        'conversation_id' => $conversationId,
+                        'message' => $formattedMessage,
+                        'userId' => $userId,
+                        'timestamp' => $messageData['created_at']
+                    ]);
+                } catch (Exception $e) {
+                    error_log('Error emitting socket for call end message: ' . $e->getMessage());
+                }
+            }
+        }
+        
         echo json_encode([
             'success' => true,
             'call_id' => $callId,
             'duration' => $duration,
             'status' => 'ended',
-            'message' => 'Cuộc gọi đã được kết thúc'
+            'message' => 'Cuộc gọi đã được kết thúc',
+            'chat_message' => $formattedMessage
         ]);
         
     } catch (Exception $e) {

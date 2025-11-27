@@ -275,23 +275,23 @@ function getReportsDataForAdmin($pdo, $filterType = 'all') {
         }
         
         // Tổng số bài viết
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts WHERE $wherePostsBase");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM baiviet WHERE $wherePostsBase");
         $statsData['total_posts'] = (int)$stmt->fetchColumn();
         
         // Bài viết đã xuất bản
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts WHERE $wherePostsBase AND status = 'published'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM baiviet WHERE $wherePostsBase AND status = 'published'");
         $statsData['published_posts'] = (int)$stmt->fetchColumn();
         
         // Bài viết bản nháp
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts WHERE $wherePostsBase AND status = 'draft'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM baiviet WHERE $wherePostsBase AND status = 'draft'");
         $statsData['draft_posts'] = (int)$stmt->fetchColumn();
         
         // Bài viết đã lưu trữ
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts WHERE $wherePostsBase AND status = 'archived'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM baiviet WHERE $wherePostsBase AND status = 'archived'");
         $statsData['archived_posts'] = (int)$stmt->fetchColumn();
         
         // Tổng lượt xem
-        $stmt = $pdo->query("SELECT SUM(views) FROM blog_posts WHERE $wherePostsBase");
+        $stmt = $pdo->query("SELECT SUM(views) FROM baiviet WHERE $wherePostsBase");
         $result = $stmt->fetchColumn();
         $statsData['total_views'] = $result ? (int)$result : 0;
         
@@ -304,7 +304,7 @@ function getReportsDataForAdmin($pdo, $filterType = 'all') {
             SELECT 
                 ls.TenLoai,
                 COUNT(bp.id) as count
-            FROM blog_posts bp
+            FROM baiviet bp
             LEFT JOIN loaisukien ls ON bp.event_type_id = ls.ID_LoaiSK
             WHERE $wherePostsTypeBase
             GROUP BY bp.event_type_id, ls.TenLoai
@@ -324,7 +324,7 @@ function getReportsDataForAdmin($pdo, $filterType = 'all') {
             SELECT 
                 DATE_FORMAT(created_at, '%Y-%m') as month,
                 COUNT(*) as count
-            FROM blog_posts 
+            FROM baiviet 
             WHERE $whereClause
             GROUP BY DATE_FORMAT(created_at, '%Y-%m')
             ORDER BY month ASC
@@ -343,19 +343,19 @@ function getReportsDataForAdmin($pdo, $filterType = 'all') {
         }
         
         // Tổng số comment
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments WHERE $whereCommentsBase");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM baiviet_binhluan WHERE $whereCommentsBase");
         $statsData['total_comments'] = (int)$stmt->fetchColumn();
         
         // Comment đã duyệt
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments WHERE $whereCommentsBase AND status = 'approved'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM baiviet_binhluan WHERE $whereCommentsBase AND status = 'approved'");
         $statsData['approved_comments'] = (int)$stmt->fetchColumn();
         
         // Comment chờ duyệt
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments WHERE $whereCommentsBase AND status = 'pending'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM baiviet_binhluan WHERE $whereCommentsBase AND status = 'pending'");
         $statsData['pending_comments'] = (int)$stmt->fetchColumn();
         
         // Comment bị từ chối
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments WHERE $whereCommentsBase AND status = 'rejected'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM baiviet_binhluan WHERE $whereCommentsBase AND status = 'rejected'");
         $statsData['rejected_comments'] = (int)$stmt->fetchColumn();
         
         // Comment theo bài viết (top 10 bài viết có nhiều comment nhất) - áp dụng filter cho comment
@@ -367,8 +367,8 @@ function getReportsDataForAdmin($pdo, $filterType = 'all') {
             SELECT 
                 bp.title,
                 COUNT(bc.id) as comment_count
-            FROM blog_posts bp
-            LEFT JOIN blog_comments bc ON bp.id = bc.post_id
+            FROM baiviet bp
+            LEFT JOIN baiviet_binhluan bc ON bp.id = bc.post_id
             WHERE $whereCommentsTopBase
             GROUP BY bp.id, bp.title
             ORDER BY comment_count DESC
@@ -388,7 +388,7 @@ function getReportsDataForAdmin($pdo, $filterType = 'all') {
             SELECT 
                 DATE_FORMAT(created_at, '%Y-%m') as month,
                 COUNT(*) as count
-            FROM blog_comments 
+            FROM baiviet_binhluan 
             WHERE $whereClause
             GROUP BY DATE_FORMAT(created_at, '%Y-%m')
             ORDER BY month ASC

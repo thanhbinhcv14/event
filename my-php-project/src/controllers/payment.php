@@ -335,7 +335,7 @@ function createPayment() {
             // Bỏ qua validation về deposit và deadline
         }
         
-        // Kiểm tra hạn thanh toán: Deadline = Ngày đặt cọc + 7 ngày (chỉ áp dụng nếu đã có đặt cọc)
+        // Kiểm tra hạn thanh toán: Deadline = MIN(đặt cọc + 7 ngày, ngày tổ chức) (chỉ áp dụng nếu đã có đặt cọc)
         // Nếu là tiền mặt thanh toán đủ trực tiếp, bỏ qua kiểm tra deadline
         if ($paymentMethod !== 'cash' && !empty($event['NgayBatDau'])) {
             // Lấy ngày đặt cọc thành công đầu tiên
@@ -353,11 +353,16 @@ function createPayment() {
             
             if ($depositPayment && !empty($depositPayment['NgayThanhToan'])) {
                 $depositDate = new DateTime($depositPayment['NgayThanhToan']);
+                $eventStartDate = new DateTime($event['NgayBatDau']);
                 $now = new DateTime();
                 
-                // Deadline luôn = đặt cọc + 7 ngày
-                $deadlineDate = clone $depositDate;
-                $deadlineDate->modify('+7 days');
+                // Deadline = MIN(đặt cọc + 7 ngày, ngày tổ chức)
+                // Phải thanh toán đủ trong vòng 7 ngày từ khi đặt cọc HOẶC trước ngày tổ chức (tùy cái nào đến trước)
+                $deadlineFromDeposit = clone $depositDate;
+                $deadlineFromDeposit->modify('+7 days');
+                
+                // Deadline là ngày sớm hơn giữa (đặt cọc + 7 ngày) và ngày tổ chức
+                $deadlineDate = $deadlineFromDeposit < $eventStartDate ? $deadlineFromDeposit : $eventStartDate;
                 
                 // Kiểm tra xem đã quá hạn chưa
                 if ($now > $deadlineDate) {
@@ -487,15 +492,20 @@ function createPayment() {
         // Tạo dữ liệu QR
         $qrData = generateQRData($paymentMethod, $amount, $eventId, $transactionCode);
         
-        // Tính toán hạn thanh toán đủ (chỉ tính nếu đặt cọc và từ đăng ký đến tổ chức ≥ 7 ngày)
+        // Tính toán hạn thanh toán đủ (chỉ tính nếu đặt cọc)
         $deadlineInfo = null;
-        if ($paymentTypeDB === 'Đặt cọc' && $daysFromRegistrationToEvent >= 7 && !empty($event['NgayBatDau'])) {
+        if ($paymentTypeDB === 'Đặt cọc' && !empty($event['NgayBatDau'])) {
             $depositDate = new DateTime(); // Ngày hiện tại (khi đặt cọc)
+            $eventStartDate = new DateTime($event['NgayBatDau']);
             $now = new DateTime();
             
-            // Deadline luôn = đặt cọc + 7 ngày
-            $deadlineDate = clone $depositDate;
-            $deadlineDate->modify('+7 days');
+            // Deadline = MIN(đặt cọc + 7 ngày, ngày tổ chức)
+            // Phải thanh toán đủ trong vòng 7 ngày từ khi đặt cọc HOẶC trước ngày tổ chức (tùy cái nào đến trước)
+            $deadlineFromDeposit = clone $depositDate;
+            $deadlineFromDeposit->modify('+7 days');
+            
+            // Deadline là ngày sớm hơn giữa (đặt cọc + 7 ngày) và ngày tổ chức
+            $deadlineDate = $deadlineFromDeposit < $eventStartDate ? $deadlineFromDeposit : $eventStartDate;
             
             $daysUntilDeadline = $now->diff($deadlineDate)->days;
             

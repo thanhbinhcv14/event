@@ -4,7 +4,15 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 require_once __DIR__ . '/../../config/database.php';
 
-header('Content-Type: application/json');
+// ✅ Đảm bảo UTF-8 encoding cho JSON response
+mb_internal_encoding('UTF-8');
+mb_http_output('UTF-8');
+header('Content-Type: application/json; charset=utf-8');
+
+// Helper function để trả về JSON với UTF-8 encoding
+function jsonResponse($data) {
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
 
 $pdo = getDBConnection();
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
@@ -123,7 +131,7 @@ function getPostsByType($pdo) {
                 bp.*,
                 ls.TenLoai,
                 u.Email as AuthorEmail
-            FROM blog_posts bp
+            FROM baiviet bp
             LEFT JOIN loaisukien ls ON bp.event_type_id = ls.ID_LoaiSK
             LEFT JOIN users u ON bp.author_id = u.ID_User
             WHERE bp.event_type_id = ? AND bp.status = 'published'
@@ -132,11 +140,15 @@ function getPostsByType($pdo) {
         $stmt->execute([$typeId]);
         $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Định dạng ngày tháng
+        // Định dạng ngày tháng và thêm các trường tương thích ngược
         foreach ($posts as &$post) {
             $post['created_at'] = date('d/m/Y H:i', strtotime($post['created_at']));
             $post['updated_at'] = date('d/m/Y H:i', strtotime($post['updated_at']));
+            $post['NgayDang'] = date('d/m/Y', strtotime($post['created_at']));
             $post['HinhAnhDaiDienURL'] = $post['featured_image'] ? $post['featured_image'] : 'img/logo/default-blog.jpg';
+            $post['NoiDungTomTat'] = $post['excerpt'] ?? '';
+            $post['TieuDe'] = $post['title'] ?? '';
+            $post['ID_BlogPost'] = $post['id'] ?? 0;
         }
         
         echo json_encode(['success' => true, 'posts' => $posts]);
@@ -155,7 +167,7 @@ function getAllPublicPosts($pdo) {
                 bp.*,
                 ls.TenLoai,
                 COALESCE(nv.HoTen, kh.HoTen, u.Email, 'Admin') as TenTacGia
-            FROM blog_posts bp
+            FROM baiviet bp
             LEFT JOIN loaisukien ls ON bp.event_type_id = ls.ID_LoaiSK
             LEFT JOIN users u ON bp.author_id = u.ID_User
             LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User AND u.ID_Role IN (1,2,3,4)
@@ -201,7 +213,7 @@ function getPost($pdo) {
                 bp.*,
                 ls.TenLoai,
                 u.Email as AuthorEmail
-            FROM blog_posts bp
+            FROM baiviet bp
             LEFT JOIN loaisukien ls ON bp.event_type_id = ls.ID_LoaiSK
             LEFT JOIN users u ON bp.author_id = u.ID_User
             WHERE bp.id = ? AND bp.status = 'published'
@@ -236,7 +248,7 @@ function getPostDetails($pdo) {
                 bp.*,
                 ls.TenLoai,
                 COALESCE(nv.HoTen, kh.HoTen, u.Email, 'Admin') as TenTacGia
-            FROM blog_posts bp
+            FROM baiviet bp
             LEFT JOIN loaisukien ls ON bp.event_type_id = ls.ID_LoaiSK
             LEFT JOIN users u ON bp.author_id = u.ID_User
             LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User AND u.ID_Role IN (1,2,3,4)
@@ -248,12 +260,16 @@ function getPostDetails($pdo) {
         
         if ($post) {
             // Cập nhật số lượt xem
-            $updateStmt = $pdo->prepare("UPDATE blog_posts SET views = views + 1 WHERE id = ?");
+            $updateStmt = $pdo->prepare("UPDATE baiviet SET views = views + 1 WHERE id = ?");
             $updateStmt->execute([$postId]);
             
             $post['created_at'] = date('d/m/Y H:i', strtotime($post['created_at']));
             $post['updated_at'] = date('d/m/Y H:i', strtotime($post['updated_at']));
+            $post['NgayDang'] = date('d/m/Y', strtotime($post['created_at']));
             $post['HinhAnhDaiDienURL'] = $post['featured_image'] ? $post['featured_image'] : 'img/logo/default-blog.jpg';
+            $post['NoiDungTomTat'] = $post['excerpt'] ?? '';
+            $post['TieuDe'] = $post['title'] ?? '';
+            $post['ID_BlogPost'] = $post['id'] ?? 0;
             echo json_encode(['success' => true, 'post' => $post]);
         } else {
             echo json_encode(['success' => false, 'error' => 'Không tìm thấy bài viết']);
@@ -280,10 +296,10 @@ function getComments($pdo) {
                 kh.HoTen as UserName,
                 parent_u.Email as ParentUserEmail,
                 parent_kh.HoTen as ParentUserName
-            FROM blog_comments bc
+            FROM baiviet_binhluan bc
             LEFT JOIN users u ON bc.user_id = u.ID_User
             LEFT JOIN khachhanginfo kh ON bc.user_id = kh.ID_User
-            LEFT JOIN blog_comments parent ON bc.parent_comment_id = parent.id
+            LEFT JOIN baiviet_binhluan parent ON bc.parent_comment_id = parent.id
             LEFT JOIN users parent_u ON parent.user_id = parent_u.ID_User
             LEFT JOIN khachhanginfo parent_kh ON parent.user_id = parent_kh.ID_User
             WHERE bc.post_id = ? AND bc.status = 'approved'
@@ -361,10 +377,10 @@ function getComments($pdo) {
         // Chuyển về array index
         $result = array_values($parentComments);
         
-        echo json_encode(['success' => true, 'comments' => $result]);
+        jsonResponse(['success' => true, 'comments' => $result]);
     } catch (Exception $e) {
         error_log("Get Comments Error: " . $e->getMessage());
-        echo json_encode(['success' => false, 'error' => 'Lỗi khi lấy bình luận']);
+        jsonResponse(['success' => false, 'error' => 'Lỗi khi lấy bình luận']);
     }
 }
 
@@ -375,22 +391,22 @@ function addComment($pdo) {
     $userId = $_SESSION['user']['ID_User'] ?? $_SESSION['user']['id'] ?? null;
     
     if (!$postId || !$content) {
-        echo json_encode(['success' => false, 'error' => 'Thiếu thông tin bình luận']);
+        jsonResponse(['success' => false, 'error' => 'Thiếu thông tin bình luận']);
         return;
     }
     
     if (!$userId) {
-        echo json_encode(['success' => false, 'error' => 'Bạn cần đăng nhập để bình luận']);
+        jsonResponse(['success' => false, 'error' => 'Bạn cần đăng nhập để bình luận']);
         return;
     }
     
     try {
         // Nếu là reply, kiểm tra parent comment có tồn tại không
         if ($parentCommentId) {
-            $checkStmt = $pdo->prepare("SELECT id FROM blog_comments WHERE id = ? AND post_id = ?");
+            $checkStmt = $pdo->prepare("SELECT id FROM baiviet_binhluan WHERE id = ? AND post_id = ?");
             $checkStmt->execute([$parentCommentId, $postId]);
             if (!$checkStmt->fetch()) {
-                echo json_encode(['success' => false, 'error' => 'Bình luận cha không tồn tại']);
+                jsonResponse(['success' => false, 'error' => 'Bình luận cha không tồn tại']);
                 return;
             }
         }
@@ -398,7 +414,7 @@ function addComment($pdo) {
         // Thêm bình luận (cột parent_comment_id đã có trong database)
         try {
             $stmt = $pdo->prepare("
-                INSERT INTO blog_comments (post_id, user_id, parent_comment_id, content, status, created_at)
+                INSERT INTO baiviet_binhluan (post_id, user_id, parent_comment_id, content, status, created_at)
                 VALUES (?, ?, ?, ?, 'approved', NOW())
             ");
             $stmt->execute([$postId, $userId, $parentCommentId, $content]);
@@ -427,10 +443,10 @@ function addComment($pdo) {
                     kh.HoTen as UserName,
                     parent_u.Email as ParentUserEmail,
                     parent_kh.HoTen as ParentUserName
-                FROM blog_comments bc
+                FROM baiviet_binhluan bc
                 LEFT JOIN users u ON bc.user_id = u.ID_User
                 LEFT JOIN khachhanginfo kh ON bc.user_id = kh.ID_User
-                LEFT JOIN blog_comments parent ON bc.parent_comment_id = parent.id
+                LEFT JOIN baiviet_binhluan parent ON bc.parent_comment_id = parent.id
                 LEFT JOIN users parent_u ON parent.user_id = parent_u.ID_User
                 LEFT JOIN khachhanginfo parent_kh ON parent.user_id = parent_kh.ID_User
                 WHERE bc.id = ?
@@ -442,7 +458,7 @@ function addComment($pdo) {
             error_log("Add Comment - SELECT Error after INSERT: " . $selectError->getMessage());
             error_log("Comment ID: $commentId");
             // Trả về success với flag reload để frontend reload lại danh sách
-            echo json_encode([
+            jsonResponse([
                 'success' => true,
                 'message' => 'Đã thêm bình luận thành công',
                 'comment_id' => $commentId,
@@ -454,7 +470,7 @@ function addComment($pdo) {
         if (!$comment) {
             error_log("Add Comment Error: Comment with ID $commentId not found after INSERT");
             // Vẫn trả về success vì INSERT đã thành công, frontend sẽ reload comments
-            echo json_encode([
+            jsonResponse([
                 'success' => true,
                 'message' => 'Đã thêm bình luận thành công',
                 'comment_id' => $commentId,
@@ -472,7 +488,7 @@ function addComment($pdo) {
             }
         }
         
-        echo json_encode([
+        jsonResponse([
             'success' => true,
             'message' => 'Đã thêm bình luận thành công',
             'comment' => $comment
@@ -520,18 +536,32 @@ function getAllPosts($pdo) {
         $eventTypeId = $_GET['event_type_id'] ?? '';
         $status = $_GET['status'] ?? '';
         
+        // Sử dụng subquery để đếm comments tránh lỗi GROUP BY
         $sql = "
             SELECT 
-                bp.*,
+                bp.id,
+                bp.event_type_id,
+                bp.title,
+                bp.content,
+                bp.excerpt,
+                bp.featured_image,
+                bp.author_id,
+                bp.status,
+                bp.views,
+                bp.created_at,
+                bp.updated_at,
                 ls.TenLoai,
                 u.Email as AuthorEmail,
-                COUNT(bc.id) as comment_count
-            FROM blog_posts bp
+                COALESCE(comment_counts.comment_count, 0) as comment_count
+            FROM baiviet bp
             LEFT JOIN loaisukien ls ON bp.event_type_id = ls.ID_LoaiSK
             LEFT JOIN users u ON bp.author_id = u.ID_User
-            LEFT JOIN blog_comments bc ON bp.id = bc.post_id
+            LEFT JOIN (
+                SELECT post_id, COUNT(id) as comment_count
+                FROM baiviet_binhluan
+                GROUP BY post_id
+            ) comment_counts ON bp.id = comment_counts.post_id
             WHERE 1=1
-            GROUP BY bp.id
         ";
         
         $params = [];
@@ -558,10 +588,20 @@ function getAllPosts($pdo) {
         
         $stmt = $pdo->prepare($sql);
         if (!$stmt) {
-            throw new Exception("Lỗi khi chuẩn bị query: " . implode(", ", $pdo->errorInfo()));
+            $errorInfo = $pdo->errorInfo();
+            error_log("Get All Posts - Prepare Error: " . json_encode($errorInfo));
+            throw new Exception("Lỗi khi chuẩn bị query: " . ($errorInfo[2] ?? 'Unknown error'));
         }
         
         $stmt->execute($params);
+        
+        // Kiểm tra lỗi execute
+        if ($stmt->errorCode() !== '00000') {
+            $errorInfo = $stmt->errorInfo();
+            error_log("Get All Posts - Execute Error: " . json_encode($errorInfo));
+            throw new Exception("Lỗi khi thực thi query: " . ($errorInfo[2] ?? 'Unknown error'));
+        }
+        
         $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Định dạng ngày tháng
@@ -582,10 +622,16 @@ function getAllPosts($pdo) {
             }
         }
         
-        echo json_encode(['success' => true, 'posts' => $posts]);
+        echo json_encode(['success' => true, 'posts' => $posts], JSON_UNESCAPED_UNICODE);
     } catch (Exception $e) {
-        error_log("Get All Posts Error: " . $e->getMessage());
-        echo json_encode(['success' => false, 'error' => 'Lỗi khi lấy danh sách bài viết']);
+        $errorMessage = $e->getMessage();
+        error_log("Get All Posts Error: " . $errorMessage);
+        error_log("Get All Posts Stack Trace: " . $e->getTraceAsString());
+        echo json_encode([
+            'success' => false, 
+            'error' => 'Lỗi khi lấy danh sách bài viết',
+            'debug' => $errorMessage // Thêm debug info để dễ troubleshoot
+        ], JSON_UNESCAPED_UNICODE);
     }
 }
 
@@ -603,7 +649,7 @@ function getPostForAdmin($pdo) {
                 bp.*,
                 ls.TenLoai,
                 u.Email as AuthorEmail
-            FROM blog_posts bp
+            FROM baiviet bp
             LEFT JOIN loaisukien ls ON bp.event_type_id = ls.ID_LoaiSK
             LEFT JOIN users u ON bp.author_id = u.ID_User
             WHERE bp.id = ?
@@ -656,7 +702,7 @@ function addPost($pdo) {
         }
         
         $stmt = $pdo->prepare("
-            INSERT INTO blog_posts (event_type_id, title, content, excerpt, featured_image, author_id, status, created_at, updated_at)
+            INSERT INTO baiviet (event_type_id, title, content, excerpt, featured_image, author_id, status, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ");
         $stmt->execute([$eventTypeId, $title, $content, $excerpt, $featuredImage, $authorId, $status]);
@@ -689,7 +735,7 @@ function updatePost($pdo) {
     
     try {
         // Lấy bài viết hiện tại để kiểm tra hình ảnh đã có
-        $stmt = $pdo->prepare("SELECT featured_image FROM blog_posts WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT featured_image FROM baiviet WHERE id = ?");
         $stmt->execute([$postId]);
         $existingPost = $stmt->fetch(PDO::FETCH_ASSOC);
         $featuredImage = $existingPost['featured_image'] ?? null;
@@ -717,7 +763,7 @@ function updatePost($pdo) {
         // Nếu không có file mới được upload, giữ nguyên hình ảnh hiện tại (không thay đổi $featuredImage)
         
         $stmt = $pdo->prepare("
-            UPDATE blog_posts 
+            UPDATE baiviet 
             SET event_type_id = ?, title = ?, content = ?, excerpt = ?, featured_image = ?, status = ?, updated_at = NOW()
             WHERE id = ?
         ");
@@ -743,7 +789,7 @@ function deletePost($pdo) {
     
     try {
         // Lấy bài viết để xóa hình ảnh
-        $stmt = $pdo->prepare("SELECT featured_image FROM blog_posts WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT featured_image FROM baiviet WHERE id = ?");
         $stmt->execute([$postId]);
         $post = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -752,7 +798,7 @@ function deletePost($pdo) {
         }
         
         // Xóa bài viết
-        $stmt = $pdo->prepare("DELETE FROM blog_posts WHERE id = ?");
+        $stmt = $pdo->prepare("DELETE FROM baiviet WHERE id = ?");
         $stmt->execute([$postId]);
         
         echo json_encode([
@@ -784,10 +830,10 @@ function getAllComments($pdo) {
                 kh.HoTen as UserName,
                 parent_u.Email as ParentUserEmail,
                 parent_kh.HoTen as ParentUserName
-            FROM blog_comments bc
+            FROM baiviet_binhluan bc
             LEFT JOIN users u ON bc.user_id = u.ID_User
             LEFT JOIN khachhanginfo kh ON bc.user_id = kh.ID_User
-            LEFT JOIN blog_comments parent ON bc.parent_comment_id = parent.id
+            LEFT JOIN baiviet_binhluan parent ON bc.parent_comment_id = parent.id
             LEFT JOIN users parent_u ON parent.user_id = parent_u.ID_User
             LEFT JOIN khachhanginfo parent_kh ON parent.user_id = parent_kh.ID_User
             WHERE bc.post_id = ?
@@ -882,7 +928,7 @@ function approveComment($pdo) {
     
     try {
         $stmt = $pdo->prepare("
-            UPDATE blog_comments 
+            UPDATE baiviet_binhluan 
             SET status = 'approved', updated_at = NOW()
             WHERE id = ?
         ");
@@ -909,7 +955,7 @@ function rejectComment($pdo) {
     
     try {
         $stmt = $pdo->prepare("
-            UPDATE blog_comments 
+            UPDATE baiviet_binhluan 
             SET status = 'rejected', updated_at = NOW()
             WHERE id = ?
         ");
@@ -935,7 +981,7 @@ function deleteComment($pdo) {
     }
     
     try {
-        $stmt = $pdo->prepare("DELETE FROM blog_comments WHERE id = ?");
+        $stmt = $pdo->prepare("DELETE FROM baiviet_binhluan WHERE id = ?");
         $stmt->execute([$commentId]);
         
         echo json_encode([

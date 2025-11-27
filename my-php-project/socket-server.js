@@ -81,6 +81,7 @@ const userRooms = new Map(); // Map userId sang socket.id
 const typingUsers = new Map(); // Map conversation_id sang typing users
 const activeCalls = new Map(); // Map call_id sang {caller_id, receiver_id, call_type, status, startTime}
 const userActiveCalls = new Map(); // Map userId sang call_id (để track user đang trong cuộc gọi nào)
+const callTimeouts = new Map(); // Map call_id sang timeout ID (để clear timeout khi reject/end)
 
 // Middleware
 app.use(express.json());
@@ -235,6 +236,93 @@ app.post('/api/emit', express.json(), (req, res) => {
                 message: data.message,
                 timestamp: new Date()
             });
+        } else if (event === 'new_message') {
+            // ✅ Xử lý new_message từ PHP - emit vào conversation room
+            const conversationId = data.conversation_id;
+            if (conversationId) {
+                console.log(`📡 PHP emit new_message to conversation ${conversationId}`);
+                console.log(`📡 Message data:`, JSON.stringify(data.message).substring(0, 200));
+                
+                // ✅ Emit vào conversation room
+                io.to(`conversation_${conversationId}`).emit('new_message', {
+                    conversation_id: conversationId,
+                    message: data.message,
+                    user_id: data.user_id,
+                    user_name: data.user_name,
+                    timestamp: data.timestamp || new Date().toISOString()
+                });
+                
+                // ✅ Log số lượng clients trong room
+                const room = io.sockets.adapter.rooms.get(`conversation_${conversationId}`);
+                const clientCount = room ? room.size : 0;
+                console.log(`📡 Emitted to ${clientCount} clients in conversation_${conversationId}`);
+            } else {
+                console.warn('⚠️ new_message event missing conversation_id');
+                console.warn('⚠️ Data received:', JSON.stringify(data).substring(0, 200));
+            }
+        } else if (event === 'broadcast_message') {
+            // ✅ Xử lý broadcast_message từ PHP - emit vào conversation room
+            const conversationId = data.conversation_id;
+            if (conversationId) {
+                console.log(`📡 PHP emit broadcast_message to conversation ${conversationId}`);
+                console.log(`📡 Message data:`, JSON.stringify(data.message).substring(0, 200));
+                
+                // ✅ Emit vào conversation room
+                io.to(`conversation_${conversationId}`).emit('broadcast_message', {
+                    conversation_id: conversationId,
+                    message: data.message,
+                    userId: data.userId,
+                    timestamp: data.timestamp || new Date().toISOString()
+                });
+                
+                // ✅ Log số lượng clients trong room
+                const room = io.sockets.adapter.rooms.get(`conversation_${conversationId}`);
+                const clientCount = room ? room.size : 0;
+                console.log(`📡 Emitted to ${clientCount} clients in conversation_${conversationId}`);
+            } else {
+                console.warn('⚠️ broadcast_message event missing conversation_id');
+                console.warn('⚠️ Data received:', JSON.stringify(data).substring(0, 200));
+            }
+        } else if (event === 'image_uploaded') {
+            // ✅ Xử lý image_uploaded từ PHP - emit vào conversation room để load hình ảnh
+            const conversationId = data.conversation_id;
+            if (conversationId) {
+                console.log(`🖼️ PHP emit image_uploaded to conversation ${conversationId}`);
+                console.log(`🖼️ Image data:`, JSON.stringify(data.message).substring(0, 200));
+                
+                // ✅ Emit vào conversation room
+                io.to(`conversation_${conversationId}`).emit('image_uploaded', {
+                    conversation_id: conversationId,
+                    message: data.message,
+                    user_id: data.user_id,
+                    user_name: data.user_name,
+                    timestamp: data.timestamp || new Date().toISOString()
+                });
+                
+                // ✅ Cũng emit new_message và broadcast_message để đảm bảo tương thích
+                io.to(`conversation_${conversationId}`).emit('new_message', {
+                    conversation_id: conversationId,
+                    message: data.message,
+                    user_id: data.user_id,
+                    user_name: data.user_name,
+                    timestamp: data.timestamp || new Date().toISOString()
+                });
+                
+                io.to(`conversation_${conversationId}`).emit('broadcast_message', {
+                    conversation_id: conversationId,
+                    message: data.message,
+                    userId: data.user_id,
+                    timestamp: data.timestamp || new Date().toISOString()
+                });
+                
+                // ✅ Log số lượng clients trong room
+                const room = io.sockets.adapter.rooms.get(`conversation_${conversationId}`);
+                const clientCount = room ? room.size : 0;
+                console.log(`🖼️ Emitted image_uploaded to ${clientCount} clients in conversation_${conversationId}`);
+            } else {
+                console.warn('⚠️ image_uploaded event missing conversation_id');
+                console.warn('⚠️ Data received:', JSON.stringify(data).substring(0, 200));
+            }
         } else {
             // Phát event tổng quát - phát sóng đến tất cả
             io.emit(event, data);
@@ -871,8 +959,8 @@ io.on('connection', (socket) => {
             caller_name: userInfo ? (userInfo.userName || 'Người gọi') : 'Người gọi'
         });
         
-        // Timeout 30 giây
-        setTimeout(() => {
+        // ✅ Timeout 30 giây - Lưu timeout ID để có thể clear sau
+        const timeoutId = setTimeout(() => {
             const call = activeCalls.get(call_id);
             if (call && call.status === 'ringing') {
                 console.log(`⏰ Call ${call_id} timeout sau 30 giây`);
@@ -882,6 +970,9 @@ io.on('connection', (socket) => {
                 
                 userActiveCalls.delete(caller_id);
                 userActiveCalls.delete(receiver_id);
+                
+                // ✅ Xóa timeout ID khỏi Map
+                callTimeouts.delete(call_id);
                 
                 // Thông báo timeout
                 io.to(`user_${caller_id}`).emit('call_timeout', {
@@ -899,8 +990,15 @@ io.on('connection', (socket) => {
                 setTimeout(() => {
                     activeCalls.delete(call_id);
                 }, 5000);
+            } else {
+                // ✅ Call đã bị reject/end trước khi timeout, xóa timeout ID
+                callTimeouts.delete(call_id);
             }
         }, 30000);
+        
+        // ✅ Lưu timeout ID để có thể clear sau
+        callTimeouts.set(call_id, timeoutId);
+        console.log(`⏰ Set timeout for call ${call_id}, timeout ID: ${timeoutId}`);
     });
 
     socket.on('call_accepted', (data) => {
@@ -909,6 +1007,14 @@ io.on('connection', (socket) => {
         
         if (userInfo && userInfo.userId == receiver_id) {
             console.log(`✅ Call đã được chấp nhận: ${call_id} bởi ${receiver_id}`);
+            
+            // ✅ QUAN TRỌNG: Clear timeout khi call được accept (không cần timeout nữa)
+            const timeoutId = callTimeouts.get(call_id);
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                callTimeouts.delete(call_id);
+                console.log(`✅ Cleared timeout for call ${call_id} (accepted)`);
+            }
             
             const call = activeCalls.get(call_id);
             if (call) {
@@ -950,6 +1056,14 @@ io.on('connection', (socket) => {
         if (userInfo && userInfo.userId == receiver_id) {
             console.log(`❌ Call đã bị từ chối: ${call_id} bởi ${receiver_id}`);
             
+            // ✅ QUAN TRỌNG: Clear timeout khi call bị reject
+            const timeoutId = callTimeouts.get(call_id);
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                callTimeouts.delete(call_id);
+                console.log(`✅ Cleared timeout for call ${call_id}`);
+            }
+            
             const call = activeCalls.get(call_id);
             if (call) {
                 call.status = 'rejected';
@@ -990,6 +1104,14 @@ io.on('connection', (socket) => {
         if (userInfo) {
             console.log(`🔚 Call đã kết thúc: ${call_id} bởi user ${userInfo.userId}`);
             
+            // ✅ QUAN TRỌNG: Clear timeout khi call bị end
+            const timeoutId = callTimeouts.get(call_id);
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                callTimeouts.delete(call_id);
+                console.log(`✅ Cleared timeout for call ${call_id}`);
+            }
+            
             const call = activeCalls.get(call_id);
             if (call) {
                 const actualCallerId = call.caller_id;
@@ -1007,49 +1129,26 @@ io.on('connection', (socket) => {
                 
                 let endedByName = userInfo.userName || 'Người dùng';
                 
-                // QUAN TRỌNG: Gửi call_ended event cho CẢ 2 bên để đảm bảo cả 2 đều nhận được
-                // Gửi cho receiver (nếu caller tắt)
-                if (userInfo.userId == actualCallerId && actualReceiverId) {
-                    console.log(`📞 Sending call_ended to receiver ${actualReceiverId}`);
-                    io.to(`user_${actualReceiverId}`).emit('call_ended', {
+                // ✅ QUAN TRỌNG: Gửi call_ended event cho CẢ 2 bên để đảm bảo cả 2 đều nhận được
+                const callEndedData = {
                     call_id,
+                    caller_id: actualCallerId,
+                    receiver_id: actualReceiverId,
+                    ended_by: userInfo.userId,
+                    ended_by_name: endedByName,
+                    message: `${endedByName} đã kết thúc cuộc gọi`
+                };
+                
+                // ✅ QUAN TRỌNG: Luôn gửi cho cả 2 bên để đảm bảo không bỏ sót
+                // Không cần kiểm tra ai là caller/receiver, cứ gửi cho cả 2
+                if (actualCallerId && actualReceiverId) {
+                    console.log(`📞 Sending call_ended to both parties: caller=${actualCallerId}, receiver=${actualReceiverId}, ended_by=${userInfo.userId}`);
+                    io.to(`user_${actualCallerId}`).emit('call_ended', callEndedData);
+                    io.to(`user_${actualReceiverId}`).emit('call_ended', callEndedData);
+                } else {
+                    console.warn(`⚠️ Cannot send call_ended: missing caller_id or receiver_id`, {
                         caller_id: actualCallerId,
-                        receiver_id: actualReceiverId,
-                        ended_by: actualCallerId,
-                        ended_by_name: endedByName,
-                        message: `${endedByName} đã kết thúc cuộc gọi`
-                    });
-                }
-                // Gửi cho caller (nếu receiver tắt)
-                else if (userInfo.userId == actualReceiverId && actualCallerId) {
-                    console.log(`📞 Sending call_ended to caller ${actualCallerId}`);
-                    io.to(`user_${actualCallerId}`).emit('call_ended', {
-                        call_id,
-                        caller_id: actualCallerId,
-                        receiver_id: actualReceiverId,
-                        ended_by: actualReceiverId,
-                        ended_by_name: endedByName,
-                        message: `${endedByName} đã kết thúc cuộc gọi`
-                    });
-                }
-                // Fallback: Gửi cho cả 2 bên nếu không xác định được
-                else {
-                    console.log(`📞 Sending call_ended to both parties (fallback)`);
-                    io.to(`user_${actualCallerId}`).emit('call_ended', {
-                        call_id,
-                        caller_id: actualCallerId,
-                        receiver_id: actualReceiverId,
-                        ended_by: userInfo.userId,
-                        ended_by_name: endedByName,
-                        message: `${endedByName} đã kết thúc cuộc gọi`
-                    });
-                    io.to(`user_${actualReceiverId}`).emit('call_ended', {
-                        call_id,
-                        caller_id: actualCallerId,
-                        receiver_id: actualReceiverId,
-                        ended_by: userInfo.userId,
-                        ended_by_name: endedByName,
-                        message: `${endedByName} đã kết thúc cuộc gọi`
+                        receiver_id: actualReceiverId
                     });
                 }
                 
@@ -1062,23 +1161,29 @@ io.on('connection', (socket) => {
                 });
             } else {
                 console.warn(`⚠️ Call ${call_id} not found in activeCalls, but still sending call_ended to both parties`);
-                // Nếu không tìm thấy call, vẫn cố gắng gửi event dựa trên data
-                if (caller_id && data.receiver_id) {
-                io.to(`user_${caller_id}`).emit('call_ended', {
-                    call_id,
-                    caller_id,
-                        receiver_id: data.receiver_id,
-                        ended_by: userInfo.userId,
-                        ended_by_name: userInfo.userName || 'Người dùng',
-                        message: 'Cuộc gọi đã kết thúc'
-                    });
-                    io.to(`user_${data.receiver_id}`).emit('call_ended', {
+                // ✅ Nếu không tìm thấy call, vẫn cố gắng gửi event dựa trên data từ client
+                // Ưu tiên dùng data.receiver_id từ client, nếu không có thì dùng caller_id từ data
+                const fallbackCallerId = data.caller_id || caller_id;
+                const fallbackReceiverId = data.receiver_id || null;
+                
+                if (fallbackCallerId && fallbackReceiverId) {
+                    const fallbackCallEndedData = {
                         call_id,
-                        caller_id,
-                        receiver_id: data.receiver_id,
+                        caller_id: fallbackCallerId,
+                        receiver_id: fallbackReceiverId,
                         ended_by: userInfo.userId,
                         ended_by_name: userInfo.userName || 'Người dùng',
                         message: 'Cuộc gọi đã kết thúc'
+                    };
+                    
+                    console.log(`📞 Sending call_ended to both parties (fallback):`, fallbackCallEndedData);
+                    io.to(`user_${fallbackCallerId}`).emit('call_ended', fallbackCallEndedData);
+                    io.to(`user_${fallbackReceiverId}`).emit('call_ended', fallbackCallEndedData);
+                } else {
+                    console.warn(`⚠️ Cannot send call_ended: missing caller_id or receiver_id`, {
+                        caller_id: fallbackCallerId,
+                        receiver_id: fallbackReceiverId,
+                        data: data
                     });
                 }
             }

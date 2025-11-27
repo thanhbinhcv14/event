@@ -75,10 +75,10 @@ INSERT INTO `baocao` (`ID_NhanVien`, `ID_QuanLy`, `ID_Task`, `LoaiTask`, `LoaiBa
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `blog_comments`
+-- Cấu trúc bảng cho bảng `baiviet_binhluan`
 --
 
-CREATE TABLE `blog_comments` (
+CREATE TABLE `baiviet_binhluan` (
   `id` int(11) NOT NULL,
   `post_id` int(11) NOT NULL COMMENT 'ID bài viết',
   `user_id` int(11) NOT NULL COMMENT 'ID người bình luận',
@@ -92,10 +92,10 @@ CREATE TABLE `blog_comments` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `blog_posts`
+-- Cấu trúc bảng cho bảng `baiviet`
 --
 
-CREATE TABLE `blog_posts` (
+CREATE TABLE `baiviet` (
   `id` int(11) NOT NULL,
   `event_type_id` int(11) NOT NULL COMMENT 'ID loại sự kiện',
   `title` varchar(255) NOT NULL COMMENT 'Tiêu đề bài viết',
@@ -110,10 +110,10 @@ CREATE TABLE `blog_posts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `blog_posts`
+-- Đang đổ dữ liệu cho bảng `baiviet`
 --
 
-INSERT INTO `blog_posts` (`id`, `event_type_id`, `title`, `content`, `excerpt`, `featured_image`, `author_id`, `status`, `views`, `created_at`, `updated_at`) VALUES
+INSERT INTO `baiviet` (`id`, `event_type_id`, `title`, `content`, `excerpt`, `featured_image`, `author_id`, `status`, `views`, `created_at`, `updated_at`) VALUES
 (1, 1, 'Hướng dẫn tổ chức hội nghị chuyên nghiệp', '<p>Hội nghị là một trong những loại sự kiện quan trọng nhất trong doanh nghiệp. Để tổ chức một hội nghị thành công, bạn cần chuẩn bị kỹ lưỡng về:</p><p>\r\n</p><p><br></p><p>\r\n</p><p>Với kinh nghiệm nhiều năm trong lĩnh vực tổ chức sự kiện, chúng tôi cam kết mang đến cho bạn những hội nghị chuyên nghiệp và ấn tượng nhất.</p>', 'Khám phá các bí quyết tổ chức hội nghị thành công với đội ngũ chuyên nghiệp của chúng tôi.', 'img/blog/blog_1764097102_6925fc4ea7208.jpg', 3, 'published', 0, '2025-11-25 18:56:19', '2025-11-25 18:58:22'),
 (2, 2, 'Nghệ thuật biểu diễn: Từ ý tưởng đến hiện thực', '<p>Văn hóa và nghệ thuật là linh hồn của mỗi sự kiện. Một buổi biểu diễn nghệ thuật thành công không chỉ cần tài năng của nghệ sĩ mà còn cần:</p><p>\r\n</p><p><br></p><p>\r\n</p><p>Chúng tôi tự hào đã tổ chức hàng trăm buổi biểu diễn nghệ thuật lớn nhỏ, từ liveshow ca nhạc đến nhạc kịch, từ biểu diễn dân gian đến hiện đại.</p>', 'Khám phá thế giới nghệ thuật biểu diễn và cách chúng tôi biến ý tưởng thành hiện thực.', 'img/blog/blog_1764097096_6925fc4823091.jpg', 3, 'published', 0, '2025-11-25 18:56:19', '2025-11-25 18:58:16'),
 (3, 3, 'Triển lãm thương mại: Cơ hội quảng bá thương hiệu', '<p>Triển lãm thương mại là cơ hội tuyệt vời để doanh nghiệp quảng bá sản phẩm và dịch vụ. Để có một triển lãm thành công:</p><p>\r\n</p><p><br></p><p>\r\n</p><p>Với đội ngũ thiết kế và tổ chức sự kiện chuyên nghiệp, chúng tôi sẽ giúp bạn tạo nên một triển lãm đáng nhớ.</p>', 'Khám phá cách tổ chức triển lãm thương mại hiệu quả để quảng bá thương hiệu của bạn.', 'img/blog/blog_1764097087_6925fc3fe7852.jpg', 3, 'published', 0, '2025-11-25 18:56:19', '2025-11-25 18:58:07'),
@@ -1199,9 +1199,9 @@ CREATE TABLE `webhook_logs` (
 --
 
 --
--- Chỉ mục cho bảng `blog_comments`
+-- Chỉ mục cho bảng `baiviet_binhluan`
 --
-ALTER TABLE `blog_comments`
+ALTER TABLE `baiviet_binhluan`
   ADD PRIMARY KEY (`id`),
   ADD KEY `post_id` (`post_id`),
   ADD KEY `user_id` (`user_id`),
@@ -1209,9 +1209,9 @@ ALTER TABLE `blog_comments`
   ADD KEY `parent_comment_id` (`parent_comment_id`);
 
 --
--- Chỉ mục cho bảng `blog_posts`
+-- Chỉ mục cho bảng `baiviet`
 --
-ALTER TABLE `blog_posts`
+ALTER TABLE `baiviet`
   ADD PRIMARY KEY (`id`),
   ADD KEY `event_type_id` (`event_type_id`),
   ADD KEY `author_id` (`author_id`),
@@ -1551,15 +1551,15 @@ ALTER TABLE `baocao`
   MODIFY `ID_BaoCao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
--- AUTO_INCREMENT cho bảng `blog_comments`
+-- AUTO_INCREMENT cho bảng `baiviet_binhluan`
 --
-ALTER TABLE `blog_comments`
+ALTER TABLE `baiviet_binhluan`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT cho bảng `blog_posts`
+-- AUTO_INCREMENT cho bảng `baiviet`
 --
-ALTER TABLE `blog_posts`
+ALTER TABLE `baiviet`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
@@ -1742,19 +1742,19 @@ ALTER TABLE `baocao`
   ADD CONSTRAINT `baocao_ibfk_2` FOREIGN KEY (`ID_QuanLy`) REFERENCES `nhanvieninfo` (`ID_NhanVien`) ON DELETE CASCADE;
 
 --
--- Các ràng buộc cho bảng `blog_comments`
+-- Các ràng buộc cho bảng `baiviet_binhluan`
 --
-ALTER TABLE `blog_comments`
-  ADD CONSTRAINT `fk_blog_comments_parent` FOREIGN KEY (`parent_comment_id`) REFERENCES `blog_comments` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_blog_comments_post` FOREIGN KEY (`post_id`) REFERENCES `blog_posts` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_blog_comments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`ID_User`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `baiviet_binhluan`
+  ADD CONSTRAINT `fk_baiviet_binhluan_parent` FOREIGN KEY (`parent_comment_id`) REFERENCES `baiviet_binhluan` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_baiviet_binhluan_post` FOREIGN KEY (`post_id`) REFERENCES `baiviet` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_baiviet_binhluan_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`ID_User`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Các ràng buộc cho bảng `blog_posts`
+-- Các ràng buộc cho bảng `baiviet`
 --
-ALTER TABLE `blog_posts`
-  ADD CONSTRAINT `fk_blog_posts_author` FOREIGN KEY (`author_id`) REFERENCES `users` (`ID_User`) ON DELETE SET NULL ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_blog_posts_event_type` FOREIGN KEY (`event_type_id`) REFERENCES `loaisukien` (`ID_LoaiSK`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `baiviet`
+  ADD CONSTRAINT `fk_baiviet_author` FOREIGN KEY (`author_id`) REFERENCES `users` (`ID_User`) ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_baiviet_event_type` FOREIGN KEY (`event_type_id`) REFERENCES `loaisukien` (`ID_LoaiSK`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `call_sessions`

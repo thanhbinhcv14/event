@@ -111,18 +111,28 @@ class SocketClient {
      * This is a placeholder - actual events should be emitted from client-side JavaScript
      * For server-side PHP, we can use HTTP API endpoint if available
      */
-    private function sendToSocket($event, $data) {
+    public function sendToSocket($event, $data) {
         // Build Socket.IO server URL
         $baseUrl = $this->socketUrl;
+        
+        // ✅ FIX: Xử lý URL đúng cho cả production và localhost
+        // Production: ws.sukien.info.vn (WebSocket URL) nhưng API endpoint là HTTP
+        // Localhost: http://localhost:3000
+        if (strpos($baseUrl, 'ws://') === 0 || strpos($baseUrl, 'wss://') === 0) {
+            // Nếu là WebSocket URL, chuyển sang HTTP/HTTPS cho API endpoint
+            $baseUrl = str_replace('ws://', 'http://', $baseUrl);
+            $baseUrl = str_replace('wss://', 'https://', $baseUrl);
+        }
+        
         if ($this->socketPort) {
             $baseUrl .= ':' . $this->socketPort;
         }
         
-        // For production, API endpoint is at /nodeapp/api/emit
+        // For production, API endpoint is at /api/emit (không có /nodeapp vì đã là base URL riêng)
         // For localhost, API endpoint is at http://localhost:3000/api/emit
         // The socketPath is only for Socket.IO connection, not for HTTP API
         if ($this->socketPath) {
-            // Production: Add /nodeapp prefix for API endpoint
+            // Production: Add /nodeapp prefix for API endpoint (nếu có)
             $url = $baseUrl . $this->socketPath . '/api/emit';
         } else {
             // Localhost: Direct API endpoint
@@ -149,11 +159,14 @@ class SocketClient {
         $curlError = curl_error($ch);
         curl_close($ch);
         
-        // Log the result
+        // Log the result với chi tiết hơn
         if ($curlError) {
-            error_log("Socket notification error: $event, cURL Error: $curlError");
+            error_log("Socket notification error: $event, cURL Error: $curlError, URL: $url");
         } else {
-            error_log("Socket notification sent: $event, HTTP Code: $httpCode");
+            error_log("Socket notification sent: $event, HTTP Code: $httpCode, URL: $url");
+            if ($httpCode !== 200) {
+                error_log("Socket notification failed: Response: " . substr($response, 0, 200));
+            }
         }
         
         return $httpCode === 200;

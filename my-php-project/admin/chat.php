@@ -1012,6 +1012,12 @@ let isConnected = false;
 let currentUserId = <?php echo $currentUserId; ?>;
 let currentUserName = '<?php echo htmlspecialchars($currentUserName); ?>';
 
+// ✅ Set để lưu các message IDs đã thêm (tránh duplicate)
+const addedMessageIds = new Set();
+
+// ✅ Lưu last message ID để chỉ lấy messages mới
+let lastMessageId = null;
+
 // ✅ Base path từ PHP để đảm bảo đường dẫn đúng
 const BASE_PATH = '<?php 
     $scriptPath = $_SERVER["SCRIPT_NAME"] ?? "";
@@ -1514,18 +1520,77 @@ function initializeSocket() {
     
     chatSocket.on('new_message', function(data) {
         console.log('Admin received new message:', data);
-        if (data.conversation_id === currentConversationId) {
-            addMessageToChat(data, false);
+        
+        // ✅ Bỏ qua nếu là tin nhắn của chính mình (so sánh đúng kiểu)
+        const senderId = data.user_id || (data.message && data.message.sender_id) || null;
+        const isOwnMessage = senderId && (String(senderId) === String(currentUserId));
+        
+        if (isOwnMessage && data.skip_sender) {
+            console.log('Skipping own message (skip_sender flag)');
+            return;
+        }
+        
+        if (data.conversation_id == currentConversationId) {
+            // ✅ QUAN TRỌNG: Không bỏ qua media messages từ PHP (message_type có giá trị)
+            // Media messages từ PHP cần được hiển thị để đảm bảo đồng bộ
+            const isMediaMessage = data.message && (
+                data.message.message_type || 
+                data.message.file_path || 
+                data.message.file_name
+            );
+            
+            // ✅ Chỉ bỏ qua text messages của chính mình (không phải media)
+            if (isOwnMessage && !isMediaMessage) {
+                console.log('Skipping own text message (user_id check)');
+                return;
+            }
+            
+            // ✅ Nếu là media message từ PHP, luôn hiển thị (kể cả của chính mình)
+            if (isMediaMessage) {
+                console.log('Admin received media message from PHP, displaying...');
+            }
+            
+            // ✅ Server emit: { conversation_id, message, user_id, user_name, timestamp }
+            // message có thể là string hoặc object
+            let messageData;
+            if (typeof data.message === 'object' && data.message !== null) {
+                // Nếu message là object (có id, sender_id, etc.)
+                messageData = data.message;
+            } else {
+                // Nếu message là string, tạo object từ data
+                messageData = {
+                    id: data.message_id || null,
+                    conversation_id: data.conversation_id,
+                    sender_id: data.user_id,
+                    message: data.message || data.text || '',
+                    created_at: data.timestamp || new Date().toISOString(),
+                    sender_name: data.user_name || 'Người dùng',
+                    IsRead: 0
+                };
+            }
+            
+            // ✅ Đảm bảo conversation_id được set đúng
+            if (!messageData.conversation_id) {
+                messageData.conversation_id = currentConversationId;
+            }
+            
+            // ✅ Đảm bảo có created_at
+            if (!messageData.created_at && data.timestamp) {
+                messageData.created_at = data.timestamp;
+            }
+            
+            addMessageToChat(messageData, false);
             // Cuộn xuống dưới ngay lập tức
             setTimeout(scrollToBottom, 100);
+        } else {
+            updateConversationPreview(data.conversation_id, data.message);
+            
+            // Cập nhật danh sách conversation để đồng bộ real-time
+            loadConversations();
+            
+            // Cập nhật số lượng online khi nhận tin nhắn mới
+            loadOnlineUsers();
         }
-        updateConversationPreview(data.conversation_id, data.message);
-        
-        // Cập nhật danh sách conversation để đồng bộ real-time
-        loadConversations();
-        
-        // Cập nhật số lượng online khi nhận tin nhắn mới
-        loadOnlineUsers();
     });
     
     chatSocket.on('typing', function(data) {
@@ -1560,11 +1625,79 @@ function initializeSocket() {
     // Xử lý tin nhắn broadcast
     chatSocket.on('broadcast_message', function(data) {
         console.log('Admin received broadcast message:', data);
-        if (data.conversation_id === currentConversationId && data.userId !== currentUserId) {
+        // ✅ So sánh đúng kiểu và chỉ bỏ qua nếu là tin nhắn của chính mình
+        const senderId = data.userId || (data.message && data.message.sender_id) || null;
+        const isOwnMessage = senderId && (String(senderId) === String(currentUserId));
+        
+        // ✅ QUAN TRỌNG: Media messages từ PHP cần được hiển thị cho tất cả (kể cả người gửi)
+        const isMediaMessage = data.message && (
+            data.message.message_type || 
+            data.message.file_path || 
+            data.message.file_name
+        );
+        
+        // ✅ Hiển thị nếu: (1) không phải tin nhắn của chính mình, HOẶC (2) là media message
+        if (data.conversation_id == currentConversationId && (!isOwnMessage || isMediaMessage)) {
+            // ✅ Đảm bảo conversation_id được set đúng
+            if (data.message && !data.message.conversation_id) {
+                data.message.conversation_id = currentConversationId;
+            }
+            
+            // ✅ Đảm bảo có created_at
+            if (data.message && !data.message.created_at && data.timestamp) {
+                data.message.created_at = data.timestamp;
+            }
+            
             addMessageToChat(data.message, false);
             scrollToBottom();
+            
+            // ✅ Cập nhật preview của conversation hiện tại
+            const messageText = data.message?.message || data.message?.text || '';
+            if (messageText) {
+                updateConversationPreview(currentConversationId, messageText);
+            }
+        } else if (data.conversation_id != currentConversationId) {
+            // ✅ Cập nhật preview của conversation khác
+            const messageText = data.message?.message || data.message?.text || '';
+            if (messageText) {
+                updateConversationPreview(data.conversation_id, messageText);
+            }
         }
-        updateConversationPreview(data.conversation_id, data.message.message || data.message.text);
+    });
+    
+    // 🖼️ Xử lý event image_uploaded để load hình ảnh realtime
+    chatSocket.on('image_uploaded', function(data) {
+        console.log('🖼️ Admin received image_uploaded event:', data);
+        
+        if (data.conversation_id == currentConversationId) {
+            // ✅ Đảm bảo conversation_id được set đúng
+            if (data.message && !data.message.conversation_id) {
+                data.message.conversation_id = currentConversationId;
+            }
+            
+            // ✅ Đảm bảo có created_at
+            if (data.message && !data.message.created_at && data.timestamp) {
+                data.message.created_at = data.timestamp;
+            }
+            
+            // ✅ Force reload hình ảnh bằng cách thêm timestamp vào URL
+            if (data.message && data.message.file_path) {
+                const timestamp = new Date().getTime();
+                data.message.file_path = data.message.file_path + (data.message.file_path.includes('?') ? '&' : '?') + '_t=' + timestamp;
+            }
+            
+            addMessageToChat(data.message, false);
+            scrollToBottom();
+            
+            // ✅ Cập nhật preview của conversation hiện tại
+            const messageText = data.message?.message || '[Hình ảnh]';
+            updateConversationPreview(currentConversationId, messageText);
+        } else if (data.conversation_id != currentConversationId) {
+            // ✅ Cập nhật preview của conversation khác
+            const messageText = data.message?.message || '[Hình ảnh]';
+            updateConversationPreview(data.conversation_id, messageText);
+            loadConversations();
+        }
     });
     
     // Xử lý cập nhật trạng thái online của user
@@ -2065,6 +2198,10 @@ function selectConversation(conversationId) {
     console.log('Admin selecting conversation:', conversationId);
     currentConversationId = conversationId;
     
+    // ✅ Reset tracking khi chuyển conversation
+    addedMessageIds.clear();
+    lastMessageId = null;
+    
     // Tìm conversation để lấy thông tin người dùng
     const conversation = conversations.find(c => c.id == conversationId);
     if (conversation) {
@@ -2221,6 +2358,10 @@ function displayMessages(messages) {
         return;
     }
     
+    // ✅ Reset tracking khi load lại toàn bộ messages
+    addedMessageIds.clear();
+    lastMessageId = null;
+    
     let html = '';
     let validMessageCount = 0;
     
@@ -2229,6 +2370,18 @@ function displayMessages(messages) {
         if (messageHTML) {
             html += messageHTML;
             validMessageCount++;
+            
+            // ✅ Track message ID để tránh duplicate
+            const messageId = message.id || message.message_id;
+            if (messageId) {
+                addedMessageIds.add(messageId);
+                // ✅ So sánh messageId (có thể là string hoặc number)
+                const messageIdNum = parseInt(messageId);
+                const lastIdNum = lastMessageId ? parseInt(lastMessageId) : 0;
+                if (!lastMessageId || messageIdNum > lastIdNum) {
+                    lastMessageId = messageIdNum;
+                }
+            }
         } else {
             console.warn(`Invalid message at index ${index}:`, message);
         }
@@ -2669,17 +2822,50 @@ function formatFileSize(bytes) {
 
 // Thêm tin nhắn vào chat
 function addMessageToChat(message, isSent) {
-    console.log('Admin adding message to chat:', message, 'isSent:', isSent);
+    console.log('Admin adding message to chat:', message, 'isSent:', isSent, 'currentConversationId:', currentConversationId);
+    
+    // Kiểm tra tin nhắn có nội dung không
+    const messageText = (message.message || message.text || '').trim();
+    if (!messageText && !message.message_type && !message.file_path) {
+        console.warn('Skipping empty message in addMessageToChat:', message);
+        return;
+    }
+    
+    // ✅ Kiểm tra duplicate dựa trên message_id + conversation_id
+    const messageId = message.id || message.message_id;
+    if (messageId) {
+        // Kiểm tra trong Set (nhanh hơn)
+        if (addedMessageIds.has(messageId)) {
+            console.log('Message already exists in Set, skipping duplicate:', messageId);
+            return;
+        }
+        
+        // Kiểm tra trong DOM (backup check)
+        if ($(`.message[data-message-id="${messageId}"]`).length > 0) {
+            console.log('Message already exists in DOM, skipping duplicate:', messageId);
+            addedMessageIds.add(messageId); // Thêm vào Set để tránh check lại
+            return;
+        }
+        
+        // ✅ Kiểm tra conversation_id phải khớp (chỉ check nếu có conversation_id)
+        if (message.conversation_id) {
+            if (String(message.conversation_id) != String(currentConversationId)) {
+                console.log('Message belongs to different conversation, skipping:', messageId, 'Expected:', currentConversationId, 'Got:', message.conversation_id);
+                return;
+            }
+        } else {
+            // Tự động set conversation_id nếu chưa có
+            message.conversation_id = currentConversationId;
+        }
+        
+        // ✅ Thêm vào Set để đánh dấu đã thêm
+        addedMessageIds.add(messageId);
+    }
+    
     const messageHTML = createMessageHTML(message);
     
     // Chỉ thêm nếu messageHTML hợp lệ
     if (messageHTML) {
-        // Check for duplicate messages
-        const messageId = message.id || message.message_id || '';
-        if (messageId && $(`.message[data-message-id="${messageId}"]`).length > 0) {
-            console.log('Duplicate message detected, skipping:', messageId);
-            return;
-        }
         
         // Remove welcome screen
         $('#chatMessages .chat-welcome').remove();
@@ -2696,6 +2882,15 @@ function addMessageToChat(message, isSent) {
         $messageElement.animate({
             opacity: 1
         }, 300).css('transform', 'translateY(0)');
+        
+        // ✅ Cập nhật lastMessageId (so sánh số để đảm bảo đúng)
+        if (messageId) {
+            const messageIdNum = parseInt(messageId);
+            const lastIdNum = lastMessageId ? parseInt(lastMessageId) : 0;
+            if (!lastMessageId || messageIdNum > lastIdNum) {
+                lastMessageId = messageIdNum;
+            }
+        }
         
         // Scroll to bottom immediately
         scrollToBottom();
@@ -3131,7 +3326,9 @@ function stopPollingMode() {
 function checkForNewMessages() {
     if (!currentConversationId) return;
     
-    const apiUrl = getApiPath('src/controllers/chat-controller.php?action=get_messages&conversation_id=' + currentConversationId);
+    // ✅ Chỉ lấy messages mới hơn lastMessageId
+    const apiUrl = getApiPath('src/controllers/chat-controller.php?action=get_messages&conversation_id=' + currentConversationId) + 
+                   (lastMessageId ? '&last_id=' + lastMessageId : '');
     
     $.ajax({
         url: apiUrl,
@@ -3139,16 +3336,32 @@ function checkForNewMessages() {
         dataType: 'json',
         timeout: 5000,
         success: function(res) {
-            if (res && res.success && res.messages) {
-                const currentMessageCount = $('#chatMessages .message').length;
-                const newMessageCount = res.messages.length;
+            if (res && res.success && res.messages && res.messages.length > 0) {
+                // ✅ Chỉ thêm messages mới, không reload toàn bộ
+                res.messages.forEach(function(msg) {
+                    // Kiểm tra xem message đã tồn tại chưa
+                    const messageId = msg.id || msg.message_id;
+                    if (messageId && !addedMessageIds.has(messageId)) {
+                        // ✅ Đảm bảo conversation_id được set
+                        if (!msg.conversation_id) {
+                            msg.conversation_id = currentConversationId;
+                        }
+                        
+                        // ✅ Thêm tất cả messages từ polling (cả của mình và người khác)
+                        addMessageToChat(msg, msg.sender_id == currentUserId);
+                        
+                        // ✅ Cập nhật lastMessageId (so sánh số để đảm bảo đúng)
+                        const messageIdNum = parseInt(messageId);
+                        const lastIdNum = lastMessageId ? parseInt(lastMessageId) : 0;
+                        if (!lastMessageId || messageIdNum > lastIdNum) {
+                            lastMessageId = messageIdNum;
+                        }
+                    }
+                });
                 
-                if (newMessageCount > currentMessageCount) {
-                    // New messages detected, reload and scroll to bottom
-                    displayMessages(res.messages);
+                // Scroll to bottom nếu có messages mới
+                if (res.messages.length > 0) {
                     scrollToBottom();
-                    
-                    // Show notification for new messages
                     showNewMessageNotification();
                 }
             }
@@ -4016,6 +4229,17 @@ function endCall() {
         $.post(getApiPath('src/controllers/call-controller.php?action=end_call'), {
             call_id: callId
         }, function(response) {
+            // ✅ Hiển thị message ngay lập tức nếu có
+            if (response.success && response.chat_message) {
+                console.log('📞 Adding call end message to chat:', response.chat_message);
+                addMessageToChat(response.chat_message, response.chat_message.sender_id == currentUserId);
+                scrollToBottom();
+                
+                // ✅ Cập nhật preview
+                const messageText = response.chat_message.message || '[Cuộc gọi]';
+                updateConversationPreview(currentConversationId, messageText);
+            }
+            
             if (isConnected && chatSocket && typeof chatSocket.emit === 'function') {
                 chatSocket.emit('call_ended', {
                     call_id: callId,

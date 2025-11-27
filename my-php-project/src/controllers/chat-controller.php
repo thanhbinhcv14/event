@@ -315,6 +315,7 @@ function getAvailableStaff($pdo) {
  */
 function getMessages($pdo, $userId) {
     $conversationId = $_GET['conversation_id'] ?? '';
+    $lastId = $_GET['last_id'] ?? null; // ✅ Hỗ trợ last_id để chỉ lấy messages mới
     
     if (empty($conversationId)) {
         echo json_encode(['success' => false, 'error' => 'Thiếu ID cuộc trò chuyện']);
@@ -333,30 +334,57 @@ function getMessages($pdo, $userId) {
         return;
     }
     
-    // Lấy tin nhắn với ánh xạ trường đúng (bao gồm các trường file/media)
-    $stmt = $pdo->prepare("
-        SELECT m.id,
-               m.conversation_id,
-               m.sender_id,
-               m.MessageText as message,
-               m.message_type,
-               m.file_path,
-               m.file_name,
-               m.file_size,
-               m.mime_type,
-               m.SentAt as created_at,
-               m.IsRead,
-               COALESCE(nv.HoTen, kh.HoTen, u.Email) as sender_name,
-               cm.thumbnail_path
-        FROM messages m
-        LEFT JOIN users u ON m.sender_id = u.ID_User
-        LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User
-        LEFT JOIN khachhanginfo kh ON u.ID_User = kh.ID_User
-        LEFT JOIN chat_media cm ON m.id = cm.message_id
-        WHERE m.conversation_id = ?
-        ORDER BY m.SentAt ASC
-    ");
-    $stmt->execute([$conversationId]);
+    // ✅ Lấy tin nhắn với ánh xạ trường đúng (bao gồm các trường file/media)
+    // Nếu có last_id, chỉ lấy messages mới hơn
+    if ($lastId) {
+        $stmt = $pdo->prepare("
+            SELECT m.id,
+                   m.conversation_id,
+                   m.sender_id,
+                   m.MessageText as message,
+                   m.message_type,
+                   m.file_path,
+                   m.file_name,
+                   m.file_size,
+                   m.mime_type,
+                   m.SentAt as created_at,
+                   m.IsRead,
+                   COALESCE(nv.HoTen, kh.HoTen, u.Email) as sender_name,
+                   cm.thumbnail_path
+            FROM messages m
+            LEFT JOIN users u ON m.sender_id = u.ID_User
+            LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User
+            LEFT JOIN khachhanginfo kh ON u.ID_User = kh.ID_User
+            LEFT JOIN chat_media cm ON m.id = cm.message_id
+            WHERE m.conversation_id = ? AND m.id > ?
+            ORDER BY m.SentAt ASC
+        ");
+        $stmt->execute([$conversationId, $lastId]);
+    } else {
+        $stmt = $pdo->prepare("
+            SELECT m.id,
+                   m.conversation_id,
+                   m.sender_id,
+                   m.MessageText as message,
+                   m.message_type,
+                   m.file_path,
+                   m.file_name,
+                   m.file_size,
+                   m.mime_type,
+                   m.SentAt as created_at,
+                   m.IsRead,
+                   COALESCE(nv.HoTen, kh.HoTen, u.Email) as sender_name,
+                   cm.thumbnail_path
+            FROM messages m
+            LEFT JOIN users u ON m.sender_id = u.ID_User
+            LEFT JOIN nhanvieninfo nv ON u.ID_User = nv.ID_User
+            LEFT JOIN khachhanginfo kh ON u.ID_User = kh.ID_User
+            LEFT JOIN chat_media cm ON m.id = cm.message_id
+            WHERE m.conversation_id = ?
+            ORDER BY m.SentAt ASC
+        ");
+        $stmt->execute([$conversationId]);
+    }
     $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Ghi log để debug

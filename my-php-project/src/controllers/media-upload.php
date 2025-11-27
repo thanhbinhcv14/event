@@ -43,6 +43,9 @@ set_exception_handler(function($exception) {
 // Thiết lập JSON header trước
 header('Content-Type: application/json; charset=utf-8');
 
+// ✅ Load SocketClient để emit realtime
+require_once __DIR__ . '/../socket/socket-client.php';
+
 // Bắt đầu output buffering để bắt bất kỳ output không mong muốn nào
 ob_start();
 
@@ -400,23 +403,67 @@ try {
     ob_clean();
     
     // Return response với đường dẫn tương đối
+    $formattedMessage = [
+        'id' => $messageId,
+        'conversation_id' => $conversationId,
+        'sender_id' => $userId,
+        'message' => $messageText,
+        'message_type' => $messageType,
+        'file_path' => $relativeFilePath, // Trả về đường dẫn tương đối
+        'file_name' => $file['name'],
+        'file_size' => $file['size'],
+        'mime_type' => $mimeType,
+        'thumbnail_path' => $relativeThumbnailPath, // Trả về đường dẫn tương đối
+        'created_at' => date('Y-m-d H:i:s'),
+        'IsRead' => 0,
+        'sender_name' => $senderName
+    ];
+    
+    // ✅ Emit socket để realtime
+    try {
+        $socketClient = new SocketClient();
+        
+        // ✅ Log để debug
+        error_log("Media upload: Emitting socket for conversation $conversationId, message ID: $messageId");
+        
+        // ✅ Emit new_message event
+        $newMessageResult = $socketClient->sendToSocket('new_message', [
+            'conversation_id' => $conversationId,
+            'message' => $formattedMessage,
+            'user_id' => $userId,
+            'user_name' => $senderName,
+            'timestamp' => $formattedMessage['created_at']
+        ]);
+        
+        // ✅ Emit broadcast_message event
+        $broadcastResult = $socketClient->sendToSocket('broadcast_message', [
+            'conversation_id' => $conversationId,
+            'message' => $formattedMessage,
+            'userId' => $userId,
+            'timestamp' => $formattedMessage['created_at']
+        ]);
+        
+        // ✅ QUAN TRỌNG: Emit event riêng cho hình ảnh để đảm bảo load lại
+        if ($messageType === 'image') {
+            $imageLoadResult = $socketClient->sendToSocket('image_uploaded', [
+                'conversation_id' => $conversationId,
+                'message' => $formattedMessage,
+                'user_id' => $userId,
+                'user_name' => $senderName,
+                'timestamp' => $formattedMessage['created_at']
+            ]);
+            error_log("Media upload: image_uploaded event: " . ($imageLoadResult ? 'success' : 'failed'));
+        }
+        
+        error_log("Media upload: Socket emit results - new_message: " . ($newMessageResult ? 'success' : 'failed') . ", broadcast_message: " . ($broadcastResult ? 'success' : 'failed'));
+    } catch (Exception $e) {
+        error_log('Error emitting socket for media message: ' . $e->getMessage());
+        error_log('Stack trace: ' . $e->getTraceAsString());
+    }
+    
     $response = [
         'success' => true,
-        'message' => [
-            'id' => $messageId,
-            'conversation_id' => $conversationId,
-            'sender_id' => $userId,
-            'message' => $messageText,
-            'message_type' => $messageType,
-            'file_path' => $relativeFilePath, // Trả về đường dẫn tương đối
-            'file_name' => $file['name'],
-            'file_size' => $file['size'],
-            'mime_type' => $mimeType,
-            'thumbnail_path' => $relativeThumbnailPath, // Trả về đường dẫn tương đối
-            'created_at' => date('Y-m-d H:i:s'),
-            'IsRead' => 0,
-            'sender_name' => $senderName
-        ]
+        'message' => $formattedMessage
     ];
     
     echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
