@@ -160,7 +160,7 @@ include 'includes/admin-header.php';
 
         <!-- Approve/Reject Modal -->
         <div class="modal fade" id="actionModal" tabindex="-1">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="actionModalTitle">
@@ -174,15 +174,28 @@ include 'includes/admin-header.php';
                             <input type="hidden" id="registrationId" name="id">
                             <input type="hidden" id="actionType" name="action">
                             
+                            <!-- Thông tin sự kiện -->
+                            <div id="eventInfoContainer">
+                                <div class="text-center py-4">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                    <p class="mt-2">Đang tải thông tin sự kiện...</p>
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            
                             <div class="mb-3">
                                 <label class="form-label">Ghi chú</label>
                                 <textarea class="form-control" id="actionNote" name="note" rows="3" 
-                                          placeholder="Nhập ghi chú (tùy chọn)"></textarea>
+                                          placeholder="Nhập ghi chú (tùy chọn)">Cảm ơn đã đăng ký</textarea>
                             </div>
                             
                             <div class="alert alert-warning">
                                 <i class="fas fa-exclamation-triangle"></i>
                                 <strong>Lưu ý:</strong> Hành động này không thể hoàn tác.
+                                <span id="emailNotificationInfo" style="display: none;">
+                                    <br><i class="fas fa-envelope"></i> Email thông báo sẽ được gửi đến khách hàng với link thanh toán.
+                                </span>
                             </div>
                         </form>
                     </div>
@@ -277,39 +290,75 @@ include 'includes/admin-header.php';
                         dataSrc: function(json) {
                             console.log('AJAX Response:', json);
                             console.log('Response type:', typeof json);
-                            console.log('Response keys:', Object.keys(json || {}));
                             
-                            if (json && json.success && Array.isArray(json.registrations)) {
-                                console.log('Found registrations:', json.registrations.length);
-                                return json.registrations;
-                            } else if (json && json.success && json.registrations === null) {
-                                console.log('No registrations found (null)');
-                                return [];
-                            } else if (json && json.success && json.registrations === undefined) {
-                                console.log('No registrations found (undefined)');
-                                return [];
-                            } else {
-                                console.error('Invalid data format:', json);
-                                console.error('Success:', json ? json.success : 'undefined');
-                                console.error('Registrations:', json ? json.registrations : 'undefined');
-                                console.error('Message:', json ? json.message : 'undefined');
-                                
-                                // Thử hiển thị thông báo lỗi cho người dùng
-                                if (json && json.message) {
-                                    alert('Lỗi: ' + json.message);
-                                }
-                                
+                            if (!json) {
+                                console.error('Empty response');
                                 return [];
                             }
+                            
+                            if (json.success === false) {
+                                console.error('Error response:', json.message || json.error);
+                                AdminPanel.showError(json.message || json.error || 'Lỗi không xác định');
+                                return [];
+                            }
+                            
+                            if (json.success && Array.isArray(json.registrations)) {
+                                console.log('Found registrations:', json.registrations.length);
+                                return json.registrations;
+                            }
+                            
+                            console.error('Invalid data format:', json);
+                            return [];
                         },
                         error: function(xhr, error, thrown) {
-                            console.error('DataTable AJAX Error:', xhr, error, thrown);
+                            // Kiểm tra nếu request bị abort (không phải lỗi thực sự)
+                            if (error === 'abort') {
+                                console.log('Request was aborted (likely by user or page navigation)');
+                                return;
+                            }
+                            
+                            console.error('DataTable AJAX Error:', error, thrown);
+                            console.error('Status:', xhr.status);
                             console.error('Response Text:', xhr.responseText);
-                            alert('Lỗi khi tải dữ liệu: ' + error + ' - ' + xhr.responseText);
+                            
+                            let errorMessage = 'Lỗi khi tải dữ liệu';
+                            if (xhr.status === 0) {
+                                errorMessage = 'Không thể kết nối đến server';
+                            } else if (xhr.status === 404) {
+                                errorMessage = 'Không tìm thấy trang';
+                            } else if (xhr.status === 500) {
+                                errorMessage = 'Lỗi server';
+                            }
+                            
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                if (response.message) {
+                                    errorMessage = response.message;
+                                }
+                            } catch (e) {
+                                // Không phải JSON, sử dụng message mặc định
+                            }
+                            
+                            AdminPanel.showError(errorMessage);
                         }
                     },
                 columns: [
-                    { data: 'ID_DatLich', className: 'text-center' },
+                    { 
+                        data: 'ID_DatLich', 
+                        className: 'text-center',
+                        render: function(data, type, row) {
+                            // Debug log
+                            if (type === 'display') {
+                                console.log('Rendering ID_DatLich:', data, 'Row:', row);
+                            }
+                            // Đảm bảo hiển thị ID_DatLich, không phải row index
+                            if (data === undefined || data === null || data === 0 || data === '0') {
+                                console.error('Invalid ID_DatLich:', data, 'Row:', row);
+                                return '<span class="text-danger">N/A</span>';
+                            }
+                            return data;
+                        }
+                    },
                     { 
                         data: 'TenSuKien',
                         render: function(data, type, row) {
@@ -361,8 +410,15 @@ include 'includes/admin-header.php';
                         data: null,
                         orderable: false,
                         render: function(data, type, row) {
+                            // Kiểm tra ID_DatLich hợp lệ
+                            const registrationId = row.ID_DatLich;
+                            if (!registrationId || registrationId === 0 || registrationId === '0' || registrationId === null || registrationId === undefined) {
+                                console.error('Invalid registration ID:', registrationId, 'Row data:', row);
+                                return '<div class="action-buttons"><span class="text-danger">ID không hợp lệ</span></div>';
+                            }
+                            
                             let actions = `
-                                <button class="btn btn-info btn-sm" onclick="viewRegistration(${row.ID_DatLich})" title="Xem chi tiết">
+                                <button class="btn btn-info btn-sm" onclick="viewRegistration(${registrationId})" title="Xem chi tiết">
                                     <i class="fas fa-eye"></i>
                                 </button>
                             `;
@@ -370,10 +426,10 @@ include 'includes/admin-header.php';
                             // Chỉ hiển thị nút duyệt/từ chối cho role 1 và 2
                             if (row.TrangThaiDuyet === 'Chờ duyệt' && (userRole == 1 || userRole == 2)) {
                                 actions += `
-                                    <button class="btn btn-success btn-sm" onclick="showActionModal(${row.ID_DatLich}, 'approve')" title="Duyệt">
+                                    <button class="btn btn-success btn-sm" onclick="showActionModal(${registrationId}, 'approve')" title="Duyệt">
                                         <i class="fas fa-check"></i>
                                     </button>
-                                    <button class="btn btn-danger btn-sm" onclick="showActionModal(${row.ID_DatLich}, 'reject')" title="Từ chối">
+                                    <button class="btn btn-danger btn-sm" onclick="showActionModal(${registrationId}, 'reject')" title="Từ chối">
                                         <i class="fas fa-times"></i>
                                     </button>
                                 `;
@@ -391,10 +447,10 @@ include 'includes/admin-header.php';
                                 
                                 if (isEventManagerEvent) {
                                     actions += `
-                                        <button class="btn btn-warning btn-sm" onclick="editRegistration(${row.ID_DatLich})" title="Sửa sự kiện">
+                                        <button class="btn btn-warning btn-sm" onclick="editRegistration(${registrationId})" title="Sửa sự kiện">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-danger btn-sm" onclick="deleteRegistration(${row.ID_DatLich})" title="Xóa sự kiện">
+                                        <button class="btn btn-danger btn-sm" onclick="deleteRegistration(${registrationId})" title="Xóa sự kiện">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     `;
@@ -539,6 +595,15 @@ include 'includes/admin-header.php';
         }
 
         function viewRegistration(id) {
+            // Validate ID
+            if (!id || id === 0 || id === '0' || id === null || id === undefined) {
+                alert('Lỗi: ID đăng ký không hợp lệ (ID = ' + id + ')');
+                console.error('Invalid registration ID:', id);
+                return;
+            }
+            
+            console.log('viewRegistration called with ID:', id);
+            
             $('#viewModalBody').html('<div class="text-center"><div class="spinner-border" role="status"></div><p>Đang tải...</p></div>');
             
             const modal = new bootstrap.Modal(document.getElementById('viewModal'));
@@ -575,9 +640,18 @@ include 'includes/admin-header.php';
         }
 
         function showActionModal(id, action) {
+            // Validate ID
+            if (!id || id === 0 || id === '0' || id === null || id === undefined) {
+                alert('Lỗi: ID đăng ký không hợp lệ (ID = ' + id + ')');
+                console.error('Invalid registration ID:', id);
+                return;
+            }
+            
+            console.log('showActionModal called with ID:', id, 'Action:', action);
+            
             $('#registrationId').val(id);
             $('#actionType').val(action);
-            $('#actionNote').val('');
+            $('#actionNote').val(action === 'approve' ? 'Cảm ơn đã đăng ký' : '');
 
             const modal = new bootstrap.Modal(document.getElementById('actionModal'));
             const title = action === 'approve' ? 'Duyệt đăng ký' : 'Từ chối đăng ký';
@@ -587,8 +661,56 @@ include 'includes/admin-header.php';
             $('#actionModalTitle').html(`<i class="fas fa-${icon}"></i> ${title}`);
             $('#confirmActionBtn').removeClass('btn-success btn-danger').addClass(`btn-${btnClass}`);
             $('#confirmActionBtn').html(`<i class="fas fa-${icon}"></i> ${title}`);
+            
+            // Hiển thị thông báo email nếu là duyệt
+            if (action === 'approve') {
+                $('#emailNotificationInfo').show();
+            } else {
+                $('#emailNotificationInfo').hide();
+            }
+
+            // Hiển thị loading
+            $('#eventInfoContainer').html(`
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Đang tải thông tin sự kiện...</p>
+                </div>
+            `);
 
             modal.show();
+
+            // Load thông tin sự kiện
+            $.ajax({
+                url: '../src/controllers/admin-events.php',
+                type: 'GET',
+                data: { action: 'get_registration_details', id: id },
+                dataType: 'json',
+                success: function(response) {
+                    console.log('Event details response:', response);
+                    if (response.success && response.html) {
+                        // Lấy phần HTML và hiển thị trong modal
+                        $('#eventInfoContainer').html(response.html);
+                    } else {
+                        const errorMsg = response && response.message ? response.message : 'Không thể tải thông tin sự kiện';
+                        $('#eventInfoContainer').html(`
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                ${errorMsg}
+                            </div>
+                        `);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading event details:', xhr, status, error);
+                    console.error('Response text:', xhr.responseText);
+                    $('#eventInfoContainer').html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            Lỗi khi tải thông tin sự kiện
+                        </div>
+                    `);
+                }
+            });
         }
 
         function approveRegistration(id, note = '') {

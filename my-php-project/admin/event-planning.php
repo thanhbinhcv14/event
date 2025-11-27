@@ -54,10 +54,10 @@ try {
         .page-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 2rem;
-            border-radius: 15px;
+            padding: 1.5rem;
+            border-radius: 12px;
             margin-bottom: 2rem;
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
         }
         
         .page-title {
@@ -77,14 +77,8 @@ try {
             background: white;
             border-radius: 15px;
             padding: 1.5rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             border: 1px solid #f0f0f0;
-        }
-        
-        .stats-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
         }
         
         .stats-card h3 {
@@ -99,74 +93,52 @@ try {
             margin-bottom: 0;
         }
         
+        /* Container cho các card - đảm bảo cùng chiều cao */
+        .event-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
         /* Thẻ Lên kế hoạch sự kiện */
         .planning-card {
             background: white;
             border: 1px solid #e9ecef;
-            padding: 1rem;
-            border-radius: 20px;
+            padding: 1.5rem;
+            border-radius: 12px;
             margin-bottom: 2rem;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             position: relative;
-        }
-        
-        .planning-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        
-        .planning-card:hover {
-            transform: translateY(-8px) scale(1.02);
-            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.2);
-            border-color: #667eea;
-        }
-        
-        .planning-card:hover::before {
-            opacity: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
         
         .event-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 2rem;
+            padding: 1.5rem;
+            border-radius: 12px 12px 0 0;
             position: relative;
-            overflow: hidden;
-            border-radius: 20px 20px 0 0;
         }
         
-        .event-header::before {
-            content: '';
+        /* Status Badge ở góc trên bên phải của event-header */
+        .plan-status-badge {
             position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 100%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
-            animation: shimmer 4s ease-in-out infinite;
+            top: 0.75rem;
+            right: 0.75rem;
+            z-index: 20;
         }
         
-        .event-header::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-        }
-        
-        @keyframes shimmer {
-            0%, 100% { transform: translateX(-100%) translateY(-100%) rotate(30deg); }
-            50% { transform: translateX(100%) translateY(100%) rotate(30deg); }
+        .plan-status-badge .badge {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.9rem;
+            border-radius: 20px;
+            font-weight: 600;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
         .event-header h5 {
@@ -189,19 +161,11 @@ try {
         }
         
         .card-body {
-            padding: 2rem;
-            background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
-            position: relative;
-        }
-        
-        .card-body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, #e9ecef, transparent);
+            padding: 1.5rem;
+            background: white;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
         
         .card-body .row {
@@ -210,13 +174,6 @@ try {
             background: rgba(255,255,255,0.7);
             border-radius: 12px;
             border: 1px solid rgba(233, 236, 239, 0.5);
-            transition: all 0.3s ease;
-        }
-        
-        .card-body .row:hover {
-            background: rgba(255,255,255,0.9);
-            border-color: #667eea;
-            transform: translateX(5px);
         }
         
         .card-body .row:last-child {
@@ -239,43 +196,22 @@ try {
         
         /* Nút bấm */
         .btn {
-            border-radius: 12px;
+            border-radius: 8px;
             font-weight: 600;
-            padding: 0.875rem 2rem;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            padding: 0.75rem 1.5rem;
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
             font-size: 0.9rem;
         }
         
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s ease;
-        }
-        
-        .btn:hover::before {
-            left: 100%;
-        }
-        
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
             color: white;
         }
         
         .btn-primary:hover {
-            transform: translateY(-3px) scale(1.05);
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
-            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 50%, #e085f0 100%);
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+            color: white;
         }
         
         .btn-outline-info {
@@ -285,23 +221,18 @@ try {
         }
         
         .btn-outline-info:hover {
-            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            background: #17a2b8;
             border-color: #17a2b8;
             color: white;
-            transform: translateY(-3px) scale(1.05);
-            box-shadow: 0 8px 25px rgba(23, 162, 184, 0.4);
         }
         
         /* Phần Kế hoạch hiện có */
         .existing-plans-card {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-            border-radius: 20px;
+            background: white;
+            border-radius: 12px;
             padding: 2rem;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             border: 1px solid #e9ecef;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
         }
 
         /* Tùy chỉnh Form Bước nâng cao */
@@ -320,7 +251,6 @@ try {
         .form-control-lg:focus, .form-select-lg:focus {
             border-color: #667eea;
             box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-            transform: translateY(-1px);
         }
         
         .form-label.fw-bold {
@@ -379,25 +309,20 @@ try {
         
         /* Timeline nâng cao cho danh sách bước */
         .timeline-item .card {
-            border-radius: 15px;
-            border: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            transition: all 0.3s ease;
-        }
-        
-        .timeline-item .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
         
         .timeline-item .card-body {
-            padding: 1.5rem;
+            padding: 1.75rem;
         }
         
         .timeline-item h6 {
             color: #2c3e50;
             font-weight: 700;
             margin-bottom: 0.75rem;
+            font-size: 1.1rem;
         }
         
         .timeline-item .text-muted {
@@ -431,20 +356,40 @@ try {
         
         @media (min-width: 1200px) {
             .modal-xl {
-                max-width: 1140px;
+                max-width: 1400px;
+            }
+        }
+        
+        .modal-lg {
+            max-width: 90%;
+        }
+        
+        @media (min-width: 992px) {
+            .modal-lg {
+                max-width: 900px;
             }
         }
         
         /* Sửa vị trí modal và overflow */
         .modal-dialog {
-            margin: 0;
+            margin: 1.75rem auto;
             max-width: 95%;
-            width: 1200px;
         }
         
         .modal-xl .modal-dialog {
             max-width: 95%;
-            width: 1200px;
+        }
+        
+        @media (min-width: 1200px) {
+            .modal-xl .modal-dialog {
+                max-width: 1400px;
+            }
+        }
+        
+        @media (min-width: 992px) {
+            .modal-lg .modal-dialog {
+                max-width: 900px;
+            }
         }
         
         /* Đảm bảo modal được căn giữa đúng cách */
@@ -580,8 +525,7 @@ try {
         }
         
         .badge:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            opacity: 0.9;
         }
         
         /* Timeline cho Bước */
@@ -644,9 +588,8 @@ try {
         }
         
         .event-plan-item:hover {
-            background: #e9ecef;
+            background: #f8f9fa;
             border-color: #667eea !important;
-            transform: translateY(-1px);
         }
         
         .event-plan-item .text-primary {
@@ -739,7 +682,6 @@ try {
         
         .modal-header .btn-close:hover {
             opacity: 1;
-            transform: scale(1.1);
         }
         
         .modal-title {
@@ -817,8 +759,7 @@ try {
         }
         
         .modal .card:hover {
-            box-shadow: 0 12px 35px rgba(0,0,0,0.15);
-            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         
         .modal .card-header {
@@ -858,8 +799,6 @@ try {
         }
         
         .modal .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
             background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
         }
         
@@ -877,8 +816,6 @@ try {
         }
         
         .modal .btn-secondary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
             background: #5a6268;
         }
         
@@ -905,10 +842,22 @@ try {
            
             .planning-card {
                 margin-bottom: 1.5rem;
+                padding: 1rem;
             }
            
             .event-header {
                 padding: 1rem;
+                padding-top: 2rem; /* Khoảng trống cho badge trên mobile */
+            }
+            
+            .plan-status-badge {
+                top: 0.75rem;
+                right: 0.75rem;
+            }
+            
+            .plan-status-badge .badge {
+                font-size: 0.75rem;
+                padding: 0.4rem 0.8rem;
             }
            
             .card-body {
@@ -1060,8 +1009,6 @@ try {
         .staff-checkbox-item:hover {
             background: #f0f4ff;
             border-color: #667eea;
-            transform: translateX(5px);
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
         }
         
         .staff-checkbox-item input[type="checkbox"] {
@@ -1268,7 +1215,7 @@ try {
                                         
     <!-- Manage Steps Modal -->
     <div class="modal fade" id="manageStepsModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
+        <div class="modal-dialog modal-xl" style="max-width: 1200px;">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -1289,7 +1236,7 @@ try {
                                         Danh sách các bước
                                     </h6>
                                 </div>
-                                <div class="card-body p-3">
+                                <div class="card-body p-4">
                                     <div id="stepsList" class="steps-timeline">
                                         <!-- Steps will be loaded here -->
                                     </div>
@@ -1320,7 +1267,7 @@ try {
                                             <label class="form-label fw-bold">
                                                 <i class="fas fa-users text-primary me-1"></i>Nhân viên phụ trách
                                             </label>
-                                            <div class="staff-selection-container border rounded p-3" style="max-height: 200px; overflow-y: auto; background: #f8f9fa;">
+                                            <div class="staff-selection-container border rounded p-3" style="max-height: 300px; overflow-y: auto; background: #f8f9fa;">
                                                 <div id="stepStaffCheckboxes" class="staff-checkbox-list">
                                                     <div class="text-center text-muted py-3">
                                                         <i class="fas fa-spinner fa-spin"></i> Đang tải danh sách nhân viên...
@@ -1334,7 +1281,7 @@ try {
                                                 <i class="fas fa-file-text text-primary me-1"></i>Mô tả chi tiết
                                             </label>
                                             <textarea class="form-control" id="stepDescription" name="stepDescription" 
-                                                      rows="3" placeholder="Mô tả chi tiết về bước thực hiện này..."></textarea>
+                                                      rows="4" placeholder="Mô tả chi tiết về bước thực hiện này..."></textarea>
                                         </div>
                                         
                                         <div class="row g-2 mb-3">
@@ -1371,7 +1318,7 @@ try {
                                             <label for="stepNote" class="form-label fw-bold">
                                                 <i class="fas fa-sticky-note text-primary me-1"></i>Ghi chú bổ sung
                                             </label>
-                                            <textarea class="form-control" id="stepNote" name="note" rows="2" 
+                                            <textarea class="form-control" id="stepNote" name="note" rows="3" 
                                                       placeholder="Thêm ghi chú hoặc lưu ý đặc biệt..."></textarea>
                                         </div>
                                         
@@ -1459,9 +1406,34 @@ try {
         </div>
     </div>
 
+    <!-- View Event Plans Modal -->
+    <div class="modal fade" id="viewEventPlansModal" tabindex="-1">
+        <div class="modal-dialog modal-lg" style="max-width: 900px;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-list-check"></i> Kế hoạch đã tạo
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="viewEventPlansContent">
+                        <div class="text-center py-4">
+                            <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                            <p class="text-muted mt-2">Đang tải kế hoạch...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Edit Step Modal -->
     <div class="modal fade" id="editStepModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg" style="max-width: 900px;">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -1507,7 +1479,7 @@ try {
                         
                         <div class="mb-3">
                             <label class="form-label">Nhân viên phụ trách</label>
-                            <div class="staff-selection-container border rounded p-3" style="max-height: 200px; overflow-y: auto; background: #f8f9fa;">
+                            <div class="staff-selection-container border rounded p-3" style="max-height: 300px; overflow-y: auto; background: #f8f9fa;">
                                 <div id="editStepStaffCheckboxes" class="staff-checkbox-list">
                                     <div class="text-center text-muted py-3">
                                         <i class="fas fa-spinner fa-spin"></i> Đang tải danh sách nhân viên...
@@ -1844,7 +1816,7 @@ try {
                 const endDateFilter = endDateTime.toISOString().split('T')[0];
                 
                 html += `
-                    <div class="col-md-6 col-lg-4 mb-4 event-card" 
+                    <div class="col-md-6 col-lg-5 mb-4 event-card" 
                          data-event-id="${event.ID_DatLich}"
                          data-event-name="${escapeHtml(event.TenSuKien).toLowerCase()}"
                          data-event-type="${escapeHtml(event.TenLoaiSK).toLowerCase()}"
@@ -1854,52 +1826,55 @@ try {
                          data-end-date="${endDateFilter}">
                         <div class="planning-card">
                             <div class="event-header">
-                                <h5 class="mb-1">${escapeHtml(event.TenSuKien)}</h5>
-                                <p class="mb-1">
+                                <!-- Status Badge - Hiển thị ở góc trên bên phải của event-header -->
+                                <div class="plan-status-badge" id="plan-status-${event.ID_DatLich}">
+                                    <!-- Status will be loaded here -->
+                                </div>
+                                <h5 class="mb-1" style="font-size: 1.3rem;">${escapeHtml(event.TenSuKien)}</h5>
+                                <p class="mb-1" style="font-size: 0.9rem;">
                                     <i class="fas fa-calendar"></i>
                                     ${startDate} - ${endDate}
                                 </p>
-                                <p class="mb-0">
+                                <p class="mb-0" style="font-size: 0.9rem;">
                                     <i class="fas fa-clock"></i>
                                     ${startTime} - ${endTime}
                                 </p>
                             </div>
-                            <div class="card-body">
-                                <div class="row mb-3">
+                            <div class="card-body" style="font-size: 0.9rem;">
+                                <div class="row mb-2">
                                     <div class="col-6">
-                                        <small class="text-muted">Địa điểm:</small><br>
-                                        <strong>${escapeHtml(event.TenDiaDiem)}</strong>
+                                        <small class="text-muted" style="font-size: 0.75rem;">Địa điểm:</small><br>
+                                        <strong style="font-size: 0.9rem;">${escapeHtml(event.TenDiaDiem)}</strong>
                                     </div>
                                     <div class="col-6">
-                                        <small class="text-muted">Loại sự kiện:</small><br>
-                                        <strong>${escapeHtml(event.TenLoaiSK)}</strong>
-                                    </div>
-                                </div>
-                                <div class="row mb-3">
-                                    <div class="col-6">
-                                        <small class="text-muted">Số người:</small><br>
-                                        <strong>${Number(event.SoNguoiDuKien).toLocaleString()}</strong>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted">Ngân sách:</small><br>
-                                        <strong>${Number(event.NganSach).toLocaleString()} VNĐ</strong>
+                                        <small class="text-muted" style="font-size: 0.75rem;">Loại sự kiện:</small><br>
+                                        <strong style="font-size: 0.9rem;">${escapeHtml(event.TenLoaiSK)}</strong>
                                     </div>
                                 </div>
-                                <div class="mb-3">
-                                    <small class="text-muted">Khách hàng:</small><br>
-                                    <strong>${escapeHtml(event.TenKhachHang)}</strong><br>
-                                    <small class="text-muted">${escapeHtml(event.SoDienThoai)}</small>
+                                <div class="row mb-2">
+                                    <div class="col-6">
+                                        <small class="text-muted" style="font-size: 0.75rem;">Số người:</small><br>
+                                        <strong style="font-size: 0.9rem;">${Number(event.SoNguoiDuKien).toLocaleString()}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted" style="font-size: 0.75rem;">Ngân sách:</small><br>
+                                        <strong style="font-size: 0.9rem;">${Number(event.NganSach).toLocaleString()} VNĐ</strong>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted" style="font-size: 0.75rem;">Khách hàng:</small><br>
+                                    <strong style="font-size: 0.9rem;">${escapeHtml(event.TenKhachHang)}</strong><br>
+                                    <small class="text-muted" style="font-size: 0.75rem;">${escapeHtml(event.SoDienThoai)}</small>
                                 </div>
                                 
-                                <!-- Existing Plans for this Event -->
-                                <div class="mb-3" id="plans-${event.ID_DatLich}">
-                                    <small class="text-muted">Kế hoạch đã tạo:</small>
+                                <!-- Existing Plans for this Event - Hidden, will show in modal -->
+                                <div class="mb-3" id="plans-${event.ID_DatLich}" style="display: none;">
                                     <div class="event-plans-list" id="event-plans-${event.ID_DatLich}">
                                         <!-- Plans will be loaded here -->
                                     </div>
                                 </div>
                                 
-                                <div class="d-grid gap-2">
+                                <div class="d-grid gap-2 mt-auto">
                                     <!-- Buttons will be updated by loadEventPlans() -->
                                     <div class="text-center text-muted">
                                         <i class="fas fa-spinner fa-spin"></i> Đang tải...
@@ -1919,7 +1894,7 @@ try {
             });
         }
         
-        // Tải kế hoạch cho một sự kiện cụ thể
+        // Tải kế hoạch cho một sự kiện cụ thể (chỉ để cập nhật nút, không hiển thị trong card)
         function loadEventPlans(eventId) {
             const eventPlansContainer = document.getElementById(`event-plans-${eventId}`);
             if (!eventPlansContainer) return;
@@ -1935,13 +1910,21 @@ try {
                 console.log('Plans data for event', eventId, ':', data);
                 
                 if (!data.success || !data.plans || data.plans.length === 0) {
-                    eventPlansContainer.innerHTML = '<small class="text-muted">Chưa có kế hoạch</small>';
+                    // Không hiển thị gì trong card, chỉ cập nhật nút
+                    eventPlansContainer.innerHTML = '';
+                    
+                    // Ẩn status badge nếu không có kế hoạch
+                    const statusBadgeContainer = document.getElementById(`plan-status-${eventId}`);
+                    if (statusBadgeContainer) {
+                        statusBadgeContainer.innerHTML = '';
+                    }
+                    
                     // Cập nhật các nút thẻ sự kiện dựa trên việc kế hoạch có tồn tại không
                     updateEventCardButtons(eventId, false, false);
                     return;
                 }
                 
-                // Chỉ hiển thị kế hoạch đầu tiên (mỗi sự kiện chỉ nên có một kế hoạch)
+                // Lưu kế hoạch vào container (ẩn) để dùng khi xem
                 const plan = data.plans[0];
                 const allStepsCompleted = plan.TrangThai === 'Hoàn thành';
                 
@@ -2005,13 +1988,147 @@ try {
             
                 eventPlansContainer.innerHTML = html;
                 
+                // Hiển thị trạng thái bên ngoài card
+                const statusBadgeContainer = document.getElementById(`plan-status-${eventId}`);
+                if (statusBadgeContainer) {
+                    const statusBadgeClass = plan.TrangThai === 'Hoàn thành' ? 'success' : 
+                                           plan.TrangThai === 'Đang thực hiện' ? 'warning' : 'secondary';
+                    const statusIcon = plan.TrangThai === 'Hoàn thành' ? 'check-circle' : 
+                                     plan.TrangThai === 'Đang thực hiện' ? 'spinner' : 'clock';
+                    const statusIconClass = plan.TrangThai === 'Đang thực hiện' ? 'fa-spin' : '';
+                    statusBadgeContainer.innerHTML = `
+                        <span class="badge bg-${statusBadgeClass}">
+                            <i class="fas fa-${statusIcon} ${statusIconClass} me-1"></i>
+                            ${escapeHtml(plan.TrangThai)}
+                        </span>
+                    `;
+                }
+                
                 // Cập nhật các nút thẻ sự kiện dựa trên trạng thái kế hoạch
                 updateEventCardButtons(eventId, true, allStepsCompleted);
             })
             .catch(error => {
                 console.error('Error loading event plans:', error);
-                eventPlansContainer.innerHTML = '<small class="text-danger">Lỗi khi tải kế hoạch</small>';
+                eventPlansContainer.innerHTML = '';
+                
+                // Ẩn status badge khi có lỗi
+                const statusBadgeContainer = document.getElementById(`plan-status-${eventId}`);
+                if (statusBadgeContainer) {
+                    statusBadgeContainer.innerHTML = '';
+                }
+                
                 updateEventCardButtons(eventId, false, false);
+            });
+        }
+        
+        // Hàm xem kế hoạch trong modal
+        function viewEventPlans(eventId) {
+            const modalContent = document.getElementById('viewEventPlansContent');
+            const modalTitle = document.querySelector('#viewEventPlansModal .modal-title');
+            const event = approvedEvents.find(e => e.ID_DatLich == eventId);
+            
+            if (!modalContent) {
+                alert('Không tìm thấy modal');
+                return;
+            }
+            
+            // Cập nhật title modal với tên sự kiện
+            if (modalTitle && event) {
+                modalTitle.innerHTML = `<i class="fas fa-list-check"></i> Kế hoạch: ${escapeHtml(event.TenSuKien)}`;
+            }
+            
+            // Hiển thị loading
+            modalContent.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x text-muted"></i><p class="text-muted mt-2">Đang tải kế hoạch...</p></div>';
+            
+            // Mở modal trước
+            const modal = new bootstrap.Modal(document.getElementById('viewEventPlansModal'));
+            modal.show();
+            
+            // Tải kế hoạch từ backend
+            fetch(`../src/controllers/event-planning.php?action=get_plans&event_id=${eventId}`, {
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success || !data.plans || data.plans.length === 0) {
+                    modalContent.innerHTML = '<div class="text-center py-4"><p class="text-muted">Chưa có kế hoạch cho sự kiện này</p></div>';
+                    return;
+                }
+                
+                const plan = data.plans[0];
+                const allStepsCompleted = plan.TrangThai === 'Hoàn thành';
+                
+                // Xử lý định dạng ngày
+                let startDate, endDate;
+                try {
+                    if (plan.NgayBatDau.includes(' ')) {
+                        startDate = new Date(plan.NgayBatDau).toLocaleDateString('vi-VN');
+                    } else {
+                        startDate = new Date(plan.NgayBatDau).toLocaleDateString('vi-VN');
+                    }
+                    
+                    if (plan.NgayKetThuc.includes(' ')) {
+                        endDate = new Date(plan.NgayKetThuc).toLocaleDateString('vi-VN');
+                    } else {
+                        endDate = new Date(plan.NgayKetThuc).toLocaleDateString('vi-VN');
+                    }
+                } catch (e) {
+                    startDate = plan.NgayBatDau || 'N/A';
+                    endDate = plan.NgayKetThuc || 'N/A';
+                }
+                
+                const statusClass = plan.TrangThai === 'Hoàn thành' ? 'success' : 
+                                  plan.TrangThai === 'Đang thực hiện' ? 'warning' : 'secondary';
+                
+                let html = `
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h5 class="mb-2">${escapeHtml(plan.TenKeHoach)}</h5>
+                                    <span class="badge bg-${statusClass} fs-6">${escapeHtml(plan.TrangThai)}</span>
+                                </div>
+                                ${!allStepsCompleted ? `
+                                <button class="btn btn-sm btn-outline-primary" onclick="manageSteps(${eventId}, '${escapeHtml(plan.TenKeHoach)}')">
+                                    <i class="fas fa-cogs me-1"></i> Quản lý bước
+                                </button>
+                                ` : ''}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <small class="text-muted d-block mb-1">Thời gian:</small>
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fas fa-calendar text-success"></i>
+                                    <span>${startDate} - ${endDate}</span>
+                                </div>
+                            </div>
+                            
+                            ${plan.NoiDung ? `
+                            <div class="mb-3">
+                                <small class="text-muted d-block mb-1">Nội dung:</small>
+                                <p class="mb-0">${escapeHtml(plan.NoiDung)}</p>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="mb-3">
+                                <small class="text-muted d-block mb-1">Nhân viên phụ trách:</small>
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fas fa-user text-warning"></i>
+                                    ${plan.TenNhanVien ? `
+                                        <span class="fw-bold">${escapeHtml(plan.TenNhanVien)}</span>
+                                        ${plan.ChucVu ? `<small class="text-muted">- ${escapeHtml(plan.ChucVu)}</small>` : ''}
+                                    ` : '<span class="text-muted">Chưa phân công</span>'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                modalContent.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading event plans:', error);
+                modalContent.innerHTML = '<div class="text-center py-4"><p class="text-danger">Lỗi khi tải kế hoạch</p></div>';
             });
         }
         
@@ -2023,41 +2140,35 @@ try {
             const buttonContainer = eventCard.querySelector('.d-grid.gap-2');
             if (!buttonContainer) return;
             
+            // Đảm bảo button container có mt-auto để đẩy xuống dưới cùng
+            if (!buttonContainer.classList.contains('mt-auto')) {
+                buttonContainer.classList.add('mt-auto');
+            }
+            
             const event = approvedEvents.find(e => e.ID_DatLich == eventId);
             if (!event) return;
             
             // Nếu sự kiện đã hoàn thành, hiển thị chế độ chỉ đọc
             if (event.TrangThaiSuKien === 'Hoàn thành') {
                 buttonContainer.innerHTML = `
-                    <div class="alert alert-success mb-0">
-                        <i class="fas fa-check-circle"></i> Sự kiện đã hoàn thành - Chỉ được xem
-                    </div>
-                    <button class="btn btn-outline-info" onclick="manageSteps(${eventId}, '${escapeHtml(event.TenSuKien)}')">
-                        <i class="fas fa-eye"></i> Xem kế hoạch
+                    <button class="btn btn-outline-info btn-sm" onclick="viewEventPlans(${eventId})">
+                        <i class="fas fa-eye me-1"></i> Xem kế hoạch
                     </button>
                 `;
                 return;
             }
             
-            // Nếu kế hoạch tồn tại và tất cả các bước đã hoàn thành, hiển thị chế độ chỉ đọc
-            if (hasPlan && allStepsCompleted) {
+            // Nếu kế hoạch tồn tại, hiển thị nút xem kế hoạch
+            if (hasPlan) {
                 buttonContainer.innerHTML = `
-                    <div class="alert alert-info mb-0">
-                        <i class="fas fa-info-circle"></i> Tất cả các bước đã hoàn thành - Chỉ được xem
-                    </div>
-                    <button class="btn btn-outline-info" onclick="manageSteps(${eventId}, '${escapeHtml(event.TenSuKien)}')">
-                        <i class="fas fa-eye"></i> Xem kế hoạch
+                    <button class="btn btn-outline-info btn-sm" onclick="viewEventPlans(${eventId})">
+                        <i class="fas fa-eye me-1"></i> Xem kế hoạch
                     </button>
-                `;
-                return;
-            }
-            
-            // Nếu kế hoạch tồn tại nhưng chưa hoàn thành tất cả các bước, chỉ hiển thị nút quản lý
-            if (hasPlan && !allStepsCompleted) {
-                buttonContainer.innerHTML = `
-                    <button class="btn btn-outline-info" onclick="manageSteps(${eventId}, '${escapeHtml(event.TenSuKien)}')">
-                        <i class="fas fa-cogs"></i> Quản lý bước
+                    ${!allStepsCompleted ? `
+                    <button class="btn btn-outline-primary btn-sm mt-2" onclick="manageSteps(${eventId}, '${escapeHtml(event.TenSuKien)}')">
+                        <i class="fas fa-cogs me-1"></i> Quản lý bước
                     </button>
+                    ` : ''}
                 `;
                 return;
             }
@@ -2456,16 +2567,81 @@ try {
                 // Load staff options
                 loadStaffOptions();
                 
-                // Set default dates and times
-                const today = new Date().toISOString().split('T')[0];
-                document.getElementById('startDate').value = today;
-                document.getElementById('startTime').value = '08:00';
-                document.getElementById('endTime').value = '17:00';
+                // Lấy ngày từ sự kiện nếu có
+                let startDateValue = '';
+                let startTimeValue = '';
+                let endDateValue = '';
+                let endTimeValue = '';
+                let minDate = '';
+                let maxDate = '';
                 
-                // Xóa các trường form
+                if (event && event.NgayBatDau && event.NgayKetThuc) {
+                    // Parse ngày từ sự kiện
+                    const eventStartDate = new Date(event.NgayBatDau);
+                    const eventEndDate = new Date(event.NgayKetThuc);
+                    
+                    // Set giá trị mặc định từ sự kiện
+                    startDateValue = eventStartDate.toISOString().split('T')[0];
+                    endDateValue = eventEndDate.toISOString().split('T')[0];
+                    
+                    // Lấy giờ từ sự kiện nếu có
+                    if (event.NgayBatDau.includes(' ') || event.NgayBatDau.includes('T')) {
+                        const timePart = event.NgayBatDau.includes(' ') 
+                            ? event.NgayBatDau.split(' ')[1] 
+                            : event.NgayBatDau.split('T')[1];
+                        if (timePart) {
+                            startTimeValue = timePart.substring(0, 5); // HH:MM
+                        }
+                    }
+                    
+                    if (event.NgayKetThuc.includes(' ') || event.NgayKetThuc.includes('T')) {
+                        const timePart = event.NgayKetThuc.includes(' ') 
+                            ? event.NgayKetThuc.split(' ')[1] 
+                            : event.NgayKetThuc.split('T')[1];
+                        if (timePart) {
+                            endTimeValue = timePart.substring(0, 5); // HH:MM
+                        }
+                    }
+                    
+                    // Set min và max date từ sự kiện (cho phép 1 ngày buffer)
+                    const minDateObj = new Date(eventStartDate);
+                    minDateObj.setDate(minDateObj.getDate() - 1);
+                    minDate = minDateObj.toISOString().split('T')[0];
+                    
+                    const maxDateObj = new Date(eventEndDate);
+                    maxDateObj.setDate(maxDateObj.getDate() + 1);
+                    maxDate = maxDateObj.toISOString().split('T')[0];
+                } else {
+                    // Nếu không có sự kiện, dùng ngày hôm nay
+                    const today = new Date().toISOString().split('T')[0];
+                    startDateValue = today;
+                    endDateValue = today;
+                }
+                
+                // Set giá trị cho form
+                const startDateInput = document.getElementById('startDate');
+                const endDateInput = document.getElementById('endDate');
+                const startTimeInput = document.getElementById('startTime');
+                const endTimeInput = document.getElementById('endTime');
+                
+                startDateInput.value = startDateValue;
+                startTimeInput.value = startTimeValue;
+                endDateInput.value = endDateValue;
+                endTimeInput.value = endTimeValue;
+                
+                // Set ràng buộc min và max
+                if (minDate) {
+                    startDateInput.setAttribute('min', minDate);
+                    endDateInput.setAttribute('min', minDate);
+                }
+                if (maxDate) {
+                    startDateInput.setAttribute('max', maxDate);
+                    endDateInput.setAttribute('max', maxDate);
+                }
+                
+                // Xóa các trường form khác
                 document.getElementById('planName').value = '';
                 document.getElementById('planContent').value = '';
-                document.getElementById('endDate').value = '';
                 document.getElementById('assignedStaff').value = '';
                 
                 const modal = new bootstrap.Modal(document.getElementById('createPlanModal'));
@@ -2719,19 +2895,36 @@ try {
                 .then(data => {
                     console.log('Steps data:', data);
                     if (data.success && data.steps && data.steps.length > 0) {
-                        // Tính phần trăm hoàn thành
+                        // Tính phần trăm hoàn thành (dựa trên nhân viên đã END)
                         const totalSteps = data.steps.length;
-                        const completedSteps = data.steps.filter(step => step.TrangThai === 'Hoàn thành').length;
-                        const inProgressSteps = data.steps.filter(step => step.TrangThai === 'Đang làm').length;
-                        const completionPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+                        let totalStaffTasks = 0;
+                        let completedStaffTasks = 0;
                         
+                        data.steps.forEach(step => {
+                            if (step.assignedStaff && step.assignedStaff.length > 0) {
+                                step.assignedStaff.forEach(staff => {
+                                    totalStaffTasks++;
+                                    if (staff.ThoiGianKetThucThucTe !== null) {
+                                        completedStaffTasks++;
+                                    }
+                                });
+                            }
+                        });
+                        
+                        const completionPercentage = totalStaffTasks > 0 ? Math.round((completedStaffTasks / totalStaffTasks) * 100) : 0;
+                        const completedSteps = data.steps.filter(step => {
+                            if (step.assignedStaff && step.assignedStaff.length > 0) {
+                                return step.assignedStaff.every(staff => staff.ThoiGianKetThucThucTe !== null);
+                            }
+                            return step.TrangThai === 'Hoàn thành';
+                        }).length;
                         // Kiểm tra xem tất cả các bước đã hoàn thành chưa - nếu có, đặt isReadOnly thành true
                         const allStepsCompleted = totalSteps > 0 && completedSteps === totalSteps;
                         if (allStepsCompleted) {
                             isReadOnly = true;
                         }
                         
-                        // Xây dựng HTML thanh tiến trình
+                        // Xây dựng HTML thống kê (không dùng progress bar, bỏ "Đang làm")
                         let html = `
                             <div class="mb-4">
                                 <div class="card border-0 shadow-sm">
@@ -2739,24 +2932,13 @@ try {
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <h6 class="mb-0">
                                                 <i class="fas fa-tasks me-2 text-primary"></i>
-                                                <strong>Tiến độ hoàn thành</strong>
+                                                <strong>Thống kê nhiệm vụ</strong>
                                             </h6>
                                             <span class="badge bg-primary fs-6">${completionPercentage}%</span>
                                         </div>
-                                        <div class="progress" style="height: 25px;">
-                                            <div class="progress-bar ${completionPercentage === 100 ? 'bg-success' : completionPercentage > 0 ? 'bg-warning progress-bar-striped progress-bar-animated' : 'bg-secondary'}" 
-                                                 role="progressbar" 
-                                                 style="width: ${completionPercentage}%" 
-                                                 aria-valuenow="${completionPercentage}" 
-                                                 aria-valuemin="0" 
-                                                 aria-valuemax="100">
-                                                ${completionPercentage}%
-                                            </div>
-                                        </div>
                                         <div class="mt-2 d-flex justify-content-between text-muted small">
-                                            <span><i class="fas fa-check-circle text-success me-1"></i>Hoàn thành: ${completedSteps}/${totalSteps}</span>
-                                            <span><i class="fas fa-spinner text-warning me-1"></i>Đang làm: ${inProgressSteps}</span>
-                                            <span><i class="fas fa-clock text-secondary me-1"></i>Chưa làm: ${totalSteps - completedSteps - inProgressSteps}</span>
+                                            <span><i class="fas fa-check-circle text-success me-1"></i>Hoàn thành: ${completedStaffTasks}/${totalStaffTasks}</span>
+                                            <span><i class="fas fa-clock text-secondary me-1"></i>Chưa làm: ${totalStaffTasks - completedStaffTasks}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -2765,22 +2947,28 @@ try {
                         
                         html += '<div class="timeline">';
                         data.steps.forEach((step, index) => {
-                            const statusClass = step.TrangThai === 'Hoàn thành' ? 'success' : 
-                                             step.TrangThai === 'Đang làm' ? 'warning' : 'secondary';
+                            const statusClass = step.TrangThai === 'Hoàn thành' ? 'success' : 'secondary';
                             
-                            // Parse progress percentage from Tiendo (format: "50%" or "0%")
-                            let progressValue = 0;
-                            if (step.Tiendo) {
-                                const progressMatch = step.Tiendo.toString().match(/(\d+)/);
-                                progressValue = progressMatch ? parseInt(progressMatch[1]) : 0;
-                            }
+                            // Kiểm tra xem có nhân viên nào đã START chưa (để ẩn nút chỉnh sửa/xóa)
+                            const hasStartedStaff = step.assignedStaff && step.assignedStaff.length > 0 && 
+                                                   step.assignedStaff.some(s => s.ThoiGianBatDauThucTe !== null);
                             
-                            // Determine progress bar color and animation
-                            let progressBarClass = 'bg-secondary';
-                            if (progressValue >= 100) {
-                                progressBarClass = 'bg-success';
-                            } else if (progressValue > 0) {
-                                progressBarClass = 'bg-warning progress-bar-striped progress-bar-animated';
+                            // Kiểm tra xem bước đã được công bố chưa
+                            const isPublished = step.DaCongBo == 1 || step.DaCongBo === true;
+                            
+                            // Tính KPI trung bình cho bước (nếu có nhân viên đã END)
+                            let avgKPI = null;
+                            let kpiCount = 0;
+                            if (step.assignedStaff && step.assignedStaff.length > 0) {
+                                step.assignedStaff.forEach(staff => {
+                                    if (staff.KPI !== null) {
+                                        avgKPI = (avgKPI === null ? 0 : avgKPI) + parseFloat(staff.KPI);
+                                        kpiCount++;
+                                    }
+                                });
+                                if (kpiCount > 0) {
+                                    avgKPI = avgKPI / kpiCount;
+                                }
                             }
                             
                             html += `
@@ -2795,126 +2983,144 @@ try {
                                                 <span class="badge bg-${statusClass}">${step.TrangThai}</span>
                                             </div>
                                         </div>
-                                        <div class="card-body">
-                                            <!-- Progress Bar for this step -->
+                                        <div class="card-body" style="padding: 1.5rem;">
+                                            ${step.MoTa ? `
                                             <div class="mb-3">
-                                                <div class="d-flex justify-content-end align-items-center mb-2">
-                                                    <span class="badge ${progressValue >= 100 ? 'bg-success' : progressValue > 0 ? 'bg-warning' : 'bg-secondary'} fs-6">${progressValue}%</span>
-                                                </div>
-                                                <div class="progress" style="height: 20px;">
-                                                    <div class="progress-bar ${progressBarClass}" 
-                                                         role="progressbar" 
-                                                         style="width: ${progressValue}%" 
-                                                         aria-valuenow="${progressValue}" 
-                                                         aria-valuemin="0" 
-                                                         aria-valuemax="100">
-                                                        ${progressValue}%
+                                                <h6 class="text-primary mb-2" style="font-size: 0.95rem; font-weight: 600;"><i class="fas fa-info-circle me-2"></i> Mô tả</h6>
+                                                <p class="text-muted mb-0" style="font-size: 0.9rem; line-height: 1.6;">${escapeHtml(step.MoTa)}</p>
+                                            </div>
+                                            ` : ''}
+                                            
+                                            <div class="d-flex gap-3 mb-3">
+                                                <div class="flex-grow-1">
+                                                    <div class="mb-3">
+                                                        <h6 class="text-success mb-2" style="font-size: 0.95rem; font-weight: 600;"><i class="fas fa-calendar-alt me-2"></i> Thời gian</h6>
+                                                        <div class="bg-light p-3 rounded border">
+                                                            <p class="mb-2" style="font-size: 0.9rem;"><strong style="color: #2c3e50;">Bắt đầu:</strong><br><span style="color: #495057;">${new Date(step.NgayBatDau).toLocaleString('vi-VN')}</span></p>
+                                                            <p class="mb-0" style="font-size: 0.9rem;"><strong style="color: #2c3e50;">Kết thúc:</strong><br><span style="color: #495057;">${new Date(step.NgayKetThuc).toLocaleString('vi-VN')}</span></p>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="text-info mb-2" style="font-size: 0.95rem; font-weight: 600;"><i class="fas fa-users me-2"></i> Nhân viên</h6>
+                                                            ${step.assignedStaff && step.assignedStaff.length > 0 ? `
+                                                            <div>
+                                                                ${step.assignedStaff.map(staff => {
+                                                                    const canStart = !staff.ThoiGianBatDauThucTe && !staff.ThoiGianKetThucThucTe;
+                                                                    const canEnd = staff.ThoiGianBatDauThucTe && !staff.ThoiGianKetThucThucTe;
+                                                                    const isCompleted = staff.ThoiGianKetThucThucTe !== null;
+                                                                    const kpiValue = staff.KPI !== null ? parseFloat(staff.KPI) : null;
+                                                                    const kpiDisplay = kpiValue !== null ? (kpiValue >= 0 ? `+${kpiValue.toFixed(2)}%` : `${kpiValue.toFixed(2)}%`) : '';
+                                                                    return `
+                                                                    <div class="mb-2 p-2 bg-light rounded border">
+                                                                        <div class="d-flex justify-content-between align-items-start mb-1">
+                                                                            <div>
+                                                                                <p class="mb-0" style="font-size: 0.9rem; font-weight: 600; color: #2c3e50;"><strong>${escapeHtml(staff.HoTen || 'N/A')}</strong></p>
+                                                                                ${staff.ChucVu ? `<p class="mb-0 text-secondary" style="font-size: 0.8rem;"><i class="fas fa-briefcase me-1"></i>${escapeHtml(staff.ChucVu)}</p>` : ''}
+                                                                            </div>
+                                                                            ${kpiValue !== null ? `
+                                                                            <div class="text-end">
+                                                                                <span class="badge ${kpiValue >= 0 ? 'bg-success' : 'bg-danger'}" style="font-size: 0.8rem; padding: 0.4rem 0.6rem; font-weight: 600;">
+                                                                                    <i class="fas fa-chart-line me-1"></i>KPI: ${kpiDisplay}
+                                                                                </span>
+                                                                            </div>
+                                                                            ` : ''}
+                                                                        </div>
+                                                                        ${staff.ThoiGianBatDauThucTe ? `
+                                                                        <div class="mb-1 p-1 bg-white rounded" style="font-size: 0.8rem;">
+                                                                            <i class="fas fa-play-circle text-success me-1"></i><strong>Bắt đầu:</strong> ${new Date(staff.ThoiGianBatDauThucTe).toLocaleString('vi-VN')}
+                                                                        </div>
+                                                                        ` : ''}
+                                                                        ${staff.ThoiGianKetThucThucTe ? `
+                                                                        <div class="mb-1 p-1 bg-white rounded" style="font-size: 0.8rem;">
+                                                                            <i class="fas fa-stop-circle text-danger me-1"></i><strong>Kết thúc:</strong> ${new Date(staff.ThoiGianKetThucThucTe).toLocaleString('vi-VN')}
+                                                                        </div>
+                                                                        ` : ''}
+                                                                        ${!isReadOnly ? `
+                                                                        <div class="d-grid gap-1 mt-2">
+                                                                            ${canEnd ? `
+                                                                            <button class="btn btn-danger btn-sm" onclick="endTask(${staff.ID_LLV})" title="Kết thúc nhiệm vụ" style="font-size: 0.8rem; padding: 0.4rem 0.75rem;">
+                                                                                <i class="fas fa-stop me-1"></i>END
+                                                                            </button>
+                                                                            ` : ''}
+                                                                            ${isCompleted ? `
+                                                                            <button class="btn btn-secondary btn-sm" disabled style="font-size: 0.8rem; padding: 0.4rem 0.75rem;">
+                                                                                <i class="fas fa-check me-1"></i>Đã hoàn thành
+                                                                            </button>
+                                                                            ` : ''}
+                                                                        </div>
+                                                                        ` : ''}
+                                                                    </div>
+                                                                    `;
+                                                                }).join('')}
+                                                            </div>
+                                                            ` : step.TenNhanVien ? `
+                                                            <div class="bg-light p-2 rounded border">
+                                                                <p class="mb-0" style="font-size: 0.9rem; font-weight: 600; color: #2c3e50;"><strong>${escapeHtml(step.TenNhanVien)}</strong></p>
+                                                                ${step.ChucVu ? `<p class="mb-0 text-secondary" style="font-size: 0.8rem;"><i class="fas fa-briefcase me-1"></i>${escapeHtml(step.ChucVu)}</p>` : ''}
+                                                            </div>
+                                                            ` : `
+                                                            <div class="text-center text-muted p-2 bg-light rounded border">
+                                                                <i class="fas fa-user-slash mb-1" style="font-size: 1.2rem;"></i>
+                                                                <p class="mb-0" style="font-size: 0.85rem;">Chưa phân công</p>
+                                                            </div>
+                                                            `}
                                                     </div>
                                                 </div>
-                                                ${step.GhiChuTienDo ? `
-                                                <small class="text-muted mt-1 d-block">
-                                                    <i class="fas fa-comment me-1"></i>${step.GhiChuTienDo}
-                                                </small>
+                                                
+                                                ${!isReadOnly && !hasStartedStaff ? `
+                                                <div class="flex-shrink-0" style="align-self: flex-start;">
+                                                    <div class="d-flex flex-column gap-2">
+                                                        ${!isPublished ? `
+                                                        <button class="btn btn-success btn-sm" onclick="publishStep(${step.ID_ChiTiet})" title="Công bố" style="width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                                                            <i class="fas fa-bullhorn"></i>
+                                                        </button>
+                                                        ` : `
+                                                        <span class="badge bg-success" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;" title="Đã công bố">
+                                                            <i class="fas fa-check"></i>
+                                                        </span>
+                                                        `}
+                                                        <button class="btn btn-outline-info btn-sm" onclick="editStep(${step.ID_ChiTiet})" title="Chỉnh sửa" style="width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button class="btn btn-outline-danger btn-sm" onclick="deleteStep(${step.ID_ChiTiet})" title="Xóa" style="width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
                                                 ` : ''}
                                             </div>
                                             
-                                            <div class="row">
-                                                <div class="${isReadOnly ? 'col-12' : 'col-md-8'}">
-                                                    ${step.MoTa ? `
-                                                    <div class="mb-3">
-                                                        <h6 class="text-primary"><i class="fas fa-info-circle"></i> Mô tả</h6>
-                                                        <p class="text-muted mb-0">${step.MoTa}</p>
-                                                    </div>
-                                                    ` : ''}
-                                                    
-                                                    <div class="row mb-3">
-                                                        <div class="col-md-6">
-                                                            <h6 class="text-success"><i class="fas fa-calendar-alt"></i> Thời gian</h6>
-                                                            <p class="mb-1"><strong>Bắt đầu:</strong> ${new Date(step.NgayBatDau).toLocaleString('vi-VN')}</p>
-                                                            <p class="mb-0"><strong>Kết thúc:</strong> ${new Date(step.NgayKetThuc).toLocaleString('vi-VN')}</p>
-                                                        </div>
-                                                        <div class="col-md-6">
-                                                            <h6 class="text-info"><i class="fas fa-users"></i> Nhân viên</h6>
-                                                            ${step.assignedStaff && step.assignedStaff.length > 0 ? `
-                                                            <div>
-                                                                ${step.assignedStaff.map(staff => `
-                                                                    <div class="mb-2 p-2 bg-light rounded">
-                                                                        <p class="mb-1"><strong>${escapeHtml(staff.HoTen || 'N/A')}</strong></p>
-                                                                        ${staff.ChucVu ? `<p class="mb-0 text-secondary small"><i class="fas fa-briefcase me-1"></i>${escapeHtml(staff.ChucVu)}</p>` : ''}
-                                                                    </div>
-                                                                `).join('')}
-                                                            </div>
-                                                            ` : step.TenNhanVien ? `
-                                                            <div class="d-flex align-items-center">
-                                                                <div>
-                                                                    <p class="mb-1"><strong>${escapeHtml(step.TenNhanVien)}</strong></p>
-                                                                    ${step.ChucVu ? `<p class="mb-0 text-secondary small"><i class="fas fa-briefcase me-1"></i>${escapeHtml(step.ChucVu)}</p>` : ''}
-                                                                </div>
-                                                            </div>
-                                                            ` : `
-                                                            <div class="text-center text-muted">
-                                                                <i class="fas fa-user-slash fa-2x mb-2"></i>
-                                                                <p class="mb-0">Chưa phân công nhân viên</p>
-                                                                <small>Click "Chỉnh sửa" để phân công</small>
-                                                            </div>
-                                                            `}
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    ${(() => {
-                                                        // Extract note from MoTa if it contains [Ghi chú: ...]
-                                                        let note = '';
-                                                        if (step.MoTa) {
-                                                            const noteMatch = step.MoTa.match(/\[Ghi chú:\s*([^\]]+)\]/);
-                                                            if (noteMatch) {
-                                                                note = noteMatch[1].trim();
-                                                            }
-                                                        }
-                                                        return note ? `
-                                                    <div class="mb-3">
-                                                        <h6 class="text-warning"><i class="fas fa-sticky-note"></i> Ghi chú</h6>
-                                                        <div class="alert alert-light py-2">
-                                                            <p class="mb-0">${escapeHtml(note)}</p>
-                                                        </div>
-                                                    </div>
-                                                    ` : '';
-                                                    })()}
-                                                    
-                                                    ${isReadOnly ? `
-                                                    <div class="mt-3">
-                                                        <div class="alert alert-success d-flex align-items-center mb-0" role="alert">
-                                                            <i class="fas fa-check-circle fa-2x me-3"></i>
-                                                            <div>
-                                                                <strong>Sự kiện đã hoàn thành</strong>
-                                                                <p class="mb-0 small">Bạn đang xem ở chế độ chỉ đọc. Không thể chỉnh sửa hoặc xóa các bước.</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    ` : ''}
+                                            ${(() => {
+                                                // Extract note from MoTa if it contains [Ghi chú: ...]
+                                                let note = '';
+                                                if (step.MoTa) {
+                                                    const noteMatch = step.MoTa.match(/\[Ghi chú:\s*([^\]]+)\]/);
+                                                    if (noteMatch) {
+                                                        note = noteMatch[1].trim();
+                                                    }
+                                                }
+                                                return note ? `
+                                            <div class="mb-3">
+                                                <h6 class="text-warning"><i class="fas fa-sticky-note"></i> Ghi chú</h6>
+                                                <div class="alert alert-light py-2">
+                                                    <p class="mb-0">${escapeHtml(note)}</p>
                                                 </div>
-                                                
-                                                ${!isReadOnly ? `
-                                                <div class="col-md-4">
-                                                    <div class="text-center">
-                                                        <h6 class="text-primary mb-3">Thao tác</h6>
-                                                        <div class="d-grid gap-2">
-                                                            <button class="btn btn-outline-success btn-sm" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Hoàn thành')" title="Hoàn thành">
-                                                                <i class="fas fa-check me-1"></i>Hoàn thành
-                                                            </button>
-                                                            <button class="btn btn-outline-warning btn-sm" onclick="updateStepStatus(${step.ID_ChiTiet}, 'Đang làm')" title="Đang làm">
-                                                                <i class="fas fa-play me-1"></i>Đang làm
-                                                            </button>
-                                                            <button class="btn btn-outline-info btn-sm" onclick="editStep(${step.ID_ChiTiet})" title="Chỉnh sửa">
-                                                                <i class="fas fa-edit me-1"></i>Chỉnh sửa
-                                                            </button>
-                                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteStep(${step.ID_ChiTiet})" title="Xóa">
-                                                                <i class="fas fa-trash me-1"></i>Xóa
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                ` : ''}
                                             </div>
+                                            ` : '';
+                                            })()}
+                                            
+                                            ${isReadOnly ? `
+                                            <div class="mt-3">
+                                                <div class="alert alert-success d-flex align-items-center mb-0" role="alert">
+                                                    <i class="fas fa-check-circle fa-2x me-3"></i>
+                                                    <div>
+                                                        <strong>Sự kiện đã hoàn thành</strong>
+                                                        <p class="mb-0 small">Bạn đang xem ở chế độ chỉ đọc. Không thể chỉnh sửa hoặc xóa các bước.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            ` : ''}
+                                        </div>
                                         </div>
                                     </div>
                                 </div>
@@ -3355,6 +3561,73 @@ try {
             });
         }
 
+        function startTask(taskId) {
+            const formData = new FormData();
+            formData.append('action', 'start_task');
+            formData.append('task_id', taskId);
+            formData.append('ID_LLV', taskId);
+
+            fetch('../src/controllers/event-planning.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(handleFetchResponse)
+            .then(data => {
+                if (data.success) {
+                    alert('Đã bắt đầu nhiệm vụ');
+                    const eventId = document.getElementById('stepEventId')?.value;
+                    if (eventId) {
+                        loadSteps(eventId);
+                    }
+                } else {
+                    alert('Lỗi: ' + (data.error || data.message || 'Không xác định'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi bắt đầu nhiệm vụ: ' + error.message);
+            });
+        }
+
+        function endTask(taskId) {
+            if (!confirm('Bạn có chắc muốn kết thúc nhiệm vụ này?')) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'end_task');
+            formData.append('task_id', taskId);
+            formData.append('ID_LLV', taskId);
+
+            fetch('../src/controllers/event-planning.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(handleFetchResponse)
+            .then(data => {
+                if (data.success) {
+                    let message = 'Đã kết thúc nhiệm vụ';
+                    if (data.kpiDisplay) {
+                        const kpiClass = parseFloat(data.kpi) >= 0 ? 'text-success' : 'text-danger';
+                        message += `\nKPI: <span class="${kpiClass}">${data.kpiDisplay}</span>`;
+                    }
+                    alert(message);
+                    const eventId = document.getElementById('stepEventId')?.value;
+                    if (eventId) {
+                        loadSteps(eventId);
+                    }
+                } else {
+                    alert('Lỗi: ' + (data.error || data.message || 'Không xác định'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi kết thúc nhiệm vụ: ' + error.message);
+            });
+        }
+
         function updateStepStatus(stepId, status) {
             // Kiểm tra xem sự kiện đã hoàn thành chưa
             const eventId = document.getElementById('stepEventId')?.value;
@@ -3419,6 +3692,41 @@ try {
             .catch(error => {
                 console.error('Error:', error);
                     alert('Có lỗi xảy ra khi xóa bước thực hiện: ' + error.message);
+                });
+            }
+        }
+
+        function publishStep(stepId) {
+            // Kiểm tra xem sự kiện đã hoàn thành chưa
+            const eventId = document.getElementById('stepEventId')?.value;
+            const event = approvedEvents.find(e => e.ID_DatLich == eventId);
+            if (event && event.TrangThaiSuKien === 'Hoàn thành') {
+                alert('Sự kiện đã hoàn thành, không thể công bố bước');
+                return;
+            }
+            
+            if (confirm('Bạn có chắc muốn công bố bước này? Sau khi công bố, nhân viên sẽ thấy nhiệm vụ của mình.')) {
+                const formData = new FormData();
+                formData.append('action', 'publish_step');
+                formData.append('stepId', stepId);
+
+                fetch('../src/controllers/event-planning.php', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                })
+                .then(handleFetchResponse)
+                .then(data => {
+                    if (data.success) {
+                        AdminPanel.showSuccess(data.message || 'Đã công bố bước thành công');
+                        loadSteps(document.getElementById('stepEventId').value);
+                    } else {
+                        AdminPanel.showError(data.error || data.message || 'Lỗi không xác định');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    AdminPanel.showError('Có lỗi xảy ra khi công bố bước: ' + error.message);
                 });
             }
         }

@@ -7,10 +7,29 @@ include 'includes/admin-header.php';
         <div class="page-header">
             <h1 class="page-title">
                 <i class="fas fa-tools"></i>
-                Quản lý thiết bị
+                Quản lý thiết bị & Combo
             </h1>
-            <p class="page-subtitle">Quản lý thông tin và trạng thái các thiết bị sự kiện</p>
+            <p class="page-subtitle">Quản lý thông tin thiết bị và combo thiết bị sự kiện</p>
         </div>
+
+        <!-- Tabs Navigation -->
+        <ul class="nav nav-tabs mb-4" id="managementTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="devices-tab" data-bs-toggle="tab" data-bs-target="#devices" type="button" role="tab" aria-controls="devices" aria-selected="true">
+                    <i class="fas fa-tools"></i> Thiết bị
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="combos-tab" data-bs-toggle="tab" data-bs-target="#combos" type="button" role="tab" aria-controls="combos" aria-selected="false">
+                    <i class="fas fa-box"></i> Combo thiết bị
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="managementTabsContent">
+            <!-- Devices Tab -->
+            <div class="tab-pane fade show active" id="devices" role="tabpanel" aria-labelledby="devices-tab">
 
         <!-- Statistics Cards -->
         <div class="stats-cards">
@@ -164,44 +183,59 @@ include 'includes/admin-header.php';
                         
                         <div class="row">
                             <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Tên thiết bị <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="deviceName" name="TenThietBi" required>
-                                    </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Tên thiết bị <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="deviceName" name="TenThietBi" required>
+                                </div>
                             </div>
                             <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Loại thiết bị <span class="text-danger">*</span></label>
-                                        <select class="form-select" id="deviceType" name="LoaiThietBi" required>
-                                    <option value="">Chọn loại thiết bị</option>
-                                    <option value="Âm thanh">Âm thanh</option>
-                                    <option value="Hình ảnh">Hình ảnh</option>
-                                    <option value="Ánh sáng">Ánh sáng</option>
-                                    <option value="Phụ trợ">Phụ trợ</option>
-                                </select>
+                                <div class="mb-3">
+                                    <label class="form-label">Loại thiết bị <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="deviceType" name="LoaiThietBi" required>
+                                        <option value="">Chọn loại thiết bị</option>
+                                        <option value="Âm thanh">Âm thanh</option>
+                                        <option value="Hình ảnh">Hình ảnh</option>
+                                        <option value="Ánh sáng">Ánh sáng</option>
+                                        <option value="Phụ trợ">Phụ trợ</option>
+                                    </select>
+                                </div>
                             </div>
-                        </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Mô tả</label>
-                                <textarea class="form-control" id="deviceDescription" name="MoTa" rows="3"></textarea>
                         </div>
                         
                         <div class="row">
                             <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Giá thuê (VNĐ) <span class="text-danger">*</span></label>
-                                        <input type="number" class="form-control" id="devicePrice" name="GiaThue" min="0" step="1000" required>
-                                    </div>
-                            </div>
-                            <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Số lượng <span class="text-danger">*</span></label>
-                                        <input type="number" class="form-control" id="deviceQuantity" name="SoLuong" min="1" required>
-                        </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Hãng sản xuất</label>
+                                    <input type="text" class="form-control" id="deviceManufacturer" name="HangSX" placeholder="Nhập hãng sản xuất">
                                 </div>
                             </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Đơn vị tính</label>
+                                    <input type="text" class="form-control" id="deviceUnit" name="DonViTinh" placeholder="Ví dụ: Cái, Bộ" value="Cái">
+                                </div>
+                            </div>
+                        </div>
+                            
+                        <div class="mb-3">
+                            <label class="form-label">Mô tả</label>
+                            <textarea class="form-control" id="deviceDescription" name="MoTa" rows="3" placeholder="Nhập mô tả thiết bị"></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Giá thuê (VNĐ) <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="devicePrice" name="GiaThue" min="0" step="1000" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Số lượng <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="deviceQuantity" name="SoLuong" min="1" required>
+                                </div>
+                            </div>
+                        </div>
                             
                             <div class="mb-3">
                                 <label class="form-label">Trạng thái <span class="text-danger">*</span></label>
@@ -223,11 +257,6 @@ include 'includes/admin-header.php';
                             </div>
                             <input type="file" class="form-control" id="deviceImage" name="HinhAnh" accept="image/*">
                             <small class="form-text text-muted">Chọn hình ảnh mới để thay thế hình ảnh hiện tại</small>
-                        </div>
-                        
-                        <div class="mb-3">
-                                <label class="form-label">Ghi chú</label>
-                                <textarea class="form-control" id="deviceNote" name="GhiChu" rows="2"></textarea>
                         </div>
                     </form>
                 </div>
@@ -253,6 +282,195 @@ include 'includes/admin-header.php';
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body" id="viewModalBody">
+                        <!-- Content will be loaded via AJAX -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+            </div>
+            <!-- End Devices Tab -->
+
+            <!-- Combos Tab -->
+            <div class="tab-pane fade" id="combos" role="tabpanel" aria-labelledby="combos-tab">
+                <!-- Combo Statistics Cards -->
+                <div class="stats-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon total">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <div class="stat-number" id="totalCombos">0</div>
+                        <div class="stat-label">Tổng combo</div>
+                    </div>
+                </div>
+
+                <!-- Combo Filter Section -->
+                <div class="filter-section mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Tìm kiếm</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="comboSearchInput" 
+                                       placeholder="Nhập tên combo...">
+                                <button class="btn btn-outline-secondary" type="button" onclick="clearComboSearch()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Giá từ (VNĐ)</label>
+                            <input type="number" class="form-control" id="comboPriceMin" 
+                                   placeholder="Từ" min="0" step="1000">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Giá đến (VNĐ)</label>
+                            <input type="number" class="form-control" id="comboPriceMax" 
+                                   placeholder="Đến" min="0" step="1000">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tần suất từ</label>
+                            <input type="number" class="form-control" id="comboUsageMin" 
+                                   placeholder="Từ" min="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tần suất đến</label>
+                            <input type="number" class="form-control" id="comboUsageMax" 
+                                   placeholder="Đến" min="0">
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-12">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-primary" onclick="applyComboFilters()">
+                                    <i class="fas fa-filter"></i> Lọc
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="clearComboFilters()">
+                                    <i class="fas fa-times"></i> Xóa bộ lọc
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Combo Table Container -->
+                <div class="table-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3 class="mb-0">
+                            <i class="fas fa-box"></i>
+                            Danh sách combo thiết bị
+                        </h3>
+                        <div class="action-buttons">
+                            <button class="btn btn-success" onclick="showAddComboModal()">
+                                <i class="fas fa-plus"></i> Thêm combo
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="combosTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Tên combo</th>
+                                    <th>Mô tả</th>
+                                    <th>Số thiết bị</th>
+                                    <th>Giá combo</th>
+                                    <th>Số lần sử dụng</th>
+                                    <th>Ngày tạo</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Data will be loaded via AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- End Combos Tab -->
+        </div>
+        <!-- End Tab Content -->
+
+        <!-- Add/Edit Combo Modal -->
+        <div class="modal fade" id="comboModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="comboModalTitle">
+                            <i class="fas fa-plus"></i>
+                            Thêm combo mới
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="comboForm">
+                            <input type="hidden" id="comboId" name="ID_Combo">
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Tên combo <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="comboName" name="TenCombo" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Giá combo (VNĐ) <span class="text-danger">*</span></label>
+                                        <input type="number" class="form-control" id="comboPrice" name="GiaCombo" min="0" step="1000" required>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Mô tả</label>
+                                <textarea class="form-control" id="comboDescription" name="MoTa" rows="3"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Thiết bị đã chọn <span class="text-danger">*</span></label>
+                                <div id="selectedEquipmentList" class="border rounded p-3 mb-3" style="min-height: 80px; max-height: 200px; overflow-y: auto; background-color: #f8f9fa;">
+                                    <p class="text-muted mb-0">Chưa có thiết bị nào được chọn</p>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Chọn thiết bị <span class="text-danger">*</span></label>
+                                <div class="border rounded p-2" style="max-height: 350px; overflow-y: auto;">
+                                    <div id="equipmentList" class="row g-2">
+                                        <!-- Equipment items will be loaded here -->
+                                    </div>
+                                </div>
+                                <small class="form-text text-muted">Chọn thiết bị và số lượng cho combo</small>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="button" class="btn btn-primary" onclick="saveCombo()">
+                            <i class="fas fa-save"></i> Lưu
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Combo Modal -->
+        <div class="modal fade" id="viewComboModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-lg" style="max-width: 800px; width: auto;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-eye"></i>
+                            Chi tiết combo
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="viewComboModalBody" style="min-height: 200px;">
                         <!-- Content will be loaded via AJAX -->
                     </div>
                     <div class="modal-footer">
@@ -294,18 +512,204 @@ include 'includes/admin-header.php';
             position: relative;
             border-radius: 8px;
         }
+
+        /* Fix table width issues */
+        .table-container {
+            width: 100%;
+            overflow-x: visible;
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .table-responsive table {
+            width: 100% !important;
+            min-width: 100%;
+            table-layout: auto;
+        }
+
+        /* Đảm bảo DataTable không bị thu nhỏ */
+        #devicesTable,
+        #combosTable {
+            width: 100% !important;
+            table-layout: auto !important;
+        }
+
+        #devicesTable_wrapper,
+        #combosTable_wrapper {
+            width: 100% !important;
+        }
+
+        #devicesTable_wrapper .dataTables_scroll,
+        #combosTable_wrapper .dataTables_scroll {
+            width: 100% !important;
+        }
+
+        /* Fix cho tab content */
+        .tab-content {
+            width: 100%;
+        }
+
+        .tab-pane {
+            width: 100%;
+        }
+
+        /* Combo Modal - Giống device modal nhưng to hơn một chút */
+        #comboModal .modal-dialog {
+            max-width: 900px !important;
+        }
+
+        #comboModal .modal-content {
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* Equipment Card Styles - Nhỏ gọn hơn */
+        .equipment-card {
+            font-size: 0.85rem;
+        }
+
+        .equipment-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .equipment-card.border-primary {
+            border-width: 2px !important;
+        }
+
+        /* Selected Equipment List - Dễ quan sát hơn */
+        #selectedEquipmentList .table thead th {
+            position: sticky;
+            top: 0;
+            background-color: #f8f9fa;
+            z-index: 10;
+            font-size: 0.8rem;
+            padding: 0.5rem;
+        }
+
+        #selectedEquipmentList .table tbody td {
+            padding: 0.5rem;
+            vertical-align: middle;
+        }
+
+        #selectedEquipmentList .table tfoot th {
+            font-weight: 700;
+            padding: 0.75rem 0.5rem;
+        }
+
+        /* Responsive cho mobile */
+        @media (max-width: 768px) {
+            #comboModal .modal-dialog {
+                max-width: 95% !important;
+            }
+            
+            .equipment-card {
+                font-size: 0.8rem;
+            }
+        }
     </style>
 
     <script>
         let devicesTable;
+        let combosTable;
         let currentFilters = {};
+        let allDevices = [];
+        let selectedComboEquipment = [];
+        let comboPriceUsageFilter = null;
 
         // Khởi tạo trang
         document.addEventListener('DOMContentLoaded', function() {
+            // Restore tab từ localStorage
+            restoreActiveTab();
+            
             initializeDataTable();
+            initializeCombosTable();
             loadStatistics();
+            loadComboStatistics();
             setupEventListeners();
+            loadAllDevices();
+            
+            // Tab change events - Lưu tab hiện tại vào localStorage
+            const devicesTab = document.querySelector('#devices-tab');
+            const combosTab = document.querySelector('#combos-tab');
+            
+            if (devicesTab) {
+                devicesTab.addEventListener('shown.bs.tab', function() {
+                    localStorage.setItem('deviceManagementTab', 'devices');
+                    // Đóng tất cả modal đang mở và trigger resize
+                    const openModals = document.querySelectorAll('.modal.show');
+                    openModals.forEach(modalEl => {
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) {
+                            modal.hide();
+                        }
+                    });
+                    // Reload và adjust devices table
+                    if (devicesTable) {
+                        setTimeout(() => {
+                            devicesTable.columns.adjust();
+                            window.dispatchEvent(new Event('resize'));
+                        }, 150);
+                    }
+                });
+            }
+            
+            if (combosTab) {
+                combosTab.addEventListener('shown.bs.tab', function() {
+                    localStorage.setItem('deviceManagementTab', 'combos');
+                    // Đóng tất cả modal đang mở và trigger resize
+                    const openModals = document.querySelectorAll('.modal.show');
+                    openModals.forEach(modalEl => {
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) {
+                            modal.hide();
+                        }
+                    });
+                    // Reload và adjust combos table
+                    if (combosTable) {
+                        combosTable.ajax.reload(null, false);
+                        setTimeout(() => {
+                            combosTable.columns.adjust();
+                            window.dispatchEvent(new Event('resize'));
+                        }, 150);
+                    }
+                });
+            }
         });
+
+        // Restore active tab từ localStorage
+        function restoreActiveTab() {
+            const savedTab = localStorage.getItem('deviceManagementTab');
+            
+            if (savedTab === 'combos') {
+                // Remove active class từ devices tab
+                const devicesTab = document.querySelector('#devices-tab');
+                const combosTab = document.querySelector('#combos-tab');
+                const devicesPane = document.querySelector('#devices');
+                const combosPane = document.querySelector('#combos');
+                
+                if (devicesTab && combosTab && devicesPane && combosPane) {
+                    devicesTab.classList.remove('active');
+                    devicesTab.setAttribute('aria-selected', 'false');
+                    combosTab.classList.add('active');
+                    combosTab.setAttribute('aria-selected', 'true');
+                    
+                    devicesPane.classList.remove('show', 'active');
+                    combosPane.classList.add('show', 'active');
+                    
+                    // Trigger Bootstrap tab event để đảm bảo tab được kích hoạt đúng
+                    setTimeout(function() {
+                        const tab = new bootstrap.Tab(combosTab);
+                        tab.show();
+                    }, 50);
+                }
+            }
+            // Nếu savedTab là 'devices' hoặc null, giữ mặc định (devices tab active)
+        }
 
         function initializeDataTable() {
             // Kiểm tra DataTables có sẵn không
@@ -319,6 +723,8 @@ include 'includes/admin-header.php';
                 devicesTable = $('#devicesTable').DataTable({
                 processing: true,
                 serverSide: false,
+                autoWidth: false,
+                scrollX: false,
                 ajax: {
                     url: '../src/controllers/deviceedit.php',
                     type: 'GET',
@@ -416,8 +822,19 @@ include 'includes/admin-header.php';
                 // Ẩn thanh tìm kiếm và thông tin hiển thị của DataTable
                 dom: 'rtip',
                 info: false, // Ẩn thông tin "Hiển thị X dữ liệu"
-                paging: false // Ẩn phân trang (hiển thị tất cả dữ liệu)
+                paging: false, // Ẩn phân trang (hiển thị tất cả dữ liệu)
+                drawCallback: function() {
+                    // Đảm bảo table không bị thu nhỏ sau khi render
+                    this.api().columns.adjust();
+                }
             });
+            
+            // Điều chỉnh lại column width sau khi table được render
+            setTimeout(function() {
+                if (devicesTable) {
+                    devicesTable.columns.adjust();
+                }
+            }, 100);
             } catch (error) {
                 console.error('Error initializing DataTable:', error);
                 AdminPanel.showError('Lỗi khởi tạo bảng dữ liệu');
@@ -535,34 +952,53 @@ include 'includes/admin-header.php';
         }
 
         function editDevice(id) {
-            console.log('editDevice called with id:', id);
+            // Hiển thị modal ngay lập tức với loading state
+            const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
+            modal.show();
+            
+            // Hiển thị loading trong modal body
+            const modalBody = document.querySelector('#deviceModal .modal-body');
+            const originalContent = modalBody.innerHTML;
+            modalBody.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Đang tải dữ liệu...</p>
+                </div>
+            `;
             
             const formData = new FormData();
             formData.append('action', 'get');
             formData.append('id', id);
             
-            console.log('FormData created:', formData);
-            for (let [key, value] of formData.entries()) {
-                console.log(key, value);
-            }
-            
             fetch('../src/controllers/deviceedit.php', {
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
             .then(data => {
-                console.log('Response data:', data);
-                if (data.success) {
+                // Khôi phục nội dung modal
+                modalBody.innerHTML = originalContent;
+                
+                if (data.success && data.device) {
                     const device = data.device;
-                    $('#deviceId').val(device.ID_TB);
-                    $('#deviceName').val(device.TenThietBi);
-                    $('#deviceType').val(device.LoaiThietBi);
-                    $('#deviceDescription').val(device.MoTa);
-                    $('#devicePrice').val(device.GiaThue);
-                    $('#deviceQuantity').val(device.SoLuong);
-                    $('#deviceStatus').val(device.TrangThai);
-                    $('#deviceNote').val(device.GhiChu);
+                    
+                    // Điền dữ liệu vào form
+                    $('#deviceId').val(device.ID_TB || '');
+                    $('#deviceName').val(device.TenThietBi || '');
+                    $('#deviceType').val(device.LoaiThietBi || '');
+                    $('#deviceManufacturer').val(device.HangSX || '');
+                    $('#deviceUnit').val(device.DonViTinh || 'Cái');
+                    $('#deviceDescription').val(device.MoTa || '');
+                    $('#devicePrice').val(device.GiaThue || 0);
+                    $('#deviceQuantity').val(device.SoLuong || 1);
+                    $('#deviceStatus').val(device.TrangThai || 'Sẵn sàng');
                     
                     // Hiển thị hình ảnh hiện tại nếu có
                     if (device.HinhAnh) {
@@ -572,17 +1008,23 @@ include 'includes/admin-header.php';
                         $('#currentImageContainer').hide();
                     }
                     
+                    // Reset file input
+                    $('#deviceImage').val('');
+                    
+                    // Cập nhật tiêu đề modal
                     $('#deviceModalTitle').html('<i class="fas fa-edit"></i> Chỉnh sửa thiết bị');
                     
-                    const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
-                    modal.show();
+                    // Xóa các class validation nếu có
+                    $('#deviceForm').find('.is-invalid').removeClass('is-invalid');
                 } else {
-                    console.error('Error response:', data);
+                    modal.hide();
                     AdminPanel.showError(data.error || data.message || 'Không thể tải thông tin thiết bị');
                 }
             })
             .catch(error => {
-                AdminPanel.showError('Có lỗi xảy ra khi tải thông tin thiết bị');
+                console.error('Error loading device:', error);
+                modal.hide();
+                AdminPanel.showError('Có lỗi xảy ra khi tải thông tin thiết bị. Vui lòng thử lại.');
             });
         }
 
@@ -612,52 +1054,27 @@ include 'includes/admin-header.php';
                     };
                     const status = statusMap[device.TrangThai] || { class: 'ready', text: device.TrangThai || 'Không xác định', icon: 'fa-question' };
                     
-                    // Tạo HTML cho hình ảnh
-                    let imageHtml = '';
-                    if (device.HinhAnh) {
-                        imageHtml = `
-                            <div class="text-center mb-3">
-                                <h6><i class="fas fa-image"></i> Hình ảnh thiết bị</h6>
-                                <img src="../img/thietbi/${device.HinhAnh}" 
-                                     alt="${device.TenThietBi}" 
-                                     class="img-fluid rounded shadow-sm device-image-hover" 
-                                     style="max-height: 200px; max-width: 100%;"
-                                     onerror="this.src='../img/logo/logo.jpg'; this.alt='Hình ảnh không tìm thấy';">
-                            </div>
-                        `;
-                    } else {
-                        imageHtml = `
-                            <div class="text-center mb-3">
-                                <h6><i class="fas fa-image"></i> Hình ảnh thiết bị</h6>
-                                <div class="bg-light rounded p-4" style="height: 150px; display: flex; align-items: center; justify-content: center;">
-                                    <i class="fas fa-image text-muted" style="font-size: 3rem;"></i>
-                                    <p class="text-muted mt-2 mb-0">Không có hình ảnh</p>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    
                     $('#viewModalBody').html(`
-                        ${imageHtml}
-                        <div class="row">
+                        <div class="row" style="font-size: 0.9rem;">
                             <div class="col-md-6">
-                                <h6><i class="fas fa-tools"></i> Thông tin cơ bản</h6>
-                                <table class="table table-sm">
-                                    <tr><td><strong>Tên thiết bị:</strong></td><td>${device.TenThietBi}</td></tr>
-                                    <tr><td><strong>Loại:</strong></td><td>${device.LoaiThietBi}</td></tr>
-                                    <tr><td><strong>Hãng sản xuất:</strong></td><td>${device.HangSX || 'Không có'}</td></tr>
-                                    <tr><td><strong>Giá thuê:</strong></td><td>${AdminPanel.formatCurrency(device.GiaThue)}</td></tr>
-                                    <tr><td><strong>Số lượng:</strong></td><td>${device.SoLuong} ${device.DonViTinh || 'cái'}</td></tr>
-                                    <tr><td><strong>Trạng thái:</strong></td><td><span class="status-badge status-${status.class}"><i class="fas ${status.icon}"></i> ${status.text}</span></td></tr>
+                                <h6 style="font-size: 0.95rem;"><i class="fas fa-tools"></i> Thông tin cơ bản</h6>
+                                <table class="table table-sm table-borderless" style="font-size: 0.9rem;">
+                                    <tr><td style="width: 40%; padding: 0.3rem 0;"><strong>ID thiết bị:</strong></td><td style="padding: 0.3rem 0;">${device.ID_TB}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Tên thiết bị:</strong></td><td style="padding: 0.3rem 0;">${device.TenThietBi || 'N/A'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Loại thiết bị:</strong></td><td style="padding: 0.3rem 0;"><span class="badge bg-info">${device.LoaiThietBi || 'N/A'}</span></td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Hãng sản xuất:</strong></td><td style="padding: 0.3rem 0;">${device.HangSX || 'N/A'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Số lượng:</strong></td><td style="padding: 0.3rem 0;">${device.SoLuong ? device.SoLuong.toLocaleString() : 'N/A'} ${device.DonViTinh || 'cái'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Giá thuê:</strong></td><td style="padding: 0.3rem 0;">${device.GiaThue ? AdminPanel.formatCurrency(device.GiaThue) : 'Chưa có'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Trạng thái:</strong></td><td style="padding: 0.3rem 0;"><span class="status-badge status-${status.class}"><i class="fas ${status.icon}"></i> ${status.text}</span></td></tr>
                                 </table>
                             </div>
                             <div class="col-md-6">
-                                <h6><i class="fas fa-info-circle"></i> Thông tin khác</h6>
-                                <table class="table table-sm">
-                                    <tr><td><strong>Mô tả:</strong></td><td>${device.MoTa || 'Không có mô tả'}</td></tr>
-                                    <tr><td><strong>Ghi chú:</strong></td><td>${device.GhiChu || 'Không có ghi chú'}</td></tr>
-                                    <tr><td><strong>Ngày tạo:</strong></td><td>${AdminPanel.formatDate(device.NgayTao, 'dd/mm/yyyy hh:mm')}</td></tr>
-                                    <tr><td><strong>Cập nhật:</strong></td><td>${AdminPanel.formatDate(device.NgayCapNhat, 'dd/mm/yyyy hh:mm')}</td></tr>
+                                <h6 style="font-size: 0.95rem;"><i class="fas fa-info-circle"></i> Thông tin khác</h6>
+                                <table class="table table-sm table-borderless" style="font-size: 0.9rem;">
+                                    <tr><td style="width: 40%; padding: 0.3rem 0;"><strong>Mô tả:</strong></td><td style="padding: 0.3rem 0;">${device.MoTa || 'Không có mô tả'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Hình ảnh:</strong></td><td style="padding: 0.3rem 0;">${device.HinhAnh ? `<img src="../img/thietbi/${device.HinhAnh}" alt="${device.TenThietBi || 'Thiết bị'}" class="img-fluid rounded device-image-hover" style="max-width: 150px; max-height: 120px; object-fit: cover;" onerror="this.src='../img/logo/logo.jpg'">` : 'Không có hình ảnh'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Ngày tạo:</strong></td><td style="padding: 0.3rem 0;">${device.NgayTao ? AdminPanel.formatDate(device.NgayTao, 'dd/mm/yyyy hh:mm') : 'N/A'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Cập nhật:</strong></td><td style="padding: 0.3rem 0;">${device.NgayCapNhat ? AdminPanel.formatDate(device.NgayCapNhat, 'dd/mm/yyyy hh:mm') : 'N/A'}</td></tr>
                                 </table>
                             </div>
                         </div>
@@ -740,7 +1157,636 @@ include 'includes/admin-header.php';
         // Tự động làm mới mỗi 30 giây
         setInterval(() => {
             loadStatistics();
+            loadComboStatistics();
         }, 30000);
+
+        // ========== COMBO MANAGEMENT FUNCTIONS ==========
+        
+        function initializeCombosTable() {
+            if (typeof $.fn.DataTable === 'undefined') {
+                console.error('DataTables not available');
+                return;
+            }
+
+            try {
+                combosTable = $('#combosTable').DataTable({
+                    processing: true,
+                    serverSide: false,
+                    autoWidth: false,
+                    scrollX: false,
+                    ajax: {
+                        url: '../src/controllers/combo-management.php',
+                        type: 'GET',
+                        data: function(d) {
+                            d.action = 'get_all';
+                            return $.extend(d, currentFilters);
+                        },
+                        dataSrc: function(json) {
+                            if (json.success && json.combos) {
+                                return json.combos;
+                            } else {
+                                console.error('Invalid data format:', json);
+                                return [];
+                            }
+                        },
+                        error: function(xhr, error, thrown) {
+                            console.error('Combo DataTable AJAX Error:', error);
+                            AdminPanel.showError('Không thể tải dữ liệu combo');
+                        }
+                    },
+                    columns: [
+                        { data: 'ID_Combo', className: 'text-center' },
+                        { data: 'TenCombo' },
+                        { 
+                            data: 'MoTa',
+                            render: function(data) {
+                                return data ? (data.length > 50 ? data.substring(0, 50) + '...' : data) : 'Không có mô tả';
+                            }
+                        },
+                        { 
+                            data: 'SoThietBi',
+                            className: 'text-center',
+                            render: function(data) {
+                                return data || 0;
+                            }
+                        },
+                        { 
+                            data: 'GiaCombo',
+                            render: function(data) {
+                                return AdminPanel.formatCurrency(data);
+                            }
+                        },
+                        { 
+                            data: 'SoLanSuDung',
+                            className: 'text-center',
+                            render: function(data) {
+                                return data || 0;
+                            }
+                        },
+                        { 
+                            data: 'NgayTao',
+                            render: function(data) {
+                                return AdminPanel.formatDate(data, 'dd/mm/yyyy hh:mm');
+                            }
+                        },
+                        { 
+                            data: null,
+                            orderable: false,
+                            render: function(data, type, row) {
+                                return `
+                                    <div class="action-buttons">
+                                        <button class="btn btn-info btn-sm" onclick="viewCombo(${row.ID_Combo})" title="Xem chi tiết">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-warning btn-sm" onclick="editCombo(${row.ID_Combo})" title="Chỉnh sửa">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" onclick="deleteCombo(${row.ID_Combo})" title="Xóa">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        }
+                    ],
+                    order: [[0, 'desc']],
+                    language: {
+                        url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/vi.json'
+                    },
+                    dom: 'rtip',
+                    info: false,
+                    paging: false,
+                    drawCallback: function() {
+                        // Đảm bảo table không bị thu nhỏ sau khi render
+                        this.api().columns.adjust();
+                    }
+                });
+                
+                // Điều chỉnh lại column width sau khi table được render
+                setTimeout(function() {
+                    if (combosTable) {
+                        combosTable.columns.adjust();
+                    }
+                }, 100);
+            } catch (error) {
+                console.error('Error initializing Combo DataTable:', error);
+                AdminPanel.showError('Lỗi khởi tạo bảng combo');
+            }
+        }
+
+        function loadComboStatistics() {
+            AdminPanel.makeAjaxRequest('../src/controllers/combo-management.php', {
+                action: 'get_stats'
+            })
+            .then(response => {
+                if (response.success && response.stats) {
+                    $('#totalCombos').text(response.stats.total || 0);
+                }
+            })
+            .catch(error => {
+                console.error('Combo statistics load error:', error);
+            });
+        }
+
+        function loadAllDevices() {
+            AdminPanel.makeAjaxRequest('../src/controllers/deviceedit.php', {
+                action: 'get_all'
+            })
+            .then(response => {
+                if (response.success && response.devices) {
+                    allDevices = response.devices;
+                    renderEquipmentList();
+                }
+            })
+            .catch(error => {
+                console.error('Error loading devices:', error);
+            });
+        }
+
+        function renderEquipmentList() {
+            const container = document.getElementById('equipmentList');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            if (allDevices.length === 0) {
+                container.innerHTML = '<p class="text-muted">Không có thiết bị nào</p>';
+                return;
+            }
+            
+            // Group by type
+            const grouped = {};
+            allDevices.forEach(device => {
+                const type = device.LoaiThietBi || 'Khác';
+                if (!grouped[type]) {
+                    grouped[type] = [];
+                }
+                grouped[type].push(device);
+            });
+            
+            Object.keys(grouped).forEach(type => {
+                const typeDiv = document.createElement('div');
+                typeDiv.className = 'col-12 mb-3';
+                typeDiv.innerHTML = `<h6 class="text-primary"><i class="fas fa-tag"></i> ${type}</h6>`;
+                
+                const devicesDiv = document.createElement('div');
+                devicesDiv.className = 'row g-2';
+                
+                grouped[type].forEach(device => {
+                    const isSelected = selectedComboEquipment.find(eq => eq.ID_TB == device.ID_TB);
+                    const quantity = isSelected ? isSelected.SoLuong : 0;
+                    
+                    const deviceCard = document.createElement('div');
+                    deviceCard.className = 'col-md-6 col-lg-4 col-xl-3';
+                    deviceCard.innerHTML = `
+                        <div class="card ${isSelected ? 'border-primary bg-light' : ''} equipment-card" style="cursor: pointer; transition: all 0.2s;" onclick="toggleEquipment(${device.ID_TB})">
+                            <div class="card-body p-2">
+                                <div class="d-flex align-items-start">
+                                    <input type="checkbox" class="form-check-input mt-1 me-2" ${isSelected ? 'checked' : ''} 
+                                           onchange="toggleEquipment(${device.ID_TB})" onclick="event.stopPropagation()">
+                                    <div class="flex-grow-1" style="min-width: 0;">
+                                        <h6 class="mb-1" style="font-size: 0.85rem; font-weight: 600; line-height: 1.2;">${device.TenThietBi || 'N/A'}</h6>
+                                        <div class="d-flex justify-content-between align-items-center mt-1">
+                                            <small class="text-primary fw-bold">${AdminPanel.formatCurrency(device.GiaThue || 0)}</small>
+                                            ${device.HangSX ? `<small class="text-muted" style="font-size: 0.7rem;">${device.HangSX}</small>` : ''}
+                                        </div>
+                                        ${isSelected ? `
+                                            <div class="mt-2 pt-2 border-top">
+                                                <label class="form-label small mb-1" style="font-size: 0.75rem;">Số lượng:</label>
+                                                <input type="number" class="form-control form-control-sm" 
+                                                       value="${quantity}" min="1" max="${device.SoLuong || 999}"
+                                                       onchange="updateEquipmentQuantity(${device.ID_TB}, this.value)"
+                                                       onclick="event.stopPropagation()"
+                                                       style="font-size: 0.8rem;">
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    devicesDiv.appendChild(deviceCard);
+                });
+                
+                typeDiv.appendChild(devicesDiv);
+                container.appendChild(typeDiv);
+            });
+        }
+
+        function toggleEquipment(deviceId) {
+            const device = allDevices.find(d => d.ID_TB == deviceId);
+            if (!device) return;
+            
+            const index = selectedComboEquipment.findIndex(eq => eq.ID_TB == deviceId);
+            
+            if (index >= 0) {
+                // Remove
+                selectedComboEquipment.splice(index, 1);
+            } else {
+                // Add
+                selectedComboEquipment.push({
+                    ID_TB: deviceId,
+                    TenThietBi: device.TenThietBi,
+                    SoLuong: 1
+                });
+            }
+            
+            renderEquipmentList();
+            renderSelectedEquipment();
+        }
+
+        function updateEquipmentQuantity(deviceId, quantity) {
+            const index = selectedComboEquipment.findIndex(eq => eq.ID_TB == deviceId);
+            if (index >= 0) {
+                const qty = parseInt(quantity) || 1;
+                selectedComboEquipment[index].SoLuong = qty;
+                renderSelectedEquipment();
+            }
+        }
+
+        function renderSelectedEquipment() {
+            const container = document.getElementById('selectedEquipmentList');
+            if (!container) return;
+            
+            if (selectedComboEquipment.length === 0) {
+                container.innerHTML = '<p class="text-muted mb-0 text-center py-2"><i class="fas fa-info-circle"></i> Chưa có thiết bị nào được chọn</p>';
+                return;
+            }
+            
+            let totalCost = 0;
+            let html = '<div class="table-responsive" style="max-height: 180px; overflow-y: auto;">';
+            html += '<table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">';
+            html += '<thead class="table-light sticky-top"><tr><th style="width: 40%;">Thiết bị</th><th style="width: 15%;" class="text-center">SL</th><th style="width: 20%;" class="text-end">Đơn giá</th><th style="width: 20%;" class="text-end">Thành tiền</th><th style="width: 5%;" class="text-center"></th></tr></thead><tbody>';
+            
+            selectedComboEquipment.forEach((item, index) => {
+                const device = allDevices.find(d => d.ID_TB == item.ID_TB);
+                const price = device ? parseFloat(device.GiaThue || 0) : 0;
+                const total = price * item.SoLuong;
+                totalCost += total;
+                
+                html += `
+                    <tr>
+                        <td><strong style="font-size: 0.9rem;">${item.TenThietBi || 'N/A'}</strong></td>
+                        <td class="text-center"><span class="badge bg-primary">${item.SoLuong}</span></td>
+                        <td class="text-end">${AdminPanel.formatCurrency(price)}</td>
+                        <td class="text-end"><strong class="text-success">${AdminPanel.formatCurrency(total)}</strong></td>
+                        <td class="text-center">
+                            <button class="btn btn-danger btn-sm" onclick="removeEquipment(${item.ID_TB})" title="Xóa">
+                                <i class="fas fa-times" style="font-size: 0.7rem;"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody>';
+            html += `<tfoot class="table-light"><tr><th colspan="3" class="text-end">Tổng cộng:</th><th class="text-end text-success" style="font-size: 1rem;">${AdminPanel.formatCurrency(totalCost)}</th><th></th></tr></tfoot>`;
+            html += '</table></div>';
+            container.innerHTML = html;
+        }
+
+        function removeEquipment(deviceId) {
+            const index = selectedComboEquipment.findIndex(eq => eq.ID_TB == deviceId);
+            if (index >= 0) {
+                selectedComboEquipment.splice(index, 1);
+                renderEquipmentList();
+                renderSelectedEquipment();
+            }
+        }
+
+        function showAddComboModal() {
+            $('#comboForm')[0].reset();
+            $('#comboId').val('');
+            $('#comboModalTitle').html('<i class="fas fa-plus"></i> Thêm combo mới');
+            $('#comboPrice').prop('readonly', false);
+            $('#comboPrice').removeClass('bg-light');
+            $('#comboPrice').next('.form-text.text-warning').remove();
+            selectedComboEquipment = [];
+            renderEquipmentList();
+            renderSelectedEquipment();
+            
+            const modal = new bootstrap.Modal(document.getElementById('comboModal'));
+            modal.show();
+        }
+
+        function editCombo(id) {
+            // Hiển thị modal ngay lập tức với loading state
+            const modalElement = document.getElementById('comboModal');
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+            
+            // Hiển thị loading trong modal body
+            const modalBody = modalElement.querySelector('.modal-body');
+            const originalContent = modalBody.innerHTML;
+            modalBody.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Đang tải dữ liệu...</p>
+                </div>
+            `;
+            
+            const formData = new FormData();
+            formData.append('action', 'get');
+            formData.append('id', id);
+            
+            fetch('../src/controllers/combo-management.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Khôi phục nội dung modal
+                modalBody.innerHTML = originalContent;
+                
+                if (data.success && data.combo) {
+                    const combo = data.combo;
+                    
+                    // Điền dữ liệu vào form
+                    $('#comboId').val(combo.ID_Combo || '');
+                    $('#comboName').val(combo.TenCombo || '');
+                    $('#comboDescription').val(combo.MoTa || '');
+                    $('#comboPrice').val(combo.GiaCombo || 0);
+                    
+                    // Đảm bảo trường giá luôn có thể chỉnh sửa
+                    // Giá đã lưu trong chitietdatsukien sẽ không bị ảnh hưởng
+                    $('#comboPrice').prop('readonly', false);
+                    $('#comboPrice').removeClass('bg-light');
+                    $('#comboPrice').next('.form-text.text-warning').remove();
+                    
+                    // Load equipment
+                    selectedComboEquipment = (combo.equipment || []).map(eq => ({
+                        ID_TB: eq.ID_TB,
+                        TenThietBi: eq.TenThietBi,
+                        SoLuong: eq.SoLuong
+                    }));
+                    
+                    renderEquipmentList();
+                    renderSelectedEquipment();
+                    
+                    // Cập nhật tiêu đề modal
+                    $('#comboModalTitle').html('<i class="fas fa-edit"></i> Chỉnh sửa combo');
+                    
+                    // Xóa các class validation nếu có
+                    $('#comboForm').find('.is-invalid').removeClass('is-invalid');
+                } else {
+                    modal.hide();
+                    AdminPanel.showError(data.error || data.message || 'Không thể tải thông tin combo');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading combo:', error);
+                modal.hide();
+                AdminPanel.showError('Có lỗi xảy ra khi tải thông tin combo. Vui lòng thử lại.');
+            });
+        }
+
+        function viewCombo(id) {
+            // Đóng modal cũ nếu có
+            const existingModal = bootstrap.Modal.getInstance(document.getElementById('viewComboModal'));
+            if (existingModal) {
+                existingModal.hide();
+            }
+            
+            // Hiển thị loading
+            AdminPanel.showLoading('#viewComboModalBody');
+            
+            // Tạo modal mới và hiển thị
+            const modalElement = document.getElementById('viewComboModal');
+            const modal = new bootstrap.Modal(modalElement, {
+                backdrop: true,
+                keyboard: true
+            });
+            
+            // Event listener để fix layout khi modal được hiển thị
+            const resizeHandler = function() {
+                // Trigger resize để fix layout
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                    // Force modal to recalculate size
+                    const modalDialog = modalElement.querySelector('.modal-dialog');
+                    if (modalDialog) {
+                        modalDialog.style.width = 'auto';
+                        modalDialog.style.maxWidth = '800px';
+                    }
+                }, 50);
+            };
+            
+            // Remove existing listener nếu có
+            modalElement.removeEventListener('shown.bs.modal', resizeHandler);
+            // Add new listener
+            modalElement.addEventListener('shown.bs.modal', resizeHandler, { once: true });
+            
+            modal.show();
+
+            const formData = new FormData();
+            formData.append('action', 'get');
+            formData.append('id', id);
+            
+            fetch('../src/controllers/combo-management.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const combo = data.combo;
+                    let html = `
+                        <div class="row" style="font-size: 0.9rem;">
+                            <div class="col-md-6">
+                                <h6 style="font-size: 0.95rem;"><i class="fas fa-info-circle text-primary"></i> Thông tin cơ bản</h6>
+                                <table class="table table-sm table-borderless" style="font-size: 0.9rem;">
+                                    <tr><td style="width: 40%; padding: 0.3rem 0;"><strong>ID Combo:</strong></td><td style="padding: 0.3rem 0;">${combo.ID_Combo}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Tên combo:</strong></td><td style="padding: 0.3rem 0;">${combo.TenCombo || 'N/A'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Giá combo:</strong></td><td style="padding: 0.3rem 0;">${AdminPanel.formatCurrency(combo.GiaCombo || 0)}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Mô tả:</strong></td><td style="padding: 0.3rem 0;">${combo.MoTa || 'Không có mô tả'}</td></tr>
+                                    <tr><td style="padding: 0.3rem 0;"><strong>Ngày tạo:</strong></td><td style="padding: 0.3rem 0;">${AdminPanel.formatDate(combo.NgayTao, 'dd/mm/yyyy hh:mm')}</td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 style="font-size: 0.95rem;"><i class="fas fa-tools text-primary"></i> Thiết bị trong combo</h6>
+                                ${combo.equipment && combo.equipment.length > 0 ? `
+                                    <table class="table table-sm table-borderless" style="font-size: 0.9rem;">
+                                        <thead>
+                                            <tr>
+                                                <th>Thiết bị</th>
+                                                <th>Số lượng</th>
+                                                <th>Đơn giá</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${combo.equipment.map(eq => `
+                                                <tr>
+                                                    <td>${eq.TenThietBi || 'N/A'}</td>
+                                                    <td>${eq.SoLuong || 0}</td>
+                                                    <td>${AdminPanel.formatCurrency(eq.GiaThue || 0)}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                ` : '<p class="text-muted">Không có thiết bị nào</p>'}
+                            </div>
+                        </div>
+                    `;
+                    $('#viewComboModalBody').html(html);
+                    
+                    // Trigger resize sau khi content được load
+                    setTimeout(() => {
+                        window.dispatchEvent(new Event('resize'));
+                    }, 100);
+                } else {
+                    $('#viewComboModalBody').html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            ${data.error || data.message || 'Không thể tải chi tiết combo'}
+                        </div>
+                    `);
+                }
+            })
+            .catch(error => {
+                $('#viewComboModalBody').html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Có lỗi xảy ra khi tải chi tiết combo
+                    </div>
+                `);
+            });
+        }
+
+        function saveCombo() {
+            if (!AdminPanel.validateForm('comboForm')) {
+                return;
+            }
+
+            if (selectedComboEquipment.length === 0) {
+                AdminPanel.showError('Vui lòng chọn ít nhất một thiết bị cho combo');
+                return;
+            }
+
+            const formData = new FormData(document.getElementById('comboForm'));
+            const isEdit = $('#comboId').val() !== '';
+            const action = isEdit ? 'update' : 'add';
+            
+            formData.append('action', action);
+            formData.append('equipment', JSON.stringify(selectedComboEquipment));
+
+            AdminPanel.makeAjaxRequest('../src/controllers/combo-management.php', formData, 'POST')
+            .then(response => {
+                if (response.success) {
+                    AdminPanel.showSuccess(isEdit ? 'Đã cập nhật combo thành công' : 'Đã thêm combo thành công');
+                    bootstrap.Modal.getInstance(document.getElementById('comboModal')).hide();
+                    combosTable.ajax.reload();
+                    loadComboStatistics();
+                } else {
+                    AdminPanel.showError(response.error || response.message || 'Có lỗi xảy ra khi lưu combo');
+                }
+            })
+            .catch(error => {
+                AdminPanel.showError('Có lỗi xảy ra khi lưu combo');
+            });
+        }
+
+        function deleteCombo(id) {
+            AdminPanel.sweetConfirm(
+                'Xác nhận xóa',
+                'Bạn có chắc muốn xóa combo này? Hành động này không thể hoàn tác.',
+                () => {
+                    const formData = new FormData();
+                    formData.append('action', 'delete');
+                    formData.append('id', id);
+                    
+                    AdminPanel.makeAjaxRequest('../src/controllers/combo-management.php', formData, 'POST')
+                    .then(response => {
+                        if (response.success) {
+                            AdminPanel.showSuccess('Đã xóa combo thành công');
+                            combosTable.ajax.reload();
+                            loadComboStatistics();
+                        } else {
+                            AdminPanel.showError(response.error || response.message || 'Có lỗi xảy ra khi xóa combo');
+                        }
+                    })
+                    .catch(error => {
+                        AdminPanel.showError('Có lỗi xảy ra khi xóa combo');
+                    });
+                }
+            );
+        }
+
+        function applyComboFilters() {
+            const searchValue = $('#comboSearchInput').val() || '';
+            const priceMin = parseFloat($('#comboPriceMin').val()) || 0;
+            const priceMax = parseFloat($('#comboPriceMax').val()) || Infinity;
+            const usageMin = parseInt($('#comboUsageMin').val()) || 0;
+            const usageMax = parseInt($('#comboUsageMax').val()) || Infinity;
+            
+            // Xóa filter cũ nếu có
+            if (comboPriceUsageFilter !== null) {
+                $.fn.dataTable.ext.search.pop();
+                comboPriceUsageFilter = null;
+            }
+            
+            // Áp dụng tìm kiếm
+            combosTable.search(searchValue);
+            
+            // Tạo filter function mới cho giá tiền và tần suất
+            comboPriceUsageFilter = function(settings, data, dataIndex) {
+                if (settings.nTable.id !== 'combosTable') {
+                    return true;
+                }
+                
+                // Lấy giá từ cột 4 (GiaCombo) - đã được format currency
+                const priceText = data[4] || '0';
+                const price = parseFloat(priceText.replace(/[^\d]/g, '')) || 0;
+                
+                // Lấy tần suất từ cột 5 (SoLanSuDung)
+                const usage = parseInt(data[5]) || 0;
+                
+                // Filter giá tiền
+                const priceMatch = (priceMin === 0 && priceMax === Infinity) || 
+                                  (price >= priceMin && price <= priceMax);
+                
+                // Filter tần suất sử dụng
+                const usageMatch = (usageMin === 0 && usageMax === Infinity) || 
+                                  (usage >= usageMin && usage <= usageMax);
+                
+                return priceMatch && usageMatch;
+            };
+            
+            // Thêm filter mới
+            $.fn.dataTable.ext.search.push(comboPriceUsageFilter);
+            
+            combosTable.draw();
+        }
+
+        function clearComboFilters() {
+            $('#comboSearchInput').val('');
+            $('#comboPriceMin').val('');
+            $('#comboPriceMax').val('');
+            $('#comboUsageMin').val('');
+            $('#comboUsageMax').val('');
+            
+            // Xóa custom filter nếu có
+            if (comboPriceUsageFilter !== null) {
+                const index = $.fn.dataTable.ext.search.indexOf(comboPriceUsageFilter);
+                if (index !== -1) {
+                    $.fn.dataTable.ext.search.splice(index, 1);
+                }
+                comboPriceUsageFilter = null;
+            }
+            
+            combosTable.search('').draw();
+        }
+
+        function clearComboSearch() {
+            $('#comboSearchInput').val('');
+            applyComboFilters();
+        }
     </script>
 
     <style>

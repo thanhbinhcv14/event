@@ -134,14 +134,29 @@ if (!$event) {
         $remainingAmount = $totalAmount - $totalPaid;
     }
     
-    // Tính số ngày từ đăng ký đến sự kiện
+    // ✅ Tính số ngày từ ngày HIỆN TẠI đến ngày tổ chức sự kiện
+    $daysFromNowToEvent = 0;
+    if (!empty($event['NgayBatDau'])) {
+        $now = new DateTime();
+        $eventStartDate = new DateTime($event['NgayBatDau']);
+        $daysFromNowToEvent = $now->diff($eventStartDate)->days;
+        
+        // Nếu sự kiện đã qua, days sẽ là số âm, cần xử lý
+        if ($eventStartDate < $now) {
+            $daysFromNowToEvent = 0; // Sự kiện đã qua
+        }
+    }
+    
+    // ✅ Nếu từ ngày hiện tại đến sự kiện < 7 ngày: Bắt buộc thanh toán đủ, không cho đặt cọc
+    $requiresFullPayment = ($daysFromNowToEvent < 7 && $daysFromNowToEvent >= 0);
+    
+    // Tính số ngày từ đăng ký đến sự kiện (để dùng cho logic khác như deadline)
     $daysFromRegistrationToEvent = 0;
     if (!empty($event['NgayTao']) && !empty($event['NgayBatDau'])) {
         $registrationDate = new DateTime($event['NgayTao']);
         $eventStartDate = new DateTime($event['NgayBatDau']);
         $daysFromRegistrationToEvent = $registrationDate->diff($eventStartDate)->days;
     }
-    $requiresFullPayment = ($daysFromRegistrationToEvent > 0 && $daysFromRegistrationToEvent < 7);
     
     // Lấy hạn thanh toán nếu đã có đặt cọc
     $paymentDeadline = null;
@@ -955,6 +970,18 @@ if (!$event) {
                         alert('Yêu cầu thanh toán tiền mặt đã được tạo. Trạng thái: Đang xử lý.');
                                         window.location.href = '../events/my-events.php';
                                     } else if (response.sepay_checkout_url || response.form_html) {
+                                        // ✅ Kiểm tra xem có lỗi checkout không
+                                        if (response.sepay_checkout_error || response.checkout_fallback_message) {
+                                            console.warn('SePay Checkout URL có lỗi, sử dụng QR code fallback:', response.sepay_checkout_error || response.checkout_fallback_message);
+                                            // Bỏ qua checkout URL, hiển thị QR code ngay
+                                            if (response.bank_info || response.qr_code || response.qr_string) {
+                                                showSePayQRCode(response);
+                                            } else {
+                                                alert('Lỗi: ' + (response.sepay_checkout_error || 'Không thể tạo URL thanh toán') + '. Vui lòng thử lại.');
+                                            }
+                                            return;
+                                        }
+                                        
                                         // ✅ Ưu tiên: Submit POST form đến SePay Checkout Gateway
                                         // SePay yêu cầu POST form, không phải GET redirect
                                         console.log('Submitting SePay Checkout form');
@@ -1029,26 +1056,13 @@ if (!$event) {
                                             // Fallback: redirect hoặc hiển thị QR code
                                             console.warn('Fallback: redirecting to SePay Checkout (may not work):', response.sepay_checkout_url);
                                             if (response.sepay_checkout_url) {
-                                                // Thử redirect, nếu fail thì fallback về QR
-                                                const redirectTimeout = setTimeout(function() {
-                                                    if (document.visibilityState === 'visible') {
-                                                        console.warn('Redirect may have failed, falling back to QR code');
-                                                        if (response.bank_info || response.qr_code || response.qr_string) {
-                                                            showSePayQRCode(response);
-                                                        }
-                                                    }
-                                                }, 3000);
-                                                
-                                                try {
-                                                    window.location.href = response.sepay_checkout_url;
-                                                } catch (error) {
-                                                    console.error('Error redirecting:', error);
-                                                    clearTimeout(redirectTimeout);
-                                                    if (response.bank_info || response.qr_code || response.qr_string) {
-                                                        showSePayQRCode(response);
-                                                    } else {
-                                                        alert('Lỗi: Không thể truy cập trang thanh toán. Vui lòng thử lại hoặc sử dụng QR code.');
-                                                    }
+                                                // ⚠️ Không nên redirect trực tiếp vì SePay yêu cầu POST form
+                                                // Thay vào đó, hiển thị QR code ngay
+                                                console.warn('SePay checkout URL requires POST form, not GET redirect. Using QR code fallback.');
+                                                if (response.bank_info || response.qr_code || response.qr_string) {
+                                                    showSePayQRCode(response);
+                                                } else {
+                                                    alert('Lỗi: Không thể truy cập trang thanh toán. Vui lòng sử dụng QR code hoặc thử lại sau.');
                                                 }
                                             } else {
                                                 // Không có URL, hiển thị QR code nếu có
@@ -1733,6 +1747,15 @@ if (!$event) {
             if (selectedPaymentType !== 'full') {
                 const messageDiv = $('#discountCodeMessage');
                 messageDiv.html('<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle"></i> Mã giảm giá chỉ áp dụng khi thanh toán đủ 1 lần.</div>').show();
+                appliedDiscountCode = null;
+                updateAmountDisplay();
+                return false;
+            }
+            
+            // ✅ Chỉ cho phép áp dụng mã giảm giá khi thanh toán qua SePay (chuyển khoản)
+            if (selectedPaymentMethod !== 'sepay') {
+                const messageDiv = $('#discountCodeMessage');
+                messageDiv.html('<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle"></i> Mã giảm giá chỉ áp dụng khi thanh toán qua chuyển khoản (SePay).</div>').show();
                 appliedDiscountCode = null;
                 updateAmountDisplay();
                 return false;

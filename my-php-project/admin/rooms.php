@@ -109,9 +109,11 @@ include 'includes/admin-header.php';
                     Danh sách phòng
                 </h3>
                 <div class="action-buttons">
+                    <?php if ($user['ID_Role'] == 2): ?>
                     <button class="btn btn-success" onclick="showAddModal()">
                         <i class="fas fa-plus"></i> Thêm phòng
                     </button>
+                    <?php endif; ?>
                 </div>
             </div>
             
@@ -471,17 +473,21 @@ include 'includes/admin-header.php';
                             data: null,
                             orderable: false,
                             render: function(data, type, row) {
+                                const userRole = <?= $user['ID_Role'] ?? 0 ?>;
+                                const isFinanceManager = userRole == 2;
                                 return `
                                     <div class="action-buttons">
                                         <button class="btn btn-info btn-sm" onclick="viewRoomDetails(${row.ID_Phong})" title="Xem chi tiết">
                                             <i class="fas fa-eye"></i>
                                         </button>
+                                        ${isFinanceManager ? `
                                         <button class="btn btn-warning btn-sm" onclick="editRoom(${row.ID_Phong})" title="Chỉnh sửa">
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         <button class="btn btn-danger btn-sm" onclick="deleteRoom(${row.ID_Phong})" title="Xóa">
                                             <i class="fas fa-trash"></i>
                                         </button>
+                                        ` : ''}
                                     </div>
                                 `;
                             }
@@ -857,8 +863,13 @@ include 'includes/admin-header.php';
                         </div>
                     `);
                     
-                    // Hiển thị nút chỉnh sửa và gán sự kiện
-                    $('#btnEditFromDetails').show().attr('onclick', `editRoom(${roomId})`);
+                    // Hiển thị nút chỉnh sửa và gán sự kiện (chỉ nếu là quản lý tài chính)
+                    const userRole = <?= $user['ID_Role'] ?? 0 ?>;
+                    if (userRole == 2) {
+                        $('#btnEditFromDetails').show().attr('onclick', `editRoom(${roomId})`);
+                    } else {
+                        $('#btnEditFromDetails').hide();
+                    }
                 } else {
                     $('#roomDetailsContent').html(`
                         <div class="alert alert-danger">
@@ -893,10 +904,11 @@ include 'includes/admin-header.php';
             const originalHtml = deleteBtn.html();
             deleteBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
 
-            AdminPanel.makeAjaxRequest('../src/controllers/rooms.php', {
-                action: 'delete_room',
-                id: roomId
-            }, 'POST')
+            const formData = new FormData();
+            formData.append('action', 'delete_room');
+            formData.append('id', roomId);
+            
+            AdminPanel.makeAjaxRequest('../src/controllers/rooms.php', formData, 'POST')
             .then(response => {
                 deleteBtn.prop('disabled', false).html(originalHtml);
                 if (response.success) {
@@ -904,13 +916,27 @@ include 'includes/admin-header.php';
                     roomsTable.ajax.reload();
                     loadStatistics();
                 } else {
-                    AdminPanel.showError(response.error || 'Lỗi khi xóa phòng');
+                    // Hiển thị lỗi cụ thể từ server (error hoặc message)
+                    const errorMessage = response.error || response.message || 'Có lỗi xảy ra khi xóa phòng';
+                    AdminPanel.showError(errorMessage);
                 }
             })
             .catch(error => {
                 deleteBtn.prop('disabled', false).html(originalHtml);
                 console.error('Delete room error:', error);
-                AdminPanel.showError('Lỗi khi xóa phòng: ' + (error.message || 'Lỗi không xác định'));
+                // Thử parse error response để lấy thông báo cụ thể
+                let errorMessage = 'Lỗi khi xóa phòng';
+                if (error.response) {
+                    try {
+                        const errorResponse = typeof error.response === 'string' ? JSON.parse(error.response) : error.response;
+                        errorMessage = errorResponse.error || errorResponse.message || errorMessage;
+                    } catch (e) {
+                        errorMessage = error.message || errorMessage;
+                    }
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                AdminPanel.showError(errorMessage);
             });
         }
     </script>

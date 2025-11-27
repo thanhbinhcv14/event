@@ -265,8 +265,21 @@ function initializeNotifications() {
 
 // Show notification
 function showNotification(message, type = 'info', duration = 5000) {
-    const container = document.querySelector('.notification-container');
-    if (!container) return;
+    // Ensure notification container exists
+    let container = document.querySelector('.notification-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'notification-container';
+        container.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+            pointer-events: none;
+        `;
+        document.body.appendChild(container);
+    }
     
     const notification = document.createElement('div');
     notification.className = `alert alert-${type} alert-dismissible fade show notification-item`;
@@ -275,6 +288,8 @@ function showNotification(message, type = 'info', duration = 5000) {
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         border: none;
         border-radius: 8px;
+        pointer-events: auto;
+        animation: slideInRight 0.3s ease-out;
     `;
     
     notification.innerHTML = `
@@ -288,7 +303,12 @@ function showNotification(message, type = 'info', duration = 5000) {
     // Auto remove after duration
     setTimeout(() => {
         if (notification.parentNode) {
-            notification.remove();
+            notification.style.animation = 'slideOutRight 0.3s ease-out';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 300);
         }
     }, duration);
 }
@@ -338,51 +358,25 @@ function hideLoading(element) {
 
 // Show error message
 function showError(message, element = '.error-message') {
-    const errorElement = document.querySelector(element);
-    if (errorElement) {
-        errorElement.textContent = message;
-        errorElement.style.display = 'block';
-        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    // Chỉ hiển thị notification ở góc phải, không hiển thị ở banner trên cùng
     showNotification(message, 'danger');
 }
 
 // Show success message
 function showSuccess(message, element = '.success-message') {
-    const successElement = document.querySelector(element);
-    if (successElement) {
-        successElement.textContent = message;
-        successElement.style.display = 'block';
-        setTimeout(() => {
-            successElement.style.display = 'none';
-        }, 5000);
-    }
+    // Chỉ hiển thị notification ở góc phải, không hiển thị ở banner trên cùng
     showNotification(message, 'success');
 }
 
 // Show warning message
 function showWarning(message, element = '.warning-message') {
-    const warningElement = document.querySelector(element);
-    if (warningElement) {
-        warningElement.textContent = message;
-        warningElement.style.display = 'block';
-        setTimeout(() => {
-            warningElement.style.display = 'none';
-        }, 5000);
-    }
+    // Chỉ hiển thị notification ở góc phải, không hiển thị ở banner trên cùng
     showNotification(message, 'warning');
 }
 
 // Show info message
 function showInfo(message, element = '.info-message') {
-    const infoElement = document.querySelector(element);
-    if (infoElement) {
-        infoElement.textContent = message;
-        infoElement.style.display = 'block';
-        setTimeout(() => {
-            infoElement.style.display = 'none';
-        }, 5000);
-    }
+    // Chỉ hiển thị notification ở góc phải, không hiển thị ở banner trên cùng
     showNotification(message, 'info');
 }
 

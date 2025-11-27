@@ -119,7 +119,7 @@ function getAllEventTypes() {
     global $pdo;
     
     try {
-        $stmt = $pdo->prepare("SELECT * FROM loaisukien ORDER BY TenLoai");
+        $stmt = $pdo->prepare("SELECT * FROM loaisukien ORDER BY ID_LoaiSK DESC");
         $stmt->execute();
         $eventTypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
@@ -235,30 +235,33 @@ function updateEventType() {
     }
     
     // Check if event type exists
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM loaisukien WHERE ID_LoaiSK = ?");
+    $stmt = $pdo->prepare("SELECT TenLoai FROM loaisukien WHERE ID_LoaiSK = ?");
     $stmt->execute([$id]);
-    if ($stmt->fetchColumn() == 0) {
+    $eventType = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$eventType) {
         echo json_encode(['success' => false, 'error' => 'Không tìm thấy loại sự kiện']);
         return;
     }
 
-    // Do not allow edit if referenced by existing data
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM datlichsukien WHERE ID_LoaiSK = ?");
+    // Kiểm tra sự kiện đang diễn ra (NgayBatDau <= NOW() AND NgayKetThuc >= NOW())
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as count, 
+               GROUP_CONCAT(DISTINCT TenSuKien SEPARATOR ', ') as events
+        FROM datlichsukien 
+        WHERE ID_LoaiSK = ? 
+        AND TrangThaiDuyet = 'Đã duyệt'
+        AND NgayBatDau <= NOW() 
+        AND NgayKetThuc >= NOW()
+    ");
     $stmt->execute([$id]);
-    if ($stmt->fetchColumn() > 0) {
-        echo json_encode(['success' => false, 'error' => 'Không thể sửa: Loại sự kiện đã được sử dụng trong các đơn đặt lịch']);
-        return;
-    }
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM combo_loaisk WHERE ID_LoaiSK = ?");
-    $stmt->execute([$id]);
-    if ($stmt->fetchColumn() > 0) {
-        echo json_encode(['success' => false, 'error' => 'Không thể sửa: Loại sự kiện đang được gán cho combo']);
-        return;
-    }
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM diadiem_loaisk WHERE ID_LoaiSK = ?");
-    $stmt->execute([$id]);
-    if ($stmt->fetchColumn() > 0) {
-        echo json_encode(['success' => false, 'error' => 'Không thể sửa: Loại sự kiện đang được gán cho địa điểm']);
+    $activeEvent = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($activeEvent['count'] > 0) {
+        echo json_encode([
+            'success' => false, 
+            'error' => "Không thể sửa loại sự kiện vì đang có sự kiện đang diễn ra: {$activeEvent['events']}"
+        ]);
         return;
     }
     
@@ -310,41 +313,23 @@ function deleteEventType() {
         return;
     }
     
-    // Check if event type is being used in events
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM datlichsukien WHERE ID_LoaiSK = ?");
+    // Kiểm tra sự kiện đang diễn ra (NgayBatDau <= NOW() AND NgayKetThuc >= NOW())
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) as count, 
+               GROUP_CONCAT(DISTINCT TenSuKien SEPARATOR ', ') as events
+        FROM datlichsukien 
+        WHERE ID_LoaiSK = ? 
+        AND TrangThaiDuyet = 'Đã duyệt'
+        AND NgayBatDau <= NOW() 
+        AND NgayKetThuc >= NOW()
+    ");
     $stmt->execute([$id]);
-    $eventCount = $stmt->fetchColumn();
+    $activeEvent = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if ($eventCount > 0) {
+    if ($activeEvent['count'] > 0) {
         echo json_encode([
             'success' => false, 
-            'error' => "Không thể xóa loại sự kiện '{$eventType['TenLoai']}' vì đang được sử dụng trong {$eventCount} sự kiện"
-        ]);
-        return;
-    }
-    
-    // Check if event type is being used in combo_loaisk
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM combo_loaisk WHERE ID_LoaiSK = ?");
-    $stmt->execute([$id]);
-    $comboCount = $stmt->fetchColumn();
-    
-    if ($comboCount > 0) {
-        echo json_encode([
-            'success' => false, 
-            'error' => "Không thể xóa loại sự kiện '{$eventType['TenLoai']}' vì đang được sử dụng trong {$comboCount} combo"
-        ]);
-        return;
-    }
-    
-    // Check if event type is being used in diadiem_loaisk
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM diadiem_loaisk WHERE ID_LoaiSK = ?");
-    $stmt->execute([$id]);
-    $locationCount = $stmt->fetchColumn();
-    
-    if ($locationCount > 0) {
-        echo json_encode([
-            'success' => false, 
-            'error' => "Không thể xóa loại sự kiện '{$eventType['TenLoai']}' vì đang được sử dụng trong {$locationCount} địa điểm"
+            'error' => "Không thể xóa loại sự kiện vì đang có sự kiện đang diễn ra: {$activeEvent['events']}"
         ]);
         return;
     }
@@ -389,7 +374,7 @@ function getEventTypeStats() {
             FROM loaisukien ls
             LEFT JOIN datlichsukien dl ON ls.ID_LoaiSK = dl.ID_LoaiSK
             GROUP BY ls.ID_LoaiSK, ls.TenLoai
-            ORDER BY event_count DESC
+            ORDER BY event_count ASC
             LIMIT 5
         ");
         $stmt->execute();

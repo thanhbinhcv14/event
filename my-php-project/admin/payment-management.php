@@ -174,41 +174,22 @@ include 'includes/admin-header.php';
 
         <!-- Status Update Modal -->
         <div class="modal fade" id="statusModal" tabindex="-1">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-lg">
                 <div class="modal-content">
-                    <div class="modal-header">
+                    <div class="modal-header bg-primary text-white">
                         <h5 class="modal-title">
                             <i class="fas fa-edit"></i>
-                            Cập nhật trạng thái thanh toán
+                            Chỉnh sửa thanh toán
                         </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="modal-body">
-                        <form id="statusForm">
-                            <input type="hidden" id="paymentId" name="payment_id">
-                            <div class="mb-3">
-                                <label class="form-label">Trạng thái hiện tại</label>
-                                <input type="text" class="form-control" id="currentStatus" readonly>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Trạng thái mới</label>
-                                <select class="form-select" id="newStatus" name="status" required>
-                                    <option value="Đang xử lý">Đang xử lý</option>
-                                    <option value="Thành công">Thành công</option>
-                                    <option value="Thất bại">Thất bại</option>
-                                    <option value="Đã hủy">Đã hủy</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Ghi chú</label>
-                                <textarea class="form-control" id="statusNote" rows="3" placeholder="Ghi chú về việc thay đổi trạng thái"></textarea>
-                            </div>
-                        </form>
+                    <div class="modal-body" id="statusModalBody">
+                        <!-- Content will be loaded via AJAX -->
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
                         <button type="button" class="btn btn-primary" onclick="updatePaymentStatus()">
-                            <i class="fas fa-save"></i> Cập nhật
+                            <i class="fas fa-save"></i> Cập nhật trạng thái
                         </button>
                     </div>
                 </div>
@@ -859,21 +840,160 @@ include 'includes/admin-header.php';
         function showStatusUpdate() {
             if (!currentPaymentId) return;
             
-            // Lấy trạng thái thanh toán hiện tại
+            AdminPanel.showLoading('#statusModalBody');
+            
+            const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
+            statusModal.show();
+            
+            // Lấy đầy đủ thông tin thanh toán
             AdminPanel.makeAjaxRequest('../src/controllers/payment.php', {
                 action: 'get_payment_status',
                 payment_id: currentPaymentId
             })
             .then(response => {
                 if (response.success && response.payment) {
-                    $('#paymentId').val(currentPaymentId);
-                    $('#currentStatus').val(response.payment.TrangThai);
-                    $('#newStatus').val(response.payment.TrangThai);
-                    $('#statusNote').val('');
+                    const payment = response.payment;
                     
-                    const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
-                    statusModal.show();
+                    // Định dạng số tiền và ngày tháng
+                    const formattedAmount = AdminPanel.formatCurrency(payment.SoTien);
+                    const paymentDate = payment.NgayThanhToan ? AdminPanel.formatDate(payment.NgayThanhToan, 'dd/mm/yyyy hh:mm') : 'N/A';
+                    const eventStartDate = payment.NgayBatDau ? AdminPanel.formatDate(payment.NgayBatDau, 'dd/mm/yyyy hh:mm') : 'N/A';
+                    const eventEndDate = payment.NgayKetThuc ? AdminPanel.formatDate(payment.NgayKetThuc, 'dd/mm/yyyy hh:mm') : 'N/A';
+                    
+                    // Tạo HTML form với đầy đủ thông tin
+                    $('#statusModalBody').html(`
+                        <form id="statusForm">
+                            <input type="hidden" id="paymentId" name="payment_id" value="${currentPaymentId}">
+                            
+                            <!-- Thông tin cơ bản -->
+                            <div class="card border-0 shadow-sm mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="fas fa-info-circle text-primary"></i> Thông tin cơ bản</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-hashtag text-muted"></i> ID thanh toán</label>
+                                            <input type="text" class="form-control" value="#${payment.ID_ThanhToan}" readonly>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-barcode text-muted"></i> Mã giao dịch</label>
+                                            <input type="text" class="form-control" value="${payment.MaGiaoDich || 'N/A'}" readonly>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-money-bill-wave text-muted"></i> Số tiền</label>
+                                            <input type="text" class="form-control" value="${formattedAmount}" readonly>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-credit-card text-muted"></i> Phương thức</label>
+                                            <input type="text" class="form-control" value="${payment.PhuongThuc || 'N/A'}" readonly>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-tag text-muted"></i> Loại thanh toán</label>
+                                            <input type="text" class="form-control" value="${payment.LoaiThanhToan || 'N/A'}" readonly>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-calendar-alt text-muted"></i> Ngày thanh toán</label>
+                                            <input type="text" class="form-control" value="${paymentDate}" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Thông tin khách hàng -->
+                            <div class="card border-0 shadow-sm mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="fas fa-user text-primary"></i> Thông tin khách hàng</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-user-circle text-muted"></i> Họ tên</label>
+                                            <input type="text" class="form-control" value="${payment.KhachHangTen || 'N/A'}" readonly>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-phone text-muted"></i> Số điện thoại</label>
+                                            <input type="text" class="form-control" value="${payment.SoDienThoai || 'N/A'}" readonly>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-envelope text-muted"></i> Email</label>
+                                            <input type="text" class="form-control" value="${payment.KhachHangEmail || 'N/A'}" readonly>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-map-marker-alt text-muted"></i> Địa chỉ</label>
+                                            <input type="text" class="form-control" value="${payment.KhachHangDiaChi || 'N/A'}" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Thông tin sự kiện -->
+                            <div class="card border-0 shadow-sm mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="fas fa-calendar-alt text-primary"></i> Thông tin sự kiện</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-12">
+                                            <label class="form-label"><i class="fas fa-star text-muted"></i> Tên sự kiện</label>
+                                            <input type="text" class="form-control" value="${payment.TenSuKien || 'N/A'}" readonly>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-play-circle text-muted"></i> Ngày bắt đầu</label>
+                                            <input type="text" class="form-control" value="${eventStartDate}" readonly>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label"><i class="fas fa-stop-circle text-muted"></i> Ngày kết thúc</label>
+                                            <input type="text" class="form-control" value="${eventEndDate}" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Trạng thái (có thể chỉnh sửa) -->
+                            <div class="card border-primary mb-3">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0"><i class="fas fa-edit"></i> Cập nhật trạng thái</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-info-circle text-muted"></i> Trạng thái hiện tại</label>
+                                        <input type="text" class="form-control" id="currentStatus" value="${payment.TrangThai || 'N/A'}" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-edit text-primary"></i> Trạng thái mới <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="newStatus" name="status" required>
+                                            <option value="Đang xử lý" ${payment.TrangThai === 'Đang xử lý' ? 'selected' : ''}>Đang xử lý</option>
+                                            <option value="Chờ thanh toán" ${payment.TrangThai === 'Chờ thanh toán' ? 'selected' : ''}>Chờ thanh toán</option>
+                                            <option value="Thành công" ${payment.TrangThai === 'Thành công' ? 'selected' : ''}>Thành công</option>
+                                            <option value="Thất bại" ${payment.TrangThai === 'Thất bại' ? 'selected' : ''}>Thất bại</option>
+                                            <option value="Đã hủy" ${payment.TrangThai === 'Đã hủy' ? 'selected' : ''}>Đã hủy</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-sticky-note text-muted"></i> Ghi chú</label>
+                                        <textarea class="form-control" id="statusNote" rows="3" placeholder="Ghi chú về việc thay đổi trạng thái">${payment.GhiChu || ''}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    `);
+                } else {
+                    $('#statusModalBody').html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            ${response.error || 'Không thể tải thông tin thanh toán'}
+                        </div>
+                    `);
                 }
+            })
+            .catch(error => {
+                $('#statusModalBody').html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Có lỗi xảy ra khi tải thông tin thanh toán
+                    </div>
+                `);
             });
         }
 
@@ -1248,6 +1368,48 @@ include 'includes/admin-header.php';
             #paymentModal .payment-icon i {
                 font-size: 1rem;
             }
+        }
+        
+        /* Status Modal Styles */
+        #statusModal .form-control[readonly],
+        #statusModal .form-select[readonly] {
+            background-color: #f8f9fa;
+            cursor: not-allowed;
+            opacity: 0.8;
+            border-color: #dee2e6;
+        }
+        
+        #statusModal .form-control[readonly]:focus,
+        #statusModal .form-select[readonly]:focus {
+            border-color: #dee2e6;
+            box-shadow: none;
+        }
+        
+        #statusModal .card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        #statusModal .card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+        }
+        
+        #statusModal .card-header {
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 600;
+        }
+        
+        #statusModal .form-label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        
+        #statusModal .form-label i {
+            margin-right: 0.25rem;
+        }
+        
+        #statusModal .card.border-primary {
+            border-width: 2px !important;
         }
     </style>
 

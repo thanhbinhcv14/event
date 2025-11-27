@@ -1,5 +1,5 @@
 <?php
-// Include admin header
+// Bao gồm header admin
 include 'includes/admin-header.php';
 ?>
 
@@ -290,18 +290,18 @@ include 'includes/admin-header.php';
 
 
     <style>
-        /* Remove modal backdrop completely */
+        /* Loại bỏ hoàn toàn backdrop của modal */
         .modal-backdrop {
             display: none !important;
         }
         
-        /* Ensure body doesn't get locked when modal is open */
+        /* Đảm bảo body không bị khóa khi modal mở */
         body.modal-open {
             overflow: auto !important;
             padding-right: 0 !important;
         }
         
-        /* Optional: Add a subtle overlay effect if you want some visual indication */
+        /* Tùy chọn: Thêm hiệu ứng overlay nhẹ nếu muốn có chỉ báo trực quan */
         .modal.show {
             background-color: rgba(0, 0, 0, 0.1);
         }
@@ -311,7 +311,7 @@ include 'includes/admin-header.php';
         let staffTable;
         let currentFilters = {};
 
-        // Initialize page
+        // Khởi tạo trang
         document.addEventListener('DOMContentLoaded', function() {
             initializeDataTable();
             loadStatistics();
@@ -319,7 +319,7 @@ include 'includes/admin-header.php';
         });
 
         function initializeDataTable() {
-            // Check if DataTables is available
+            // Kiểm tra DataTables có sẵn không
             if (typeof $.fn.DataTable === 'undefined') {
                 console.error('DataTables not available');
                 AdminPanel.showError('DataTables không khả dụng');
@@ -459,7 +459,7 @@ include 'includes/admin-header.php';
         }
 
         function setupEventListeners() {
-            // Search input with debounce
+            // Ô tìm kiếm với debounce
             let searchTimeout;
             $('#searchInput').on('keyup', function() {
                 clearTimeout(searchTimeout);
@@ -468,7 +468,7 @@ include 'includes/admin-header.php';
                 }, 300);
             });
 
-            // Filter change events
+            // Sự kiện thay đổi bộ lọc
             $('#roleFilter, #statusFilter, #sortBy').on('change', function() {
                 applyFilters();
             });
@@ -480,10 +480,10 @@ include 'includes/admin-header.php';
             const statusFilter = $('#statusFilter').val();
             const sortBy = $('#sortBy').val();
             
-            // Apply search to DataTable
+            // Áp dụng tìm kiếm vào DataTable
             staffTable.search(searchValue).draw();
             
-            // Apply column filters
+            // Áp dụng bộ lọc cột
             if (roleFilter) {
                 staffTable.column(3).search(roleFilter);
             } else {
@@ -496,7 +496,7 @@ include 'includes/admin-header.php';
                 staffTable.column(4).search('');
             }
             
-            // Apply sorting
+            // Áp dụng sắp xếp
             if (sortBy === 'HoTen') {
                 staffTable.order([1, 'asc']).draw();
             } else if (sortBy === 'Email') {
@@ -507,7 +507,7 @@ include 'includes/admin-header.php';
                 staffTable.order([5, 'desc']).draw();
             }
             
-            // Redraw table
+            // Vẽ lại bảng
             staffTable.draw();
         }
 
@@ -517,7 +517,7 @@ include 'includes/admin-header.php';
             $('#statusFilter').val('');
             $('#sortBy').val('HoTen');
             
-            // Clear all DataTable filters
+            // Xóa tất cả bộ lọc DataTable
             staffTable.search('');
             staffTable.columns().search('');
             staffTable.order([0, 'desc']).draw();
@@ -557,7 +557,7 @@ include 'includes/admin-header.php';
                     $('#staffPosition').val(staff.ChucVu);
                     $('#staffAddress').val(staff.DiaChi);
                     $('#staffRole').val(staff.ID_Role);
-                    $('#staffStatus').val(staff.TrangThai);
+                    $('#staffStatus').val(staff.UserStatus || staff.TrangThai || 'Hoạt động');
                     $('#staffSalary').val(staff.Luong);
                     $('#staffStartDate').val(staff.NgayVaoLam);
                     
@@ -656,14 +656,14 @@ include 'includes/admin-header.php';
         function saveStaff() {
             const isEdit = $('#staffId').val() !== '';
             
-            // For edit mode, remove required attribute from password field
+            // Đối với chế độ chỉnh sửa, xóa thuộc tính required khỏi trường mật khẩu
             if (isEdit) {
                 $('#staffPassword').removeAttr('required');
             } else {
                 $('#staffPassword').attr('required', 'required');
             }
             
-            // Additional validation for password when adding new staff
+            // Xác thực bổ sung cho mật khẩu khi thêm nhân viên mới
             if (!isEdit && !$('#staffPassword').val().trim()) {
                 AdminPanel.showError('Mật khẩu không được để trống khi thêm nhân viên mới');
                 $('#staffPassword').focus();
@@ -677,7 +677,7 @@ include 'includes/admin-header.php';
             const formData = new FormData(document.getElementById('staffForm'));
             const action = isEdit ? 'update_staff' : 'add_staff';
             
-            // Add action to form data
+            // Thêm action vào form data
             formData.append('action', action);
 
             AdminPanel.makeAjaxRequest('../src/controllers/staffedit.php', formData, 'POST')
@@ -741,7 +741,7 @@ include 'includes/admin-header.php';
 
         
 
-        // Auto refresh every 30 seconds
+        // Tự động làm mới mỗi 30 giây
         setInterval(() => {
             loadStatistics();
         }, 30000);

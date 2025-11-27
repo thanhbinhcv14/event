@@ -62,12 +62,15 @@ CREATE TABLE `baocao` (
 -- Migrate từ baocaotiendo
 --
 
-INSERT INTO `baocao` (`ID_BaoCao`, `ID_NhanVien`, `ID_QuanLy`, `ID_Task`, `LoaiTask`, `LoaiBaoCao`, `TienDo`, `TieuDe`, `MucDo`, `MoTa`, `TrangThai`, `NgayBaoCao`, `NgayCapNhat`, `ThoiGianBatDauXuLy`, `ThoiGianKetThucXuLy`, `ThoiGianXuLy`) VALUES
-(1, 5, 7, 2, 'chitietkehoach', 'Tiến độ', 100, NULL, NULL, 'Đã hoàn thành', 'Hoàn thành', '2025-10-28 22:17:53', '2025-11-27 00:46:53', NULL, NULL, NULL),
-(2, 4, 3, 4, 'lichlamviec', 'Sự cố', NULL, 'Báo sự cố: Dọn dẹp trang thiết bị', 'Trung bình', 'Dọn dẹp nhiều thiết bị và trang trí ', 'Mới', '2025-10-28 19:27:30', '2025-10-28 19:27:30', NULL, NULL, NULL),
-(11, 4, 7, 11, 'lichlamviec', 'Sự cố', NULL, 'Thiết bị âm thanh bị lỗi', 'Cao', 'Loa chính bị mất tín hiệu, cần thay thế dây kết nối', 'Đã xử lý', '2025-12-01 11:45:00', '2025-12-01 12:00:00', '2025-12-01 11:45:00', '2025-12-01 12:00:00', 900),
-(12, 4, 7, 9, 'lichlamviec', 'Tiến độ', 100, NULL, NULL, 'Đã hoàn thành tất cả thiết bị', 'Hoàn thành', '2025-12-01 08:45:00', '2025-12-01 08:45:00', NULL, NULL, NULL),
-(13, 4, 7, 10, 'lichlamviec', 'Tiến độ', 100, NULL, NULL, 'Đã hoàn thành setup sân khấu', 'Hoàn thành', '2025-12-01 11:30:00', '2025-12-01 11:30:00', NULL, NULL, NULL);
+INSERT INTO `baocao` (`ID_NhanVien`, `ID_QuanLy`, `ID_Task`, `LoaiTask`, `LoaiBaoCao`, `TienDo`, `MoTa`, `TrangThai`, `NgayBaoCao`) VALUES
+(5, 7, 2, 'chitietkehoach', 'Tiến độ', 100, 'Đã hoàn thành', 'Hoàn thành', '2025-10-28 22:17:53');
+
+--
+-- Migrate từ baocaosuco
+--
+
+INSERT INTO `baocao` (`ID_NhanVien`, `ID_QuanLy`, `ID_Task`, `LoaiTask`, `LoaiBaoCao`, `TieuDe`, `MoTa`, `MucDo`, `TrangThai`, `NgayBaoCao`, `NgayCapNhat`) VALUES
+(4, 3, 4, 'lichlamviec', 'Sự cố', 'Báo sự cố: Dọn dẹp trang thiết bị', 'Dọn dẹp nhiều thiết bị và trang trí ', 'Trung bình', 'Mới', '2025-10-28 19:27:30', '2025-10-28 19:27:30');
 
 -- --------------------------------------------------------
 
@@ -214,13 +217,7 @@ CREATE TABLE `chitietkehoach` (
 --
 
 INSERT INTO `chitietkehoach` (`ID_ChiTiet`, `ID_KeHoach`, `TenBuoc`, `MoTa`, `ID_NhanVien`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `DaCongBo`) VALUES
-(2, 1, 'Chuẩn bị các thiết bị trong combo', '', 5, '2025-10-28 08:00:00', '2025-10-28 17:00:00', 'Hoàn thành', 0),
-(8, 2, 'Chuẩn bị', '', 4, '2025-11-28 05:00:00', '2025-11-28 06:00:00', 'Đang làm', 1),
-(9, 2, 'Sẵn sàng', '', 4, '2025-11-28 06:00:00', '2025-11-28 07:00:00', 'Chưa làm', 1),
-(10, 3, 'Chuẩn bị thiết bị', 'Lắp đặt và kiểm tra thiết bị âm thanh, ánh sáng', 4, '2025-12-01 07:00:00', '2025-12-01 09:00:00', 'Hoàn thành', 1),
-(11, 3, 'Setup sân khấu', 'Dựng sân khấu và trang trí', 4, '2025-12-01 09:00:00', '2025-12-01 11:00:00', 'Hoàn thành', 1),
-(12, 3, 'Kiểm tra cuối cùng', 'Kiểm tra toàn bộ hệ thống trước khi sự kiện bắt đầu', 4, '2025-12-01 11:00:00', '2025-12-01 12:00:00', 'Hoàn thành', 1),
-(13, 3, 'Hỗ trợ trong sự kiện', 'Hỗ trợ kỹ thuật trong suốt sự kiện', 4, '2025-12-01 12:00:00', '2025-12-01 18:00:00', 'Chưa làm', 1);
+(2, 1, 'Chuẩn bị các thiết bị trong combo', '', 5, '2025-10-28 08:00:00', '2025-10-28 17:00:00', 'Hoàn thành', 0);
 
 -- --------------------------------------------------------
 
@@ -474,10 +471,7 @@ INSERT INTO `datlichsukien` (`ID_DatLich`, `ID_KhachHang`, `TenSuKien`, `MoTa`, 
 (20, 5, 'Sinh Nhật 23', '', '2025-10-29 18:20:00', '2025-10-29 23:20:00', 1, 4, 100, 100000000.00, 42000000.00, 12600000.00, 29400000.00, 0.00, 'Đã duyệt', 'Đã đặt cọc', '', '2025-10-26 09:18:30', '2025-11-26 14:57:07', NULL, NULL, NULL, 0.00),
 (21, 5, 'Hội nghị đàm thoại', 'Hội nghị', '2025-10-27 10:00:00', '2025-10-28 10:00:00', 1, 1, 500, 10000000.00, 132000000.00, 0.00, 0.00, 0.00, 'Từ chối', 'Chưa thanh toán', ' - Tự động hủy: Đã qua thời gian tổ chức và chưa thanh toán đủ (2025-11-17 04:55:02)', '2025-10-26 11:10:40', '2025-11-16 21:55:02', NULL, NULL, NULL, 0.00),
 (22, 5, 'Giáo dục', '', '2025-11-22 07:00:00', '2025-11-22 09:00:00', 13, 8, 120, 1000000.00, 5000.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-11-18 13:17:39', '2025-11-18 13:35:15', 'Theo giờ', 8, NULL, 0.00),
-(23, 5, 'Đá banh', '', '2025-11-25 07:00:00', '2025-11-25 22:00:00', 6, 5, 1000, 100000000.00, 184000000.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-11-18 13:24:53', '2025-11-18 13:35:12', 'Theo ngày', NULL, NULL, 0.00),
-(24, 21, 'Xã hội', '', '2025-11-29 10:00:00', '2025-11-29 13:00:00', 1, 6, 100, 100000000.00, 15500000.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', 'Cảm ơn đã đăng ký', '2025-11-27 00:57:41', '2025-11-27 00:58:18', 'Theo giờ', 1, NULL, 0.00),
-(25, 21, 'Xã hội', '', '2025-11-29 10:00:00', '2025-11-29 13:00:00', 1, 6, 100, 100000000.00, 11000000.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', 'Cảm ơn đã đăng ký', '2025-11-27 00:58:18', '2025-11-27 00:58:18', 'Theo giờ', 1, NULL, 0.00),
-(26, 21, 'Sự kiện Test KPI', 'Sự kiện để test tính KPI và báo lỗi', '2025-12-01 08:00:00', '2025-12-01 18:00:00', 1, 1, 200, 50000000.00, 15000000.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Đã đặt cọc', 'Test KPI', NOW(), NOW(), 'Theo giờ', 1, NULL, 0.00);
+(23, 5, 'Đá banh', '', '2025-11-25 07:00:00', '2025-11-25 22:00:00', 6, 5, 1000, 100000000.00, 184000000.00, 0.00, 0.00, 0.00, 'Đã duyệt', 'Chưa thanh toán', '', '2025-11-18 13:24:53', '2025-11-18 13:35:12', 'Theo ngày', NULL, NULL, 0.00);
 
 -- --------------------------------------------------------
 
@@ -684,9 +678,7 @@ CREATE TABLE `kehoachthuchien` (
 --
 
 INSERT INTO `kehoachthuchien` (`ID_KeHoach`, `ID_SuKien`, `TenKeHoach`, `NoiDung`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `ID_NhanVien`, `NgayTao`) VALUES
-(1, 11, 'Thực hiện tiệc sinh nhật', 'Làm theo note khách', '2025-10-28 00:00:00', '2025-10-29 00:00:00', 'Hoàn thành', 7, '2025-10-28 18:28:34'),
-(2, 14, 'Chuẩn bị tất cả', 'Chuẩn bị tất cả', '2025-11-28 06:00:00', '2025-11-28 12:00:00', 'Chưa bắt đầu', 7, '2025-11-27 07:51:53'),
-(3, 16, 'Kế hoạch Test KPI', 'Kế hoạch để test các trường hợp KPI: đúng giờ, chậm, có sự cố', '2025-12-01 07:00:00', '2025-12-01 19:00:00', 'Đang thực hiện', 7, NOW());
+(1, 11, 'Thực hiện tiệc sinh nhật', 'Làm theo note khách', '2025-10-28 00:00:00', '2025-10-29 00:00:00', 'Hoàn thành', 7, '2025-10-28 18:28:34');
 
 -- --------------------------------------------------------
 
@@ -714,8 +706,7 @@ INSERT INTO `khachhanginfo` (`ID_KhachHang`, `ID_User`, `HoTen`, `SoDienThoai`, 
 (15, 118, 'Vũ Thảo Ánh', '0356690717', '60 đường số 1', '2009-12-11', '2025-09-24 18:57:20', '2025-09-24 22:45:30'),
 (17, 124, 'Vũ Thảo Ánh', '0356690717', '60 đường số 4!\r\n', '2003-09-16', '2025-09-25 02:09:32', '2025-10-26 01:27:16'),
 (19, 130, 'Vũ Nam', '0707102548', '12NVB', '2025-10-21', '2025-10-26 01:27:44', '2025-10-26 01:27:44'),
-(20, 131, 'Vũ Thảo My', '0356647415', '1320 Lê Văn Thọ', '1999-04-11', '2025-11-26 12:57:43', '2025-11-26 13:41:13'),
-(21, NULL, 'Khách hàng Test KPI', '0900000000', 'Địa chỉ test', '1990-01-01', '2025-11-27 00:57:41', '2025-11-27 00:57:41');
+(20, 131, 'Vũ Thảo My', '0356647415', '1320 Lê Văn Thọ', '1999-04-11', '2025-11-26 12:57:43', '2025-11-26 13:41:13');
 
 -- --------------------------------------------------------
 
@@ -748,14 +739,8 @@ CREATE TABLE `lichlamviec` (
 -- Đang đổ dữ liệu cho bảng `lichlamviec`
 --
 
-INSERT INTO `lichlamviec` (`ID_LLV`, `ID_DatLich`, `ID_NhanVien`, `NhiemVu`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `GhiChu`, `NgayTao`, `NgayCapNhat`, `ID_KeHoach`, `ID_ChiTiet`, `CongViec`, `ThoiGianHoanThanh`, `TienDo`, `ThoiGianBatDauThucTe`, `ThoiGianKetThucThucTe`, `KPI`) VALUES
-(3, 20, 4, 'Gỡ rạp ', '2025-10-29 23:00:00', '2025-10-30 12:00:00', 'Hoàn thành', '', '2025-10-28 18:15:43', '2025-10-28 18:29:35', 1, 2, '', '2025-10-28 19:29:35', '100', NULL, NULL, NULL),
-(7, 24, 4, 'Chuẩn bị', '2025-11-28 05:00:00', '2025-11-28 06:00:00', 'Chưa làm', NULL, '2025-11-27 01:01:43', '2025-11-27 01:01:43', NULL, 8, '', NULL, '0%', NULL, NULL, NULL),
-(8, 24, 4, 'Sẵn sàng', '2025-11-28 06:00:00', '2025-11-28 07:00:00', 'Chưa làm', NULL, '2025-11-27 01:02:35', '2025-11-27 01:02:35', NULL, 9, '', NULL, '0%', NULL, NULL, NULL),
-(9, 26, 4, 'Chuẩn bị thiết bị', '2025-12-01 07:00:00', '2025-12-01 09:00:00', 'Hoàn thành', 'Hoàn thành sớm 15 phút', NOW(), NOW(), 3, 10, 'Lắp đặt thiết bị', '2025-12-01 08:45:00', '100%', '2025-12-01 07:00:00', '2025-12-01 08:45:00', 12.50),
-(10, 26, 4, 'Setup sân khấu', '2025-12-01 09:00:00', '2025-12-01 11:00:00', 'Hoàn thành', 'Gặp khó khăn trong việc dựng sân khấu', NOW(), NOW(), 3, 11, 'Dựng sân khấu', '2025-12-01 11:30:00', '100%', '2025-12-01 09:00:00', '2025-12-01 11:30:00', -25.00),
-(11, 26, 4, 'Kiểm tra cuối cùng', '2025-12-01 11:00:00', '2025-12-01 12:00:00', 'Hoàn thành', 'Có sự cố thiết bị nhưng đã xử lý', NOW(), NOW(), 3, 12, 'Kiểm tra hệ thống', '2025-12-01 12:20:00', '100%', '2025-12-01 11:00:00', '2025-12-01 12:20:00', -8.33),
-(12, 26, 4, 'Hỗ trợ trong sự kiện', '2025-12-01 12:00:00', '2025-12-01 18:00:00', 'Chưa làm', NULL, NOW(), NOW(), 3, 13, 'Hỗ trợ kỹ thuật', NULL, '0%', NULL, NULL, NULL);
+INSERT INTO `lichlamviec` (`ID_LLV`, `ID_DatLich`, `ID_NhanVien`, `NhiemVu`, `NgayBatDau`, `NgayKetThuc`, `TrangThai`, `GhiChu`, `NgayTao`, `NgayCapNhat`, `ID_KeHoach`, `ID_ChiTiet`, `CongViec`, `ThoiGianHoanThanh`, `TienDo`) VALUES
+(3, 20, 4, 'Gỡ rạp ', '2025-10-29 23:00:00', '2025-10-30 12:00:00', 'Hoàn thành', '', '2025-10-28 18:15:43', '2025-10-28 18:29:35', 1, 2, '', '2025-10-28 19:29:35', '100');
 
 -- --------------------------------------------------------
 
@@ -1049,10 +1034,7 @@ INSERT INTO `sukien` (`ID_SuKien`, `ID_DatLich`, `MaSuKien`, `TenSuKien`, `NgayB
 (10, 17, 'EV202510260017', 'Hội nghị đàm thoại', '2025-10-27 06:00:00', '2025-10-27 22:00:00', 'Trung tâm Hội nghị White Palace - 194 Hoàng Văn Thụ, Quận Phú Nhuận, TP.HCM', 'Hoàn thành', 92150000.00, NULL, NULL, 'Sự kiện được duyệt tự động từ đăng ký ID: 17', '2025-10-26 09:01:03', '2025-10-28 22:06:41'),
 (11, 20, 'EV202510260020', 'Sinh Nhật 23', '2025-10-29 18:20:00', '2025-10-29 23:20:00', 'Trung tâm Hội nghị White Palace - 194 Hoàng Văn Thụ, Quận Phú Nhuận, TP.HCM', 'Hoàn thành', 42000000.00, NULL, NULL, 'Sự kiện được duyệt tự động từ đăng ký ID: 20', '2025-10-26 09:19:09', '2025-10-28 22:02:50'),
 (12, 23, 'EV202511180023', 'Đá banh', '2025-11-25 07:00:00', '2025-11-25 22:00:00', 'Sân vận động Thống Nhất - 138 Đào Duy Từ, Quận 10, TP.HCM', 'Đang chuẩn bị', 184000000.00, NULL, NULL, 'Sự kiện được duyệt tự động từ đăng ký ID: 23', '2025-11-18 13:35:12', '2025-11-18 13:35:12'),
-(13, 22, 'EV202511180022', 'Giáo dục', '2025-11-22 07:00:00', '2025-11-22 09:00:00', 'Capella Park View - Số 3 Thủ Đức, TP.HCM', 'Đang chuẩn bị', 5000.00, NULL, NULL, 'Sự kiện được duyệt tự động từ đăng ký ID: 22', '2025-11-18 13:35:15', '2025-11-18 13:35:15'),
-(14, 24, 'EV202511270024', 'Xã hội', '2025-11-28 07:30:00', '2025-11-28 10:30:00', 'Capella Park View - Số 3 Quận Thủ Đức, TP.HCM', 'Đang chuẩn bị', 11000000.00, NULL, NULL, 'Sự kiện được duyệt tự động từ đăng ký ID: 24 - Ghi chú: Cảm ơn đã đăng ký', '2025-11-27 00:49:23', '2025-11-27 00:49:23'),
-(15, 25, 'EV202511270025', 'Xã hội', '2025-11-29 10:00:00', '2025-11-29 13:00:00', 'Trung tâm Hội nghị White Palace - 194 Hoàng Văn Thụ, Quận Phú Nhuận, TP.HCM', 'Đang chuẩn bị', 11000000.00, NULL, NULL, 'Sự kiện được duyệt tự động từ đăng ký ID: 25 - Ghi chú: Cảm ơn đã đăng ký', '2025-11-27 00:58:18', '2025-11-27 00:58:18'),
-(16, 26, 'EV202512010026', 'Sự kiện Test KPI', '2025-12-01 08:00:00', '2025-12-01 18:00:00', 'Trung tâm Hội nghị White Palace', 'Đang chuẩn bị', 15000000.00, NULL, NULL, 'Sự kiện test KPI', NOW(), NOW());
+(13, 22, 'EV202511180022', 'Giáo dục', '2025-11-22 07:00:00', '2025-11-22 09:00:00', 'Capella Park View - Số 3 Thủ Đức, TP.HCM', 'Đang chuẩn bị', 5000.00, NULL, NULL, 'Sự kiện được duyệt tự động từ đăng ký ID: 22', '2025-11-18 13:35:15', '2025-11-18 13:35:15');
 
 -- --------------------------------------------------------
 
@@ -1566,7 +1548,7 @@ ALTER TABLE `webhook_logs`
 -- AUTO_INCREMENT cho bảng `baocao`
 --
 ALTER TABLE `baocao`
-  MODIFY `ID_BaoCao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `ID_BaoCao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT cho bảng `blog_comments`
@@ -1602,7 +1584,7 @@ ALTER TABLE `chitietdatsukien`
 -- AUTO_INCREMENT cho bảng `chitietkehoach`
 --
 ALTER TABLE `chitietkehoach`
-  MODIFY `ID_ChiTiet` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `ID_ChiTiet` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT cho bảng `combo`
@@ -1626,7 +1608,7 @@ ALTER TABLE `danhgia`
 -- AUTO_INCREMENT cho bảng `datlichsukien`
 --
 ALTER TABLE `datlichsukien`
-  MODIFY `ID_DatLich` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+  MODIFY `ID_DatLich` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT cho bảng `diadiem`
@@ -1644,19 +1626,19 @@ ALTER TABLE `hoadon`
 -- AUTO_INCREMENT cho bảng `kehoachthuchien`
 --
 ALTER TABLE `kehoachthuchien`
-  MODIFY `ID_KeHoach` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `ID_KeHoach` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT cho bảng `khachhanginfo`
 --
 ALTER TABLE `khachhanginfo`
-  MODIFY `ID_KhachHang` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
+  MODIFY `ID_KhachHang` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT cho bảng `lichlamviec`
 --
 ALTER TABLE `lichlamviec`
-  MODIFY `ID_LLV` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `ID_LLV` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT cho bảng `loaisukien`
@@ -1716,7 +1698,7 @@ ALTER TABLE `phong`
 -- AUTO_INCREMENT cho bảng `sukien`
 --
 ALTER TABLE `sukien`
-  MODIFY `ID_SuKien` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `ID_SuKien` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- AUTO_INCREMENT cho bảng `tb_transactions`

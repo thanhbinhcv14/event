@@ -63,9 +63,10 @@ include 'includes/admin-header.php';
                 <div class="col-md-2">
                     <label class="form-label">Sắp xếp</label>
                     <select class="form-select" id="sortBy">
+                        <option value="ID_LoaiSK" selected>ID</option>
                         <option value="TenLoai">Tên loại</option>
                         <option value="GiaCoBan">Giá cơ bản</option>
-                        <option value="NgayTao" selected>Ngày tạo</option>
+                        <option value="NgayTao">Ngày tạo</option>
                         <option value="NgayCapNhat">Ngày cập nhật</option>
                     </select>
                 </div>
@@ -275,14 +276,36 @@ include 'includes/admin-header.php';
                         },
                         { 
                             data: 'NgayTao',
-                            render: function(data) {
-                                return data ? AdminPanel.formatDate(data, 'dd/mm/yyyy hh:mm') : 'N/A';
+                            render: function(data, type, row) {
+                                if (!data) {
+                                    return type === 'sort' || type === 'type' ? 0 : 'N/A';
+                                }
+                                
+                                // Nếu đang sắp xếp, trả về timestamp để sắp xếp đúng
+                                if (type === 'sort' || type === 'type') {
+                                    const date = new Date(data);
+                                    return isNaN(date.getTime()) ? 0 : date.getTime();
+                                }
+                                
+                                // Nếu đang hiển thị, format ngày tháng
+                                return AdminPanel.formatDate(data, 'dd/mm/yyyy hh:mm');
                             }
                         },
                         { 
                             data: 'NgayCapNhat',
-                            render: function(data) {
-                                return data ? AdminPanel.formatDate(data, 'dd/mm/yyyy hh:mm') : 'N/A';
+                            render: function(data, type, row) {
+                                if (!data) {
+                                    return type === 'sort' || type === 'type' ? 0 : 'N/A';
+                                }
+                                
+                                // Nếu đang sắp xếp, trả về timestamp để sắp xếp đúng
+                                if (type === 'sort' || type === 'type') {
+                                    const date = new Date(data);
+                                    return isNaN(date.getTime()) ? 0 : date.getTime();
+                                }
+                                
+                                // Nếu đang hiển thị, format ngày tháng
+                                return AdminPanel.formatDate(data, 'dd/mm/yyyy hh:mm');
                             }
                         },
                         { 
@@ -306,7 +329,7 @@ include 'includes/admin-header.php';
                             }
                         }
                     ],
-                    order: [[4, 'desc']], // Sắp xếp theo ngày tạo mặc định (mới nhất lên trước)
+                    order: [[0, 'desc']], // Sắp xếp theo ID mặc định (mới nhất lên trước)
                     language: {
                         processing: "Đang xử lý...",
                         search: "Tìm kiếm:",
@@ -360,10 +383,14 @@ include 'includes/admin-header.php';
             // Column 4: NgayTao
             // Column 5: NgayCapNhat
             // Column 6: Actions (không sắp xếp được)
-            let sortColumn = 4; // Mặc định sắp xếp theo ngày tạo (column 4) - mới nhất lên trước
+            let sortColumn = 0; // Mặc định sắp xếp theo ID (column 0) - mới nhất lên trước
             let sortDir = 'desc';
             
             switch(sortBy) {
+                case 'ID_LoaiSK':
+                    sortColumn = 0; // Cột ID
+                    sortDir = 'desc'; // Sắp xếp giảm dần (ID lớn nhất = mới nhất trước)
+                    break;
                 case 'TenLoai':
                     sortColumn = 1; // Cột Tên loại
                     sortDir = 'asc';
@@ -381,8 +408,8 @@ include 'includes/admin-header.php';
                     sortDir = 'desc'; // Sắp xếp giảm dần (cập nhật gần nhất trước)
                     break;
                 default:
-                    // Nếu không khớp, giữ giá trị mặc định (sắp xếp theo ngày tạo - mới nhất lên trước)
-                    sortColumn = 4;
+                    // Nếu không khớp, giữ giá trị mặc định (sắp xếp theo ID - mới nhất lên trước)
+                    sortColumn = 0;
                     sortDir = 'desc';
                     break;
             }
@@ -393,8 +420,8 @@ include 'includes/admin-header.php';
 
         function clearFilters() {
             $('#searchInput').val('');
-            $('#sortBy').val('NgayTao');
-            eventTypesTable.search('').order([[4, 'desc']]).draw();
+            $('#sortBy').val('ID_LoaiSK');
+            eventTypesTable.search('').order([[0, 'desc']]).draw();
         }
 
         function clearSearch() {

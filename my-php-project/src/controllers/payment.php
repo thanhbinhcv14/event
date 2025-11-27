@@ -260,7 +260,20 @@ function createPayment() {
         return;
     }
     
-    // Kiểm tra khoảng cách từ ngày đăng ký đến ngày tổ chức
+    // Kiểm tra khoảng cách từ ngày HIỆN TẠI đến ngày tổ chức sự kiện
+    $daysFromNowToEvent = 0;
+    if (!empty($event['NgayBatDau'])) {
+        $now = new DateTime();
+        $eventStartDate = new DateTime($event['NgayBatDau']);
+        $daysFromNowToEvent = $now->diff($eventStartDate)->days;
+        
+        // Nếu sự kiện đã qua, days sẽ là số âm, cần xử lý
+        if ($eventStartDate < $now) {
+            $daysFromNowToEvent = 0; // Sự kiện đã qua
+        }
+    }
+    
+    // Tính số ngày từ đăng ký đến sự kiện (để dùng cho logic khác)
     $daysFromRegistrationToEvent = 0;
     if (!empty($event['NgayTao']) && !empty($event['NgayBatDau'])) {
         $registrationDate = new DateTime($event['NgayTao']);
@@ -270,14 +283,19 @@ function createPayment() {
     
     $paymentTypeDB = $paymentType === 'deposit' ? 'Đặt cọc' : 'Thanh toán đủ';
     
-    // Nếu từ lúc đặt đến lúc diễn ra < 7 ngày (hoặc = 0): Bắt buộc thanh toán đủ, không cho đặt cọc
-    if ($daysFromRegistrationToEvent < 7) {
+    // ✅ QUAN TRỌNG: Nếu từ ngày HIỆN TẠI đến lúc diễn ra < 7 ngày: Bắt buộc thanh toán đủ, không cho đặt cọc
+    // Áp dụng cho cả SePay (chuyển khoản) và tiền mặt
+    if ($daysFromNowToEvent < 7 && $daysFromNowToEvent >= 0) {
         if ($paymentType === 'deposit') {
-            echo json_encode([
-                'success' => false, 
-                'error' => 'Sự kiện này diễn ra trong vòng 7 ngày, bạn phải thanh toán đủ ngay. Không thể đặt cọc.'
-            ]);
-            return;
+            // Đặc biệt: Nếu là SePay (chuyển khoản) và < 7 ngày, không cho đặt cọc
+            if ($paymentMethod === 'sepay') {
+                echo json_encode([
+                    'success' => false, 
+                    'error' => 'Sự kiện này diễn ra trong vòng 7 ngày, bạn phải thanh toán đủ ngay. Không thể đặt cọc qua chuyển khoản.'
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            // Tiền mặt vẫn có thể đặt cọc (nếu cần)
         }
         // Nếu là thanh toán đủ và < 7 ngày, cho phép tiếp tục (không cần kiểm tra đặt cọc)
         // Bỏ qua tất cả validation về deposit ở dưới
@@ -742,22 +760,38 @@ function createSePayCheckoutURL($amount, $orderDescription, $orderInvoice, $cust
         error_log("SePay Checkout URL SePayException: " . $e->getMessage());
         error_log("SePay Checkout URL Exception Code: " . $e->getCode());
         error_log("SePay Checkout URL Exception Trace: " . $e->getTraceAsString());
+        // ✅ Trả về error để frontend biết cần fallback về QR code
         return [
             'error' => 'SePayException: ' . $e->getMessage(),
-            'error_code' => $e->getCode()
+            'error_code' => $e->getCode(),
+            'error_type' => 'SePayException'
         ];
     } catch (\SePay\Exceptions\ValidationException $e) {
         error_log("SePay Checkout URL ValidationException: " . $e->getMessage());
         return [
             'error' => 'ValidationException: ' . $e->getMessage(),
-            'error_code' => $e->getCode()
+            'error_code' => $e->getCode(),
+            'error_type' => 'ValidationException'
         ];
-    } catch (Exception $e) {
+    } catch (\Exception $e) {
         error_log("SePay Checkout URL Exception: " . $e->getMessage());
         error_log("SePay Checkout URL Exception Trace: " . $e->getTraceAsString());
+        
+        // ✅ Kiểm tra xem có phải lỗi connection không
+        $errorMessage = $e->getMessage();
+        $isConnectionError = (
+            stripos($errorMessage, 'connection') !== false ||
+            stripos($errorMessage, 'reset') !== false ||
+            stripos($errorMessage, 'timeout') !== false ||
+            stripos($errorMessage, 'refused') !== false ||
+            stripos($errorMessage, 'ERR_CONNECTION') !== false
+        );
+        
         return [
-            'error' => 'Exception: ' . $e->getMessage(),
-            'error_code' => $e->getCode()
+            'error' => $isConnectionError ? 'Lỗi kết nối đến SePay. Vui lòng sử dụng QR code để thanh toán.' : ('Exception: ' . $e->getMessage()),
+            'error_code' => $e->getCode(),
+            'error_type' => 'Exception',
+            'is_connection_error' => $isConnectionError
         ];
     }
 }
@@ -1032,6 +1066,36 @@ function createSePayPayment() {
             echo json_encode(['success' => false, 'error' => 'Không tìm thấy sự kiện']);
         return;
     }
+    
+        // Kiểm tra sự kiện đã được duyệt chưa
+        if ($event['TrangThaiDuyet'] !== 'Đã duyệt') {
+            echo json_encode(['success' => false, 'error' => 'Sự kiện chưa được duyệt, không thể thanh toán'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+    
+        // ✅ Kiểm tra khoảng cách từ ngày HIỆN TẠI đến ngày tổ chức sự kiện
+        $daysFromNowToEvent = 0;
+        if (!empty($event['NgayBatDau'])) {
+            $now = new DateTime();
+            $eventStartDate = new DateTime($event['NgayBatDau']);
+            $daysFromNowToEvent = $now->diff($eventStartDate)->days;
+            
+            // Nếu sự kiện đã qua, days sẽ là số âm, cần xử lý
+            if ($eventStartDate < $now) {
+                $daysFromNowToEvent = 0; // Sự kiện đã qua
+            }
+        }
+        
+        // ✅ QUAN TRỌNG: Nếu từ ngày HIỆN TẠI đến lúc diễn ra < 7 ngày: Không cho đặt cọc qua chuyển khoản
+        if ($daysFromNowToEvent < 7 && $daysFromNowToEvent >= 0) {
+            if ($paymentType === 'deposit') {
+                echo json_encode([
+                    'success' => false, 
+                    'error' => 'Sự kiện này diễn ra trong vòng 7 ngày, bạn phải thanh toán đủ ngay. Không thể đặt cọc qua chuyển khoản.'
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+        }
     
         // Tạo bản ghi thanh toán
         $paymentId = 'SEPAY_' . time() . '_' . rand(1000, 9999);

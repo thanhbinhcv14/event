@@ -561,26 +561,10 @@ function submitProgressReport() {
             return;
         }
         
-        // Create table if not exists
-        $createTableSQL = "
-            CREATE TABLE IF NOT EXISTS baocaotiendo (
-                ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
-                ID_NhanVien INT NOT NULL,
-                ID_QuanLy INT NOT NULL,
-                ID_Task INT NOT NULL,
-                LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
-                TienDo INT DEFAULT 0,
-                GhiChu TEXT,
-                TrangThai VARCHAR(50),
-                NgayBaoCao DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ";
-        $pdo->exec($createTableSQL);
-        
         // Check if report already exists for this task
         $checkStmt = $pdo->prepare("
-            SELECT ID_BaoCao FROM baocaotiendo 
-            WHERE ID_NhanVien = ? AND ID_Task = ? AND LoaiTask = ?
+            SELECT ID_BaoCao FROM baocao 
+            WHERE ID_NhanVien = ? AND ID_Task = ? AND LoaiTask = ? AND LoaiBaoCao = 'Tiến độ'
             ORDER BY NgayBaoCao DESC LIMIT 1
         ");
         $checkStmt->execute([$staffId, $taskId, $taskType]);
@@ -589,9 +573,9 @@ function submitProgressReport() {
         if ($existingReport) {
             // Update existing report
             $stmt = $pdo->prepare("
-                UPDATE baocaotiendo 
+                UPDATE baocao 
                 SET TienDo = ?, 
-                    GhiChu = ?, 
+                    MoTa = ?, 
                     TrangThai = ?,
                     NgayBaoCao = NOW()
                 WHERE ID_BaoCao = ?
@@ -603,18 +587,19 @@ function submitProgressReport() {
                 $existingReport['ID_BaoCao']
             ]);
         } else {
-            // Insert new progress report
+            // Insert new progress report vào bảng baocao mới (LoaiBaoCao = 'Tiến độ')
             $stmt = $pdo->prepare("
-                INSERT INTO baocaotiendo (
+                INSERT INTO baocao (
                     ID_NhanVien, 
                     ID_QuanLy, 
                     ID_Task, 
                     LoaiTask, 
+                    LoaiBaoCao,
                     TienDo, 
-                    GhiChu, 
+                    MoTa, 
                     TrangThai, 
                     NgayBaoCao
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                ) VALUES (?, ?, ?, ?, 'Tiến độ', ?, ?, ?, NOW())
             ");
             
             $result = $stmt->execute([
@@ -677,29 +662,13 @@ function getProgressReports() {
         
         $staffId = $staff['ID_NhanVien'];
         
-        // Create table if not exists
-        $createTableSQL = "
-            CREATE TABLE IF NOT EXISTS baocaotiendo (
-                ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
-                ID_NhanVien INT NOT NULL,
-                ID_QuanLy INT NOT NULL,
-                ID_Task INT NOT NULL,
-                LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
-                TienDo INT DEFAULT 0,
-                GhiChu TEXT,
-                TrangThai VARCHAR(50),
-                NgayBaoCao DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ";
-        $pdo->exec($createTableSQL);
-        
         // Get progress reports with event information
         // Use subquery to get only the latest report for each task (ID_Task + LoaiTask combination)
         $stmt = $pdo->prepare("
             SELECT 
                 bct.ID_BaoCao,
                 bct.TienDo,
-                bct.GhiChu,
+                bct.MoTa as GhiChu,
                 bct.TrangThai,
                 bct.NgayBaoCao,
                 bct.LoaiTask,
@@ -712,11 +681,11 @@ function getProgressReports() {
                 END as TenCongViec,
                 COALESCE(dl1.TenSuKien, dl2.TenSuKien, 'N/A') as TenSuKien,
                 COALESCE(dd1.TenDiaDiem, dd2.TenDiaDiem, 'N/A') as TenDiaDiem
-            FROM baocaotiendo bct
+            FROM baocao bct
             INNER JOIN (
                 SELECT ID_Task, LoaiTask, MAX(ID_BaoCao) as MaxID_BaoCao
-                FROM baocaotiendo
-                WHERE ID_NhanVien = ?
+                FROM baocao
+                WHERE ID_NhanVien = ? AND LoaiBaoCao = 'Tiến độ'
                 GROUP BY ID_Task, LoaiTask
             ) latest ON bct.ID_Task = latest.ID_Task 
                 AND bct.LoaiTask = latest.LoaiTask 
@@ -731,7 +700,7 @@ function getProgressReports() {
             LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
             LEFT JOIN datlichsukien dl2 ON s.ID_DatLich = dl2.ID_DatLich
             LEFT JOIN diadiem dd2 ON dl2.ID_DD = dd2.ID_DD
-            WHERE bct.ID_NhanVien = ?
+            WHERE bct.ID_NhanVien = ? AND bct.LoaiBaoCao = 'Tiến độ'
             ORDER BY bct.NgayBaoCao DESC
         ");
         $stmt->execute([$staffId, $staffId]);

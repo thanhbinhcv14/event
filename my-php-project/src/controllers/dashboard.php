@@ -209,69 +209,114 @@ function getDashboardDataForStaff($pdo, $userId) {
         ];
     }
     
-    // Total assignments (tổng nhiệm vụ)
+    // Lấy tất cả assignments từ cả lichlamviec và chitietkehoach (giống như staff-schedule.php)
+    // 1. Từ lichlamviec
     $stmt = $pdo->prepare("
-        SELECT COUNT(*) AS total_assignments 
-        FROM lichlamviec 
-        WHERE ID_NhanVien = ?
-    ");
-    $stmt->execute([$staffId]);
-    $data['total_assignments'] = $stmt->fetchColumn();
-    
-    // Pending tasks (nhiệm vụ chưa hoàn thành)
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) AS pending_tasks 
-        FROM lichlamviec 
-        WHERE ID_NhanVien = ? 
-        AND TrangThai IN ('Chưa bắt đầu', 'Đang thực hiện')
-    ");
-    $stmt->execute([$staffId]);
-    $data['pending_tasks'] = $stmt->fetchColumn();
-    
-    // Completed tasks (nhiệm vụ đã hoàn thành)
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) AS completed_tasks 
-        FROM lichlamviec 
-        WHERE ID_NhanVien = ? 
-        AND TrangThai = 'Hoàn thành'
-    ");
-    $stmt->execute([$staffId]);
-    $data['completed_tasks'] = $stmt->fetchColumn();
-    
-    // Today's tasks (nhiệm vụ hôm nay)
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) AS today_tasks 
-        FROM lichlamviec 
-        WHERE ID_NhanVien = ? 
-        AND DATE(NgayBatDau) = CURDATE()
-        AND TrangThai != 'Hoàn thành'
-    ");
-    $stmt->execute([$staffId]);
-    $data['today_tasks'] = $stmt->fetchColumn();
-    
-    // Upcoming tasks (nhiệm vụ sắp tới - 7 ngày)
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) AS upcoming_tasks 
-        FROM lichlamviec 
-        WHERE ID_NhanVien = ? 
-        AND NgayBatDau BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
-        AND TrangThai != 'Hoàn thành'
-    ");
-    $stmt->execute([$staffId]);
-    $data['upcoming_tasks'] = $stmt->fetchColumn();
-    
-    // Recent assignments
-    $stmt = $pdo->prepare("
-        SELECT llv.*, dl.TenSuKien, dd.TenDiaDiem
+        SELECT 
+            llv.ID_LLV,
+            llv.NhiemVu,
+            llv.CongViec,
+            llv.NgayBatDau,
+            llv.NgayKetThuc,
+            llv.TrangThai,
+            llv.ID_ChiTiet,
+            COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+            COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
+            COALESCE(ls.TenLoai, 'Không xác định') as TenLoaiSK,
+            'lichlamviec' as source_table
         FROM lichlamviec llv
         LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
         LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-        WHERE llv.ID_NhanVien = ?
-        ORDER BY llv.NgayBatDau DESC
-        LIMIT 5
+        LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+        LEFT JOIN chitietkehoach ck_check ON llv.ID_ChiTiet = ck_check.ID_ChiTiet
+        WHERE llv.ID_NhanVien = ? 
+        AND (
+            (llv.ID_ChiTiet IS NULL) OR 
+            (llv.ID_ChiTiet IS NOT NULL AND ck_check.DaCongBo = 1)
+        )
     ");
     $stmt->execute([$staffId]);
-    $data['recent_assignments'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $lichlamviec_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // 2. Từ chitietkehoach (chỉ lấy những task chưa có trong lichlamviec)
+    $stmt = $pdo->prepare("
+        SELECT 
+            ck.ID_ChiTiet as ID_LLV,
+            ck.TenBuoc as NhiemVu,
+            ck.TenBuoc as CongViec,
+            ck.NgayBatDau,
+            ck.NgayKetThuc,
+            ck.TrangThai,
+            ck.ID_ChiTiet,
+            COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+            COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
+            COALESCE(ls.TenLoai, 'Không xác định') as TenLoaiSK,
+            'chitietkehoach' as source_table
+        FROM chitietkehoach ck
+        LEFT JOIN lichlamviec llv ON llv.ID_ChiTiet = ck.ID_ChiTiet AND llv.ID_NhanVien = ck.ID_NhanVien
+        LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
+        LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+        LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+        LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+        LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+        WHERE ck.ID_NhanVien = ? 
+        AND ck.DaCongBo = 1
+        AND llv.ID_LLV IS NULL
+    ");
+    $stmt->execute([$staffId]);
+    $chitietkehoach_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Combine both results
+    $allAssignments = array_merge($lichlamviec_assignments, $chitietkehoach_assignments);
+    
+    // Calculate statistics
+    $data['total_assignments'] = count($allAssignments);
+    
+    $pendingCount = 0;
+    $completedCount = 0;
+    $todayCount = 0;
+    $upcomingCount = 0;
+    $today = date('Y-m-d');
+    $nextWeek = date('Y-m-d', strtotime('+7 days'));
+    
+    foreach ($allAssignments as $assignment) {
+        $status = $assignment['TrangThai'] ?? '';
+        $startDate = $assignment['NgayBatDau'] ?? '';
+        $startDateOnly = substr($startDate, 0, 10);
+        
+        // Pending tasks (chưa hoàn thành)
+        if ($status != 'Hoàn thành') {
+            $pendingCount++;
+        }
+        
+        // Completed tasks
+        if ($status == 'Hoàn thành') {
+            $completedCount++;
+        }
+        
+        // Today's tasks
+        if ($startDateOnly == $today && $status != 'Hoàn thành') {
+            $todayCount++;
+        }
+        
+        // Upcoming tasks (7 ngày)
+        if ($startDateOnly >= $today && $startDateOnly <= $nextWeek && $status != 'Hoàn thành') {
+            $upcomingCount++;
+        }
+    }
+    
+    $data['pending_tasks'] = $pendingCount;
+    $data['completed_tasks'] = $completedCount;
+    $data['today_tasks'] = $todayCount;
+    $data['upcoming_tasks'] = $upcomingCount;
+    
+    // Recent assignments (5 most recent)
+    usort($allAssignments, function($a, $b) {
+        $dateA = $a['NgayBatDau'] ?? '';
+        $dateB = $b['NgayBatDau'] ?? '';
+        return strcmp($dateB, $dateA); // Descending order
+    });
+    $data['recent_assignments'] = array_slice($allAssignments, 0, 5);
     
     return $data;
 }

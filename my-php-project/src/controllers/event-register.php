@@ -874,6 +874,20 @@ try {
                 $userName = $user['Email'] ?? 'User';
                 notifyEventRegistration($datLichId, $input['event_name'], $userName, $userId);
                 
+                // Gửi email thông báo cho khách hàng
+                try {
+                    $emailSent = sendEventRegistrationEmail($customer['ID_KhachHang'], $datLichId, $input, $input['total_price'] ?? 0, $roomId ?? null);
+                    if ($emailSent) {
+                        error_log("REGISTER EVENT - Email sent successfully to customer ID: " . $customer['ID_KhachHang']);
+                    } else {
+                        error_log("REGISTER EVENT - Email sending failed for customer ID: " . $customer['ID_KhachHang']);
+                    }
+                } catch (Exception $e) {
+                    // Ghi log lỗi nhưng không làm thất bại đăng ký
+                    error_log("REGISTER EVENT - Exception when sending email notification: " . $e->getMessage());
+                    error_log("REGISTER EVENT - Error stack trace: " . $e->getTraceAsString());
+                }
+                
             } catch (Exception $e) {
                 $pdo->rollBack();
                 throw $e;
@@ -2389,6 +2403,294 @@ function addEquipmentToRegistration($eventId, $equipment) {
                 "Combo: {$item['name']}"
             ]);
         }
+    }
+}
+
+/**
+ * Gửi email xác nhận đăng ký sự kiện cho khách hàng
+ * @param int $customerId - ID khách hàng
+ * @param int $eventId - ID đặt lịch sự kiện (ID_DatLich)
+ * @param array $eventData - Dữ liệu sự kiện từ input
+ * @param float $totalCost - Tổng chi phí
+ * @param int|null $roomId - ID phòng (nếu có)
+ * @return bool - true nếu gửi thành công, false nếu thất bại
+ */
+function sendEventRegistrationEmail($customerId, $eventId, $eventData, $totalCost, $roomId = null) {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+    require_once __DIR__ . '/../../config/config.php';
+    
+    $pdo = getDBConnection();
+    
+    // Log thông tin đầu vào
+    error_log("SENDING EMAIL - Customer ID: $customerId, Event ID: $eventId, Room ID: " . ($roomId ?? 'null'));
+    
+    // Lấy thông tin khách hàng và email
+    $stmt = $pdo->prepare("
+        SELECT 
+            kh.ID_KhachHang,
+            kh.HoTen,
+            kh.ID_User,
+            u.Email,
+            dl.ID_DatLich,
+            dl.TenSuKien,
+            dl.NgayBatDau,
+            dl.NgayKetThuc,
+            dl.SoNguoiDuKien,
+            d.ID_DD,
+            d.TenDiaDiem,
+            d.DiaChi,
+            lsk.ID_LoaiSK,
+            lsk.TenLoai as TenLoaiSK
+        FROM khachhanginfo kh
+        INNER JOIN users u ON kh.ID_User = u.ID_User
+        LEFT JOIN datlichsukien dl ON dl.ID_DatLich = ? AND dl.ID_KhachHang = kh.ID_KhachHang
+        LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
+        LEFT JOIN loaisukien lsk ON dl.ID_LoaiSK = lsk.ID_LoaiSK
+        WHERE kh.ID_KhachHang = ?
+    ");
+    $stmt->execute([$eventId, $customerId]);
+    $customerInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Nếu không tìm thấy, thử query lại chỉ với customerId
+    if (!$customerInfo || empty($customerInfo['Email'])) {
+        $stmt = $pdo->prepare("
+            SELECT 
+                kh.ID_KhachHang,
+                kh.HoTen,
+                kh.ID_User,
+                u.Email
+            FROM khachhanginfo kh
+            INNER JOIN users u ON kh.ID_User = u.ID_User
+            WHERE kh.ID_KhachHang = ?
+        ");
+        $stmt->execute([$customerId]);
+        $fallbackInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($fallbackInfo && !empty($fallbackInfo['Email'])) {
+            if (!$customerInfo) {
+                $customerInfo = $fallbackInfo;
+            } else {
+                $customerInfo['Email'] = $fallbackInfo['Email'];
+                $customerInfo['HoTen'] = $fallbackInfo['HoTen'];
+            }
+            
+            // Lấy thông tin sự kiện từ datlichsukien
+            if (empty($customerInfo['TenSuKien']) && !empty($eventId)) {
+                $eventStmt = $pdo->prepare("
+                    SELECT 
+                        dl.TenSuKien,
+                        dl.NgayBatDau,
+                        dl.NgayKetThuc,
+                        dl.SoNguoiDuKien,
+                        d.TenDiaDiem,
+                        d.DiaChi,
+                        lsk.TenLoai as TenLoaiSK
+                    FROM datlichsukien dl
+                    LEFT JOIN diadiem d ON dl.ID_DD = d.ID_DD
+                    LEFT JOIN loaisukien lsk ON dl.ID_LoaiSK = lsk.ID_LoaiSK
+                    WHERE dl.ID_DatLich = ?
+                ");
+                $eventStmt->execute([$eventId]);
+                $eventInfo = $eventStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($eventInfo) {
+                    $customerInfo = array_merge($customerInfo, $eventInfo);
+                }
+            }
+        }
+    }
+    
+    // Kiểm tra email có tồn tại không
+    if (!$customerInfo || empty($customerInfo['Email'])) {
+        error_log("SENDING EMAIL - No email found for customer ID: $customerId");
+        return false;
+    }
+    
+    // Lấy thông tin phòng nếu có
+    $roomInfo = null;
+    if ($roomId) {
+        $stmt = $pdo->prepare("SELECT TenPhong FROM phong WHERE ID_Phong = ?");
+        $stmt->execute([$roomId]);
+        $roomInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    // Format ngày tháng
+    $startDate = new DateTime($customerInfo['NgayBatDau'] ?? $eventData['event_date'] . ' ' . ($eventData['event_time'] ?? '00:00'));
+    $endDate = new DateTime($customerInfo['NgayKetThuc'] ?? $eventData['event_end_date'] . ' ' . ($eventData['event_end_time'] ?? '00:00'));
+    $formattedStartDate = $startDate->format('d/m/Y H:i');
+    $formattedEndDate = $endDate->format('d/m/Y H:i');
+    
+    // Tạo link xem sự kiện (trang danh sách sự kiện của tôi)
+    $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . 
+               '://' . $_SERVER['HTTP_HOST'];
+    $viewEventUrl = $baseUrl . '/event/my-php-project/events/my-events.php';
+    
+    // Tạo nội dung email
+    $customerName = htmlspecialchars($customerInfo['HoTen'] ?? 'Khách hàng');
+    $eventName = htmlspecialchars($customerInfo['TenSuKien'] ?? $eventData['event_name'] ?? 'Sự kiện');
+    $locationName = htmlspecialchars($customerInfo['TenDiaDiem'] ?? 'Chưa xác định');
+    $locationAddress = htmlspecialchars($customerInfo['DiaChi'] ?? 'Chưa xác định');
+    $eventType = htmlspecialchars($customerInfo['TenLoaiSK'] ?? 'Chưa xác định');
+    $expectedGuests = $customerInfo['SoNguoiDuKien'] ?? ($eventData['expected_guests'] ?? 0);
+    $roomName = $roomInfo ? htmlspecialchars($roomInfo['TenPhong']) : null;
+    
+    $emailSubject = "Xác nhận đăng ký sự kiện: $eventName";
+    
+    $emailBody = "
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset='UTF-8'>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .info-box { background: white; padding: 20px; margin: 15px 0; border-radius: 5px; border-left: 4px solid #667eea; }
+            .info-row { margin: 10px 0; }
+            .info-label { font-weight: bold; color: #555; }
+            .info-value { color: #333; }
+            .total-cost { background: #fff3cd; padding: 20px; margin: 20px 0; border-radius: 5px; text-align: center; }
+            .total-cost h3 { margin: 0; color: #856404; }
+            .view-button { display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+            .footer { text-align: center; margin-top: 30px; color: #777; font-size: 12px; }
+        </style>
+    </head>
+    <body>
+        <div class='container'>
+            <div class='header'>
+                <h1>Xác nhận đăng ký sự kiện</h1>
+                <p>Cảm ơn bạn đã đăng ký sự kiện với chúng tôi!</p>
+            </div>
+            <div class='content'>
+                <p>Xin chào <strong>$customerName</strong>,</p>
+                <p>Sự kiện của bạn đã được đăng ký thành công. Vui lòng kiểm tra thông tin dưới đây:</p>
+                
+                <div class='info-box'>
+                    <h3 style='margin-top: 0; color: #667eea;'>Thông tin sự kiện</h3>
+                    <div class='info-row'>
+                        <span class='info-label'>Tên sự kiện:</span>
+                        <span class='info-value'>$eventName</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='info-label'>Loại sự kiện:</span>
+                        <span class='info-value'>$eventType</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='info-label'>Ngày bắt đầu:</span>
+                        <span class='info-value'>$formattedStartDate</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='info-label'>Ngày kết thúc:</span>
+                        <span class='info-value'>$formattedEndDate</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='info-label'>Số khách dự kiến:</span>
+                        <span class='info-value'>$expectedGuests người</span>
+                    </div>
+                </div>
+                
+                <div class='info-box'>
+                    <h3 style='margin-top: 0; color: #667eea;'>Thông tin địa điểm</h3>
+                    <div class='info-row'>
+                        <span class='info-label'>Địa điểm:</span>
+                        <span class='info-value'>$locationName</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='info-label'>Địa chỉ:</span>
+                        <span class='info-value'>$locationAddress</span>
+                    </div>
+                    " . ($roomName ? "
+                    <div class='info-row'>
+                        <span class='info-label'>Phòng:</span>
+                        <span class='info-value'>$roomName</span>
+                    </div>
+                    " : "") . "
+                </div>
+                
+                <div class='total-cost'>
+                    <h3>Tổng chi phí: " . number_format($totalCost, 0, ',', '.') . " VNĐ</h3>
+                </div>
+                
+                <div style='text-align: center; margin: 30px 0;'>
+                    <p><strong>Vui lòng xem danh sách sự kiện đã đăng ký của bạn.</strong></p>
+                    <a href='$viewEventUrl' class='view-button'>📋 Xem sự kiện của tôi</a>
+                </div>
+                
+                <div style='background: #e7f3ff; padding: 15px; border-radius: 5px; margin-top: 20px;'>
+                    <p style='margin: 0;'><strong>Lưu ý:</strong></p>
+                    <ul style='margin: 10px 0; padding-left: 20px;'>
+                        <li>Sự kiện của bạn đang ở trạng thái <strong>Chờ duyệt</strong></li>
+                        <li>Sau khi được duyệt, bạn sẽ nhận được email thông báo và có thể thanh toán</li>
+                        <li>Nếu có thắc mắc, vui lòng liên hệ với chúng tôi</li>
+                    </ul>
+                </div>
+                
+                <div class='footer'>
+                    <p>Trân trọng,<br>Đội ngũ quản lý sự kiện</p>
+                    <p>Email này được gửi tự động, vui lòng không trả lời email này.</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    ";
+    
+    // Kiểm tra xem PHPMailer có tồn tại không
+    if (!class_exists('\PHPMailer\PHPMailer\PHPMailer')) {
+        error_log("PHPMailer class not found. Please install PHPMailer via Composer.");
+        return false;
+    }
+    
+    // Cấu hình PHPMailer
+    $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+    
+    try {
+        // Cài đặt server - Sử dụng cấu hình từ config.php
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = SMTP_ENCRYPTION === 'ssl' ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = SMTP_PORT;
+        $mail->CharSet = 'UTF-8';
+        $mail->Timeout = 30;
+        
+        // Bật debug mode để log chi tiết vào error_log
+        $mail->SMTPDebug = \PHPMailer\PHPMailer\SMTP::DEBUG_SERVER;
+        $mail->Debugoutput = function($str, $level) {
+            error_log("PHPMailer Debug [Level $level]: $str");
+        };
+        
+        // Người gửi và người nhận
+        $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        $mail->addAddress($customerInfo['Email'], $customerName);
+        
+        // Nội dung
+        $mail->isHTML(true);
+        $mail->Subject = $emailSubject;
+        $mail->Body = $emailBody;
+        $mail->AltBody = strip_tags($emailBody);
+        
+        // Gửi email và kiểm tra kết quả
+        $sendResult = $mail->send();
+        
+        if ($sendResult) {
+            error_log("EMAIL SENT SUCCESSFULLY - To: " . $customerInfo['Email'] . " for event ID: " . $eventId);
+            return true;
+        } else {
+            error_log("EMAIL SEND FAILED - To: " . $customerInfo['Email'] . " for event ID: " . $eventId);
+            error_log("EMAIL SEND FAILED - PHPMailer ErrorInfo: " . ($mail->ErrorInfo ?? 'No error info'));
+            return false;
+        }
+        
+    } catch (Exception $e) {
+        error_log("EMAIL SEND EXCEPTION - To: " . ($customerInfo['Email'] ?? 'unknown') . " for event ID: " . $eventId);
+        error_log("EMAIL SEND EXCEPTION - PHPMailer ErrorInfo: " . ($mail->ErrorInfo ?? 'No error info'));
+        error_log("EMAIL SEND EXCEPTION - Exception Message: " . $e->getMessage());
+        error_log("EMAIL SEND EXCEPTION - Stack trace: " . $e->getTraceAsString());
+        return false;
     }
 }
 ?>

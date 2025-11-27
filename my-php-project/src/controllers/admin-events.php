@@ -386,11 +386,26 @@ function getRegistrations() {
         error_log("Found " . count($registrations) . " registrations");
         if (count($registrations) > 0) {
             error_log("First registration: " . print_r($registrations[0], true));
+            // Kiểm tra ID_DatLich
+            foreach ($registrations as $index => $reg) {
+                if (empty($reg['ID_DatLich']) || $reg['ID_DatLich'] == 0) {
+                    error_log("WARNING: Registration at index $index has invalid ID_DatLich: " . var_export($reg['ID_DatLich'], true));
+                    error_log("Full registration data: " . print_r($reg, true));
+                }
+            }
         }
         
+        // Đảm bảo ID_DatLich là số nguyên
+        foreach ($registrations as &$reg) {
+            if (isset($reg['ID_DatLich'])) {
+                $reg['ID_DatLich'] = intval($reg['ID_DatLich']);
+            }
+        }
+        unset($reg); // Unset reference
+        
         $response = ['success' => true, 'registrations' => $registrations];
-        error_log("Sending response: " . json_encode($response));
-        echo json_encode($response);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                 
             } catch (Exception $e) {
         error_log("getRegistrations error: " . $e->getMessage());
@@ -435,16 +450,24 @@ function getRegistrationStats() {
 
 function getRegistrationDetails() {
     try {
+        header('Content-Type: application/json; charset=utf-8');
         $pdo = getDBConnection();
         
-        $id = $_GET['id'] ?? '';
+        // Kiểm tra cả GET và POST
+        $id = $_GET['id'] ?? $_POST['id'] ?? '';
         
-        if (empty($id)) {
-            echo json_encode(['success' => false, 'message' => 'Thiếu thông tin đăng ký']);
+        // Validate ID
+        if (empty($id) || $id === '0' || $id === 0 || !is_numeric($id) || intval($id) <= 0) {
+            echo json_encode([
+                'success' => false, 
+                'message' => 'Thiếu thông tin đăng ký hoặc ID không hợp lệ (ID = ' . var_export($id, true) . ')'
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             return;
         }
         
-        // Get registration details
+        $id = intval($id); // Đảm bảo ID là số nguyên
+        
+        // Get registration details - Bao gồm thông tin phòng và giá loại sự kiện
         $stmt = $pdo->prepare("
             SELECT 
                 dl.*,
@@ -455,15 +478,25 @@ function getRegistrationDetails() {
                 dd.GiaThueGio,
                 dd.GiaThueNgay,
                 dd.LoaiThue,
+                dd.LoaiDiaDiem,
                 ls.TenLoai,
                 ls.MoTa as LoaiSKMoTa,
+                ls.GiaCoBan,
                 kh.HoTen,
                 kh.SoDienThoai,
-                kh.DiaChi as KhachHangDiaChi
+                kh.DiaChi as KhachHangDiaChi,
+                p.ID_Phong,
+                p.TenPhong,
+                p.SucChua as PhongSucChua,
+                p.GiaThueGio as PhongGiaThueGio,
+                p.GiaThueNgay as PhongGiaThueNgay,
+                p.LoaiThue as PhongLoaiThue,
+                p.MoTa as PhongMoTa
             FROM datlichsukien dl
             LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
             LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
             LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+            LEFT JOIN phong p ON dl.ID_Phong = p.ID_Phong
             WHERE dl.ID_DatLich = ?
         ");
         $stmt->execute([$id]);
@@ -612,11 +645,36 @@ function getRegistrationDetails() {
                 <h5><i class="fas fa-map-marker-alt text-warning"></i> Địa điểm</h5>
                 <table class="table table-sm">
                     <tr><td><strong>Tên địa điểm:</strong></td><td>' . htmlspecialchars($registration['TenDiaDiem']) . '</td></tr>
-                    <tr><td><strong>Địa chỉ:</strong></td><td>' . htmlspecialchars($registration['DiaChi']) . '</td></tr>
-                    <tr><td><strong>Sức chứa:</strong></td><td>' . number_format($registration['SucChua'] ?: 0) . ' người</td></tr>
+                    <tr><td><strong>Địa chỉ:</strong></td><td>' . htmlspecialchars($registration['DiaChi']) . '</td></tr>';
+        
+        // Hiển thị thông tin phòng nếu có
+        if (!empty($registration['ID_Phong']) && !empty($registration['TenPhong'])) {
+            $html .= '
+                    <tr><td><strong>Phòng:</strong></td><td><span class="badge bg-info">' . htmlspecialchars($registration['TenPhong']) . '</span></td></tr>
+                    <tr><td><strong>Sức chứa phòng:</strong></td><td>' . number_format($registration['PhongSucChua'] ?: 0) . ' người</td></tr>
+                    <tr><td><strong>Giá thuê phòng/giờ:</strong></td><td><strong class="text-success">' . number_format($registration['PhongGiaThueGio'] ?: 0) . ' VNĐ</strong></td></tr>
+                    <tr><td><strong>Giá thuê phòng/ngày:</strong></td><td><strong class="text-success">' . number_format($registration['PhongGiaThueNgay'] ?: 0) . ' VNĐ</strong></td></tr>
+                    <tr><td><strong>Loại thuê phòng:</strong></td><td>' . htmlspecialchars($registration['PhongLoaiThue'] ?: 'Chưa xác định') . '</td></tr>';
+            
+            // Hiển thị loại thuê đã áp dụng nếu có
+            if (!empty($registration['LoaiThueApDung'])) {
+                $html .= '<tr><td><strong>Loại thuê đã áp dụng:</strong></td><td><span class="badge bg-primary">' . htmlspecialchars($registration['LoaiThueApDung']) . '</span></td></tr>';
+            }
+        } else {
+            // Hiển thị giá địa điểm nếu không có phòng
+            $html .= '
+                    <tr><td><strong>Sức chứa:</strong></td><td>' . number_format($registration['SucChua'] ?: 0) . ' người' . ($registration['LoaiDiaDiem'] === 'Trong nhà' ? ' (tổng các phòng)' : '') . '</td></tr>
                     <tr><td><strong>Giá thuê/giờ:</strong></td><td>' . number_format($registration['GiaThueGio'] ?: 0) . ' VNĐ</td></tr>
                     <tr><td><strong>Giá thuê/ngày:</strong></td><td>' . number_format($registration['GiaThueNgay'] ?: 0) . ' VNĐ</td></tr>
-                    <tr><td><strong>Loại thuê:</strong></td><td>' . htmlspecialchars($registration['LoaiThue'] ?: 'Chưa xác định') . '</td></tr>
+                    <tr><td><strong>Loại thuê:</strong></td><td>' . htmlspecialchars($registration['LoaiThue'] ?: 'Chưa xác định') . '</td></tr>';
+            
+            // Hiển thị loại thuê đã áp dụng nếu có
+            if (!empty($registration['LoaiThueApDung'])) {
+                $html .= '<tr><td><strong>Loại thuê đã áp dụng:</strong></td><td><span class="badge bg-primary">' . htmlspecialchars($registration['LoaiThueApDung']) . '</span></td></tr>';
+            }
+        }
+        
+        $html .= '
                 </table>
             </div>
             <div class="col-md-6">
@@ -646,7 +704,113 @@ function getRegistrationDetails() {
             <div class="col-md-6">
                 <h5><i class="fas fa-money-bill-wave text-success"></i> Thông tin giá tiền</h5>
                 <table class="table table-sm">
-                    <tr><td><strong>Tổng tiền:</strong></td><td><span class="badge bg-success fs-6">' . number_format($registration['TongTien'] ?: 0) . ' VNĐ</span></td></tr>
+                    <tr><td><strong>Tổng tiền:</strong></td><td><span class="badge bg-success fs-6">' . number_format($registration['TongTien'] ?: 0) . ' VNĐ</span></td></tr>';
+        
+        // Hiển thị giá loại sự kiện nếu có
+        if (!empty($registration['GiaCoBan']) && floatval($registration['GiaCoBan']) > 0) {
+            $html .= '<tr><td><strong>Giá loại sự kiện:</strong></td><td><span class="text-primary">' . number_format($registration['GiaCoBan']) . ' VNĐ</span></td></tr>';
+        }
+        
+        // Tính và hiển thị giá địa điểm/phòng
+        $startDate = new DateTime($registration['NgayBatDau']);
+        $endDate = new DateTime($registration['NgayKetThuc']);
+        $durationHours = ($endDate->getTimestamp() - $startDate->getTimestamp()) / 3600;
+        $durationDays = $durationHours < 24 ? 1 : ceil($durationHours / 24);
+        
+        $locationCost = 0;
+        $locationCostLabel = '';
+        
+        // Nếu có phòng, tính giá phòng
+        if (!empty($registration['ID_Phong']) && !empty($registration['TenPhong'])) {
+            // Ưu tiên LoaiThueApDung (loại thuê đã chọn khi đăng ký)
+            if (!empty($registration['LoaiThueApDung'])) {
+                // Có loại thuê đã chọn rõ ràng
+                if ($registration['LoaiThueApDung'] === 'Theo giờ' && !empty($registration['PhongGiaThueGio'])) {
+                    $locationCost = $durationHours * floatval($registration['PhongGiaThueGio']);
+                    $locationCostLabel = 'Giá thuê phòng (' . htmlspecialchars($registration['TenPhong']) . ' - Theo giờ):';
+                } elseif ($registration['LoaiThueApDung'] === 'Theo ngày' && !empty($registration['PhongGiaThueNgay'])) {
+                    $locationCost = $durationDays * floatval($registration['PhongGiaThueNgay']);
+                    $locationCostLabel = 'Giá thuê phòng (' . htmlspecialchars($registration['TenPhong']) . ' - Theo ngày):';
+                }
+            } else {
+                // Không có LoaiThueApDung, dùng PhongLoaiThue mặc định
+                if ($registration['PhongLoaiThue'] === 'Theo giờ' && !empty($registration['PhongGiaThueGio'])) {
+                    $locationCost = $durationHours * floatval($registration['PhongGiaThueGio']);
+                    $locationCostLabel = 'Giá thuê phòng (' . htmlspecialchars($registration['TenPhong']) . ' - Theo giờ):';
+                } elseif ($registration['PhongLoaiThue'] === 'Theo ngày' && !empty($registration['PhongGiaThueNgay'])) {
+                    $locationCost = $durationDays * floatval($registration['PhongGiaThueNgay']);
+                    $locationCostLabel = 'Giá thuê phòng (' . htmlspecialchars($registration['TenPhong']) . ' - Theo ngày):';
+                } elseif ($registration['PhongLoaiThue'] === 'Cả hai') {
+                    // Mặc định theo ngày nếu chưa chọn
+                    $locationCost = $durationDays * floatval($registration['PhongGiaThueNgay'] ?? 0);
+                    $locationCostLabel = 'Giá thuê phòng (' . htmlspecialchars($registration['TenPhong']) . ' - Theo ngày, mặc định):';
+                }
+            }
+        } else {
+            // Tính giá địa điểm
+            // Ưu tiên LoaiThueApDung (loại thuê đã chọn khi đăng ký)
+            if (!empty($registration['LoaiThueApDung'])) {
+                // Có loại thuê đã chọn rõ ràng
+                if ($registration['LoaiThueApDung'] === 'Theo giờ' && !empty($registration['GiaThueGio'])) {
+                    $locationCost = $durationHours * floatval($registration['GiaThueGio']);
+                    $locationCostLabel = 'Giá thuê địa điểm (Theo giờ):';
+                } elseif ($registration['LoaiThueApDung'] === 'Theo ngày' && !empty($registration['GiaThueNgay'])) {
+                    $locationCost = $durationDays * floatval($registration['GiaThueNgay']);
+                    $locationCostLabel = 'Giá thuê địa điểm (Theo ngày):';
+                }
+            } else {
+                // Không có LoaiThueApDung, dùng LoaiThue mặc định
+                if ($registration['LoaiThue'] === 'Theo giờ' && !empty($registration['GiaThueGio'])) {
+                    $locationCost = $durationHours * floatval($registration['GiaThueGio']);
+                    $locationCostLabel = 'Giá thuê địa điểm (Theo giờ):';
+                } elseif ($registration['LoaiThue'] === 'Theo ngày' && !empty($registration['GiaThueNgay'])) {
+                    $locationCost = $durationDays * floatval($registration['GiaThueNgay']);
+                    $locationCostLabel = 'Giá thuê địa điểm (Theo ngày):';
+                } elseif ($registration['LoaiThue'] === 'Cả hai') {
+                    // Mặc định theo ngày
+                    $locationCost = $durationDays * floatval($registration['GiaThueNgay'] ?? 0);
+                    $locationCostLabel = 'Giá thuê địa điểm (Theo ngày, mặc định):';
+                }
+            }
+        }
+        
+        if ($locationCost > 0) {
+            $html .= '<tr><td><strong>' . $locationCostLabel . '</strong></td><td><span class="text-success">' . number_format($locationCost) . ' VNĐ</span></td></tr>';
+        }
+        
+        // Tính tổng chi phí thiết bị
+        $equipmentCost = 0;
+        if (!empty($equipment)) {
+            foreach ($equipment as $item) {
+                $itemPrice = floatval($item['DonGia'] ?? $item['GiaThue'] ?? $item['GiaCombo'] ?? 0);
+                $itemQuantity = intval($item['SoLuong'] ?? 1);
+                $equipmentCost += $itemPrice * $itemQuantity;
+            }
+        }
+        
+        if ($equipmentCost > 0) {
+            $html .= '<tr><td><strong>Tổng giá thiết bị:</strong></td><td><span class="text-info">' . number_format($equipmentCost) . ' VNĐ</span></td></tr>';
+        }
+        
+        // Tính tổng từ các thành phần để so sánh
+        $calculatedTotal = 0;
+        $eventTypePrice = floatval($registration['GiaCoBan'] ?? 0);
+        
+        // LUÔN thêm giá loại sự kiện nếu có (giống logic frontend)
+        if ($eventTypePrice > 0) {
+            $calculatedTotal += $eventTypePrice;
+        }
+        
+        $calculatedTotal += $locationCost;
+        $calculatedTotal += $equipmentCost;
+        
+        // Hiển thị breakdown và so sánh
+        $html .= '<tr><td colspan="2"><hr class="my-2"></td></tr>';
+        $html .= '<tr><td><strong>Tổng tính toán:</strong></td><td><span class="badge bg-' . 
+                 (abs($calculatedTotal - floatval($registration['TongTien'])) < 1 ? 'success' : 'warning') . '">' . 
+                 number_format($calculatedTotal) . ' VNĐ</span></td></tr>';
+        
+        $html .= '
                     <tr><td><strong>Ngân sách:</strong></td><td>' . number_format($registration['NganSach'] ?: 0) . ' VNĐ</td></tr>
                     <tr><td><strong>Trạng thái thanh toán:</strong></td><td><span class="badge bg-' . ($registration['TrangThaiThanhToan'] === 'Đã thanh toán đủ' ? 'success' : ($registration['TrangThaiThanhToan'] === 'Đã đặt cọc' ? 'warning' : 'secondary')) . '">' . htmlspecialchars($registration['TrangThaiThanhToan']) . '</span></td></tr>
                 </table>
@@ -888,9 +1052,19 @@ function updateRegistrationStatus() {
             // Commit transaction
             $pdo->commit();
             
+            // Nếu duyệt sự kiện, gửi email thông báo cho khách hàng
+            if ($status === 'Đã duyệt') {
+                try {
+                    sendApprovalEmail($registrationId, $note);
+                } catch (Exception $e) {
+                    // Ghi log lỗi nhưng không làm thất bại việc duyệt
+                    error_log("Error sending approval email: " . $e->getMessage());
+                }
+            }
+            
             $message = 'Cập nhật trạng thái thành công';
             if ($status === 'Đã duyệt') {
-                $message .= ' và đã tạo sự kiện để quản lý';
+                $message .= ' và đã tạo sự kiện để quản lý. Email thông báo đã được gửi đến khách hàng.';
             }
             
             echo json_encode(['success' => true, 'message' => $message]);
@@ -903,6 +1077,224 @@ function updateRegistrationStatus() {
         
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Lỗi khi cập nhật trạng thái: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * Gửi email thông báo khi sự kiện được duyệt
+ */
+function sendApprovalEmail($registrationId, $note = '') {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+    require_once __DIR__ . '/../../config/config.php';
+    
+    $pdo = getDBConnection();
+    
+    // Lấy thông tin đăng ký và khách hàng
+    $stmt = $pdo->prepare("
+        SELECT 
+            dl.ID_DatLich,
+            dl.TenSuKien,
+            dl.NgayBatDau,
+            dl.NgayKetThuc,
+            dl.SoNguoiDuKien,
+            dl.TongTien,
+            dl.GhiChu,
+            kh.ID_KhachHang,
+            kh.HoTen,
+            kh.ID_User,
+            u.Email,
+            dd.TenDiaDiem,
+            dd.DiaChi,
+            ls.TenLoai as TenLoaiSK,
+            p.TenPhong,
+            p.ID_Phong
+        FROM datlichsukien dl
+        INNER JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
+        INNER JOIN users u ON kh.ID_User = u.ID_User
+        LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+        LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+        LEFT JOIN phong p ON dl.ID_Phong = p.ID_Phong
+        WHERE dl.ID_DatLich = ?
+    ");
+    $stmt->execute([$registrationId]);
+    $registration = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$registration || empty($registration['Email'])) {
+        error_log("Cannot send approval email: Registration not found or email is empty for ID: $registrationId");
+        return false;
+    }
+    
+    // Định dạng ngày tháng
+    $formattedStartDate = 'Chưa xác định';
+    $formattedEndDate = 'Chưa xác định';
+    if (!empty($registration['NgayBatDau'])) {
+        try {
+            $startDate = new DateTime($registration['NgayBatDau']);
+            $formattedStartDate = $startDate->format('d/m/Y H:i');
+        } catch (Exception $e) {
+            error_log("Error parsing start date: " . $e->getMessage());
+        }
+    }
+    if (!empty($registration['NgayKetThuc'])) {
+        try {
+            $endDate = new DateTime($registration['NgayKetThuc']);
+            $formattedEndDate = $endDate->format('d/m/Y H:i');
+        } catch (Exception $e) {
+            error_log("Error parsing end date: " . $e->getMessage());
+        }
+    }
+    
+    // Tạo link xem sự kiện
+    $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . 
+               '://' . $_SERVER['HTTP_HOST'];
+    $viewEventUrl = $baseUrl . '/event/my-php-project/event-details.php?id=' . $registrationId;
+    
+    // Tạo nội dung email
+    $customerName = htmlspecialchars($registration['HoTen']);
+    $eventName = htmlspecialchars($registration['TenSuKien']);
+    $locationName = htmlspecialchars($registration['TenDiaDiem'] ?? 'Chưa xác định');
+    $locationAddress = htmlspecialchars($registration['DiaChi'] ?? '');
+    $eventType = htmlspecialchars($registration['TenLoaiSK'] ?? 'Chưa xác định');
+    $expectedGuests = number_format($registration['SoNguoiDuKien'] ?? 0);
+    $totalCost = number_format($registration['TongTien'] ?? 0);
+    $roomName = !empty($registration['TenPhong']) ? htmlspecialchars($registration['TenPhong']) : null;
+    $approvalNote = !empty($note) ? htmlspecialchars($note) : 'Sự kiện của bạn đã được duyệt thành công.';
+    
+    $emailSubject = "Sự kiện của bạn đã được duyệt - " . $eventName;
+    
+    $emailBody = '
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .info-box { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #667eea; }
+            .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+            .info-row:last-child { border-bottom: none; }
+            .info-label { font-weight: bold; color: #666; }
+            .info-value { color: #333; }
+            .payment-button { display: inline-block; background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+            .payment-button:hover { background: #218838; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🎉 Sự kiện của bạn đã được duyệt!</h1>
+                <p>Cảm ơn bạn đã tin tưởng và sử dụng dịch vụ của chúng tôi</p>
+            </div>
+            <div class="content">
+                <p>Xin chào <strong>' . $customerName . '</strong>,</p>
+                <p>' . $approvalNote . '</p>
+                
+                <div class="info-box">
+                    <h3 style="margin-top: 0; color: #667eea;">Thông tin sự kiện</h3>
+                    <div class="info-row">
+                        <span class="info-label">Tên sự kiện:</span>
+                        <span class="info-value">' . $eventName . '</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Loại sự kiện:</span>
+                        <span class="info-value">' . $eventType . '</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Ngày bắt đầu:</span>
+                        <span class="info-value">' . $formattedStartDate . '</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Ngày kết thúc:</span>
+                        <span class="info-value">' . $formattedEndDate . '</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Số khách dự kiến:</span>
+                        <span class="info-value">' . $expectedGuests . ' người</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Địa điểm:</span>
+                        <span class="info-value">' . $locationName . ($locationAddress ? ' - ' . $locationAddress : '') . '</span>
+                    </div>';
+    
+    if ($roomName) {
+        $emailBody .= '
+                    <div class="info-row">
+                        <span class="info-label">Phòng:</span>
+                        <span class="info-value">' . $roomName . '</span>
+                    </div>';
+    }
+    
+    $emailBody .= '
+                    <div class="info-row">
+                        <span class="info-label">Tổng chi phí:</span>
+                        <span class="info-value" style="color: #28a745; font-weight: bold; font-size: 18px;">' . $totalCost . ' VNĐ</span>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <p style="font-size: 16px; font-weight: bold; color: #333;">Vui lòng xem chi tiết sự kiện của bạn</p>
+                    <a href="' . $viewEventUrl . '" class="payment-button">👁️ Xem ngay</a>
+                </div>
+                
+                <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                    <p style="margin: 0; color: #856404;">
+                        <strong>⚠️ Lưu ý:</strong> Sau khi xem chi tiết, bạn có thể thanh toán để hoàn tất đăng ký sự kiện. Vui lòng thanh toán trong thời gian quy định để đảm bảo sự kiện được tổ chức đúng như kế hoạch.
+                    </p>
+                </div>
+                
+                <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi.</p>
+                <p>Trân trọng,<br><strong>Đội ngũ quản lý sự kiện</strong></p>
+            </div>
+            <div class="footer">
+                <p>Email này được gửi tự động, vui lòng không trả lời email này.</p>
+            </div>
+        </div>
+    </body>
+    </html>';
+    
+    try {
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        
+        // Cấu hình SMTP
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = SMTP_ENCRYPTION;
+        $mail->Port = SMTP_PORT;
+        $mail->CharSet = 'UTF-8';
+        
+        // Người gửi và người nhận
+        $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        $mail->addAddress($registration['Email'], $customerName);
+        
+        // Nội dung
+        $mail->isHTML(true);
+        $mail->Subject = $emailSubject;
+        $mail->Body = $emailBody;
+        $mail->AltBody = strip_tags($emailBody);
+        
+        // Gửi email
+        $sendResult = $mail->send();
+        
+        if ($sendResult) {
+            error_log("Approval email sent successfully to: " . $registration['Email'] . " for registration ID: " . $registrationId);
+            return true;
+        } else {
+            error_log("Approval email send failed to: " . $registration['Email'] . " for registration ID: " . $registrationId);
+            error_log("PHPMailer ErrorInfo: " . ($mail->ErrorInfo ?? 'No error info'));
+            return false;
+        }
+        
+    } catch (Exception $e) {
+        error_log("Exception sending approval email: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        return false;
     }
 }
 ?>

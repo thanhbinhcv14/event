@@ -125,15 +125,17 @@ function getProgressReports($pdo) {
                 COALESCE(dl1.TenSuKien, dl2.TenSuKien) as TenSuKien,
                 COALESCE(dl1.NgayBatDau, dl2.NgayBatDau) as NgayBatDau,
                 COALESCE(dl1.NgayKetThuc, dl2.NgayKetThuc) as NgayKetThuc
-            FROM baocaotiendo bct
+            FROM baocao bct
             INNER JOIN (
                 SELECT ID_NhanVien, ID_Task, LoaiTask, MAX(ID_BaoCao) as MaxID_BaoCao
-                FROM baocaotiendo
+                FROM baocao
+                WHERE LoaiBaoCao = 'Tiến độ'
                 GROUP BY ID_NhanVien, ID_Task, LoaiTask
             ) latest ON bct.ID_NhanVien = latest.ID_NhanVien
                 AND bct.ID_Task = latest.ID_Task 
                 AND bct.LoaiTask = latest.LoaiTask 
                 AND bct.ID_BaoCao = latest.MaxID_BaoCao
+            WHERE bct.LoaiBaoCao = 'Tiến độ'
             LEFT JOIN nhanvieninfo nv ON bct.ID_NhanVien = nv.ID_NhanVien
             LEFT JOIN lichlamviec llv ON bct.ID_Task = llv.ID_LLV AND bct.LoaiTask = 'lichlamviec'
             LEFT JOIN datlichsukien dl1 ON llv.ID_DatLich = dl1.ID_DatLich
@@ -168,27 +170,6 @@ function getIssueReports($pdo) {
             throw new Exception("Manager not found");
         }
         
-        // Create table if not exists (match database structure)
-        try {
-            $pdo->exec("
-                CREATE TABLE IF NOT EXISTS baocaosuco (
-                    ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
-                    ID_NhanVien INT NOT NULL,
-                    ID_QuanLy INT NOT NULL,
-                    ID_Task INT NOT NULL,
-                    LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
-                    TieuDe VARCHAR(255) NOT NULL,
-                    MoTa TEXT DEFAULT NULL,
-                    MucDo ENUM('Thấp', 'Trung bình', 'Cao', 'Khẩn cấp') DEFAULT 'Trung bình',
-                    TrangThai ENUM('Mới', 'Đang xử lý', 'Đã xử lý', 'Đã đóng') DEFAULT 'Mới',
-                    NgayBaoCao TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-            ");
-        } catch (Exception $e) {
-            // Table might already exist, continue
-            error_log("DEBUG: getIssueReports - Table creation: " . $e->getMessage());
-        }
-        
         $stmt = $pdo->prepare("
             SELECT 
                 bs.ID_BaoCao,
@@ -197,7 +178,7 @@ function getIssueReports($pdo) {
                 bs.MucDo,
                 bs.TrangThai,
                 bs.NgayBaoCao,
-                bs.NgayBaoCao as NgayCapNhat,
+                bs.NgayCapNhat,
                 nv.HoTen as TenNhanVien,
                 nv.ChucVu as ChucVuNhanVien,
                 CASE 
@@ -207,7 +188,8 @@ function getIssueReports($pdo) {
                 COALESCE(dl1.TenSuKien, dl2.TenSuKien) as TenSuKien,
                 COALESCE(dl1.NgayBatDau, dl2.NgayBatDau) as NgayBatDau,
                 COALESCE(dl1.NgayKetThuc, dl2.NgayKetThuc) as NgayKetThuc
-            FROM baocaosuco bs
+            FROM baocao bs
+            WHERE bs.LoaiBaoCao = 'Sự cố'
             LEFT JOIN nhanvieninfo nv ON bs.ID_NhanVien = nv.ID_NhanVien
             LEFT JOIN lichlamviec llv ON bs.ID_Task = llv.ID_LLV AND bs.LoaiTask = 'lichlamviec'
             LEFT JOIN datlichsukien dl1 ON llv.ID_DatLich = dl1.ID_DatLich
@@ -250,8 +232,9 @@ function getStatistics($pdo) {
                 COUNT(DISTINCT bct.ID_NhanVien) as total_staff_progress,
                 AVG(bct.TienDo) as avg_progress,
                 SUM(CASE WHEN bct.TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_tasks
-            FROM baocaotiendo bct
+            FROM baocao bct
             WHERE bct.ID_QuanLy = ?
+            AND bct.LoaiBaoCao = 'Tiến độ'
             AND bct.NgayBaoCao >= DATE_SUB(NOW(), INTERVAL 30 DAY)
         ");
         $stmt->execute([$managerId]);
@@ -266,8 +249,9 @@ function getStatistics($pdo) {
                 SUM(CASE WHEN bs.TrangThai = 'Đang xử lý' THEN 1 ELSE 0 END) as in_progress_issues,
                 SUM(CASE WHEN bs.TrangThai = 'Đã xử lý' THEN 1 ELSE 0 END) as resolved_issues,
                 SUM(CASE WHEN bs.MucDo = 'Khẩn cấp' THEN 1 ELSE 0 END) as urgent_issues
-            FROM baocaosuco bs
+            FROM baocao bs
             WHERE bs.ID_QuanLy = ?
+            AND bs.LoaiBaoCao = 'Sự cố'
             AND bs.NgayBaoCao >= DATE_SUB(NOW(), INTERVAL 30 DAY)
         ");
         $stmt->execute([$managerId]);
@@ -312,8 +296,8 @@ function updateReportStatus($pdo) {
             // Allow any manager with role 2 to handle any issue report
             $getReportStmt = $pdo->prepare("
                 SELECT ID_Task, LoaiTask, ID_QuanLy 
-                FROM baocaosuco 
-                WHERE ID_BaoCao = ?
+                FROM baocao 
+                WHERE ID_BaoCao = ? AND LoaiBaoCao = 'Sự cố'
             ");
             $getReportStmt->execute([$reportId]);
             $reportInfo = $getReportStmt->fetch(PDO::FETCH_ASSOC);
@@ -328,9 +312,9 @@ function updateReportStatus($pdo) {
             // Allow any manager with role 2 to update any issue report
             // Update the report status (remove ID_QuanLy check to allow any manager role 2)
             $stmt = $pdo->prepare("
-                UPDATE baocaosuco 
+                UPDATE baocao 
                 SET TrangThai = ?
-                WHERE ID_BaoCao = ?
+                WHERE ID_BaoCao = ? AND LoaiBaoCao = 'Sự cố'
             ");
             $stmt->execute([$status, $reportId]);
             
@@ -368,9 +352,9 @@ function updateReportStatus($pdo) {
             }
         } else {
             $stmt = $pdo->prepare("
-                UPDATE baocaotiendo 
+                UPDATE baocao 
                 SET TrangThai = ?, NgayBaoCao = NOW()
-                WHERE ID_BaoCao = ? AND ID_QuanLy = ?
+                WHERE ID_BaoCao = ? AND ID_QuanLy = ? AND LoaiBaoCao = 'Tiến độ'
             ");
             $stmt->execute([$status, $reportId, $managerId]);
         }

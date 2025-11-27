@@ -3,12 +3,21 @@ ob_start();
 session_start();
 require_once __DIR__ . '/../../config/database.php';
 
-header('Content-Type: application/json');
+// Đảm bảo encoding UTF-8
+mb_internal_encoding('UTF-8');
+mb_http_output('UTF-8');
+
+header('Content-Type: application/json; charset=utf-8');
+
+// Helper function để encode JSON với UTF-8
+function jsonResponse($data) {
+    return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
 
 // Kiểm tra đăng nhập - cho phép tất cả người dùng đã đăng nhập
 // Một số action chỉ dành cho admin sẽ được kiểm tra riêng
 if (!isset($_SESSION['user'])) {
-    echo json_encode(['success' => false, 'error' => 'Vui lòng đăng nhập']);
+    echo jsonResponse(['success' => false, 'error' => 'Vui lòng đăng nhập']);
     exit();
 }
 
@@ -43,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Kiểm tra action có rỗng không
 if (empty($action)) {
-    echo json_encode([
+    echo jsonResponse([
         'success' => false, 
         'error' => 'Action không được cung cấp',
         'debug' => [
@@ -97,7 +106,7 @@ try {
             $stmt->execute($params);
             $rooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            echo json_encode(['success' => true, 'data' => $rooms]);
+            echo jsonResponse(['success' => true, 'data' => $rooms]);
             break;
             
         case 'get_room':
@@ -105,7 +114,7 @@ try {
             // (Cần thiết cho form đăng ký sự kiện)
             $roomId = $_GET['id'] ?? null;
             if (!$roomId) {
-                echo json_encode(['success' => false, 'error' => 'Thiếu ID phòng']);
+                echo jsonResponse(['success' => false, 'error' => 'Thiếu ID phòng']);
                 break;
             }
             
@@ -117,17 +126,17 @@ try {
             $room = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$room) {
-                echo json_encode(['success' => false, 'error' => 'Không tìm thấy phòng']);
+                echo jsonResponse(['success' => false, 'error' => 'Không tìm thấy phòng']);
                 break;
             }
             
-            echo json_encode(['success' => true, 'data' => $room]);
+            echo jsonResponse(['success' => true, 'data' => $room]);
             break;
             
         case 'add_room':
-            // Thêm phòng mới - Chỉ admin mới có quyền
-            if (!in_array($userRole, [1, 2, 3])) {
-                echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
+            // Thêm phòng mới - Chỉ quản lý tài chính (role 2) mới có quyền
+            if ($userRole != 2) {
+                echo jsonResponse(['success' => false, 'error' => 'Chỉ quản lý tài chính mới có quyền thực hiện thao tác này']);
                 break;
             }
             // Hỗ trợ cả JSON và form data
@@ -156,21 +165,21 @@ try {
             $required = ['ID_DD', 'TenPhong', 'SucChua'];
             foreach ($required as $field) {
                 if (!isset($data[$field]) || (is_string($data[$field]) && trim($data[$field]) === '') || $data[$field] === null) {
-                    echo json_encode(['success' => false, 'error' => "Thiếu thông tin bắt buộc: {$field}"]);
+                    echo jsonResponse(['success' => false, 'error' => "Thiếu thông tin bắt buộc: {$field}"]);
                     exit();
                 }
             }
             
             // Validate SucChua phải là số nguyên dương
             if (!is_numeric($data['SucChua']) || intval($data['SucChua']) < 1) {
-                echo json_encode(['success' => false, 'error' => 'Sức chứa phải là số nguyên dương (ít nhất 1 người)']);
+                echo jsonResponse(['success' => false, 'error' => 'Sức chứa phải là số nguyên dương (ít nhất 1 người)']);
                 exit();
             }
             
             // Validate TenPhong không được trống sau khi trim
             $tenPhong = trim($data['TenPhong']);
             if (empty($tenPhong)) {
-                echo json_encode(['success' => false, 'error' => 'Tên phòng không được để trống']);
+                echo jsonResponse(['success' => false, 'error' => 'Tên phòng không được để trống']);
                 exit();
             }
             
@@ -180,26 +189,26 @@ try {
             $location = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$location) {
-                echo json_encode(['success' => false, 'error' => 'Địa điểm không tồn tại']);
+                echo jsonResponse(['success' => false, 'error' => 'Địa điểm không tồn tại']);
                 exit();
             }
             
             if ($location['LoaiDiaDiem'] !== 'Trong nhà') {
-                echo json_encode(['success' => false, 'error' => 'Chỉ có thể thêm phòng cho địa điểm trong nhà']);
+                echo jsonResponse(['success' => false, 'error' => 'Chỉ có thể thêm phòng cho địa điểm trong nhà']);
                 exit();
             }
             
             // Validate giá thuê nếu có
             if (isset($data['GiaThueGio']) && $data['GiaThueGio'] !== null && $data['GiaThueGio'] !== '') {
                 if (!is_numeric($data['GiaThueGio']) || floatval($data['GiaThueGio']) < 0) {
-                    echo json_encode(['success' => false, 'error' => 'Giá thuê/giờ phải là số không âm']);
+                    echo jsonResponse(['success' => false, 'error' => 'Giá thuê/giờ phải là số không âm']);
                     exit();
                 }
             }
             
             if (isset($data['GiaThueNgay']) && $data['GiaThueNgay'] !== null && $data['GiaThueNgay'] !== '') {
                 if (!is_numeric($data['GiaThueNgay']) || floatval($data['GiaThueNgay']) < 0) {
-                    echo json_encode(['success' => false, 'error' => 'Giá thuê/ngày phải là số không âm']);
+                    echo jsonResponse(['success' => false, 'error' => 'Giá thuê/ngày phải là số không âm']);
                     exit();
                 }
             }
@@ -233,19 +242,19 @@ try {
                 // Xác thực loại file
                 $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
                 if (!in_array(strtolower($fileInfo['extension']), $allowedTypes)) {
-                    echo json_encode(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
+                    echo jsonResponse(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
                     exit();
                 }
                 
                 // Xác thực kích thước file (tối đa 5MB)
                 if ($_FILES['HinhAnh']['size'] > 5 * 1024 * 1024) {
-                    echo json_encode(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
+                    echo jsonResponse(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
                     exit();
                 }
                 
                 // Di chuyển file đã upload
                 if (!move_uploaded_file($_FILES['HinhAnh']['tmp_name'], $uploadPath)) {
-                    echo json_encode(['success' => false, 'error' => 'Không thể upload file']);
+                    echo jsonResponse(['success' => false, 'error' => 'Không thể upload file']);
                     exit();
                 }
             }
@@ -267,16 +276,16 @@ try {
             ]);
             
             if ($result) {
-                echo json_encode(['success' => true, 'message' => 'Thêm phòng thành công', 'id' => $pdo->lastInsertId()]);
+                echo jsonResponse(['success' => true, 'message' => 'Thêm phòng thành công', 'id' => $pdo->lastInsertId()]);
             } else {
-                echo json_encode(['success' => false, 'error' => 'Lỗi khi thêm phòng vào database']);
+                echo jsonResponse(['success' => false, 'error' => 'Lỗi khi thêm phòng vào database']);
             }
             break;
             
         case 'update_room':
-            // Cập nhật phòng - Chỉ admin mới có quyền
-            if (!in_array($userRole, [1, 2, 3])) {
-                echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
+            // Cập nhật phòng - Chỉ quản lý tài chính (role 2) mới có quyền
+            if ($userRole != 2) {
+                echo jsonResponse(['success' => false, 'error' => 'Chỉ quản lý tài chính mới có quyền thực hiện thao tác này']);
                 break;
             }
             // Hỗ trợ cả JSON và form data
@@ -304,7 +313,7 @@ try {
             $roomId = $data['ID_Phong'] ?? null;
             
             if (!$roomId) {
-                echo json_encode(['success' => false, 'error' => 'Thiếu ID phòng']);
+                echo jsonResponse(['success' => false, 'error' => 'Thiếu ID phòng']);
                 exit();
             }
             
@@ -316,18 +325,18 @@ try {
             $existingRoom = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$existingRoom) {
-                echo json_encode(['success' => false, 'error' => 'Không tìm thấy phòng']);
+                echo jsonResponse(['success' => false, 'error' => 'Không tìm thấy phòng']);
                 exit();
             }
             
             // Validate các trường bắt buộc
             if (!isset($data['TenPhong']) || (is_string($data['TenPhong']) && trim($data['TenPhong']) === '')) {
-                echo json_encode(['success' => false, 'error' => 'Tên phòng không được để trống']);
+                echo jsonResponse(['success' => false, 'error' => 'Tên phòng không được để trống']);
                 exit();
             }
             
             if (!isset($data['SucChua']) || !is_numeric($data['SucChua']) || intval($data['SucChua']) < 1) {
-                echo json_encode(['success' => false, 'error' => 'Sức chứa phải là số nguyên dương (ít nhất 1 người)']);
+                echo jsonResponse(['success' => false, 'error' => 'Sức chứa phải là số nguyên dương (ít nhất 1 người)']);
                 exit();
             }
             
@@ -338,12 +347,12 @@ try {
                 $location = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if (!$location) {
-                    echo json_encode(['success' => false, 'error' => 'Địa điểm không tồn tại']);
+                    echo jsonResponse(['success' => false, 'error' => 'Địa điểm không tồn tại']);
                     exit();
                 }
                 
                 if ($location['LoaiDiaDiem'] !== 'Trong nhà') {
-                    echo json_encode(['success' => false, 'error' => 'Chỉ có thể thêm phòng cho địa điểm trong nhà']);
+                    echo jsonResponse(['success' => false, 'error' => 'Chỉ có thể thêm phòng cho địa điểm trong nhà']);
                     exit();
                 }
                 
@@ -355,28 +364,28 @@ try {
                 $eventCount = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($eventCount['count'] > 0) {
-                    echo json_encode(['success' => false, 'error' => 'Không thể thay đổi địa điểm vì phòng đang có sự kiện đã được đặt']);
+                    echo jsonResponse(['success' => false, 'error' => 'Không thể thay đổi địa điểm vì phòng đang có sự kiện đã được đặt']);
                     exit();
                 }
             }
             
             // Kiểm tra địa điểm hiện tại của phòng có phải trong nhà không
             if ($existingRoom['LoaiDiaDiem'] !== 'Trong nhà') {
-                echo json_encode(['success' => false, 'error' => 'Phòng này thuộc địa điểm không phải trong nhà']);
+                echo jsonResponse(['success' => false, 'error' => 'Phòng này thuộc địa điểm không phải trong nhà']);
                 exit();
             }
             
             // Validate giá thuê nếu có
             if (isset($data['GiaThueGio']) && $data['GiaThueGio'] !== null && $data['GiaThueGio'] !== '') {
                 if (!is_numeric($data['GiaThueGio']) || floatval($data['GiaThueGio']) < 0) {
-                    echo json_encode(['success' => false, 'error' => 'Giá thuê/giờ phải là số không âm']);
+                    echo jsonResponse(['success' => false, 'error' => 'Giá thuê/giờ phải là số không âm']);
                     exit();
                 }
             }
             
             if (isset($data['GiaThueNgay']) && $data['GiaThueNgay'] !== null && $data['GiaThueNgay'] !== '') {
                 if (!is_numeric($data['GiaThueNgay']) || floatval($data['GiaThueNgay']) < 0) {
-                    echo json_encode(['success' => false, 'error' => 'Giá thuê/ngày phải là số không âm']);
+                    echo jsonResponse(['success' => false, 'error' => 'Giá thuê/ngày phải là số không âm']);
                     exit();
                 }
             }
@@ -415,19 +424,19 @@ try {
                 // Xác thực loại file
                 $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
                 if (!in_array(strtolower($fileInfo['extension']), $allowedTypes)) {
-                    echo json_encode(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
+                    echo jsonResponse(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
                     exit();
                 }
                 
                 // Xác thực kích thước file (tối đa 5MB)
                 if ($_FILES['HinhAnh']['size'] > 5 * 1024 * 1024) {
-                    echo json_encode(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
+                    echo jsonResponse(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
                     exit();
                 }
                 
                 // Di chuyển file đã upload
                 if (!move_uploaded_file($_FILES['HinhAnh']['tmp_name'], $uploadPath)) {
-                    echo json_encode(['success' => false, 'error' => 'Không thể upload file']);
+                    echo jsonResponse(['success' => false, 'error' => 'Không thể upload file']);
                     exit();
                 }
             }
@@ -462,21 +471,21 @@ try {
             $result = $stmt->execute($params);
             
             if ($result) {
-                echo json_encode(['success' => true, 'message' => 'Cập nhật phòng thành công']);
+                echo jsonResponse(['success' => true, 'message' => 'Cập nhật phòng thành công']);
             } else {
-                echo json_encode(['success' => false, 'error' => 'Lỗi khi cập nhật phòng vào database']);
+                echo jsonResponse(['success' => false, 'error' => 'Lỗi khi cập nhật phòng vào database']);
             }
             break;
             
         case 'delete_room':
-            // Xóa phòng - Chỉ admin mới có quyền
-            if (!in_array($userRole, [1, 2, 3])) {
-                echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
+            // Xóa phòng - Chỉ quản lý tài chính (role 2) mới có quyền
+            if ($userRole != 2) {
+                echo jsonResponse(['success' => false, 'error' => 'Chỉ quản lý tài chính mới có quyền thực hiện thao tác này']);
                 break;
             }
             $roomId = $_POST['id'] ?? null;
             if (!$roomId) {
-                echo json_encode(['success' => false, 'error' => 'Thiếu ID phòng']);
+                echo jsonResponse(['success' => false, 'error' => 'Thiếu ID phòng']);
                 exit();
             }
             
@@ -488,7 +497,7 @@ try {
             $room = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$room) {
-                echo json_encode(['success' => false, 'error' => 'Không tìm thấy phòng']);
+                echo jsonResponse(['success' => false, 'error' => 'Không tìm thấy phòng']);
                 exit();
             }
             
@@ -506,7 +515,7 @@ try {
             $activeEvent = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($activeEvent['count'] > 0) {
-                echo json_encode([
+                echo jsonResponse([
                     'success' => false, 
                     'error' => "Không thể xóa phòng vì đang có sự kiện đang diễn ra: {$activeEvent['events']}"
                 ]);
@@ -526,7 +535,7 @@ try {
             $upcomingEvent = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($upcomingEvent['count'] > 0) {
-                echo json_encode([
+                echo jsonResponse([
                     'success' => false, 
                     'error' => "Không thể xóa phòng vì đang có sự kiện sắp diễn ra: {$upcomingEvent['events']}"
                 ]);
@@ -544,7 +553,7 @@ try {
             $bookedEvent = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($bookedEvent['count'] > 0) {
-                echo json_encode([
+                echo jsonResponse([
                     'success' => false, 
                     'error' => "Không thể xóa phòng vì đang có {$bookedEvent['count']} sự kiện đã được đặt (kể cả chưa duyệt)"
                 ]);
@@ -555,7 +564,7 @@ try {
             $stmt = $pdo->prepare("DELETE FROM phong WHERE ID_Phong = ?");
             $stmt->execute([$roomId]);
             
-            echo json_encode(['success' => true, 'message' => 'Xóa phòng thành công']);
+            echo jsonResponse(['success' => true, 'message' => 'Xóa phòng thành công']);
             break;
             
         case 'get_available_rooms':
@@ -566,7 +575,7 @@ try {
             $endDate = $_GET['end_date'] ?? null;
             
             if (!$locationId || !$startDate || !$endDate) {
-                echo json_encode(['success' => false, 'error' => 'Thiếu thông tin']);
+                echo jsonResponse(['success' => false, 'error' => 'Thiếu thông tin']);
                 break;
             }
             
@@ -593,12 +602,12 @@ try {
                 return !in_array($room['ID_Phong'], $bookedRooms);
             });
             
-            echo json_encode(['success' => true, 'data' => array_values($availableRooms)]);
+            echo jsonResponse(['success' => true, 'data' => array_values($availableRooms)]);
             break;
             
         default:
             error_log("Rooms controller - Invalid action: " . $action);
-            echo json_encode([
+            echo jsonResponse([
                 'success' => false, 
                 'error' => 'Action không hợp lệ: ' . htmlspecialchars($action),
                 'debug' => [
@@ -611,7 +620,7 @@ try {
 } catch (Exception $e) {
     error_log("Rooms controller error: " . $e->getMessage());
     error_log("Rooms controller error trace: " . $e->getTraceAsString());
-    echo json_encode([
+    echo jsonResponse([
         'success' => false, 
         'error' => 'Lỗi server: ' . $e->getMessage(),
         'debug' => [

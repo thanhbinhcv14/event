@@ -35,6 +35,9 @@ function getDBConnection() {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_TIMEOUT => 5 // Timeout 5 giây
         ]);
+        // Đảm bảo charset UTF-8 cho kết nối
+        $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
+        $pdo->exec("SET CHARACTER SET utf8mb4");
         return $pdo;
     } catch (PDOException $e) {
         // Log lỗi nhưng không die() - để controller xử lý

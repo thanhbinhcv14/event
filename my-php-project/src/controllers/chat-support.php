@@ -19,7 +19,7 @@ if (!isset($_SESSION['user'])) {
 }
 
 $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? null;
-if (!in_array($userRole, [1, 2, 3, 4])) { // Admin, Quản lý tổ chức, Quản lý sự kiện, Nhân viên
+if (!in_array($userRole, [1, 3])) { // Chỉ Admin (role 1) và Quản lý sự kiện (role 3)
     echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
     exit();
 }

@@ -1,5 +1,17 @@
 <?php
-// Include admin header
+// Bắt đầu session nếu chưa có
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Kiểm tra quyền truy cập - Chỉ Admin (role 1) và Quản lý sự kiện (role 3) mới có quyền
+$userRole = isset($_SESSION['user']['ID_Role']) ? intval($_SESSION['user']['ID_Role']) : 0;
+if (!isset($_SESSION['user']) || !in_array($userRole, [1, 3])) {
+    header('Location: index.php');
+    exit;
+}
+
+// Bao gồm header admin
 include 'includes/admin-header.php';
 ?>
 
@@ -109,9 +121,10 @@ include 'includes/admin-header.php';
                     <button class="btn btn-success" onclick="showAddModal()">
                         <i class="fas fa-plus"></i> Thêm khách hàng
                     </button>
+                    
         </div>
     </div>
-            
+    
         <div class="table-responsive">
             <table class="table table-hover" id="customersTable">
                 <thead>
@@ -156,35 +169,41 @@ include 'includes/admin-header.php';
                                 </div>
                                 <div class="col-md-6">
         <div class="mb-3">
-                                        <label class="form-label">Email <span class="text-danger">*</span></label>
-                                        <input type="email" class="form-control" id="customerEmail" name="Email" required>
-                                    </div>
-                                </div>
+                                        <label class="form-label">Số điện thoại <span class="text-danger">*</span></label>
+                                        <input type="tel" class="form-control" id="customerPhone" name="SoDienThoai" required>
+        </div>
+        </div>
                             </div>
                             
                             <div class="row">
                                 <div class="col-md-6">
         <div class="mb-3">
-                                        <label class="form-label">Số điện thoại <span class="text-danger">*</span></label>
-                                        <input type="tel" class="form-control" id="customerPhone" name="SoDienThoai" required>
+                                        <label class="form-label">Email <span class="text-danger">*</span></label>
+                                        <input type="email" class="form-control" id="customerEmail" name="Email" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Mật khẩu <span class="text-danger">*</span> <span class="text-muted" id="passwordHint">(bắt buộc cho khách hàng mới)</span></label>
+            <div class="input-group">
+                                            <input type="password" class="form-control" id="customerPassword" name="MatKhau">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('customerPassword')">
+                                                <i class="fas fa-eye" id="customerPasswordIcon"></i>
+                </button>
+            </div>
         </div>
         </div>
+        </div>
+                            
+                            <div class="row">
                                 <div class="col-md-6">
         <div class="mb-3">
                                         <label class="form-label">Ngày sinh</label>
                                         <input type="date" class="form-control" id="customerBirthday" name="NgaySinh">
             </div>
         </div>
-        </div>
-                            
-        <div class="mb-3">
-                                <label class="form-label">Địa chỉ</label>
-                                <textarea class="form-control" id="customerAddress" name="DiaChi" rows="2"></textarea>
-        </div>
-                            
-                            <div class="row">
                                 <div class="col-md-6">
-        <div class="mb-3">
+                                    <div class="mb-3">
                                         <label class="form-label">Trạng thái <span class="text-danger">*</span></label>
                                         <select class="form-select" id="customerStatus" name="TrangThai" required>
                                             <option value="Hoạt động">Hoạt động</option>
@@ -194,6 +213,11 @@ include 'includes/admin-header.php';
       </div>
   </div>
 </div>
+                            
+        <div class="mb-3">
+                                <label class="form-label">Địa chỉ</label>
+                                <textarea class="form-control" id="customerAddress" name="DiaChi" rows="2"></textarea>
+        </div>
                             
                         </form>
         </div>
@@ -228,19 +252,20 @@ include 'includes/admin-header.php';
 </div>
         </div>
 
+
     <style>
-        /* Remove modal backdrop completely */
+        /* Loại bỏ hoàn toàn backdrop của modal */
         .modal-backdrop {
             display: none !important;
         }
         
-        /* Ensure body doesn't get locked when modal is open */
+        /* Đảm bảo body không bị khóa khi modal mở */
         body.modal-open {
             overflow: auto !important;
             padding-right: 0 !important;
         }
         
-        /* Optional: Add a subtle overlay effect if you want some visual indication */
+        /* Tùy chọn: Thêm hiệu ứng overlay nhẹ nếu muốn có chỉ báo trực quan */
         .modal.show {
             background-color: rgba(0, 0, 0, 0.1);
         }
@@ -250,7 +275,7 @@ include 'includes/admin-header.php';
         let customersTable;
         let currentFilters = {};
 
-        // Initialize page
+        // Khởi tạo trang
         document.addEventListener('DOMContentLoaded', function() {
             initializeDataTable();
             loadStatistics();
@@ -258,7 +283,7 @@ include 'includes/admin-header.php';
         });
 
         function initializeDataTable() {
-            // Check if DataTables is available
+            // Kiểm tra DataTables có sẵn không
             if (typeof $.fn.DataTable === 'undefined') {
                 console.error('DataTables not available');
                 AdminPanel.showError('DataTables không khả dụng');
@@ -291,9 +316,8 @@ include 'includes/admin-header.php';
                         }
                     },
                     error: function(xhr, error, thrown) {
-                        console.error('DataTable AJAX Error:', error, thrown);
-                        console.error('Response:', xhr.responseText);
-                        AdminPanel.showError('Không thể tải dữ liệu khách hàng: ' + error);
+                        console.error('DataTable AJAX Error:', error);
+                        AdminPanel.showError('Không thể tải dữ liệu khách hàng');
                     }
                 },
                 columns: [
@@ -303,7 +327,7 @@ include 'includes/admin-header.php';
                         render: function(data, type, row) {
                             return `
                                 <div>
-                                    <strong>${data}</strong>
+                                    <strong>${data || 'N/A'}</strong>
                                 </div>
                             `;
                         }
@@ -313,9 +337,8 @@ include 'includes/admin-header.php';
                     { 
                         data: 'TrangThai',
                         render: function(data) {
-                            if (!data) {
-                                return '<span class="status-badge status-approved">Hoạt động</span>';
-                            }
+                            if (!data) return '<span class="status-badge status-unknown">Không xác định</span>';
+                            
                             const statusMap = {
                                 'Hoạt động': { class: 'approved', text: 'Hoạt động' },
                                 'Chưa xác minh': { class: 'pending', text: 'Chưa xác minh' },
@@ -331,7 +354,7 @@ include 'includes/admin-header.php';
                     { 
                         data: 'NgayTao',
                         render: function(data) {
-                            return data ? AdminPanel.formatDate(data, 'dd/mm/yyyy') : 'Không có thông tin';
+                            return AdminPanel.formatDate(data, 'dd/mm/yyyy hh:mm');
                         }
                     },
                     { 
@@ -387,7 +410,7 @@ include 'includes/admin-header.php';
         }
 
         function setupEventListeners() {
-            // Search input with debounce
+            // Ô tìm kiếm với debounce
             let searchTimeout;
             $('#searchInput').on('keyup', function() {
                 clearTimeout(searchTimeout);
@@ -396,7 +419,7 @@ include 'includes/admin-header.php';
                 }, 300);
             });
 
-            // Filter change events
+            // Sự kiện thay đổi bộ lọc
             $('#statusFilter, #sortBy').on('change', function() {
                 applyFilters();
             });
@@ -407,28 +430,28 @@ include 'includes/admin-header.php';
             const statusFilter = $('#statusFilter').val();
             const sortBy = $('#sortBy').val();
             
-            // Apply search to DataTable
+            // Áp dụng tìm kiếm vào DataTable
             customersTable.search(searchValue).draw();
             
-            // Apply column filters
+            // Áp dụng bộ lọc cột
             if (statusFilter) {
-                customersTable.column(3).search(statusFilter);
+                customersTable.column(4).search(statusFilter);
             } else {
-                customersTable.column(3).search('');
+                customersTable.column(4).search('');
             }
             
-            // Apply sorting
+            // Áp dụng sắp xếp
             if (sortBy === 'HoTen') {
                 customersTable.order([1, 'asc']).draw();
             } else if (sortBy === 'Email') {
                 customersTable.order([2, 'asc']).draw();
             } else if (sortBy === 'NgayTao') {
-                customersTable.order([4, 'desc']).draw();
+                customersTable.order([5, 'desc']).draw();
             } else if (sortBy === 'SoDienThoai') {
-                customersTable.order([2, 'asc']).draw();
+                customersTable.order([3, 'asc']).draw();
             }
             
-            // Redraw table
+            // Vẽ lại bảng
             customersTable.draw();
         }
 
@@ -437,7 +460,7 @@ include 'includes/admin-header.php';
             $('#statusFilter').val('');
             $('#sortBy').val('HoTen');
             
-            // Clear all DataTable filters
+            // Xóa tất cả bộ lọc DataTable
             customersTable.search('');
             customersTable.columns().search('');
             customersTable.order([0, 'desc']).draw();
@@ -451,6 +474,8 @@ include 'includes/admin-header.php';
         function showAddModal() {
             $('#customerForm')[0].reset();
             $('#customerId').val('');
+            $('#customerPassword').attr('required', 'required'); // Password required for new customer
+            $('#passwordHint').text('(bắt buộc cho khách hàng mới)').removeClass('text-muted').addClass('text-danger');
             $('#customerModalTitle').html('<i class="fas fa-plus"></i> Thêm khách hàng mới');
             
             const modal = new bootstrap.Modal(document.getElementById('customerModal'));
@@ -458,27 +483,31 @@ include 'includes/admin-header.php';
         }
 
         function editCustomer(id) {
-            AdminPanel.makeAjaxRequest('../src/controllers/customeredit.php', {
-                action: 'get_customer_details',
-                id: id
-            })
+            const formData = new FormData();
+            formData.append('action', 'get_customer_details');
+            formData.append('id', id);
+            
+            AdminPanel.makeAjaxRequest('../src/controllers/customeredit.php', formData, 'POST')
             .then(response => {
-                if (response && response.success && response.customer) {
+                if (response && response.success && response.customer && response.customer.ID_User) {
                     const customer = response.customer;
                     $('#customerId').val(customer.ID_User);
                     $('#customerName').val(customer.HoTen);
                     $('#customerEmail').val(customer.Email);
+                    $('#customerPassword').val(''); // Don't show password
                     $('#customerPhone').val(customer.SoDienThoai);
                     $('#customerBirthday').val(customer.NgaySinh);
                     $('#customerAddress').val(customer.DiaChi);
-                    $('#customerStatus').val(customer.TrangThai);
+                    $('#customerStatus').val(customer.TrangThai || 'Hoạt động');
                     
+                    $('#customerPassword').removeAttr('required'); // Password not required for edit
+                    $('#passwordHint').text('(để trống nếu không đổi)').removeClass('text-danger').addClass('text-muted');
                     $('#customerModalTitle').html('<i class="fas fa-edit"></i> Chỉnh sửa khách hàng');
                     
                     const modal = new bootstrap.Modal(document.getElementById('customerModal'));
                     modal.show();
                 } else {
-                    AdminPanel.showError('Không thể tải thông tin khách hàng');
+                    AdminPanel.showError(response.message || 'Không thể tải thông tin khách hàng');
                 }
             })
             .catch(error => {
@@ -492,12 +521,12 @@ include 'includes/admin-header.php';
             const modal = new bootstrap.Modal(document.getElementById('viewModal'));
             modal.show();
 
-            AdminPanel.makeAjaxRequest('../src/controllers/customeredit.php', {
-                action: 'get_customer_details',
-                id: id
-            })
+            const formData = new FormData();
+            formData.append('action', 'get_customer_details');
+            formData.append('id', id);
+            
+            AdminPanel.makeAjaxRequest('../src/controllers/customeredit.php', formData, 'POST')
             .then(response => {
-                console.log('View customer response:', response);
                 if (response && response.success && response.customer) {
                     const customer = response.customer;
                     const statusMap = {
@@ -516,6 +545,8 @@ include 'includes/admin-header.php';
                             <div class="col-md-6">
                                 <h6><i class="fas fa-user"></i> Thông tin cá nhân</h6>
                                 <table class="table table-sm">
+                                    <tr><td><strong>ID Khách hàng:</strong></td><td>#${customer.ID_KhachHang || customer.ID_User || 'N/A'}</td></tr>
+                                    <tr><td><strong>ID Tài khoản:</strong></td><td>#${customer.ID_User || 'N/A'}</td></tr>
                                     <tr><td><strong>Họ tên:</strong></td><td>${customer.HoTen || 'Chưa cập nhật'}</td></tr>
                                     <tr><td><strong>Email:</strong></td><td>${customer.Email || 'Chưa có'}</td></tr>
                                     <tr><td><strong>Số điện thoại:</strong></td><td>${customer.SoDienThoai || 'Chưa có'}</td></tr>
@@ -527,8 +558,9 @@ include 'includes/admin-header.php';
                                 <h6><i class="fas fa-info-circle"></i> Thông tin khác</h6>
                                 <table class="table table-sm">
                                     <tr><td><strong>Địa chỉ:</strong></td><td>${customer.DiaChi || 'Không có địa chỉ'}</td></tr>
-                                    <tr><td><strong>Ngày tạo:</strong></td><td>${customer.NgayTao ? AdminPanel.formatDate(customer.NgayTao, 'dd/mm/yyyy hh:mm') : 'Không có'}</td></tr>
-                                    <tr><td><strong>Cập nhật:</strong></td><td>${customer.NgayCapNhat ? AdminPanel.formatDate(customer.NgayCapNhat, 'dd/mm/yyyy hh:mm') : 'Không có'}</td></tr>
+                                    <tr><td><strong>Ngày đăng ký:</strong></td><td>${customer.NgayDangKy ? AdminPanel.formatDate(customer.NgayDangKy, 'dd/mm/yyyy hh:mm') : (customer.NgayTao ? AdminPanel.formatDate(customer.NgayTao, 'dd/mm/yyyy hh:mm') : 'Không có')}</td></tr>
+                                    <tr><td><strong>Ngày tạo hồ sơ:</strong></td><td>${customer.NgayTao ? AdminPanel.formatDate(customer.NgayTao, 'dd/mm/yyyy hh:mm') : 'Không có'}</td></tr>
+                                    <tr><td><strong>Cập nhật lần cuối:</strong></td><td>${customer.NgayCapNhat ? AdminPanel.formatDate(customer.NgayCapNhat, 'dd/mm/yyyy hh:mm') : 'Không có'}</td></tr>
                                 </table>
                             </div>
                         </div>
@@ -537,48 +569,57 @@ include 'includes/admin-header.php';
                     $('#viewModalBody').html(`
                         <div class="alert alert-danger">
                             <i class="fas fa-exclamation-circle"></i>
-                            ${response && response.message ? response.message : 'Không thể tải chi tiết khách hàng'}
+                            ${response.message || 'Không thể tải chi tiết khách hàng'}
                         </div>
                     `);
                 }
             })
             .catch(error => {
+                console.error('Error loading customer details:', error);
                 $('#viewModalBody').html(`
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-circle"></i>
-                        Có lỗi xảy ra khi tải chi tiết khách hàng
+                        Không thể tải chi tiết khách hàng: ${error.message || 'Lỗi không xác định'}
                     </div>
                 `);
             });
         }
 
         function saveCustomer() {
+            const isEdit = $('#customerId').val() !== '';
+            
+            // Đối với chế độ chỉnh sửa, xóa thuộc tính required khỏi trường mật khẩu
+            if (isEdit) {
+                $('#customerPassword').removeAttr('required');
+            } else {
+                $('#customerPassword').attr('required', 'required');
+            }
+            
+            // Xác thực bổ sung cho mật khẩu khi thêm khách hàng mới
+            if (!isEdit && !$('#customerPassword').val().trim()) {
+                AdminPanel.showError('Mật khẩu không được để trống khi thêm khách hàng mới');
+                $('#customerPassword').focus();
+                return;
+            }
+            
             if (!AdminPanel.validateForm('customerForm')) {
                 return;
             }
-
+        
             const formData = new FormData(document.getElementById('customerForm'));
-            const isEdit = $('#customerId').val() !== '';
             const action = isEdit ? 'update_customer' : 'add_customer';
             
-            // Add action to form data
+            // Thêm action vào form data
             formData.append('action', action);
 
             AdminPanel.makeAjaxRequest('../src/controllers/customeredit.php', formData, 'POST')
             .then(response => {
                 if (response.success) {
                     AdminPanel.showSuccess(isEdit ? 'Đã cập nhật khách hàng thành công' : 'Đã thêm khách hàng thành công');
-                    
-                    // Close modal
-                    const modalElement = document.getElementById('customerModal');
-                    const modal = bootstrap.Modal.getInstance(modalElement);
-                    if (modal) {
-                        modal.hide();
-                    }
-                    
+                    bootstrap.Modal.getInstance(document.getElementById('customerModal')).hide();
                     customersTable.ajax.reload();
                     loadStatistics();
-                } else {
+            } else {
                     AdminPanel.showError(response.message || 'Có lỗi xảy ra khi lưu khách hàng');
                 }
             })
@@ -602,22 +643,41 @@ include 'includes/admin-header.php';
                             AdminPanel.showSuccess('Đã xóa khách hàng thành công');
                             customersTable.ajax.reload();
                             loadStatistics();
-                        } else {
+            } else {
                             AdminPanel.showError(response.message || 'Có lỗi xảy ra khi xóa khách hàng');
-                        }
+            }
                     })
                     .catch(error => {
                         AdminPanel.showError('Có lỗi xảy ra khi xóa khách hàng');
-                    });
-                }
+    });
+}
             );
+}
+
+        function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+            const icon = document.getElementById(inputId + 'Icon');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+                input.style.textDecoration = 'line-through';
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+                input.style.textDecoration = 'none';
+            }
         }
 
+        
 
-        // Auto refresh every 30 seconds
+        // Tự động làm mới mỗi 30 giây
         setInterval(() => {
             loadStatistics();
         }, 30000);
     </script>
 
 <?php include 'includes/admin-footer.php'; ?>
+

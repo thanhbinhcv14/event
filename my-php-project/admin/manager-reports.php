@@ -49,15 +49,17 @@ try {
             COALESCE(dl1.TenSuKien, dl2.TenSuKien) as TenSuKien,
             COALESCE(dl1.NgayBatDau, dl2.NgayBatDau) as NgayBatDau,
             COALESCE(dl1.NgayKetThuc, dl2.NgayKetThuc) as NgayKetThuc
-        FROM baocaotiendo bct
+        FROM baocao bct
         INNER JOIN (
             SELECT ID_NhanVien, ID_Task, LoaiTask, MAX(ID_BaoCao) as MaxID_BaoCao
-            FROM baocaotiendo
+            FROM baocao
+            WHERE LoaiBaoCao = 'Tiến độ'
             GROUP BY ID_NhanVien, ID_Task, LoaiTask
         ) latest ON bct.ID_NhanVien = latest.ID_NhanVien
             AND bct.ID_Task = latest.ID_Task 
             AND bct.LoaiTask = latest.LoaiTask 
             AND bct.ID_BaoCao = latest.MaxID_BaoCao
+        WHERE bct.LoaiBaoCao = 'Tiến độ'
         LEFT JOIN nhanvieninfo nv ON bct.ID_NhanVien = nv.ID_NhanVien
         LEFT JOIN lichlamviec llv ON bct.ID_Task = llv.ID_LLV AND bct.LoaiTask = 'lichlamviec'
         LEFT JOIN datlichsukien dl1 ON llv.ID_DatLich = dl1.ID_DatLich
@@ -144,7 +146,7 @@ try {
             COALESCE(dl1.TenSuKien, dl2.TenSuKien, 'N/A') as TenSuKien,
             COALESCE(dl1.NgayBatDau, dl2.NgayBatDau, NULL) as NgayBatDau,
             COALESCE(dl1.NgayKetThuc, dl2.NgayKetThuc, NULL) as NgayKetThuc
-        FROM baocaosuco bs
+        FROM baocao bs
         LEFT JOIN nhanvieninfo nv ON bs.ID_NhanVien = nv.ID_NhanVien
         LEFT JOIN lichlamviec llv ON bs.ID_Task = llv.ID_LLV AND bs.LoaiTask = 'lichlamviec'
         LEFT JOIN datlichsukien dl1 ON llv.ID_DatLich = dl1.ID_DatLich
@@ -152,12 +154,13 @@ try {
         LEFT JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
         LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
         LEFT JOIN datlichsukien dl2 ON s.ID_DatLich = dl2.ID_DatLich
+        WHERE bs.LoaiBaoCao = 'Sự cố' AND bs.ID_QuanLy = ?
         ORDER BY bs.NgayBaoCao DESC
         LIMIT 50
     ");
     
     try {
-        $stmt->execute();
+        $stmt->execute([$managerInfo['ID_NhanVien']]);
         $issueReports = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
         error_log("ERROR: manager-reports.php - Query failed: " . $e->getMessage());
@@ -171,7 +174,7 @@ try {
         error_log("DEBUG: manager-reports.php - First report: " . json_encode($issueReports[0]));
     } else {
         // If no reports found, try a simpler query to see all reports
-        $debugStmt = $pdo->prepare("SELECT ID_BaoCao, ID_NhanVien, ID_QuanLy, TieuDe, TrangThai FROM baocaosuco ORDER BY NgayBaoCao DESC LIMIT 5");
+        $debugStmt = $pdo->prepare("SELECT ID_BaoCao, ID_NhanVien, ID_QuanLy, TieuDe, TrangThai FROM baocao WHERE LoaiBaoCao = 'Sự cố' ORDER BY NgayBaoCao DESC LIMIT 5");
         $debugStmt->execute();
         $allReports = $debugStmt->fetchAll(PDO::FETCH_ASSOC);
         error_log("DEBUG: manager-reports.php - All reports in database: " . json_encode($allReports));
@@ -203,7 +206,7 @@ try {
                     COALESCE(dl1.TenSuKien, dl2.TenSuKien, 'N/A') as TenSuKien,
                     COALESCE(dl1.NgayBatDau, dl2.NgayBatDau, NULL) as NgayBatDau,
                     COALESCE(dl1.NgayKetThuc, dl2.NgayKetThuc, NULL) as NgayKetThuc
-                FROM baocaosuco bs
+                FROM baocao bs
                 LEFT JOIN nhanvieninfo nv ON bs.ID_NhanVien = nv.ID_NhanVien
                 LEFT JOIN lichlamviec llv ON bs.ID_Task = llv.ID_LLV AND bs.LoaiTask = 'lichlamviec'
                 LEFT JOIN datlichsukien dl1 ON llv.ID_DatLich = dl1.ID_DatLich
@@ -211,6 +214,7 @@ try {
                 LEFT JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
                 LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
                 LEFT JOIN datlichsukien dl2 ON s.ID_DatLich = dl2.ID_DatLich
+                WHERE bs.LoaiBaoCao = 'Sự cố'
                 ORDER BY bs.NgayBaoCao DESC
                 LIMIT 50
             ");
@@ -227,8 +231,9 @@ try {
             COUNT(DISTINCT bct.ID_NhanVien) as total_staff_progress,
             COALESCE(AVG(bct.TienDo), 0) as avg_progress,
             SUM(CASE WHEN bct.TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed_tasks
-        FROM baocaotiendo bct
-        WHERE bct.NgayBaoCao >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        FROM baocao bct
+        WHERE bct.LoaiBaoCao = 'Tiến độ'
+        AND bct.NgayBaoCao >= DATE_SUB(NOW(), INTERVAL 30 DAY)
     ");
     $stmt->execute();
     $progressStats = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -252,8 +257,9 @@ try {
             SUM(CASE WHEN bs.TrangThai = 'Đang xử lý' THEN 1 ELSE 0 END) as in_progress_issues,
             SUM(CASE WHEN bs.TrangThai = 'Đã xử lý' THEN 1 ELSE 0 END) as resolved_issues,
             SUM(CASE WHEN bs.MucDo = 'Khẩn cấp' THEN 1 ELSE 0 END) as urgent_issues
-        FROM baocaosuco bs
-        WHERE bs.NgayBaoCao >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        FROM baocao bs
+        WHERE bs.LoaiBaoCao = 'Sự cố'
+        AND bs.NgayBaoCao >= DATE_SUB(NOW(), INTERVAL 30 DAY)
     ");
     $stmt->execute();
     $issueStats = $stmt->fetch(PDO::FETCH_ASSOC);

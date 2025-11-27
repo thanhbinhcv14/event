@@ -144,18 +144,20 @@ include 'includes/admin-header.php';
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="expectedGuests" class="form-label">Số khách dự kiến</label>
-                                    <input type="number" class="form-control" id="expectedGuests" name="expectedGuests" min="1" value="50" placeholder="Nhập số khách dự kiến">
+                                    <label for="expectedGuests" class="form-label required">Số khách dự kiến</label>
+                                    <input type="number" class="form-control" id="expectedGuests" name="expectedGuests" min="1" required placeholder="Nhập số khách dự kiến">
+                                    <div class="invalid-feedback">Vui lòng nhập số khách dự kiến</div>
                                     <small class="form-text text-muted">Số lượng khách mời dự kiến</small>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="budget" class="form-label">Ngân sách dự kiến</label>
+                                    <label for="budget" class="form-label required">Ngân sách dự kiến</label>
                                     <div class="input-group">
-                                        <input type="number" class="form-control" id="budget" name="budget" min="0" step="1000" placeholder="Nhập ngân sách">
+                                        <input type="number" class="form-control" id="budget" name="budget" min="0" step="1000" required placeholder="Nhập ngân sách">
                                         <span class="input-group-text">VNĐ</span>
                                     </div>
+                                    <div class="invalid-feedback">Vui lòng nhập ngân sách dự kiến</div>
                                     <small class="form-text text-muted">Ngân sách dự kiến cho sự kiện</small>
                                 </div>
                             </div>
@@ -207,6 +209,14 @@ include 'includes/admin-header.php';
                                         <option value="Cả hai">Cả hai</option>
                                     </select>
                                 </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Filter Info Card -->
+                        <div class="alert alert-info" id="filterInfoCard" style="display: none;">
+                            <h6 class="mb-2"><i class="fas fa-info-circle"></i> Thông tin bộ lọc</h6>
+                            <div id="filterInfoContent">
+                                <!-- Nội dung sẽ được cập nhật động -->
                             </div>
                         </div>
                         
@@ -649,6 +659,7 @@ include 'includes/admin-header.php';
         let customers = [];
         let eventTypes = [];
         let locations = [];
+        let allRooms = []; // Cache tất cả phòng để lọc nhanh hơn
         let individualEquipment = [];
         let comboEquipment = [];
 
@@ -666,6 +677,7 @@ include 'includes/admin-header.php';
             loadCustomers();
             loadEventTypes();
             loadLocations();
+            loadAllRooms(); // Load tất cả phòng để lọc nhanh hơn
             loadEquipment();
             setupEventListeners();
             updateStepDisplay();
@@ -937,21 +949,38 @@ include 'includes/admin-header.php';
             const startDate = document.getElementById('startDate');
             if (startDate) {
                 startDate.addEventListener('change', function() {
-                    validateDates();
+                    validateDates(); // Chỉ validate, không hiển thị thông báo
                     updateDurationDisplay();
                     updateOrderSummary();
                     updateCostSummary();
+                });
+                startDate.addEventListener('blur', function() {
+                    // Chỉ validate khi blur, không hiển thị thông báo popup
+                    validateDates();
+                    // Chỉ hiển thị tooltip HTML5 nếu có lỗi
+                    if (this.validationMessage) {
+                        this.reportValidity();
+                    }
                 });
             }
             const endDate = document.getElementById('endDate');
             if (endDate) {
                 endDate.addEventListener('change', function() {
-                    validateDates();
+                    validateDates(); // Chỉ validate, không hiển thị thông báo
                     updateDurationDisplay();
                     updateOrderSummary();
                     updateCostSummary();
                 });
+                endDate.addEventListener('blur', function() {
+                    // Chỉ validate khi blur, không hiển thị thông báo popup
+                    validateDates();
+                    // Chỉ hiển thị tooltip HTML5 nếu có lỗi
+                    if (this.validationMessage) {
+                        this.reportValidity();
+                    }
+                });
             }
+            
         }
 
         function loadCustomers() {
@@ -1142,13 +1171,38 @@ include 'includes/admin-header.php';
                         eventTypes.forEach(type => {
                             const option = document.createElement('option');
                             option.value = type.ID_LoaiSK;
-                            option.textContent = type.TenLoai;
-                            option.dataset.price = type.GiaCoBan || 0;
+                            const price = parseFloat(type.GiaCoBan) || 0;
+                            // Hiển thị giá trong option text nếu có giá
+                            if (price > 0) {
+                                option.textContent = `${type.TenLoai} - ${new Intl.NumberFormat('vi-VN').format(price)} VNĐ`;
+                            } else {
+                                option.textContent = type.TenLoai;
+                            }
+                            option.dataset.price = price;
                             select.appendChild(option);
                         });
                         
                         // Add event listener for event type change
                         select.addEventListener('change', function() {
+                            // Kiểm tra giá loại sự kiện
+                            const selectedOption = select.options[select.selectedIndex];
+                            if (selectedOption && selectedOption.value) {
+                                const selectedEventType = eventTypes.find(type => type.ID_LoaiSK == selectedOption.value);
+                                if (selectedEventType) {
+                                    const eventTypePrice = parseFloat(selectedEventType.GiaCoBan) || 0;
+                                    if (eventTypePrice <= 0) {
+                                        select.classList.add('is-invalid');
+                                        select.setCustomValidity('Loại sự kiện này chưa có giá. Vui lòng chọn loại sự kiện khác hoặc cập nhật giá cho loại sự kiện này.');
+                                        select.reportValidity();
+                                        if (typeof AdminPanel !== 'undefined' && AdminPanel.showError) {
+                                            AdminPanel.showError('Loại sự kiện phải có giá. Vui lòng chọn loại sự kiện khác hoặc cập nhật giá cho loại sự kiện này.');
+                                        }
+                                    } else {
+                                        select.classList.remove('is-invalid');
+                                        select.setCustomValidity('');
+                                    }
+                                }
+                            }
                             updateOrderSummary();
                             updateCostSummary();
                         });
@@ -1156,7 +1210,7 @@ include 'includes/admin-header.php';
                 })
                 .catch(error => console.error('Error loading event types:', error));
         }
-
+        
         function loadLocations() {
             fetch('../src/controllers/admin-event-register.php?action=get_locations')
                 .then(response => response.json())
@@ -1169,10 +1223,35 @@ include 'includes/admin-header.php';
                                 location.selectedRentalType = 'day'; // Default to daily
                             }
                         });
-                        displayLocations();
+                        // Đảm bảo allRooms đã được load trước khi hiển thị
+                        if (allRooms.length === 0) {
+                            loadAllRooms().then(() => {
+                                displayLocations();
+                            });
+                        } else {
+                            displayLocations();
+                        }
                     }
                 })
                 .catch(error => console.error('Error loading locations:', error));
+        }
+        
+        function loadAllRooms() {
+            // Load tất cả phòng để lọc nhanh hơn
+            return fetch('../src/controllers/rooms.php?action=get_rooms')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        allRooms = data.data;
+                        console.log('Loaded all rooms:', allRooms.length);
+                    }
+                    return data;
+                })
+                .catch(error => {
+                    console.error('Error loading all rooms:', error);
+                    allRooms = []; // Fallback to empty array
+                    return { success: false };
+                });
         }
 
         function loadEquipment() {
@@ -1200,10 +1279,15 @@ include 'includes/admin-header.php';
         }
 
         function displayLocations() {
+            // Tự động lọc địa điểm dựa trên số khách dự kiến và ngân sách
+            filterLocations();
+        }
+        
+        function displayFilteredLocations(locationsToDisplay) {
             const grid = document.getElementById('locationsGrid');
             grid.innerHTML = '';
 
-            locations.forEach(location => {
+            locationsToDisplay.forEach(location => {
                 const card = document.createElement('div');
                 card.className = 'location-card';
                 card.setAttribute('data-location-id', location.ID_DD);
@@ -1229,12 +1313,13 @@ include 'includes/admin-header.php';
                     };
                 }
 
-                const priceText = getLocationPriceText(location);
-                const imageUrl = location.HinhAnh ? `../img/diadiem/${location.HinhAnh}` : '../img/logo/logo.jpg';
-                
                 // Check if this is an indoor location
                 const isIndoor = location.LoaiDiaDiem === 'Trong nhà';
                 const hasSelectedRoom = location.selectedRoom && location.selectedRoomId;
+                
+                // Get price text - sẽ tự động xét đến phòng nếu có
+                const priceText = getLocationPriceText(location);
+                const imageUrl = location.HinhAnh ? `../img/diadiem/${location.HinhAnh}` : '../img/logo/logo.jpg';
                 
                 // Build room display text
                 let roomDisplay = '';
@@ -1273,10 +1358,19 @@ include 'includes/admin-header.php';
                     <div class="d-flex align-items-start">
                         <img src="${imageUrl}" alt="${location.TenDiaDiem}" class="me-3" style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px;">
                         <div class="flex-grow-1">
-                            <h6 class="mb-1">${location.TenDiaDiem}</h6>
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <h6 class="mb-0">${location.TenDiaDiem}</h6>
+                                <button class="btn btn-outline-primary btn-sm" type="button" 
+                                        onclick="event.stopPropagation(); viewLocationDetails(${location.ID_DD});">
+                                    <i class="fas fa-eye"></i> Xem chi tiết
+                                </button>
+                            </div>
                             <p class="text-muted mb-1 small">${location.DiaChi}</p>
                             ${!isIndoor || hasSelectedRoom ? `<p class="text-success mb-0"><strong id="price-${location.ID_DD}">${priceText}</strong></p>` : '<p class="text-muted mb-0 small">Vui lòng chọn phòng để xem giá</p>'}
-                            <p class="text-muted mb-0 small">Sức chứa: ${location.SucChua || 'N/A'} người</p>
+                            ${isIndoor && hasSelectedRoom ? 
+                                `<p class="text-muted mb-0 small">Sức chứa: ${location.selectedRoom.SucChua || 'N/A'} người (phòng ${location.selectedRoom.TenPhong})</p>` : 
+                                `<p class="text-muted mb-0 small">Sức chứa: ${location.SucChua || 'N/A'} người${isIndoor ? ' (tổng các phòng)' : ''}</p>`
+                            }
                             ${!isIndoor && location.LoaiThue === 'Cả hai' ? `
                                 <div class="mt-2">
                                     <select class="form-select form-select-sm" 
@@ -1370,19 +1464,40 @@ include 'includes/admin-header.php';
             
             rooms.forEach(room => {
                 const isSelected = selectedRoomId == room.ID_Phong;
-                const rentalType = room.LoaiThue === 'Theo giờ' ? 'hour' : 
-                                  room.LoaiThue === 'Theo ngày' ? 'day' : 
-                                  selectedRentalType;
                 
-                const price = rentalType === 'hour' ? room.GiaThueGio : room.GiaThueNgay;
+                // Xác định loại thuê: ưu tiên selectedRentalType nếu phòng hỗ trợ "Cả hai"
+                let rentalType;
+                if (room.LoaiThue === 'Cả hai') {
+                    // Nếu phòng hỗ trợ cả hai, sử dụng selectedRentalType
+                    rentalType = selectedRentalType;
+                } else if (room.LoaiThue === 'Theo giờ') {
+                    rentalType = 'hour';
+                } else if (room.LoaiThue === 'Theo ngày') {
+                    rentalType = 'day';
+                } else {
+                    rentalType = selectedRentalType || 'day';
+                }
+                
+                // Parse giá để đảm bảo là số
+                const price = rentalType === 'hour' 
+                    ? (parseFloat(room.GiaThueGio) || 0) 
+                    : (parseFloat(room.GiaThueNgay) || 0);
                 const priceText = rentalType === 'hour' ? 
                     `${new Intl.NumberFormat('vi-VN').format(price)} VNĐ/giờ` : 
                     `${new Intl.NumberFormat('vi-VN').format(price)} VNĐ/ngày`;
                 
+                const roomImageUrl = room.HinhAnh ? `../img/phong/${room.HinhAnh}` : '../img/logo/logo.jpg';
+                
                 html += `
                     <div class="col-md-6">
                         <div class="card ${isSelected ? 'border-primary' : ''}" style="cursor: pointer;" 
-                             onclick="selectRoom(${locationId}, ${room.ID_Phong}, '${rentalType}')">
+                             data-room-id="${room.ID_Phong}"
+                             onclick="event.stopPropagation(); event.preventDefault(); selectRoom(${locationId}, ${room.ID_Phong}, '${rentalType}', event); return false;">
+                            ${room.HinhAnh ? `
+                                <img src="${roomImageUrl}" class="card-img-top" alt="${room.TenPhong}" 
+                                     style="height: 180px; object-fit: cover; border-radius: 0.375rem 0.375rem 0 0;"
+                                     onerror="this.src='../img/logo/logo.jpg'">
+                            ` : ''}
                             <div class="card-body">
                                 <h6 class="card-title">
                                     ${room.TenPhong}
@@ -1391,14 +1506,16 @@ include 'includes/admin-header.php';
                                 <p class="text-muted small mb-2">${room.MoTa || 'Không có mô tả'}</p>
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <p class="text-success mb-0"><strong>${priceText}</strong></p>
+                                        <p class="text-success mb-0"><strong class="room-price-${room.ID_Phong}">${priceText}</strong></p>
                                         ${room.SucChua ? `<p class="text-muted small mb-0">Sức chứa: ${room.SucChua} người</p>` : ''}
                                     </div>
                                     ${room.LoaiThue === 'Cả hai' ? `
                                         <div>
-                                            <select class="form-select form-select-sm" 
-                                                    onclick="event.stopPropagation()"
-                                                    onchange="selectRoom(${locationId}, ${room.ID_Phong}, this.value)">
+                                            <select class="form-select form-select-sm room-rental-select" 
+                                                    data-room-id="${room.ID_Phong}"
+                                                    data-location-id="${locationId}"
+                                                    onclick="event.stopPropagation(); event.preventDefault(); return false;"
+                                                    onchange="event.stopPropagation(); event.preventDefault(); updateRoomRentalType(${locationId}, ${room.ID_Phong}, this.value, event); return false;">
                                                 <option value="hour" ${rentalType === 'hour' ? 'selected' : ''}>Theo giờ</option>
                                                 <option value="day" ${rentalType === 'day' ? 'selected' : ''}>Theo ngày</option>
                                             </select>
@@ -1415,9 +1532,109 @@ include 'includes/admin-header.php';
             contentDiv.innerHTML = html;
         }
         
-        function selectRoom(locationId, roomId, rentalType = 'day') {
+        // Hàm cập nhật loại thuê của phòng (không đóng modal)
+        function updateRoomRentalType(locationId, roomId, rentalType, event = null) {
+            // Prevent form submission and event propagation
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
             const location = locations.find(loc => loc.ID_DD === locationId);
-            if (!location) return;
+            if (!location) {
+                console.error('Location not found:', locationId);
+                return false;
+            }
+            
+            // Cập nhật loại thuê cho location (để lưu lại lựa chọn)
+            location.selectedRoomRentalType = rentalType;
+            
+            // Reload lại danh sách phòng để cập nhật giá hiển thị
+            loadRoomsForLocation(locationId);
+            
+            return false;
+        }
+        
+        // Hàm cập nhật hiển thị giá phòng trong modal
+        function updateRoomPriceDisplay(roomId, rentalType, room) {
+            // Lấy giá dựa trên loại thuê - parse để đảm bảo là số
+            let price = 0;
+            if (rentalType === 'hour') {
+                price = parseFloat(room.GiaThueGio) || 0;
+            } else {
+                price = parseFloat(room.GiaThueNgay) || 0;
+            }
+            
+            // Format giá
+            const priceText = rentalType === 'hour' ? 
+                `${new Intl.NumberFormat('vi-VN').format(price)} VNĐ/giờ` : 
+                `${new Intl.NumberFormat('vi-VN').format(price)} VNĐ/ngày`;
+            
+            console.log('Updating room price display:', {
+                roomId: roomId,
+                rentalType: rentalType,
+                GiaThueGio: room.GiaThueGio,
+                GiaThueNgay: room.GiaThueNgay,
+                calculatedPrice: price,
+                priceText: priceText
+            });
+            
+            // Tìm và cập nhật giá trong modal - tìm trong modal content
+            const modalContent = document.getElementById('roomSelectionContent');
+            if (!modalContent) {
+                console.error('Modal content not found');
+                return;
+            }
+            
+            // Tìm card phòng bằng data attribute
+            const card = modalContent.querySelector(`[data-room-id="${roomId}"]`);
+            if (!card) {
+                console.error('Room card not found for roomId:', roomId);
+                // Fallback: tìm trực tiếp bằng class
+                const priceElement = document.querySelector(`.room-price-${roomId}`);
+                if (priceElement) {
+                    priceElement.textContent = priceText;
+                    console.log('Updated price using fallback selector');
+                }
+                return;
+            }
+            
+            // Tìm phần tử giá trong card
+            const priceElement = card.querySelector(`.room-price-${roomId}`);
+            if (priceElement) {
+                priceElement.textContent = priceText;
+                console.log('Updated price using .room-price selector');
+            } else {
+                // Fallback: tìm phần tử strong chứa giá
+                const priceStrong = card.querySelector('.text-success strong');
+                if (priceStrong) {
+                    priceStrong.textContent = priceText;
+                    console.log('Updated price using .text-success strong selector');
+                } else {
+                    console.error('Price element not found in card');
+                }
+            }
+            
+            // Cập nhật selected state của dropdown (nếu có)
+            const select = card.querySelector(`select.room-rental-select[data-room-id="${roomId}"]`);
+            if (select) {
+                select.value = rentalType;
+                console.log('Updated dropdown value');
+            }
+        }
+        
+        // Hàm chọn phòng (đóng modal)
+        function selectRoom(locationId, roomId, rentalType = 'day', event = null) {
+            // Prevent form submission and event propagation
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            const location = locations.find(loc => loc.ID_DD === locationId);
+            if (!location) {
+                return false;
+            }
             
             // Find room data
             fetch(`../src/controllers/rooms.php?action=get_room&id=${roomId}`)
@@ -1441,22 +1658,45 @@ include 'includes/admin-header.php';
                             selectedLocation.selectedRoomRentalType = rentalType;
                         }
                         
-                        // Close modal
-                        const modal = bootstrap.Modal.getInstance(document.getElementById('roomSelectionModal'));
-                        if (modal) {
-                            modal.hide();
+                        // Close modal - Đảm bảo đóng modal trước khi refresh
+                        const modalElement = document.getElementById('roomSelectionModal');
+                        if (modalElement) {
+                            const modal = bootstrap.Modal.getInstance(modalElement);
+                            if (modal) {
+                                modal.hide();
+                            } else {
+                                // Nếu không có instance, tạo mới và đóng
+                                const newModal = new bootstrap.Modal(modalElement);
+                                newModal.hide();
+                            }
                         }
                         
-                        // Refresh location display
-                        displayLocations();
-                        displaySelectedLocation(location);
-                        updateCostSummary();
+                        // Refresh location display - Lọc lại để kiểm tra sức chứa của phòng
+                        setTimeout(() => {
+                            filterLocations();
+                            displaySelectedLocation(location);
+                            updateCostSummary();
+                        }, 300); // Delay nhỏ để đảm bảo modal đã đóng
+                    } else {
+                        console.error('Failed to load room data:', data);
+                        alert('Không thể tải thông tin phòng');
                     }
                 })
                 .catch(error => {
                     console.error('Error loading room:', error);
                     alert('Lỗi khi tải thông tin phòng');
+                    
+                    // Vẫn đóng modal ngay cả khi có lỗi
+                    const modalElement = document.getElementById('roomSelectionModal');
+                    if (modalElement) {
+                        const modal = bootstrap.Modal.getInstance(modalElement);
+                        if (modal) {
+                            modal.hide();
+                        }
+                    }
                 });
+            
+            return false;
         }
 
         function updateLocationRentalType(locationId, rentalType) {
@@ -1496,6 +1736,26 @@ include 'includes/admin-header.php';
         }
 
         function getLocationPriceText(location) {
+            // Ưu tiên: Nếu địa điểm trong nhà có phòng đã chọn, hiển thị giá phòng
+            if (location.LoaiDiaDiem === 'Trong nhà' && location.selectedRoom) {
+                const room = location.selectedRoom;
+                const rentalType = location.selectedRoomRentalType || location.selectedRentalType || 'day';
+                
+                if (rentalType === 'hour' && room.GiaThueGio) {
+                    return `${new Intl.NumberFormat('vi-VN').format(parseFloat(room.GiaThueGio))} VNĐ/giờ`;
+                } else if (rentalType === 'day' && room.GiaThueNgay) {
+                    return `${new Intl.NumberFormat('vi-VN').format(parseFloat(room.GiaThueNgay))} VNĐ/ngày`;
+                } else if (room.LoaiThue === 'Theo giờ' && room.GiaThueGio) {
+                    return `${new Intl.NumberFormat('vi-VN').format(parseFloat(room.GiaThueGio))} VNĐ/giờ`;
+                } else if (room.LoaiThue === 'Theo ngày' && room.GiaThueNgay) {
+                    return `${new Intl.NumberFormat('vi-VN').format(parseFloat(room.GiaThueNgay))} VNĐ/ngày`;
+                } else if (room.LoaiThue === 'Cả hai') {
+                    // Mặc định theo ngày nếu chưa chọn
+                    return `${new Intl.NumberFormat('vi-VN').format(parseFloat(room.GiaThueNgay || 0))} VNĐ/ngày`;
+                }
+            }
+            
+            // Nếu không có phòng hoặc địa điểm ngoài trời, hiển thị giá địa điểm
             if (location.LoaiThue === 'Theo giờ') {
                 return `${new Intl.NumberFormat('vi-VN').format(location.GiaThueGio || 0)} VNĐ/giờ`;
             } else if (location.LoaiThue === 'Theo ngày') {
@@ -1574,6 +1834,21 @@ include 'includes/admin-header.php';
         }
 
         function selectLocation(location) {
+            // Nếu chọn địa điểm khác với địa điểm đã chọn trước đó, reset lại chọn phòng
+            if (selectedLocation && selectedLocation.ID_DD !== location.ID_DD) {
+                // Reset phòng của địa điểm cũ (nếu có)
+                if (selectedLocation.selectedRoom) {
+                    selectedLocation.selectedRoom = null;
+                    selectedLocation.selectedRoomId = null;
+                    selectedLocation.selectedRoomRentalType = null;
+                }
+                
+                // Reset phòng của địa điểm mới về mặc định
+                location.selectedRoom = null;
+                location.selectedRoomId = null;
+                location.selectedRoomRentalType = null;
+            }
+            
             selectedLocation = location;
             
             // If location has "Cả hai" rental type, use the user's selection or default to day
@@ -1593,6 +1868,9 @@ include 'includes/admin-header.php';
 
             // Show selected location info
             displaySelectedLocation(location);
+            
+            // Refresh location display để cập nhật UI (hiển thị lại nút "Chọn phòng" nếu là địa điểm trong nhà)
+            filterLocations();
         }
 
         function updateOrderSummary() {
@@ -1602,54 +1880,245 @@ include 'includes/admin-header.php';
         }
 
         function filterLocations() {
-            const searchTerm = document.getElementById('locationSearch').value.toLowerCase();
-            const priceFilter = document.getElementById('priceFilter').value;
-            const rentalTypeFilter = document.getElementById('rentalTypeFilter').value;
+            const searchTerm = (document.getElementById('locationSearch')?.value || '').toLowerCase();
+            const priceFilter = document.getElementById('priceFilter')?.value || '';
+            const rentalTypeFilter = document.getElementById('rentalTypeFilter')?.value || '';
+            
+            // Lấy số khách dự kiến và ngân sách từ step 2
+            const expectedGuests = parseInt(document.getElementById('expectedGuests')?.value) || 0;
+            const budget = parseFloat(document.getElementById('budget')?.value) || 0;
+            
+            // Lấy giá loại sự kiện
+            let eventTypePrice = 0;
+            const eventTypeSelect = document.getElementById('eventType');
+            if (eventTypeSelect && eventTypeSelect.value) {
+                const selectedEventType = eventTypes.find(type => type.ID_LoaiSK == eventTypeSelect.value);
+                if (selectedEventType && selectedEventType.GiaCoBan) {
+                    eventTypePrice = parseFloat(selectedEventType.GiaCoBan) || 0;
+                }
+            }
+            
+            // Lấy thời gian sự kiện để tính chi phí
+            const startDate = document.getElementById('startDate')?.value;
+            const endDate = document.getElementById('endDate')?.value;
+            let durationHours = 0;
+            let durationDays = 0;
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                // Tính chính xác số giờ (không làm tròn lên)
+                durationHours = (end - start) / (1000 * 60 * 60);
+                // Tính số ngày: nếu < 1 ngày thì tính 1 ngày, nếu >= 1 ngày thì làm tròn lên
+                durationDays = durationHours < 24 ? 1 : Math.ceil(durationHours / 24);
+            }
 
             const filteredLocations = locations.filter(location => {
-                const matchesSearch = location.TenDiaDiem.toLowerCase().includes(searchTerm) ||
-                                    location.DiaChi.toLowerCase().includes(searchTerm);
+                // Lọc theo tìm kiếm
+                const matchesSearch = !searchTerm || 
+                    location.TenDiaDiem.toLowerCase().includes(searchTerm) ||
+                    location.DiaChi.toLowerCase().includes(searchTerm);
                 
+                // Lọc theo loại thuê
                 const matchesRentalType = !rentalTypeFilter || location.LoaiThue === rentalTypeFilter;
                 
+                // Lọc theo sức chứa - Đề xuất địa điểm có sức chứa phù hợp
+                // Ví dụ: 50 người thì đề xuất địa điểm từ 50 đến 300 người (6 lần)
+                // Nếu địa điểm trong nhà có phòng, xét sức chứa của phòng thay vì sức chứa địa điểm
+                let matchesCapacity = true;
+                if (expectedGuests > 0) {
+                    const minCapacity = expectedGuests; // Tối thiểu bằng số khách dự kiến
+                    const maxCapacity = expectedGuests * 6; // Tối đa 6 lần số khách dự kiến
+                    
+                    // Nếu địa điểm trong nhà và đã chọn phòng, dùng sức chứa của phòng
+                    if (location.LoaiDiaDiem === 'Trong nhà' && location.selectedRoom) {
+                        const capacity = parseInt(location.selectedRoom.SucChua) || 0;
+                        matchesCapacity = capacity >= minCapacity && capacity <= maxCapacity;
+                    } else if (location.LoaiDiaDiem === 'Trong nhà') {
+                        // Địa điểm trong nhà chưa chọn phòng: kiểm tra xem có phòng nào phù hợp không
+                        const locationRooms = allRooms.filter(room => room.ID_DD == location.ID_DD);
+                        if (locationRooms.length > 0) {
+                            // Kiểm tra xem có ít nhất một phòng phù hợp không
+                            const hasSuitableRoom = locationRooms.some(room => {
+                                const roomCapacity = parseInt(room.SucChua) || 0;
+                                return roomCapacity >= minCapacity && roomCapacity <= maxCapacity;
+                            });
+                            matchesCapacity = hasSuitableRoom;
+                        } else {
+                            // Chưa có dữ liệu phòng, dùng sức chứa địa điểm tạm thời
+                            const capacity = parseInt(location.SucChua) || 0;
+                            matchesCapacity = capacity >= minCapacity && capacity <= maxCapacity;
+                        }
+                    } else {
+                        // Địa điểm ngoài trời: dùng sức chứa địa điểm
+                        const capacity = parseInt(location.SucChua) || 0;
+                        matchesCapacity = capacity >= minCapacity && capacity <= maxCapacity;
+                    }
+                }
+                
+                // Lọc theo giá (nếu có priceFilter)
                 let matchesPrice = true;
                 if (priceFilter) {
-                    const [min, max] = priceFilter.split('-').map(Number);
-                    const hourlyPrice = location.GiaThueGio || 0;
-                    const dailyPrice = location.GiaThueNgay || 0;
-                    const price = Math.min(hourlyPrice, dailyPrice);
-                    matchesPrice = price >= min && price <= max;
+                    const priceRange = priceFilter.split('-');
+                    const min = parseFloat(priceRange[0]) || 0;
+                    const max = parseFloat(priceRange[1]) || Infinity;
+                    
+                    // Lấy giá để so sánh
+                    let priceToCompare = 0;
+                    
+                    // Nếu là địa điểm trong nhà và đã chọn phòng, dùng giá phòng
+                    if (location.LoaiDiaDiem === 'Trong nhà' && location.selectedRoom) {
+                        const rentalType = location.selectedRoomRentalType || 'day';
+                        priceToCompare = rentalType === 'hour' 
+                            ? (location.selectedRoom.GiaThueGio || 0) * durationHours
+                            : (location.selectedRoom.GiaThueNgay || 0) * durationDays;
+                    } else {
+                        // Địa điểm ngoài trời hoặc chưa chọn phòng
+                        const hourlyPrice = parseFloat(location.GiaThueGio) || 0;
+                        const dailyPrice = parseFloat(location.GiaThueNgay) || 0;
+                        
+                        // Tính giá dựa trên loại thuê đã chọn hoặc mặc định
+                        const rentalType = location.selectedRentalType || 'day';
+                        if (rentalType === 'hour' && hourlyPrice > 0) {
+                            priceToCompare = hourlyPrice * durationHours;
+                        } else if (dailyPrice > 0) {
+                            priceToCompare = dailyPrice * durationDays;
+                        } else if (hourlyPrice > 0) {
+                            priceToCompare = hourlyPrice * durationHours;
+                        } else {
+                            // Không có giá hoặc "Liên hệ" - không lọc theo giá filter
+                            matchesPrice = true;
+                        }
+                    }
+                    
+                    // Kiểm tra giá có nằm trong khoảng không
+                    if (priceToCompare > 0) {
+                        matchesPrice = priceToCompare >= min && priceToCompare <= max;
+                    }
+                }
+                
+                // Lọc theo ngân sách - Trừ giá loại sự kiện trước, sau đó so sánh với giá địa điểm
+                let matchesBudget = true;
+                if (budget > 0) {
+                    // Tính ngân sách còn lại sau khi trừ giá loại sự kiện
+                    const remainingBudget = budget - eventTypePrice;
+                    
+                    // Tính giá địa điểm/phòng
+                    let locationCost = 0;
+                    
+                    if (location.LoaiDiaDiem === 'Trong nhà' && location.selectedRoom) {
+                        const rentalType = location.selectedRoomRentalType || 'day';
+                        locationCost = rentalType === 'hour' 
+                            ? (location.selectedRoom.GiaThueGio || 0) * durationHours
+                            : (location.selectedRoom.GiaThueNgay || 0) * durationDays;
+                    } else {
+                        const rentalType = location.selectedRentalType || 'day';
+                        const hourlyPrice = parseFloat(location.GiaThueGio) || 0;
+                        const dailyPrice = parseFloat(location.GiaThueNgay) || 0;
+                        
+                        if (rentalType === 'hour' && hourlyPrice > 0) {
+                            locationCost = hourlyPrice * durationHours;
+                        } else if (dailyPrice > 0) {
+                            locationCost = dailyPrice * durationDays;
+                        } else if (hourlyPrice > 0) {
+                            locationCost = hourlyPrice * durationHours;
+                        }
+                    }
+                    
+                    // So sánh giá địa điểm với ngân sách còn lại (sau khi trừ giá loại sự kiện)
+                    matchesBudget = locationCost <= remainingBudget || locationCost === 0; // Cho phép nếu không có giá hoặc "Liên hệ"
                 }
 
-                return matchesSearch && matchesRentalType && matchesPrice;
+                return matchesSearch && matchesRentalType && matchesPrice && matchesCapacity && matchesBudget;
             });
 
-            // Update display
-            const grid = document.getElementById('locationsGrid');
-            grid.innerHTML = '';
-
-            filteredLocations.forEach(location => {
-                const card = document.createElement('div');
-                card.className = 'location-card';
-                card.onclick = () => selectLocation(location);
-
-                const priceText = getLocationPriceText(location);
-                const imageUrl = location.HinhAnh ? `../img/diadiem/${location.HinhAnh}` : '../img/logo/logo.jpg';
-
-                card.innerHTML = `
-                    <div class="d-flex align-items-start">
-                        <img src="${imageUrl}" alt="${location.TenDiaDiem}" class="me-3" style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px;">
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1">${location.TenDiaDiem}</h6>
-                            <p class="text-muted mb-1 small">${location.DiaChi}</p>
-                            <p class="text-success mb-0"><strong>${priceText}</strong></p>
-                            <p class="text-muted mb-0 small">Sức chứa: ${location.SucChua || 'N/A'} người</p>
-                        </div>
+            // Cập nhật thông tin bộ lọc
+            updateFilterInfo(expectedGuests, budget, eventTypePrice, filteredLocations.length);
+            
+            // Hiển thị danh sách đã lọc
+            if (filteredLocations.length === 0) {
+                const grid = document.getElementById('locationsGrid');
+                const remainingBudget = budget > 0 && eventTypePrice > 0 ? budget - eventTypePrice : budget;
+                grid.innerHTML = `
+                    <div class="alert alert-warning text-center" style="grid-column: 1 / -1;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h5>Không tìm thấy địa điểm phù hợp</h5>
+                        <p class="mb-0">
+                            ${expectedGuests > 0 ? `Không có địa điểm nào có sức chứa phù hợp với ${expectedGuests} khách dự kiến.` : ''}
+                            ${budget > 0 ? `
+                                <br>Ngân sách: ${new Intl.NumberFormat('vi-VN').format(budget)} VNĐ
+                                ${eventTypePrice > 0 ? `<br>Trừ giá loại sự kiện: ${new Intl.NumberFormat('vi-VN').format(eventTypePrice)} VNĐ` : ''}
+                                ${eventTypePrice > 0 ? `<br><strong>Ngân sách còn lại cho địa điểm: ${new Intl.NumberFormat('vi-VN').format(remainingBudget)} VNĐ</strong>` : ''}
+                                <br>Không có địa điểm nào có giá phù hợp với ngân sách còn lại.
+                            ` : ''}
+                            <br>Vui lòng điều chỉnh bộ lọc hoặc thử lại với tiêu chí khác.
+                        </p>
                     </div>
                 `;
-
-                grid.appendChild(card);
-            });
+            } else {
+                displayFilteredLocations(filteredLocations);
+            }
+        }
+        
+        function updateFilterInfo(expectedGuests, budget, eventTypePrice, resultCount) {
+            const filterInfoCard = document.getElementById('filterInfoCard');
+            const filterInfoContent = document.getElementById('filterInfoContent');
+            
+            if (!filterInfoCard || !filterInfoContent) return;
+            
+            let infoHtml = '<div class="row">';
+            
+            // Thông tin số khách dự kiến
+            if (expectedGuests > 0) {
+                infoHtml += `
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">Sức chứa:</small>
+                        <strong>${expectedGuests} - ${expectedGuests * 6} người</strong>
+                    </div>
+                `;
+            }
+            
+            // Thông tin ngân sách
+            if (budget > 0) {
+                const remainingBudget = eventTypePrice > 0 ? budget - eventTypePrice : budget;
+                infoHtml += `
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">Ngân sách:</small>
+                        <strong>${new Intl.NumberFormat('vi-VN').format(budget)} VNĐ</strong>
+                        ${eventTypePrice > 0 ? `
+                            <br><small class="text-muted">- Giá loại sự kiện: ${new Intl.NumberFormat('vi-VN').format(eventTypePrice)} VNĐ</small>
+                            <br><small class="text-success"><strong>Còn lại: ${new Intl.NumberFormat('vi-VN').format(remainingBudget)} VNĐ</strong></small>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            // Thông tin kết quả
+            infoHtml += `
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Kết quả:</small>
+                    <strong>${resultCount} địa điểm phù hợp</strong>
+                </div>
+            `;
+            
+            infoHtml += '</div>';
+            
+            // Thêm ghi chú
+            if (expectedGuests > 0 || budget > 0) {
+                infoHtml += '<hr class="my-2">';
+                infoHtml += '<small class="text-muted">';
+                if (expectedGuests > 0) {
+                    infoHtml += `<i class="fas fa-users"></i> Đang lọc địa điểm có sức chứa từ ${expectedGuests} đến ${expectedGuests * 6} người. `;
+                }
+                if (budget > 0 && eventTypePrice > 0) {
+                    infoHtml += `<i class="fas fa-money-bill-wave"></i> Đang lọc địa điểm có giá thuê ≤ ${new Intl.NumberFormat('vi-VN').format(budget - eventTypePrice)} VNĐ (đã trừ giá loại sự kiện). `;
+                } else if (budget > 0) {
+                    infoHtml += `<i class="fas fa-money-bill-wave"></i> Đang lọc địa điểm có giá thuê ≤ ${new Intl.NumberFormat('vi-VN').format(budget)} VNĐ. `;
+                }
+                infoHtml += '</small>';
+            }
+            
+            filterInfoContent.innerHTML = infoHtml;
+            filterInfoCard.style.display = (expectedGuests > 0 || budget > 0) ? 'block' : 'none';
         }
 
         function displayIndividualEquipment() {
@@ -1757,20 +2226,56 @@ include 'includes/admin-header.php';
             
             document.getElementById('locationModalTitle').innerHTML = `<i class="fas fa-map-marker-alt"></i> ${location.TenDiaDiem}`;
             
+            // Chỉ hiển thị hình ảnh cho địa điểm ngoài trời
+            const isOutdoor = location.LoaiDiaDiem === 'Ngoài trời';
+            const locationImageUrl = (isOutdoor && location.HinhAnh) ? `../img/diadiem/${location.HinhAnh}` : null;
+            
+            let imageHtml = '';
+            if (locationImageUrl) {
+                imageHtml = `
+                    <div class="mb-3">
+                        <img src="${locationImageUrl}" class="img-fluid rounded" alt="${location.TenDiaDiem}" 
+                             style="max-height: 300px; width: 100%; object-fit: cover;"
+                             onerror="this.style.display='none'">
+                    </div>
+                `;
+            }
+            
+            // Build price text - ưu tiên giá phòng nếu địa điểm trong nhà có phòng đã chọn
+            let priceText = getLocationPriceText(location);
+            let priceLabel = 'Giá thuê';
+            
+            if (location.LoaiDiaDiem === 'Trong nhà' && location.selectedRoom) {
+                const room = location.selectedRoom;
+                const rentalType = location.selectedRoomRentalType || location.selectedRentalType || 'day';
+                priceLabel = `Giá thuê phòng: ${room.TenPhong}`;
+            }
+            
             document.getElementById('locationModalBody').innerHTML = `
+                ${imageHtml}
                 <div class="row">
                     <div class="col-md-6">
                         <h6>Thông tin địa điểm</h6>
                         <p><strong>Tên:</strong> ${location.TenDiaDiem}</p>
                         <p><strong>Địa chỉ:</strong> ${location.DiaChi}</p>
-                        <p><strong>Sức chứa:</strong> ${location.SucChua} người</p>
+                        <p><strong>Sức chứa:</strong> ${location.LoaiDiaDiem === 'Trong nhà' && location.selectedRoom 
+                            ? `${location.selectedRoom.SucChua} người (phòng ${location.selectedRoom.TenPhong})` 
+                            : `${location.SucChua} người${location.LoaiDiaDiem === 'Trong nhà' ? ' (tổng các phòng)' : ''}`}</p>
                         <p><strong>Loại:</strong> ${location.LoaiDiaDiem}</p>
-                        <p><strong>Loại thuê:</strong> ${location.LoaiThue || 'Cả hai'}</p>
+                        <p><strong>Loại thuê:</strong> ${location.LoaiDiaDiem === 'Trong nhà' && location.selectedRoom 
+                            ? (location.selectedRoom.LoaiThue || 'Cả hai')
+                            : (location.LoaiThue || 'Cả hai')}</p>
                     </div>
                     <div class="col-md-6">
-                        <h6>Giá thuê</h6>
-                        <p><strong>Giá:</strong> ${getLocationPriceText(location)}</p>
-                        ${location.MoTa ? `<p><strong>Mô tả:</strong> ${location.MoTa}</p>` : ''}
+                        <h6>${priceLabel}</h6>
+                        <p><strong>Giá:</strong> <span class="text-success">${priceText}</span></p>
+                        ${location.LoaiDiaDiem === 'Trong nhà' && location.selectedRoom ? `
+                            <p class="text-primary small mb-1">
+                                <i class="fas fa-door-open"></i> Phòng: <strong>${location.selectedRoom.TenPhong}</strong>
+                            </p>
+                            <p class="text-muted small mb-0">${location.selectedRoom.MoTa || 'Không có mô tả'}</p>
+                        ` : ''}
+                        ${location.MoTa ? `<p class="mt-2"><strong>Mô tả địa điểm:</strong> ${location.MoTa}</p>` : ''}
                     </div>
                 </div>
             `;
@@ -1825,6 +2330,88 @@ include 'includes/admin-header.php';
             document.getElementById('equipmentModalTitle').innerHTML = `<i class="fas fa-box"></i> ${combo.TenCombo}`;
             
             const body = document.getElementById('equipmentModalBody');
+            
+            // Kiểm tra xem combo có thông tin equipment không
+            const hasEquipment = combo.equipment && combo.equipment.length > 0;
+            
+            let equipmentHtml = '';
+            if (hasEquipment) {
+                equipmentHtml = `
+                    <div class="mt-3">
+                        <h6><i class="fas fa-tools text-primary"></i> Thiết bị trong combo</h6>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>STT</th>
+                                        <th>Tên thiết bị</th>
+                                        <th class="text-center">Số lượng</th>
+                                        <th class="text-end">Đơn giá</th>
+                                        <th class="text-end">Thành tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${combo.equipment.map((eq, index) => {
+                                        const quantity = parseInt(eq.SoLuong) || 1;
+                                        const unitPrice = parseFloat(eq.GiaThue) || 0;
+                                        const total = quantity * unitPrice;
+                                        return `
+                                            <tr>
+                                                <td>${index + 1}</td>
+                                                <td>${eq.TenThietBi || 'N/A'}</td>
+                                                <td class="text-center">${quantity}</td>
+                                                <td class="text-end">${new Intl.NumberFormat('vi-VN').format(unitPrice)} VNĐ</td>
+                                                <td class="text-end"><strong>${new Intl.NumberFormat('vi-VN').format(total)} VNĐ</strong></td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                                <tfoot class="table-light">
+                                    <tr>
+                                        <td colspan="4" class="text-end"><strong>Tổng giá thiết bị:</strong></td>
+                                        <td class="text-end">
+                                            <strong class="text-primary">
+                                                ${new Intl.NumberFormat('vi-VN').format(
+                                                    combo.equipment.reduce((sum, eq) => {
+                                                        return sum + (parseInt(eq.SoLuong) || 1) * (parseFloat(eq.GiaThue) || 0);
+                                                    }, 0)
+                                                )} VNĐ
+                                            </strong>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="4" class="text-end"><strong>Giá combo:</strong></td>
+                                        <td class="text-end">
+                                            <strong class="text-success">
+                                                ${new Intl.NumberFormat('vi-VN').format(combo.GiaCombo || 0)} VNĐ
+                                            </strong>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Nếu không có equipment trong combo object, thử fetch từ API
+                fetch(`../src/controllers/combo-management.php?action=get&id=${combo.ID_Combo}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.combo && data.combo.equipment) {
+                            // Cập nhật combo với equipment
+                            combo.equipment = data.combo.equipment;
+                            // Gọi lại hàm để hiển thị với equipment
+                            viewComboDetails(combo);
+                        } else {
+                            equipmentHtml = '<p class="text-muted mt-3">Không có thông tin thiết bị trong combo.</p>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading combo equipment:', error);
+                        equipmentHtml = '<p class="text-muted mt-3">Không thể tải thông tin thiết bị.</p>';
+                    });
+            }
+            
             body.innerHTML = `
                 <div class="row">
                     <div class="col-md-6">
@@ -1847,6 +2434,7 @@ include 'includes/admin-header.php';
                         </div>
                     </div>
                 </div>
+                ${equipmentHtml}
             `;
 
             document.getElementById('addEquipmentBtn').onclick = () => addCombo(combo);
@@ -2010,31 +2598,90 @@ include 'includes/admin-header.php';
         }
 
         function validateDates() {
-            const startDate = new Date(document.getElementById('startDate').value);
-            const endDate = new Date(document.getElementById('endDate').value);
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            
+            if (!startDateInput || !endDateInput) {
+                return true;
+            }
+            
+            if (!startDateInput.value || !endDateInput.value) {
+                return true; // Let HTML5 required validation handle empty fields
+            }
+            
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
             const now = new Date();
 
             // Clear previous validation
-            document.getElementById('startDate').setCustomValidity('');
-            document.getElementById('endDate').setCustomValidity('');
+            startDateInput.setCustomValidity('');
+            endDateInput.setCustomValidity('');
+            startDateInput.classList.remove('is-invalid');
+            endDateInput.classList.remove('is-invalid');
 
-            // Validate start date
+            // 1. Ràng buộc ngày: Ngày bắt đầu không được trong quá khứ
             if (startDate && startDate < now) {
-                document.getElementById('startDate').setCustomValidity('Ngày bắt đầu không được trong quá khứ');
+                const errorMsg = 'Ngày bắt đầu không được trong quá khứ';
+                startDateInput.setCustomValidity(errorMsg);
+                startDateInput.classList.add('is-invalid');
                 return false;
             }
 
-            // Validate end date
+            // 2. Ràng buộc ngày: Ngày kết thúc phải sau ngày bắt đầu
             if (endDate && startDate && endDate <= startDate) {
-                document.getElementById('endDate').setCustomValidity('Ngày kết thúc phải sau ngày bắt đầu');
+                const errorMsg = 'Ngày kết thúc phải sau ngày bắt đầu';
+                endDateInput.setCustomValidity(errorMsg);
+                endDateInput.classList.add('is-invalid');
                 return false;
             }
 
-            // Validate minimum duration (at least 1 hour)
+            // 3. Ràng buộc 12 giờ: Phải đăng ký trước ít nhất 12 giờ so với thời gian bắt đầu
+            const minDateTime = new Date(now.getTime() + (12 * 60 * 60 * 1000)); // Thêm 12 giờ
+            if (startDate < minDateTime) {
+                const hoursDiff = (startDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+                const hoursLeft = Math.max(0, Math.floor(hoursDiff));
+                const minDateTimeStr = minDateTime.toLocaleString('vi-VN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const errorMsg = `Sự kiện phải được đăng ký trước ít nhất 12 giờ. Thời gian bắt đầu bạn chọn chỉ còn ${hoursLeft} giờ nữa. Vui lòng chọn thời gian sau ${minDateTimeStr}.`;
+                startDateInput.setCustomValidity(errorMsg);
+                startDateInput.classList.add('is-invalid');
+                return false;
+            }
+
+            // 4. Ràng buộc giờ: Nếu cùng ngày, giờ kết thúc phải sau giờ bắt đầu
+            const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+            const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+            
+            if (startDateOnly.getTime() === endDateOnly.getTime()) {
+                // Cùng ngày - kiểm tra giờ
+                if (startDate >= endDate) {
+                    const errorMsg = 'Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày';
+                    endDateInput.setCustomValidity(errorMsg);
+                    endDateInput.classList.add('is-invalid');
+                    return false;
+                }
+            }
+
+            // 5. Ràng buộc giờ: Thời gian kết thúc không được trong quá khứ
+            if (endDate < now) {
+                const errorMsg = 'Thời gian kết thúc không được trong quá khứ';
+                endDateInput.setCustomValidity(errorMsg);
+                endDateInput.classList.add('is-invalid');
+                return false;
+            }
+
+            // 6. Ràng buộc thời lượng tối thiểu: Sự kiện phải kéo dài ít nhất 1 giờ
             if (startDate && endDate) {
                 const durationHours = (endDate - startDate) / (1000 * 60 * 60);
                 if (durationHours < 1) {
-                    document.getElementById('endDate').setCustomValidity('Sự kiện phải kéo dài ít nhất 1 giờ');
+                    const errorMsg = 'Sự kiện phải kéo dài ít nhất 1 giờ';
+                    endDateInput.setCustomValidity(errorMsg);
+                    endDateInput.classList.add('is-invalid');
                     return false;
                 }
             }
@@ -2065,7 +2712,9 @@ include 'includes/admin-header.php';
                         durationString += (hours > 0 ? ' ' : '') + `${minutes} phút`;
                     }
                     
-                    durationText.textContent = `Thời gian sự kiện: ${durationString}`;
+                    durationText.innerHTML = `
+                        Thời gian sự kiện: <strong>${durationString || '0 phút'}</strong>
+                    `;
                     durationAlert.style.display = 'block';
                 } else {
                     durationAlert.style.display = 'none';
@@ -2092,6 +2741,13 @@ include 'includes/admin-header.php';
             currentStep += direction;
             console.log('Current step after change:', currentStep);
             updateStepDisplay();
+            
+            // Tự động lọc địa điểm khi chuyển sang step 3
+            if (currentStep === 3) {
+                setTimeout(() => {
+                    filterLocations();
+                }, 100);
+            }
         }
 
         function validateCurrentStep() {
@@ -2118,8 +2774,57 @@ include 'includes/admin-header.php';
             // Special validation for step 1 (customer selection)
             if (currentStep === 1 && !selectedCustomer) {
                 console.log('Step 1 validation failed: No customer selected');
-                alert('Vui lòng chọn khách hàng');
+                if (typeof AdminPanel !== 'undefined' && AdminPanel.showError) {
+                    AdminPanel.showError('Vui lòng chọn khách hàng');
+                } else {
+                    alert('Vui lòng chọn khách hàng');
+                }
                 isValid = false;
+            }
+            
+            // Special validation for step 3 (location selection)
+            if (currentStep === 3) {
+                if (!selectedLocation) {
+                    console.log('Step 3 validation failed: No location selected');
+                    if (typeof AdminPanel !== 'undefined' && AdminPanel.showError) {
+                        AdminPanel.showError('Vui lòng chọn địa điểm');
+                    } else {
+                        alert('Vui lòng chọn địa điểm');
+                    }
+                    isValid = false;
+                } else {
+                    // Kiểm tra nếu địa điểm là "Trong nhà" thì phải chọn phòng
+                    if (selectedLocation.LoaiDiaDiem === 'Trong nhà') {
+                        if (!selectedLocation.selectedRoom || !selectedLocation.selectedRoomId) {
+                            console.log('Step 3 validation failed: Indoor location requires room selection');
+                            if (typeof AdminPanel !== 'undefined' && AdminPanel.showError) {
+                                AdminPanel.showError('Địa điểm này yêu cầu chọn phòng. Vui lòng chọn phòng trước khi tiếp tục.');
+                            } else {
+                                alert('Địa điểm này yêu cầu chọn phòng. Vui lòng chọn phòng trước khi tiếp tục.');
+                            }
+                            isValid = false;
+                            
+                            // Scroll đến phần chọn địa điểm
+                            const step3Element = document.getElementById('step3');
+                            if (step3Element) {
+                                step3Element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                            
+                            // Highlight card địa điểm đã chọn
+                            const locationCard = document.querySelector(`[data-location-id="${selectedLocation.ID_DD}"]`);
+                            if (locationCard) {
+                                locationCard.style.border = '2px solid #dc3545';
+                                locationCard.style.boxShadow = '0 0 10px rgba(220, 53, 69, 0.3)';
+                                
+                                // Remove highlight after 3 seconds
+                                setTimeout(() => {
+                                    locationCard.style.border = '';
+                                    locationCard.style.boxShadow = '';
+                                }, 3000);
+                            }
+                        }
+                    }
+                }
             }
 
             // Special validation for step 2 (event information)
@@ -2128,6 +2833,43 @@ include 'includes/admin-header.php';
                 if (!validateDates()) {
                     console.log('Date validation failed');
                     isValid = false;
+                    
+                    // Lấy thông báo lỗi từ field bị lỗi và hiển thị
+                    const invalidField = document.querySelector('#step2 input.is-invalid');
+                    if (invalidField && invalidField.validationMessage) {
+                        // Chỉ hiển thị 1 lần thông báo lỗi
+                        if (typeof AdminPanel !== 'undefined' && AdminPanel.showError) {
+                            AdminPanel.showError(invalidField.validationMessage);
+                        }
+                        // Hiển thị tooltip HTML5
+                        invalidField.reportValidity();
+                        // Scroll và focus vào field bị lỗi
+                        invalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        invalidField.focus();
+                    }
+                }
+                
+                // Validation: Loại sự kiện phải có giá
+                const eventTypeSelect = document.getElementById('eventType');
+                if (eventTypeSelect && eventTypeSelect.value) {
+                    const selectedEventType = eventTypes.find(type => type.ID_LoaiSK == eventTypeSelect.value);
+                    if (selectedEventType) {
+                        const eventTypePrice = parseFloat(selectedEventType.GiaCoBan) || 0;
+                        if (eventTypePrice <= 0) {
+                            eventTypeSelect.classList.add('is-invalid');
+                            eventTypeSelect.setCustomValidity('Loại sự kiện này chưa có giá. Vui lòng chọn loại sự kiện khác hoặc cập nhật giá cho loại sự kiện này.');
+                            eventTypeSelect.reportValidity();
+                            if (typeof AdminPanel !== 'undefined' && AdminPanel.showError) {
+                                AdminPanel.showError('Loại sự kiện phải có giá. Vui lòng chọn loại sự kiện khác hoặc cập nhật giá cho loại sự kiện này.');
+                            }
+                            isValid = false;
+                            eventTypeSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            eventTypeSelect.focus();
+                        } else {
+                            eventTypeSelect.classList.remove('is-invalid');
+                            eventTypeSelect.setCustomValidity('');
+                        }
+                    }
                 }
                 
                 // Validate event name length
@@ -2142,25 +2884,43 @@ include 'includes/admin-header.php';
                     document.getElementById('eventName').classList.remove('is-invalid');
                 }
                 
-                // Validate expected guests
-                const expectedGuests = parseInt(document.getElementById('expectedGuests').value);
+                // Validate expected guests - Bắt buộc
+                const expectedGuestsInput = document.getElementById('expectedGuests');
+                const expectedGuests = parseInt(expectedGuestsInput.value);
                 console.log('Expected guests:', expectedGuests);
-                if (expectedGuests < 1) {
-                    document.getElementById('expectedGuests').setCustomValidity('Số khách dự kiến phải lớn hơn 0');
-                    document.getElementById('expectedGuests').classList.add('is-invalid');
+                if (!expectedGuestsInput.value || expectedGuests < 1) {
+                    expectedGuestsInput.setCustomValidity('Số khách dự kiến là bắt buộc và phải lớn hơn 0');
+                    expectedGuestsInput.classList.add('is-invalid');
                     isValid = false;
+                    if (typeof AdminPanel !== 'undefined' && AdminPanel.showError) {
+                        AdminPanel.showError('Vui lòng nhập số khách dự kiến');
+                    }
+                    expectedGuestsInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    expectedGuestsInput.focus();
                 } else {
-                    document.getElementById('expectedGuests').setCustomValidity('');
-                    document.getElementById('expectedGuests').classList.remove('is-invalid');
+                    expectedGuestsInput.setCustomValidity('');
+                    expectedGuestsInput.classList.remove('is-invalid');
+                }
+                
+                // Validate budget - Bắt buộc
+                const budgetInput = document.getElementById('budget');
+                const budget = parseFloat(budgetInput.value);
+                console.log('Budget:', budget);
+                if (!budgetInput.value || budget < 0) {
+                    budgetInput.setCustomValidity('Ngân sách dự kiến là bắt buộc và phải lớn hơn hoặc bằng 0');
+                    budgetInput.classList.add('is-invalid');
+                    isValid = false;
+                    if (typeof AdminPanel !== 'undefined' && AdminPanel.showError) {
+                        AdminPanel.showError('Vui lòng nhập ngân sách dự kiến');
+                    }
+                    budgetInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    budgetInput.focus();
+                } else {
+                    budgetInput.setCustomValidity('');
+                    budgetInput.classList.remove('is-invalid');
                 }
             }
 
-            // Special validation for step 3 (location selection)
-            if (currentStep === 3 && !selectedLocation) {
-                console.log('Step 3 validation failed: No location selected');
-                alert('Vui lòng chọn địa điểm');
-                isValid = false;
-            }
 
             // Special validation for step 4 (equipment selection) - Optional
             if (currentStep === 4) {
@@ -2273,15 +3033,16 @@ include 'includes/admin-header.php';
                                    selectedLocation.LoaiDiaDiem === 'Trong nhà' && 
                                    selectedLocation.selectedRoom;
 
-            // Event type cost (NOT added if indoor location with room)
-            if (!isIndoorWithRoom) {
-                const eventTypeSelect = document.getElementById('eventType');
-                const selectedEventType = eventTypes.find(type => type.ID_LoaiSK == eventTypeSelect.value);
-                if (selectedEventType && selectedEventType.GiaCoBan) {
-                    totalCost += parseFloat(selectedEventType.GiaCoBan);
+            // Event type cost - Luôn thêm giá loại sự kiện
+            const eventTypeSelect = document.getElementById('eventType');
+            const selectedEventType = eventTypes.find(type => type.ID_LoaiSK == eventTypeSelect.value);
+            if (selectedEventType && selectedEventType.GiaCoBan) {
+                const eventTypePrice = parseFloat(selectedEventType.GiaCoBan);
+                if (eventTypePrice > 0) {
+                    totalCost += eventTypePrice;
                     breakdown.push({
                         name: `Loại sự kiện: ${selectedEventType.TenLoai}`,
-                        amount: parseFloat(selectedEventType.GiaCoBan)
+                        amount: eventTypePrice
                     });
                 }
             }
@@ -2290,8 +3051,10 @@ include 'includes/admin-header.php';
             if (selectedLocation) {
                 const startDate = new Date(document.getElementById('startDate').value);
                 const endDate = new Date(document.getElementById('endDate').value);
-                const durationHours = Math.ceil((endDate - startDate) / (1000 * 60 * 60));
-                const durationDays = Math.ceil(durationHours / 24);
+                // Tính chính xác số giờ (không làm tròn lên)
+                const durationHours = (endDate - startDate) / (1000 * 60 * 60);
+                // Tính số ngày: nếu < 1 ngày thì tính 1 ngày, nếu >= 1 ngày thì làm tròn lên
+                const durationDays = durationHours < 24 ? 1 : Math.ceil(durationHours / 24);
 
                 let locationCost = 0;
                 let locationName = selectedLocation.TenDiaDiem;
@@ -2302,9 +3065,11 @@ include 'includes/admin-header.php';
                     const rentalType = selectedLocation.selectedRoomRentalType || selectedLocation.selectedRentalType;
                     
                     if (rentalType === 'hour' && room.GiaThueGio) {
+                        // Tính theo giờ: nhân với số giờ chính xác
                         locationCost = durationHours * parseFloat(room.GiaThueGio);
                         locationName = `${selectedLocation.TenDiaDiem} - ${room.TenPhong} (Theo giờ)`;
                     } else if (rentalType === 'day' && room.GiaThueNgay) {
+                        // Tính theo ngày: nhân với số ngày (tối thiểu 1 ngày)
                         locationCost = durationDays * parseFloat(room.GiaThueNgay);
                         locationName = `${selectedLocation.TenDiaDiem} - ${room.TenPhong} (Theo ngày)`;
                     } else if (room.LoaiThue === 'Theo giờ' && room.GiaThueGio) {
@@ -2314,7 +3079,7 @@ include 'includes/admin-header.php';
                         locationCost = durationDays * parseFloat(room.GiaThueNgay);
                         locationName = `${selectedLocation.TenDiaDiem} - ${room.TenPhong} (Theo ngày)`;
                     } else if (room.LoaiThue === 'Cả hai') {
-                        // Default to daily rental
+                        // Nếu chưa chọn loại thuê, mặc định theo ngày
                         locationCost = durationDays * parseFloat(room.GiaThueNgay || 0);
                         locationName = `${selectedLocation.TenDiaDiem} - ${room.TenPhong} (Theo ngày)`;
                     }
@@ -2495,7 +3260,7 @@ include 'includes/admin-header.php';
                     budget: document.getElementById('budget').value
                 },
                 location: selectedLocation ? selectedLocation.ID_DD : null,
-                location_rental_type: selectedLocation ? selectedLocation.selectedRentalType : null,
+                location_rental_type: selectedLocation ? (selectedLocation.selectedRoomRentalType || selectedLocation.selectedRentalType) : null,
                 room_id: selectedLocation && selectedLocation.selectedRoomId ? selectedLocation.selectedRoomId : null,
                 equipment: formattedEquipment,
                 adminNotes: document.getElementById('adminNotes').value

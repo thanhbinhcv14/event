@@ -11,11 +11,122 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../../config/database.php';
 
 /**
+ * Tạo điều kiện WHERE dựa trên filter type
+ * @param string $filterType Loại filter: 'all', 'date', 'month', 'year', 'range'
+ * @param string $dateField Tên trường ngày trong database (mặc định: 'NgayTao')
+ * @return string WHERE clause
+ */
+function buildDateFilter($filterType = 'all', $dateField = 'NgayTao') {
+    // Debug logging
+    if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+        error_log("buildDateFilter called: filterType=$filterType, dateField=$dateField");
+        error_log("GET params: " . print_r($_GET, true));
+    }
+    
+    if ($filterType === 'all' || empty($filterType)) {
+        if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+            error_log("buildDateFilter: Returning empty (filterType=all)");
+        }
+        return '';
+    }
+    
+    $whereClause = '';
+    
+    if ($filterType === 'date') {
+        if (isset($_GET['filter_date']) && !empty(trim($_GET['filter_date']))) {
+            $date = trim($_GET['filter_date']);
+            // Validate format YYYY-MM-DD
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                // Xử lý timestamp: DATE() hoạt động với cả DATE và TIMESTAMP
+                // Đảm bảo so sánh đúng với timestamp bằng cách dùng DATE()
+                $whereClause = "DATE($dateField) = DATE('$date')";
+                if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+                    error_log("buildDateFilter: date filter applied: $whereClause");
+                    error_log("buildDateFilter: date value: $date");
+                }
+            } else {
+                if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+                    error_log("buildDateFilter: Invalid date format: $date");
+                }
+            }
+        }
+    } elseif ($filterType === 'month') {
+        if (isset($_GET['filter_month']) && !empty(trim($_GET['filter_month']))) {
+            $month = trim($_GET['filter_month']);
+            // Validate format YYYY-MM
+            if (preg_match('/^\d{4}-\d{2}$/', $month)) {
+                // Xử lý timestamp: DATE_FORMAT hoạt động với cả DATE và TIMESTAMP
+                // Đảm bảo so sánh đúng bằng cách dùng DATE_FORMAT với cả 2 bên
+                $whereClause = "DATE_FORMAT($dateField, '%Y-%m') = '$month'";
+                if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+                    error_log("buildDateFilter: month filter applied: $whereClause");
+                    error_log("buildDateFilter: month value: $month");
+                    // Test query để xem dữ liệu có sẵn
+                    try {
+                        $pdo = getDBConnection();
+                        $testQuery = "SELECT DATE_FORMAT($dateField, '%Y-%m') as month, COUNT(*) as count FROM (SELECT $dateField FROM users WHERE ID_Role = 5 LIMIT 10) as test GROUP BY DATE_FORMAT($dateField, '%Y-%m')";
+                        $testStmt = $pdo->query($testQuery);
+                        $testResults = $testStmt->fetchAll(PDO::FETCH_ASSOC);
+                        error_log("Sample months from $dateField: " . print_r($testResults, true));
+                    } catch (Exception $e) {
+                        error_log("Test query error: " . $e->getMessage());
+                    }
+                }
+            } else {
+                if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+                    error_log("buildDateFilter: Invalid month format: $month");
+                }
+            }
+        }
+    } elseif ($filterType === 'year') {
+        if (isset($_GET['filter_year']) && !empty($_GET['filter_year'])) {
+            $year = intval($_GET['filter_year']);
+            if ($year > 0) {
+                // Xử lý timestamp: YEAR() hoạt động với cả DATE và TIMESTAMP
+                $whereClause = "YEAR($dateField) = $year";
+                if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+                    error_log("buildDateFilter: year filter applied: $whereClause");
+                }
+            }
+        }
+    } elseif ($filterType === 'range') {
+        if (isset($_GET['filter_date_from']) && isset($_GET['filter_date_to'])) {
+            $dateFrom = trim($_GET['filter_date_from']);
+            $dateTo = trim($_GET['filter_date_to']);
+            if (!empty($dateFrom) && !empty($dateTo)) {
+                // Validate format YYYY-MM-DD
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+                    // Xử lý timestamp: DATE() hoạt động với cả DATE và TIMESTAMP
+                    // Đảm bảo so sánh đúng với timestamp bằng cách dùng DATE()
+                    $whereClause = "DATE($dateField) BETWEEN DATE('$dateFrom') AND DATE('$dateTo')";
+                    if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+                        error_log("buildDateFilter: range filter applied: $whereClause");
+                        error_log("buildDateFilter: date from: $dateFrom, date to: $dateTo");
+                    }
+                } else {
+                    if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+                        error_log("buildDateFilter: Invalid date range format: from=$dateFrom, to=$dateTo");
+                    }
+                }
+            }
+        }
+    }
+    
+    if (isset($_GET['debug']) && $_GET['debug'] == '1' && empty($whereClause)) {
+        error_log("buildDateFilter: No filter clause generated for filterType=$filterType");
+        error_log("buildDateFilter: filter_month=" . ($_GET['filter_month'] ?? 'not set'));
+    }
+    
+    return $whereClause;
+}
+
+/**
  * Lấy tất cả dữ liệu thống kê cho Reports (Role 1 - QTV)
  * @param PDO $pdo Database connection
+ * @param string $filterType Loại filter: 'all', 'date', 'month', 'year', 'range'
  * @return array Statistics data
  */
-function getReportsDataForAdmin($pdo) {
+function getReportsDataForAdmin($pdo, $filterType = 'all') {
     $statsData = [];
     
     try {
@@ -25,37 +136,79 @@ function getReportsDataForAdmin($pdo) {
         }
         
         // ========== THỐNG KÊ KHÁCH HÀNG ==========
+        // Áp dụng filter cho tất cả query khách hàng
+        $dateFilter = buildDateFilter($filterType, 'NgayTao');
+        $whereBase = "ID_Role = 5";
+        if ($dateFilter) {
+            $whereBase .= " AND $dateFilter";
+        } else {
+            // Nếu không có filter, lấy 12 tháng gần nhất
+            $whereBase .= " AND NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
+        // Debug logging
+        if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+            error_log("getReportsDataForAdmin: filterType=$filterType");
+            error_log("getReportsDataForAdmin: dateFilter=" . ($dateFilter ?: 'empty'));
+            error_log("getReportsDataForAdmin: whereBase=$whereBase");
+        }
+        
         // Tổng số khách hàng
-        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE ID_Role = 5");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE $whereBase");
         $statsData['total_customers'] = (int)$stmt->fetchColumn();
         
+        if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+            error_log("getReportsDataForAdmin: total_customers=" . $statsData['total_customers']);
+        }
+        
         // Khách hàng hoạt động
-        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE ID_Role = 5 AND TrangThai = 'Hoạt động'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE $whereBase AND TrangThai = 'Hoạt động'");
         $statsData['active_customers'] = (int)$stmt->fetchColumn();
         
         // Khách hàng chưa xác minh
-        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE ID_Role = 5 AND TrangThai = 'Chưa xác minh'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE $whereBase AND TrangThai = 'Chưa xác minh'");
         $statsData['pending_customers'] = (int)$stmt->fetchColumn();
         
         // Khách hàng bị khóa
-        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE ID_Role = 5 AND TrangThai = 'Bị khóa'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE $whereBase AND TrangThai = 'Bị khóa'");
         $statsData['blocked_customers'] = (int)$stmt->fetchColumn();
         
-        // Khách hàng đăng ký theo tháng (12 tháng gần nhất)
+        // Khách hàng đăng ký theo tháng
+        $whereClause = "ID_Role = 5";
+        if ($dateFilter) {
+            $whereClause .= " AND $dateFilter";
+        } else {
+            $whereClause .= " AND NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
         $stmt = $pdo->query("
             SELECT 
                 DATE_FORMAT(NgayTao, '%Y-%m') as month,
                 COUNT(*) as count
             FROM users 
-            WHERE ID_Role = 5 AND NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            WHERE $whereClause
             GROUP BY DATE_FORMAT(NgayTao, '%Y-%m')
             ORDER BY month ASC
         ");
         $statsData['customers_by_month'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // ========== THỐNG KÊ NHÂN VIÊN ==========
+        // Áp dụng filter cho nhân viên
+        $dateFilterStaff = buildDateFilter($filterType, 'u.NgayTao');
+        $whereStaffBase = "u.ID_Role IN (2, 3, 4)";
+        if ($dateFilterStaff) {
+            $whereStaffBase .= " AND $dateFilterStaff";
+        } else {
+            // Nếu không có filter, lấy 12 tháng gần nhất
+            $whereStaffBase .= " AND u.NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         // Tổng số nhân viên
-        $stmt = $pdo->query("SELECT COUNT(*) FROM nhanvieninfo");
+        $stmt = $pdo->query("
+            SELECT COUNT(*) 
+            FROM nhanvieninfo nv
+            INNER JOIN users u ON nv.ID_User = u.ID_User
+            WHERE $whereStaffBase
+        ");
         $statsData['total_staff'] = (int)$stmt->fetchColumn();
         
         // Nhân viên theo role
@@ -65,7 +218,7 @@ function getReportsDataForAdmin($pdo) {
                 COUNT(*) as count
             FROM users u
             INNER JOIN phanquyen r ON u.ID_Role = r.ID_Role
-            WHERE u.ID_Role IN (2, 3, 4)
+            WHERE $whereStaffBase
             GROUP BY u.ID_Role, r.RoleName
             ORDER BY u.ID_Role
         ");
@@ -76,7 +229,7 @@ function getReportsDataForAdmin($pdo) {
             SELECT COUNT(*) 
             FROM nhanvieninfo nv
             INNER JOIN users u ON nv.ID_User = u.ID_User
-            WHERE u.TrangThai = 'Hoạt động'
+            WHERE $whereStaffBase AND u.TrangThai = 'Hoạt động'
         ");
         $statsData['active_staff'] = (int)$stmt->fetchColumn();
         
@@ -85,107 +238,158 @@ function getReportsDataForAdmin($pdo) {
             SELECT COUNT(*) 
             FROM nhanvieninfo nv
             INNER JOIN users u ON nv.ID_User = u.ID_User
-            WHERE u.TrangThai != 'Hoạt động'
+            WHERE $whereStaffBase AND u.TrangThai != 'Hoạt động'
         ");
         $statsData['inactive_staff'] = (int)$stmt->fetchColumn();
         
-        // Nhân viên tuyển dụng theo tháng (12 tháng gần nhất)
+        // Nhân viên tuyển dụng theo tháng (12 tháng gần nhất hoặc theo filter)
         // Lấy từ users vì nhanvieninfo có thể không có NgayTao
+        $whereClause = "1=1";
+        if ($dateFilterStaff) {
+            $whereClause = $dateFilterStaff;
+        } else {
+            $whereClause = "u.NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         $stmt = $pdo->query("
             SELECT 
                 DATE_FORMAT(u.NgayTao, '%Y-%m') as month,
                 COUNT(*) as count
             FROM nhanvieninfo nv
             INNER JOIN users u ON nv.ID_User = u.ID_User
-            WHERE u.NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            WHERE $whereClause
             GROUP BY DATE_FORMAT(u.NgayTao, '%Y-%m')
             ORDER BY month ASC
         ");
         $statsData['staff_by_month'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // ========== THỐNG KÊ BÀI VIẾT ==========
+        // Áp dụng filter cho bài viết
+        $dateFilterPosts = buildDateFilter($filterType, 'created_at');
+        $wherePostsBase = "1=1";
+        if ($dateFilterPosts) {
+            $wherePostsBase = $dateFilterPosts;
+        } else {
+            // Nếu không có filter, lấy 12 tháng gần nhất
+            $wherePostsBase = "created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         // Tổng số bài viết
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts WHERE $wherePostsBase");
         $statsData['total_posts'] = (int)$stmt->fetchColumn();
         
         // Bài viết đã xuất bản
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts WHERE status = 'published'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts WHERE $wherePostsBase AND status = 'published'");
         $statsData['published_posts'] = (int)$stmt->fetchColumn();
         
         // Bài viết bản nháp
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts WHERE status = 'draft'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts WHERE $wherePostsBase AND status = 'draft'");
         $statsData['draft_posts'] = (int)$stmt->fetchColumn();
         
         // Bài viết đã lưu trữ
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts WHERE status = 'archived'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_posts WHERE $wherePostsBase AND status = 'archived'");
         $statsData['archived_posts'] = (int)$stmt->fetchColumn();
         
         // Tổng lượt xem
-        $stmt = $pdo->query("SELECT SUM(views) FROM blog_posts");
+        $stmt = $pdo->query("SELECT SUM(views) FROM blog_posts WHERE $wherePostsBase");
         $result = $stmt->fetchColumn();
         $statsData['total_views'] = $result ? (int)$result : 0;
         
-        // Bài viết theo loại sự kiện
+        // Bài viết theo loại sự kiện (áp dụng filter)
+        $wherePostsTypeBase = "1=1";
+        if ($dateFilterPosts) {
+            $wherePostsTypeBase = $dateFilterPosts;
+        }
         $stmt = $pdo->query("
             SELECT 
                 ls.TenLoai,
                 COUNT(bp.id) as count
             FROM blog_posts bp
             LEFT JOIN loaisukien ls ON bp.event_type_id = ls.ID_LoaiSK
+            WHERE $wherePostsTypeBase
             GROUP BY bp.event_type_id, ls.TenLoai
             ORDER BY count DESC
         ");
         $statsData['posts_by_type'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Bài viết đăng theo tháng (12 tháng gần nhất)
+        // Bài viết đăng theo tháng (12 tháng gần nhất hoặc theo filter)
+        $whereClause = "1=1";
+        if ($dateFilterPosts) {
+            $whereClause = $dateFilterPosts;
+        } else {
+            $whereClause = "created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         $stmt = $pdo->query("
             SELECT 
                 DATE_FORMAT(created_at, '%Y-%m') as month,
                 COUNT(*) as count
             FROM blog_posts 
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            WHERE $whereClause
             GROUP BY DATE_FORMAT(created_at, '%Y-%m')
             ORDER BY month ASC
         ");
         $statsData['posts_by_month'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // ========== THỐNG KÊ COMMENT ==========
+        // Áp dụng filter cho comment
+        $dateFilterComments = buildDateFilter($filterType, 'created_at');
+        $whereCommentsBase = "1=1";
+        if ($dateFilterComments) {
+            $whereCommentsBase = $dateFilterComments;
+        } else {
+            // Nếu không có filter, lấy 12 tháng gần nhất
+            $whereCommentsBase = "created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         // Tổng số comment
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments WHERE $whereCommentsBase");
         $statsData['total_comments'] = (int)$stmt->fetchColumn();
         
         // Comment đã duyệt
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments WHERE status = 'approved'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments WHERE $whereCommentsBase AND status = 'approved'");
         $statsData['approved_comments'] = (int)$stmt->fetchColumn();
         
         // Comment chờ duyệt
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments WHERE status = 'pending'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments WHERE $whereCommentsBase AND status = 'pending'");
         $statsData['pending_comments'] = (int)$stmt->fetchColumn();
         
         // Comment bị từ chối
-        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments WHERE status = 'rejected'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM blog_comments WHERE $whereCommentsBase AND status = 'rejected'");
         $statsData['rejected_comments'] = (int)$stmt->fetchColumn();
         
-        // Comment theo bài viết (top 10 bài viết có nhiều comment nhất)
+        // Comment theo bài viết (top 10 bài viết có nhiều comment nhất) - áp dụng filter cho comment
+        $whereCommentsTopBase = "1=1";
+        if ($dateFilterComments) {
+            $whereCommentsTopBase = $dateFilterComments;
+        }
         $stmt = $pdo->query("
             SELECT 
                 bp.title,
                 COUNT(bc.id) as comment_count
             FROM blog_posts bp
             LEFT JOIN blog_comments bc ON bp.id = bc.post_id
+            WHERE $whereCommentsTopBase
             GROUP BY bp.id, bp.title
             ORDER BY comment_count DESC
             LIMIT 10
         ");
         $statsData['top_posts_comments'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Comment theo tháng (12 tháng gần nhất)
+        // Comment theo tháng (12 tháng gần nhất hoặc theo filter)
+        $whereClause = "1=1";
+        if ($dateFilterComments) {
+            $whereClause = $dateFilterComments;
+        } else {
+            $whereClause = "created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         $stmt = $pdo->query("
             SELECT 
                 DATE_FORMAT(created_at, '%Y-%m') as month,
                 COUNT(*) as count
             FROM blog_comments 
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            WHERE $whereClause
             GROUP BY DATE_FORMAT(created_at, '%Y-%m')
             ORDER BY month ASC
         ");
@@ -249,9 +453,10 @@ function getReportsDataForAdmin($pdo) {
 /**
  * Lấy tất cả dữ liệu thống kê cho Reports (Role 2 - QLTC)
  * @param PDO $pdo Database connection
+ * @param string $filterType Loại filter: 'all', 'date', 'month', 'year', 'range'
  * @return array Statistics data
  */
-function getReportsDataForManager($pdo) {
+function getReportsDataForManager($pdo, $filterType = 'all') {
     $statsData = [];
     
     try {
@@ -261,41 +466,74 @@ function getReportsDataForManager($pdo) {
         }
         
         // ========== THỐNG KÊ ĐĂNG KÝ SỰ KIỆN ==========
+        // Áp dụng filter cho đăng ký sự kiện
+        $dateFilterReg = buildDateFilter($filterType, 'NgayTao');
+        $whereRegBase = "1=1";
+        if ($dateFilterReg) {
+            $whereRegBase = $dateFilterReg;
+        } else {
+            // Nếu không có filter, lấy 12 tháng gần nhất
+            $whereRegBase = "NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
+        // Debug logging
+        if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+            error_log("getReportsDataForManager: filterType=$filterType");
+            error_log("getReportsDataForManager: dateFilterReg=" . ($dateFilterReg ?: 'empty'));
+            error_log("getReportsDataForManager: whereRegBase=$whereRegBase");
+        }
+        
         // Tổng số đăng ký
-        $stmt = $pdo->query("SELECT COUNT(*) FROM datlichsukien");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM datlichsukien WHERE $whereRegBase");
         $statsData['total_registrations'] = (int)$stmt->fetchColumn();
         
+        if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+            error_log("getReportsDataForManager: total_registrations=" . $statsData['total_registrations']);
+        }
+        
         // Đăng ký chờ duyệt
-        $stmt = $pdo->query("SELECT COUNT(*) FROM datlichsukien WHERE TrangThaiDuyet = 'Chờ duyệt'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM datlichsukien WHERE $whereRegBase AND TrangThaiDuyet = 'Chờ duyệt'");
         $statsData['pending_registrations'] = (int)$stmt->fetchColumn();
         
         // Đăng ký đã duyệt
-        $stmt = $pdo->query("SELECT COUNT(*) FROM datlichsukien WHERE TrangThaiDuyet = 'Đã duyệt'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM datlichsukien WHERE $whereRegBase AND TrangThaiDuyet = 'Đã duyệt'");
         $statsData['approved_registrations'] = (int)$stmt->fetchColumn();
         
         // Đăng ký bị từ chối
-        $stmt = $pdo->query("SELECT COUNT(*) FROM datlichsukien WHERE TrangThaiDuyet = 'Từ chối'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM datlichsukien WHERE $whereRegBase AND TrangThaiDuyet = 'Từ chối'");
         $statsData['rejected_registrations'] = (int)$stmt->fetchColumn();
         
-        // Đăng ký theo tháng (12 tháng gần nhất)
+        // Đăng ký theo tháng (12 tháng gần nhất hoặc theo filter)
+        $whereClause = "1=1";
+        if ($dateFilterReg) {
+            $whereClause = $dateFilterReg;
+        } else {
+            $whereClause = "NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         $stmt = $pdo->query("
             SELECT 
                 DATE_FORMAT(NgayTao, '%Y-%m') as month,
                 COUNT(*) as count
             FROM datlichsukien 
-            WHERE NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            WHERE $whereClause
             GROUP BY DATE_FORMAT(NgayTao, '%Y-%m')
             ORDER BY month ASC
         ");
         $statsData['registrations_by_month'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Đăng ký theo loại sự kiện
+        // Đăng ký theo loại sự kiện (áp dụng filter)
+        $whereRegTypeBase = "1=1";
+        if ($dateFilterReg) {
+            $whereRegTypeBase = $dateFilterReg;
+        }
         $stmt = $pdo->query("
             SELECT 
                 ls.TenLoai,
                 COUNT(dl.ID_DatLich) as count
             FROM datlichsukien dl
             LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
+            WHERE $whereRegTypeBase
             GROUP BY dl.ID_LoaiSK, ls.TenLoai
             ORDER BY count DESC
         ");
@@ -352,8 +590,23 @@ function getReportsDataForManager($pdo) {
         $statsData['equipment_by_type'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // ========== THỐNG KÊ NHÂN VIÊN ==========
+        // Áp dụng filter cho nhân viên (theo ngày tuyển dụng)
+        $dateFilterStaff = buildDateFilter($filterType, 'u.NgayTao');
+        $whereStaffBase = "u.ID_Role IN (3, 4)";
+        if ($dateFilterStaff) {
+            $whereStaffBase .= " AND $dateFilterStaff";
+        } else {
+            // Nếu không có filter, lấy 12 tháng gần nhất
+            $whereStaffBase .= " AND u.NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         // Tổng số nhân viên
-        $stmt = $pdo->query("SELECT COUNT(*) FROM nhanvieninfo");
+        $stmt = $pdo->query("
+            SELECT COUNT(*) 
+            FROM nhanvieninfo nv
+            INNER JOIN users u ON nv.ID_User = u.ID_User
+            WHERE $whereStaffBase
+        ");
         $statsData['total_staff'] = (int)$stmt->fetchColumn();
         
         // Nhân viên hoạt động (dựa vào users.TrangThai)
@@ -361,7 +614,7 @@ function getReportsDataForManager($pdo) {
             SELECT COUNT(*) 
             FROM nhanvieninfo nv
             INNER JOIN users u ON nv.ID_User = u.ID_User
-            WHERE u.TrangThai = 'Hoạt động'
+            WHERE $whereStaffBase AND u.TrangThai = 'Hoạt động'
         ");
         $statsData['active_staff'] = (int)$stmt->fetchColumn();
         
@@ -370,7 +623,7 @@ function getReportsDataForManager($pdo) {
             SELECT COUNT(*) 
             FROM nhanvieninfo nv
             INNER JOIN users u ON nv.ID_User = u.ID_User
-            WHERE u.TrangThai != 'Hoạt động'
+            WHERE $whereStaffBase AND u.TrangThai != 'Hoạt động'
         ");
         $statsData['inactive_staff'] = (int)$stmt->fetchColumn();
         
@@ -381,63 +634,97 @@ function getReportsDataForManager($pdo) {
                 COUNT(*) as count
             FROM users u
             INNER JOIN phanquyen r ON u.ID_Role = r.ID_Role
-            WHERE u.ID_Role IN (3, 4)
+            WHERE $whereStaffBase
             GROUP BY u.ID_Role, r.RoleName
             ORDER BY u.ID_Role
         ");
         $statsData['staff_by_role'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // ========== THỐNG KÊ THANH TOÁN ==========
+        // Áp dụng filter cho thanh toán
+        $dateFilterPayments = buildDateFilter($filterType, 'NgayThanhToan');
+        $wherePaymentsBase = "1=1";
+        if ($dateFilterPayments) {
+            $wherePaymentsBase = $dateFilterPayments;
+        } else {
+            // Nếu không có filter, lấy 12 tháng gần nhất
+            $wherePaymentsBase = "NgayThanhToan >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         // Tổng số thanh toán
-        $stmt = $pdo->query("SELECT COUNT(*) FROM thanhtoan");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM thanhtoan WHERE $wherePaymentsBase");
         $statsData['total_payments'] = (int)$stmt->fetchColumn();
         
         // Thanh toán chờ xử lý
-        $stmt = $pdo->query("SELECT COUNT(*) FROM thanhtoan WHERE TrangThai = 'Đang xử lý'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM thanhtoan WHERE $wherePaymentsBase AND TrangThai = 'Đang xử lý'");
         $statsData['pending_payments'] = (int)$stmt->fetchColumn();
         
         // Thanh toán đã hoàn thành
-        $stmt = $pdo->query("SELECT COUNT(*) FROM thanhtoan WHERE TrangThai = 'Thành công'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM thanhtoan WHERE $wherePaymentsBase AND TrangThai = 'Thành công'");
         $statsData['completed_payments'] = (int)$stmt->fetchColumn();
         
         // Thanh toán thất bại
-        $stmt = $pdo->query("SELECT COUNT(*) FROM thanhtoan WHERE TrangThai = 'Thất bại'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM thanhtoan WHERE $wherePaymentsBase AND TrangThai = 'Thất bại'");
         $statsData['failed_payments'] = (int)$stmt->fetchColumn();
         
         // Tổng doanh thu (từ thanh toán thành công)
-        $stmt = $pdo->query("SELECT SUM(SoTien) FROM thanhtoan WHERE TrangThai = 'Thành công'");
+        $stmt = $pdo->query("SELECT SUM(SoTien) FROM thanhtoan WHERE $wherePaymentsBase AND TrangThai = 'Thành công'");
         $result = $stmt->fetchColumn();
         $statsData['total_revenue'] = $result ? (float)$result : 0;
         
-        // Thanh toán theo tháng (12 tháng gần nhất)
+        // Thanh toán theo tháng (12 tháng gần nhất hoặc theo filter)
+        $whereClause = "1=1";
+        if ($dateFilterPayments) {
+            $whereClause = $dateFilterPayments;
+        } else {
+            $whereClause = "NgayThanhToan >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         $stmt = $pdo->query("
             SELECT 
                 DATE_FORMAT(NgayThanhToan, '%Y-%m') as month,
                 COUNT(*) as count,
                 SUM(SoTien) as revenue
             FROM thanhtoan 
-            WHERE NgayThanhToan >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            WHERE $whereClause
             GROUP BY DATE_FORMAT(NgayThanhToan, '%Y-%m')
             ORDER BY month ASC
         ");
         $statsData['payments_by_month'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // ========== THỐNG KÊ KHÁCH HÀNG ==========
+        // Áp dụng filter cho khách hàng
+        $dateFilterCustomers = buildDateFilter($filterType, 'NgayTao');
+        $whereCustomersBase = "ID_Role = 5";
+        if ($dateFilterCustomers) {
+            $whereCustomersBase .= " AND $dateFilterCustomers";
+        } else {
+            // Nếu không có filter, lấy 12 tháng gần nhất
+            $whereCustomersBase .= " AND NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         // Tổng số khách hàng
-        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE ID_Role = 5");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE $whereCustomersBase");
         $statsData['total_customers'] = (int)$stmt->fetchColumn();
         
         // Khách hàng hoạt động
-        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE ID_Role = 5 AND TrangThai = 'Hoạt động'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE $whereCustomersBase AND TrangThai = 'Hoạt động'");
         $statsData['active_customers'] = (int)$stmt->fetchColumn();
         
-        // Khách hàng đăng ký theo tháng (12 tháng gần nhất)
+        // Khách hàng đăng ký theo tháng
+        $whereClause = "ID_Role = 5";
+        if ($dateFilterCustomers) {
+            $whereClause .= " AND $dateFilterCustomers";
+        } else {
+            $whereClause .= " AND NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        }
+        
         $stmt = $pdo->query("
             SELECT 
                 DATE_FORMAT(NgayTao, '%Y-%m') as month,
                 COUNT(*) as count
             FROM users 
-            WHERE ID_Role = 5 AND NgayTao >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            WHERE $whereClause
             GROUP BY DATE_FORMAT(NgayTao, '%Y-%m')
             ORDER BY month ASC
         ");
@@ -559,4 +846,3 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_reports_data') {
 }
 
 ?>
-

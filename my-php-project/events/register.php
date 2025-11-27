@@ -219,38 +219,122 @@
         
         .room-card-image {
             width: 100%;
-            height: 200px;
+            height: 250px;
             overflow: hidden;
-            border-radius: 8px 8px 0 0;
+            border-radius: 12px 12px 0 0;
             background: #f8f9fa;
-            margin: -1rem -1rem 1rem -1rem;
+            position: relative;
+            cursor: zoom-in;
+            display: block;
+        }
+        .room-card-image::after {
+            content: '\f00e';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.3s ease;
+            font-size: 1.2rem;
+            z-index: 1;
+        }
+        .room-card-image:hover::after {
+            opacity: 1;
+        }
+        .room-card-image:hover img {
+            transform: scale(1.08);
+            filter: brightness(0.9);
         }
         .room-card-image img {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            object-position: center;
+            display: block;
+            transition: all 0.3s ease;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Modal phóng to hình ảnh */
+        .image-zoom-modal .modal-dialog {
+            max-width: 90vw;
+            max-height: 90vh;
+            margin: 5vh auto;
+        }
+        .image-zoom-modal .modal-content {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+        .image-zoom-modal .modal-body {
+            padding: 0;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 8px;
+        }
+        .image-zoom-modal .modal-body img {
+            max-width: 100%;
+            max-height: 90vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        .image-zoom-modal .btn-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            opacity: 1;
+            z-index: 10;
+        }
+        .image-zoom-modal .btn-close:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: scale(1.1);
         }
         
         .room-card {
-            background: #f8f9fa;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
+            background: #ffffff;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
             padding: 1rem;
-            margin-bottom: 0.75rem;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
             cursor: pointer;
             transition: all 0.3s ease;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
         
         .room-card:hover {
             border-color: #667eea;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
         }
         
         .room-card.selected {
             border-color: #667eea;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+            border-width: 3px;
+            background: #ffffff;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+        }
+        
+        .room-card .card-body {
+            padding: 1.25rem;
         }
         
         .room-card-header {
@@ -1370,14 +1454,16 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="expectedGuests" class="form-label">Số khách dự kiến</label>
-                                    <input type="number" class="form-control" id="expectedGuests" name="expected_guests" min="1">
+                                    <label for="expectedGuests" class="form-label">Số khách dự kiến *</label>
+                                    <input type="number" class="form-control" id="expectedGuests" name="expected_guests" min="1" required>
+                                    <small class="form-text text-muted">Số lượng khách mời dự kiến (bắt buộc để gợi ý địa điểm phù hợp)</small>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="budget" class="form-label">Ngân sách (VNĐ)</label>
-                                    <input type="number" class="form-control" id="budget" name="budget" min="0">
+                                    <label for="budget" class="form-label">Ngân sách dự kiến (VNĐ) *</label>
+                                    <input type="number" class="form-control" id="budget" name="budget" min="0" step="1000" required>
+                                    <small class="form-text text-muted">Ngân sách dự kiến cho sự kiện (bắt buộc để gợi ý địa điểm phù hợp)</small>
                                 </div>
                             </div>
                         </div>
@@ -1469,6 +1555,16 @@
                                         <option value="50000000-100000000">50 - 100 triệu</option>
                                         <option value="100000000-999999999">Trên 100 triệu</option>
                                     </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Filter Info Card -->
+                        <div class="card mb-3" id="filterInfoCard" style="display: none;">
+                            <div class="card-body bg-light">
+                                <h6 class="mb-2"><i class="fas fa-info-circle text-primary"></i> Thông tin bộ lọc</h6>
+                                <div id="filterInfoContent">
+                                    <!-- Filter info will be displayed here -->
                                 </div>
                             </div>
                         </div>
@@ -1581,6 +1677,18 @@
         </div>
     </div>
     
+    <!-- Image Zoom Modal -->
+    <div class="modal fade image-zoom-modal" id="imageZoomModal" tabindex="-1" aria-labelledby="imageZoomModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <img id="zoomedImage" src="" alt="" class="img-fluid">
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Room Selection Modal -->
     <div class="modal fade room-selection-modal" id="roomSelectionModal" tabindex="-1" aria-labelledby="roomSelectionModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -1642,6 +1750,7 @@
         let locations = [];
         let allLocations = [];
         let suggestedLocations = [];
+        let allRooms = []; // Cache tất cả phòng để lọc nhanh hơn
         let equipmentSuggestions = [];
         let comboSuggestions = [];
         let locationTypes = [];
@@ -1652,6 +1761,7 @@
         $(document).ready(function() {
             loadEventTypes();
             setMinDate();
+            loadAllRooms(); // Load tất cả phòng để lọc nhanh hơn
             
             // Kiểm tra nếu đang chỉnh sửa sự kiện hiện có
             const urlParams = new URLSearchParams(window.location.search);
@@ -1660,6 +1770,26 @@
                 loadEventForEdit(editId);
             }
         });
+        
+        // Load tất cả phòng để lọc nhanh hơn
+        function loadAllRooms() {
+            return $.ajax({
+                url: '../src/controllers/rooms.php',
+                type: 'GET',
+                data: { action: 'get_rooms' },
+                dataType: 'json',
+                success: function(data) {
+                    if (data.success && data.data) {
+                        allRooms = data.data;
+                        console.log('Loaded all rooms:', allRooms.length);
+                    }
+                },
+                error: function(error) {
+                    console.error('Error loading all rooms:', error);
+                    allRooms = []; // Fallback to empty array
+                }
+            });
+        }
         
         // Đặt ngày tối thiểu là hôm nay
         function setMinDate() {
@@ -1672,12 +1802,24 @@
         function checkMinimum12Hours(eventDate, eventTime) {
             if (!eventDate || !eventTime) return { valid: true };
             
+            // Tạo Date object từ eventDate và eventTime (sử dụng local timezone)
             const eventStartDateTime = new Date(eventDate + 'T' + eventTime);
             const now = new Date();
+            
+            // Kiểm tra nếu eventStartDateTime không hợp lệ
+            if (isNaN(eventStartDateTime.getTime())) {
+                return { valid: false, hoursLeft: 0, minDateTime: null, error: 'Thời gian không hợp lệ' };
+            }
+            
+            // Tính thời gian tối thiểu (bây giờ + 12 giờ)
             const minDateTime = new Date(now.getTime() + (12 * 60 * 60 * 1000)); // Thêm 12 giờ
             
+            // Kiểm tra nếu thời gian bắt đầu sự kiện nhỏ hơn thời gian tối thiểu
             if (eventStartDateTime < minDateTime) {
-                const hoursLeft = Math.ceil((eventStartDateTime - now) / (1000 * 60 * 60));
+                // Tính số giờ còn lại (sử dụng Math.max để tránh số âm)
+                const hoursDiff = (eventStartDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+                const hoursLeft = Math.max(0, Math.floor(hoursDiff)); // Sử dụng Math.floor để nhất quán với validateDates()
+                
                 return {
                     valid: false,
                     hoursLeft: hoursLeft,
@@ -1690,6 +1832,7 @@
         
         // Tự động đặt ngày kết thúc khi ngày bắt đầu thay đổi
         $('#eventDate').on('change', function() {
+            validateDates(); // Validate dates
             const startDate = $(this).val();
             const startTime = $('#eventTime').val();
             
@@ -1707,6 +1850,11 @@
                     if (!checkResult.valid) {
                         showError(`Sự kiện phải được đăng ký trước ít nhất 12 giờ. Thời gian bắt đầu hiện tại chỉ còn ${checkResult.hoursLeft} giờ. Vui lòng chọn thời gian muộn hơn.`);
                     }
+                }
+                
+                // Trigger filterLocations nếu đang ở step 2
+                if (currentStep === 2) {
+                    setTimeout(() => filterLocations(), 100);
                 }
                 
                 // Kiểm tra lại tính khả dụng của thiết bị khi ngày thay đổi
@@ -1769,6 +1917,7 @@
         
             // Kiểm tra tối thiểu 12 giờ khi thời gian bắt đầu thay đổi
         $('#eventTime').on('change', function() {
+            validateDates(); // Validate dates
             const startDate = $('#eventDate').val();
             const startTime = $(this).val();
             
@@ -1777,6 +1926,11 @@
                 if (!checkResult.valid) {
                     showError(`Sự kiện phải được đăng ký trước ít nhất 12 giờ. Thời gian bắt đầu hiện tại chỉ còn ${checkResult.hoursLeft} giờ. Vui lòng chọn thời gian muộn hơn.`);
                     $(this).focus();
+                }
+                
+                // Trigger filterLocations nếu đang ở step 2
+                if (currentStep === 2) {
+                    setTimeout(() => filterLocations(), 100);
                 }
                 
                 // QUAN TRỌNG: Giữ nguyên selectedLocation khi thay đổi giờ
@@ -1806,12 +1960,18 @@
         
         // Xác thực ngày kết thúc khi nó thay đổi
         $('#eventEndDate').on('change', function() {
+            validateDates(); // Validate dates
             const startDate = $('#eventDate').val();
             const endDate = $(this).val();
             
             if (startDate && endDate && endDate < startDate) {
                 showError('Ngày kết thúc không được trước ngày bắt đầu');
                 $(this).focus();
+            }
+            
+            // Trigger filterLocations nếu đang ở step 2
+            if (currentStep === 2) {
+                setTimeout(() => filterLocations(), 100);
             }
             
             // QUAN TRỌNG: Giữ nguyên selectedLocation khi thay đổi ngày kết thúc
@@ -1847,6 +2007,7 @@
         
         // Xác thực thời gian kết thúc khi nó thay đổi (nếu cùng ngày)
         $('#eventEndTime').on('change', function() {
+            validateDates(); // Validate dates
             const startDate = $('#eventDate').val();
             const endDate = $('#eventEndDate').val();
             const startTime = $('#eventTime').val();
@@ -1855,6 +2016,11 @@
             if (startDate === endDate && startTime && endTime && endTime <= startTime) {
                 showError('Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày');
                 $(this).focus();
+            }
+            
+            // Trigger filterLocations nếu đang ở step 2
+            if (currentStep === 2) {
+                setTimeout(() => filterLocations(), 100);
             }
             
             // QUAN TRỌNG: Giữ nguyên selectedLocation khi thay đổi giờ kết thúc
@@ -2306,6 +2472,10 @@
                 if (currentStep === 1) {
                     loadLocationSuggestions();
                 } else if (currentStep === 2) {
+                    // Đảm bảo filterLocations() được gọi khi chuyển sang step 2
+                    setTimeout(() => {
+                        filterLocations();
+                    }, 100);
                     loadEquipmentSuggestions();
                     updateOrderSummary();
                 } else if (currentStep === 3) {
@@ -2328,6 +2498,13 @@
             currentStep += direction;
             $(`#step${currentStep}`).addClass('active');
             $(`#step${currentStep}-indicator`).addClass('active');
+            
+            // Tự động lọc địa điểm khi chuyển sang step 2
+            if (currentStep === 2) {
+                setTimeout(() => {
+                    filterLocations();
+                }, 100);
+            }
             
             // Scroll to top khi chuyển step
             $('html, body').animate({
@@ -2376,16 +2553,152 @@
             updateNavigationButtons();
         }
         
+        // Xác thực ngày giờ (giống event-registration.php)
+        function validateDates() {
+            const eventDate = $('#eventDate').val();
+            const eventTime = $('#eventTime').val();
+            const eventEndDate = $('#eventEndDate').val();
+            const eventEndTime = $('#eventEndTime').val();
+            
+            const startDateInput = document.getElementById('eventDate');
+            const endDateInput = document.getElementById('eventEndDate');
+            const startTimeInput = document.getElementById('eventTime');
+            const endTimeInput = document.getElementById('eventEndTime');
+            
+            if (!startDateInput || !endDateInput || !startTimeInput || !endTimeInput) {
+                return true;
+            }
+            
+            if (!eventDate || !eventTime || !eventEndDate || !eventEndTime) {
+                return true; // Let HTML5 required validation handle empty fields
+            }
+            
+            // Tạo Date object từ eventDate và eventTime (sử dụng local timezone)
+            const startDate = new Date(eventDate + 'T' + eventTime);
+            const endDate = new Date(eventEndDate + 'T' + eventEndTime);
+            const now = new Date();
+            
+            // Kiểm tra nếu Date objects không hợp lệ
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                const errorMsg = 'Thời gian không hợp lệ. Vui lòng kiểm tra lại.';
+                startDateInput.setCustomValidity(errorMsg);
+                $(startDateInput).addClass('is-invalid');
+                return false;
+            }
+            
+            // Clear previous validation
+            startDateInput.setCustomValidity('');
+            endDateInput.setCustomValidity('');
+            startTimeInput.setCustomValidity('');
+            endTimeInput.setCustomValidity('');
+            $(startDateInput).removeClass('is-invalid');
+            $(endDateInput).removeClass('is-invalid');
+            $(startTimeInput).removeClass('is-invalid');
+            $(endTimeInput).removeClass('is-invalid');
+            
+            // 1. Ràng buộc ngày: Ngày bắt đầu không được trong quá khứ
+            if (startDate < now) {
+                const errorMsg = 'Ngày bắt đầu không được trong quá khứ';
+                startDateInput.setCustomValidity(errorMsg);
+                $(startDateInput).addClass('is-invalid');
+                return false;
+            }
+            
+            // 2. Ràng buộc ngày: Ngày kết thúc phải sau ngày bắt đầu
+            if (endDate <= startDate) {
+                const errorMsg = 'Ngày kết thúc phải sau ngày bắt đầu';
+                endDateInput.setCustomValidity(errorMsg);
+                $(endDateInput).addClass('is-invalid');
+                return false;
+            }
+            
+            // 3. Ràng buộc 12 giờ: Phải đăng ký trước ít nhất 12 giờ so với thời gian bắt đầu
+            const minDateTime = new Date(now.getTime() + (12 * 60 * 60 * 1000)); // Thêm 12 giờ
+            if (startDate < minDateTime) {
+                const hoursDiff = (startDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+                const hoursLeft = Math.max(0, Math.floor(hoursDiff));
+                const minDateTimeStr = minDateTime.toLocaleString('vi-VN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const errorMsg = `Sự kiện phải được đăng ký trước ít nhất 12 giờ. Thời gian bắt đầu bạn chọn chỉ còn ${hoursLeft} giờ nữa. Vui lòng chọn thời gian sau ${minDateTimeStr}.`;
+                startDateInput.setCustomValidity(errorMsg);
+                startTimeInput.setCustomValidity(errorMsg);
+                $(startDateInput).addClass('is-invalid');
+                $(startTimeInput).addClass('is-invalid');
+                return false;
+            }
+            
+            // 4. Ràng buộc giờ: Nếu cùng ngày, giờ kết thúc phải sau giờ bắt đầu
+            const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+            const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+            
+            if (startDateOnly.getTime() === endDateOnly.getTime()) {
+                // Cùng ngày - kiểm tra giờ
+                if (startDate >= endDate) {
+                    const errorMsg = 'Giờ kết thúc phải sau giờ bắt đầu khi cùng ngày';
+                    endTimeInput.setCustomValidity(errorMsg);
+                    $(endTimeInput).addClass('is-invalid');
+                    return false;
+                }
+            }
+            
+            // 5. Ràng buộc giờ: Thời gian kết thúc không được trong quá khứ
+            if (endDate < now) {
+                const errorMsg = 'Thời gian kết thúc không được trong quá khứ';
+                endDateInput.setCustomValidity(errorMsg);
+                $(endDateInput).addClass('is-invalid');
+                return false;
+            }
+            
+            // 6. Ràng buộc thời lượng tối thiểu: Sự kiện phải kéo dài ít nhất 1 giờ
+            if (startDate && endDate) {
+                const durationHours = (endDate - startDate) / (1000 * 60 * 60);
+                if (durationHours < 1) {
+                    const errorMsg = 'Sự kiện phải kéo dài ít nhất 1 giờ';
+                    endTimeInput.setCustomValidity(errorMsg);
+                    $(endTimeInput).addClass('is-invalid');
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
         // Xác thực bước hiện tại
         function validateCurrentStep() {
             if (currentStep === 1) {
-                const requiredFields = ['eventName', 'eventType', 'eventDate', 'eventTime', 'eventEndDate', 'eventEndTime'];
+                const requiredFields = ['eventName', 'eventType', 'eventDate', 'eventTime', 'eventEndDate', 'eventEndTime', 'expectedGuests', 'budget'];
                 for (let field of requiredFields) {
                     if (!$(`#${field}`).val()) {
                         showError(`Vui lòng điền đầy đủ thông tin bắt buộc`);
                         $(`#${field}`).focus();
                         return false;
                     }
+                }
+                
+                // Validate dates using validateDates function
+                if (!validateDates()) {
+                    return false;
+                }
+                
+                // Xác thực số khách dự kiến
+                const expectedGuests = parseInt($('#expectedGuests').val());
+                if (isNaN(expectedGuests) || expectedGuests < 1) {
+                    showError('Số khách dự kiến phải là số nguyên dương');
+                    $('#expectedGuests').focus();
+                    return false;
+                }
+                
+                // Xác thực ngân sách
+                const budget = parseFloat($('#budget').val());
+                if (isNaN(budget) || budget < 0) {
+                    showError('Ngân sách phải là số không âm');
+                    $('#budget').focus();
+                    return false;
                 }
                 
                 // Xác thực ngày
@@ -2528,8 +2841,10 @@
             $.get('../src/controllers/event-register.php?action=get_locations_by_type&event_type=' + encodeURIComponent(eventType.TenLoai), function(data) {
                 if (data.success) {
                     suggestedLocations = data.locations;
-                    displaySuggestedLocations();
+                    // KHÔNG gọi displaySuggestedLocations() ngay - sẽ được gọi trong filterLocations()
+                    // Sau khi load xong cả suggestedLocations và allLocations, sẽ gọi filterLocations()
                 } else {
+                    suggestedLocations = [];
                     $('#suggestedLocations').html(`
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle"></i>
@@ -2537,13 +2852,25 @@
                         </div>
                     `);
                 }
+                
+                // Sau khi load xong suggestedLocations, kiểm tra xem allLocations đã load chưa
+                // Nếu đã load, gọi filterLocations() để filter và hiển thị
+                if (allLocations.length > 0 || !data.success) {
+                    filterLocations();
+                }
             }, 'json').fail(function() {
+                suggestedLocations = [];
                 $('#suggestedLocations').html(`
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-circle"></i>
                         Lỗi khi tải địa điểm đề xuất.
                     </div>
                 `);
+                
+                // Nếu allLocations đã load, vẫn gọi filterLocations()
+                if (allLocations.length > 0) {
+                    filterLocations();
+                }
             });
             
             // Tải tất cả địa điểm
@@ -2557,23 +2884,44 @@
                     
                     loadLocationTypeFilter();
                     loadCityFilter();
-                    displayAllLocations();
+                    // KHÔNG gọi displayAllLocations() ngay - sẽ được gọi trong filterLocations()
                     setupLocationFilters();
+                    
+                    // Sau khi load xong allLocations, kiểm tra xem suggestedLocations đã load chưa
+                    // Nếu đã load, gọi filterLocations() để filter và hiển thị
+                    if (suggestedLocations.length > 0) {
+                        filterLocations();
+                    } else {
+                        // Nếu suggestedLocations chưa load hoặc rỗng, vẫn gọi filterLocations() để hiển thị allLocations đã filter
+                        filterLocations();
+                    }
                 } else {
+                    allLocations = [];
                     $('#allLocations').html(`
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle"></i>
                             Không có địa điểm nào trong hệ thống.
                         </div>
                     `);
+                    
+                    // Vẫn gọi filterLocations() để hiển thị suggestedLocations nếu có
+                    if (suggestedLocations.length > 0) {
+                        filterLocations();
+                    }
                 }
             }, 'json').fail(function() {
+                allLocations = [];
                 $('#allLocations').html(`
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-circle"></i>
                         Lỗi khi tải danh sách địa điểm.
                     </div>
                 `);
+                
+                // Vẫn gọi filterLocations() để hiển thị suggestedLocations nếu có
+                if (suggestedLocations.length > 0) {
+                    filterLocations();
+                }
             });
         }
         
@@ -2819,13 +3167,52 @@
             if (locationsToShow.length === 0) {
                 const searchTerm = $('#locationSearch').val().trim();
                 const hasFilter = searchTerm || $('#locationTypeFilter').val() || $('#priceTypeFilter').val() || $('#priceRangeFilter').val();
+                const expectedGuests = parseInt($('#expectedGuests').val()) || 0;
+                const budget = parseFloat($('#budget').val()) || 0;
+                const hasCapacityOrBudgetFilter = expectedGuests > 0 || budget > 0;
                 
-                $('#suggestedLocations').html(`
-                    <div class="alert alert-${hasFilter ? 'info' : 'warning'}">
-                        <i class="fas fa-${hasFilter ? 'info-circle' : 'exclamation-triangle'}"></i>
-                        ${hasFilter ? 'Không tìm thấy địa điểm đề xuất phù hợp với bộ lọc.' : 'Không có địa điểm đề xuất cho loại sự kiện này.'}
-                    </div>
-                `);
+                // Lấy giá loại sự kiện
+                let eventTypePrice = 0;
+                const eventTypeSelect = $('#eventType');
+                if (eventTypeSelect && eventTypeSelect.val()) {
+                    const selectedEventType = eventTypes.find(type => type.ID_LoaiSK == eventTypeSelect.val());
+                    if (selectedEventType && selectedEventType.GiaCoBan) {
+                        eventTypePrice = parseFloat(selectedEventType.GiaCoBan) || 0;
+                    }
+                }
+                const remainingBudget = budget > 0 && eventTypePrice > 0 ? budget - eventTypePrice : budget;
+                
+                // Nếu có filter theo capacity hoặc budget, hiển thị thông báo chi tiết
+                // Nếu không, chỉ hiển thị thông báo đơn giản
+                if (hasCapacityOrBudgetFilter) {
+                    $('#suggestedLocations').html(`
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle"></i>
+                            <h6>Không có địa điểm đề xuất phù hợp với tiêu chí đã chọn</h6>
+                            <p class="mb-0 small">
+                                Vui lòng xem phần "Tất cả địa điểm" bên dưới để tìm địa điểm phù hợp.
+                            </p>
+                        </div>
+                    `);
+                } else {
+                    $('#suggestedLocations').html(`
+                        <div class="alert alert-warning text-center">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h5>Không tìm thấy địa điểm phù hợp</h5>
+                            <p class="mb-0">
+                                ${expectedGuests > 0 ? `Không có địa điểm nào có sức chứa phù hợp với ${expectedGuests} khách dự kiến.` : ''}
+                                ${budget > 0 ? `
+                                    <br>Ngân sách: ${new Intl.NumberFormat('vi-VN').format(budget)} VNĐ
+                                    ${eventTypePrice > 0 ? `<br>Trừ giá loại sự kiện: ${new Intl.NumberFormat('vi-VN').format(eventTypePrice)} VNĐ` : ''}
+                                    ${eventTypePrice > 0 ? `<br><strong>Ngân sách còn lại cho địa điểm: ${new Intl.NumberFormat('vi-VN').format(remainingBudget)} VNĐ</strong>` : ''}
+                                    <br>Không có địa điểm nào có giá phù hợp với ngân sách còn lại.
+                                ` : ''}
+                                ${!expectedGuests && !budget ? (hasFilter ? 'Không tìm thấy địa điểm đề xuất phù hợp với bộ lọc.' : 'Không có địa điểm đề xuất cho loại sự kiện này.') : ''}
+                                <br>Vui lòng điều chỉnh bộ lọc hoặc thử lại với tiêu chí khác.
+                            </p>
+                        </div>
+                    `);
+                }
                 return;
             }
             
@@ -2965,10 +3352,35 @@
             const locationsToShow = filteredLocations || allLocations;
             
             if (locationsToShow.length === 0) {
+                const expectedGuests = parseInt($('#expectedGuests').val()) || 0;
+                const budget = parseFloat($('#budget').val()) || 0;
+                
+                // Lấy giá loại sự kiện
+                let eventTypePrice = 0;
+                const eventTypeSelect = $('#eventType');
+                if (eventTypeSelect && eventTypeSelect.val()) {
+                    const selectedEventType = eventTypes.find(type => type.ID_LoaiSK == eventTypeSelect.val());
+                    if (selectedEventType && selectedEventType.GiaCoBan) {
+                        eventTypePrice = parseFloat(selectedEventType.GiaCoBan) || 0;
+                    }
+                }
+                const remainingBudget = budget > 0 && eventTypePrice > 0 ? budget - eventTypePrice : budget;
+                
                 $('#allLocations').html(`
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i>
-                        Không tìm thấy địa điểm nào phù hợp với bộ lọc.
+                    <div class="alert alert-warning text-center">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h5>Không tìm thấy địa điểm phù hợp</h5>
+                        <p class="mb-0">
+                            ${expectedGuests > 0 ? `Không có địa điểm nào có sức chứa phù hợp với ${expectedGuests} khách dự kiến.` : ''}
+                            ${budget > 0 ? `
+                                <br>Ngân sách: ${new Intl.NumberFormat('vi-VN').format(budget)} VNĐ
+                                ${eventTypePrice > 0 ? `<br>Trừ giá loại sự kiện: ${new Intl.NumberFormat('vi-VN').format(eventTypePrice)} VNĐ` : ''}
+                                ${eventTypePrice > 0 ? `<br><strong>Ngân sách còn lại cho địa điểm: ${new Intl.NumberFormat('vi-VN').format(remainingBudget)} VNĐ</strong>` : ''}
+                                <br>Không có địa điểm nào có giá phù hợp với ngân sách còn lại.
+                            ` : ''}
+                            ${!expectedGuests && !budget ? 'Không tìm thấy địa điểm nào phù hợp với bộ lọc.' : ''}
+                            <br>Vui lòng điều chỉnh bộ lọc hoặc thử lại với tiêu chí khác.
+                        </p>
                     </div>
                 `);
                 return;
@@ -3344,6 +3756,26 @@
             $('#priceRangeFilter').on('change', function() {
                 filterLocations();
             });
+            
+            // Event listeners cho expectedGuests và budget để trigger filterLocations
+            $('#expectedGuests').on('input change', function() {
+                if (currentStep === 2) {
+                    setTimeout(() => filterLocations(), 300);
+                }
+            });
+            
+            $('#budget').on('input change', function() {
+                if (currentStep === 2) {
+                    setTimeout(() => filterLocations(), 300);
+                }
+            });
+            
+            // Event listener cho eventType để trigger filterLocations khi giá loại sự kiện thay đổi
+            $('#eventType').on('change', function() {
+                if (currentStep === 2) {
+                    setTimeout(() => filterLocations(), 300);
+                }
+            });
         }
         
         // Hàm parse địa chỉ để lấy tỉnh/thành phố và quận/huyện từ một địa chỉ
@@ -3455,7 +3887,7 @@
             return result;
         }
         
-        // Lọc địa điểm dựa trên tìm kiếm và bộ lọc
+        // Lọc địa điểm dựa trên tìm kiếm và bộ lọc (có thêm lọc theo số khách và ngân sách)
         function filterLocations() {
             const searchTerm = $('#locationSearch').val().toLowerCase().trim();
             const selectedType = $('#locationTypeFilter').val();
@@ -3463,6 +3895,36 @@
             const selectedDistrict = $('#districtFilter').val();
             const priceType = $('#priceTypeFilter').val();
             const priceRange = $('#priceRangeFilter').val();
+            
+            // Lấy số khách dự kiến và ngân sách từ step 1
+            const expectedGuests = parseInt($('#expectedGuests').val()) || 0;
+            const budget = parseFloat($('#budget').val()) || 0;
+            
+            // Lấy giá loại sự kiện
+            let eventTypePrice = 0;
+            const eventTypeSelect = $('#eventType');
+            if (eventTypeSelect && eventTypeSelect.val()) {
+                const selectedEventType = eventTypes.find(type => type.ID_LoaiSK == eventTypeSelect.val());
+                if (selectedEventType && selectedEventType.GiaCoBan) {
+                    eventTypePrice = parseFloat(selectedEventType.GiaCoBan) || 0;
+                }
+            }
+            
+            // Lấy thời gian sự kiện để tính chi phí
+            const eventDate = $('#eventDate').val();
+            const eventTime = $('#eventTime').val();
+            const eventEndDate = $('#eventEndDate').val();
+            const eventEndTime = $('#eventEndTime').val();
+            let durationHours = 0;
+            let durationDays = 0;
+            if (eventDate && eventTime && eventEndDate && eventEndTime) {
+                const start = new Date(eventDate + 'T' + eventTime);
+                const end = new Date(eventEndDate + 'T' + eventEndTime);
+                // Tính chính xác số giờ (không làm tròn lên)
+                durationHours = (end - start) / (1000 * 60 * 60);
+                // Tính số ngày: nếu < 1 ngày thì tính 1 ngày, nếu >= 1 ngày thì làm tròn lên
+                durationDays = durationHours < 24 ? 1 : Math.ceil(durationHours / 24);
+            }
             
             // Hàm kiểm tra location có match với filter không
             function matchesFilter(location) {
@@ -3525,17 +3987,98 @@
                     matchesPrice = locationPrice >= minPrice && locationPrice <= maxPrice;
                 }
                 
-                return matchesSearch && matchesType && matchesCity && matchesDistrict && matchesPriceType && matchesPrice;
+                // Lọc theo sức chứa - Đề xuất địa điểm có sức chứa phù hợp
+                // Ví dụ: 50 người thì đề xuất địa điểm từ 50 đến 300 người (6 lần)
+                // Nếu địa điểm trong nhà có phòng, xét sức chứa của phòng thay vì sức chứa địa điểm
+                let matchesCapacity = true;
+                if (expectedGuests > 0) {
+                    const minCapacity = expectedGuests; // Tối thiểu bằng số khách dự kiến
+                    const maxCapacity = expectedGuests * 6; // Tối đa 6 lần số khách dự kiến
+                    
+                    // Nếu địa điểm trong nhà và đã chọn phòng, dùng sức chứa của phòng
+                    if (location.LoaiDiaDiem === 'Trong nhà' && location.selectedRoom) {
+                        const capacity = parseInt(location.selectedRoom.SucChua) || 0;
+                        matchesCapacity = capacity >= minCapacity && capacity <= maxCapacity;
+                    } else if (location.LoaiDiaDiem === 'Trong nhà') {
+                        // Địa điểm trong nhà chưa chọn phòng: kiểm tra xem có phòng nào phù hợp không
+                        const locationRooms = allRooms.filter(room => room.ID_DD == location.ID_DD);
+                        if (locationRooms.length > 0) {
+                            // Kiểm tra xem có ít nhất một phòng phù hợp không
+                            const hasSuitableRoom = locationRooms.some(room => {
+                                const roomCapacity = parseInt(room.SucChua) || 0;
+                                return roomCapacity >= minCapacity && roomCapacity <= maxCapacity;
+                            });
+                            matchesCapacity = hasSuitableRoom;
+                        } else {
+                            // Chưa có dữ liệu phòng, dùng sức chứa địa điểm tạm thời
+                            const capacity = parseInt(location.SucChua) || 0;
+                            matchesCapacity = capacity >= minCapacity && capacity <= maxCapacity;
+                        }
+                    } else {
+                        // Địa điểm ngoài trời: dùng sức chứa địa điểm
+                        const capacity = parseInt(location.SucChua) || 0;
+                        matchesCapacity = capacity >= minCapacity && capacity <= maxCapacity;
+                    }
+                }
+                
+                // Lọc theo ngân sách - Trừ giá loại sự kiện trước, sau đó so sánh với giá địa điểm
+                let matchesBudget = true;
+                if (budget > 0) {
+                    // Tính ngân sách còn lại sau khi trừ giá loại sự kiện
+                    const remainingBudget = budget - eventTypePrice;
+                    
+                    // Tính giá địa điểm/phòng
+                    let locationCost = 0;
+                    
+                    if (location.LoaiDiaDiem === 'Trong nhà' && location.selectedRoom) {
+                        const rentalType = location.selectedRoomRentalType || 'day';
+                        locationCost = rentalType === 'hour' 
+                            ? (location.selectedRoom.GiaThueGio || 0) * durationHours
+                            : (location.selectedRoom.GiaThueNgay || 0) * durationDays;
+                    } else {
+                        const rentalType = location.selectedRentalType || 'day';
+                        const hourlyPrice = parseFloat(location.GiaThueGio) || 0;
+                        const dailyPrice = parseFloat(location.GiaThueNgay) || 0;
+                        
+                        if (rentalType === 'hour' && hourlyPrice > 0) {
+                            locationCost = hourlyPrice * durationHours;
+                        } else if (dailyPrice > 0) {
+                            locationCost = dailyPrice * durationDays;
+                        } else if (hourlyPrice > 0) {
+                            locationCost = hourlyPrice * durationHours;
+                        }
+                    }
+                    
+                    // So sánh giá địa điểm với ngân sách còn lại (sau khi trừ giá loại sự kiện)
+                    matchesBudget = locationCost <= remainingBudget || locationCost === 0; // Cho phép nếu không có giá hoặc "Liên hệ"
+                }
+                
+                return matchesSearch && matchesType && matchesCity && matchesDistrict && matchesPriceType && matchesPrice && matchesCapacity && matchesBudget;
             }
             
             // Filter cả suggestedLocations và allLocations
             const filteredSuggested = suggestedLocations.filter(matchesFilter);
             const filteredAll = allLocations.filter(matchesFilter);
             
+            // Debug log
+            console.log('Filter results:', {
+                suggestedLocations: suggestedLocations.length,
+                filteredSuggested: filteredSuggested.length,
+                allLocations: allLocations.length,
+                filteredAll: filteredAll.length,
+                expectedGuests,
+                budget,
+                eventTypePrice
+            });
+            
+            // Cập nhật thông tin bộ lọc (chỉ tính từ allLocations để tránh nhầm lẫn)
+            // Vì suggestedLocations là subset của allLocations, nên chỉ cần hiển thị số lượng từ allLocations
+            const totalFiltered = filteredAll.length;
+            updateFilterInfo(expectedGuests, budget, eventTypePrice, totalFiltered);
+            
             // Hiển thị kết quả
-            // Nếu có tìm kiếm hoặc filter, hiển thị cả 2 phần với kết quả đã filter
-            // Nếu không có filter, hiển thị bình thường
-            if (searchTerm || selectedType || selectedCity || selectedDistrict || priceType || priceRange) {
+            // Luôn hiển thị kết quả đã filter nếu có filter hoặc có expectedGuests/budget
+            if (searchTerm || selectedType || selectedCity || selectedDistrict || priceType || priceRange || expectedGuests > 0 || budget > 0) {
                 // Có filter: hiển thị kết quả đã filter
                 displaySuggestedLocations(filteredSuggested);
                 displayAllLocations(filteredAll);
@@ -3544,6 +4087,69 @@
                 displaySuggestedLocations();
                 displayAllLocations();
             }
+        }
+        
+        // Cập nhật thông tin bộ lọc
+        function updateFilterInfo(expectedGuests, budget, eventTypePrice, resultCount) {
+            const filterInfoCard = $('#filterInfoCard');
+            const filterInfoContent = $('#filterInfoContent');
+            
+            if (!filterInfoCard.length || !filterInfoContent.length) return;
+            
+            let infoHtml = '<div class="row">';
+            
+            // Thông tin số khách dự kiến
+            if (expectedGuests > 0) {
+                infoHtml += `
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">Sức chứa:</small>
+                        <strong>${expectedGuests} - ${expectedGuests * 6} người</strong>
+                    </div>
+                `;
+            }
+            
+            // Thông tin ngân sách
+            if (budget > 0) {
+                const remainingBudget = eventTypePrice > 0 ? budget - eventTypePrice : budget;
+                infoHtml += `
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">Ngân sách:</small>
+                        <strong>${new Intl.NumberFormat('vi-VN').format(budget)} VNĐ</strong>
+                        ${eventTypePrice > 0 ? `
+                            <br><small class="text-muted">- Giá loại sự kiện: ${new Intl.NumberFormat('vi-VN').format(eventTypePrice)} VNĐ</small>
+                            <br><small class="text-success"><strong>Còn lại: ${new Intl.NumberFormat('vi-VN').format(remainingBudget)} VNĐ</strong></small>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            // Thông tin kết quả
+            infoHtml += `
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Kết quả:</small>
+                    <strong>${resultCount} địa điểm phù hợp</strong>
+                </div>
+            `;
+            
+            infoHtml += '</div>';
+            
+            // Thêm ghi chú
+            if (expectedGuests > 0 || budget > 0) {
+                infoHtml += '<hr class="my-2">';
+                infoHtml += '<small class="text-muted">';
+                if (expectedGuests > 0) {
+                    infoHtml += `<i class="fas fa-users"></i> Đang lọc địa điểm có sức chứa từ ${expectedGuests} đến ${expectedGuests * 6} người. `;
+                }
+                if (budget > 0 && eventTypePrice > 0) {
+                    infoHtml += `<i class="fas fa-money-bill-wave"></i> Đang lọc địa điểm có giá thuê ≤ ${new Intl.NumberFormat('vi-VN').format(budget - eventTypePrice)} VNĐ (đã trừ giá loại sự kiện). `;
+                } else if (budget > 0) {
+                    infoHtml += `<i class="fas fa-money-bill-wave"></i> Đang lọc địa điểm có giá thuê ≤ ${new Intl.NumberFormat('vi-VN').format(budget)} VNĐ. `;
+                }
+                infoHtml += '</small>';
+            }
+            
+            filterInfoContent.html(infoHtml);
+            filterInfoCard.toggle(expectedGuests > 0 || budget > 0);
         }
         
         // Xóa tất cả bộ lọc địa điểm
@@ -3609,6 +4215,14 @@
             }
         }
         
+        // Hàm mở modal phóng to hình ảnh
+        function openImageZoom(imageSrc, imageAlt) {
+            const modal = new bootstrap.Modal(document.getElementById('imageZoomModal'));
+            document.getElementById('zoomedImage').src = imageSrc;
+            document.getElementById('zoomedImage').alt = imageAlt || 'Hình ảnh phòng';
+            modal.show();
+        }
+        
         // Render các card phòng
         function renderRoomCards(locationId, rooms, rentalType = null) {
             const containerIds = [`room-list-container-${locationId}`, `room-list-container-all-${locationId}`];
@@ -3637,41 +4251,42 @@
                 const hasHourly = giaThueGio > 0 && (room.LoaiThue === 'Theo giờ' || room.LoaiThue === 'Cả hai');
                 const hasDaily = giaThueNgay > 0 && (room.LoaiThue === 'Theo ngày' || room.LoaiThue === 'Cả hai');
                 
-                const imagePath = room.HinhAnh ? `img/phong/${room.HinhAnh}` : 'img/phong/default.php';
+                const imagePath = room.HinhAnh ? `../img/phong/${room.HinhAnh}` : '../img/phong/default.php';
                 
                 html += `
                     <div class="room-card ${isSelected ? 'selected' : ''}" 
                          onclick="selectRoomFromCard(${locationId}, ${room.ID_Phong})" 
                          data-room-id="${room.ID_Phong}">
                         ${room.HinhAnh ? `
-                            <div class="room-card-image">
+                            <div class="room-card-image" onclick="event.stopPropagation(); openImageZoom('${imagePath}', '${(room.TenPhong || 'Phòng').replace(/'/g, "\\'")}')">
                                 <img src="${imagePath}" alt="${room.TenPhong || 'Phòng'}" 
-                                     onerror="this.src='img/phong/default.php'">
+                                     onerror="this.src='../img/phong/default.php'">
                             </div>
                         ` : ''}
-                        <div class="room-card-header">
-                            <h6 class="room-card-title">${room.TenPhong || 'Phòng không tên'}</h6>
-                            ${isSelected ? '<span class="room-card-badge"><i class="fas fa-check"></i> Đã chọn</span>' : ''}
-                        </div>
-                        
-                        <div class="room-card-info">
-                            <div class="room-info-item">
-                                <i class="fas fa-users"></i>
-                                <span>Sức chứa: ${room.SucChua || 0} người</span>
+                        <div class="card-body">
+                            <div class="room-card-header">
+                                <h6 class="room-card-title">${room.TenPhong || 'Phòng không tên'}</h6>
+                                ${isSelected ? '<span class="room-card-badge"><i class="fas fa-check"></i> Đã chọn</span>' : ''}
                             </div>
-                            <div class="room-info-item">
-                                <i class="fas fa-info-circle"></i>
-                                <span>Trạng thái: ${room.TrangThai || 'Sẵn sàng'}</span>
+                            
+                            <div class="room-card-info">
+                                <div class="room-info-item">
+                                    <i class="fas fa-users"></i>
+                                    <span>Sức chứa: ${room.SucChua || 0} người</span>
+                                </div>
+                                <div class="room-info-item">
+                                    <i class="fas fa-info-circle"></i>
+                                    <span>Trạng thái: ${room.TrangThai || 'Sẵn sàng'}</span>
+                                </div>
                             </div>
-                        </div>
-                        
-                        ${room.MoTa ? `
-                            <div class="room-card-description">
-                                <i class="fas fa-quote-left"></i> ${room.MoTa}
-                            </div>
-                        ` : ''}
-                        
-                        <div class="room-price-info">
+                            
+                            ${room.MoTa ? `
+                                <div class="room-card-description">
+                                    <i class="fas fa-quote-left"></i> ${room.MoTa}
+                                </div>
+                            ` : ''}
+                            
+                            <div class="room-price-info">
                             ${hasHourly ? `
                                 <div class="room-price-item ${rentalType === 'hour' ? 'active' : ''}">
                                     <div class="room-price-label">⏰ Theo giờ</div>
@@ -4243,7 +4858,7 @@
                 const roomMoTa = room.MoTa ? room.MoTa.replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
                 const roomTrangThai = (room.TrangThai || 'Sẵn sàng').replace(/'/g, "\\'");
                 
-                const imagePath = room.HinhAnh ? `img/phong/${room.HinhAnh}` : 'img/phong/default.php';
+                const imagePath = room.HinhAnh ? `../img/phong/${room.HinhAnh}` : '../img/phong/default.php';
                 
                 html += `
                     <div class="col-md-6">
@@ -4251,33 +4866,35 @@
                              onclick="selectRoomInModal(${room.ID_Phong}, '${roomName.replace(/'/g, "\\'")}', ${price}, '${rentalType}')"
                              data-room-id="${room.ID_Phong}">
                             ${room.HinhAnh ? `
-                                <div class="room-card-image">
+                                <div class="room-card-image" onclick="event.stopPropagation(); openImageZoom('${imagePath}', '${roomName.replace(/'/g, "\\'")}')">
                                     <img src="${imagePath}" alt="${room.TenPhong || 'Phòng'}" 
-                                         onerror="this.src='img/phong/default.php'">
+                                         onerror="this.src='../img/phong/default.php'">
                                 </div>
                             ` : ''}
-                            <div class="room-card-header">
-                                <h6 class="room-card-title">${room.TenPhong || 'Phòng không tên'}</h6>
-                            </div>
-                            <div class="room-card-info">
-                                <div class="room-info-item">
-                                    <i class="fas fa-users"></i>
-                                    <span>Sức chứa: ${room.SucChua || 0} người</span>
+                            <div class="card-body">
+                                <div class="room-card-header">
+                                    <h6 class="room-card-title">${room.TenPhong || 'Phòng không tên'}</h6>
                                 </div>
-                                <div class="room-info-item">
-                                    <i class="fas fa-info-circle"></i>
-                                    <span>Trạng thái: ${room.TrangThai || 'Sẵn sàng'}</span>
+                                <div class="room-card-info">
+                                    <div class="room-info-item">
+                                        <i class="fas fa-users"></i>
+                                        <span>Sức chứa: ${room.SucChua || 0} người</span>
+                                    </div>
+                                    <div class="room-info-item">
+                                        <i class="fas fa-info-circle"></i>
+                                        <span>Trạng thái: ${room.TrangThai || 'Sẵn sàng'}</span>
+                                    </div>
                                 </div>
-                            </div>
-                            ${room.MoTa ? `
-                                <div class="room-card-description">
-                                    <i class="fas fa-quote-left"></i> ${room.MoTa}
-                                </div>
-                            ` : ''}
-                            <div class="room-price-info mt-3">
-                                <div class="room-price-item active">
-                                    <div class="room-price-label">${rentalType === 'hour' ? '⏰' : '📅'} ${rentalType === 'hour' ? 'Theo giờ' : 'Theo ngày'}</div>
-                                    <div class="room-price-value">${formatCurrency(price)}/${priceText}</div>
+                                ${room.MoTa ? `
+                                    <div class="room-card-description">
+                                        <i class="fas fa-quote-left"></i> ${room.MoTa}
+                                    </div>
+                                ` : ''}
+                                <div class="room-price-info mt-3">
+                                    <div class="room-price-item active">
+                                        <div class="room-price-label">${rentalType === 'hour' ? '⏰' : '📅'} ${rentalType === 'hour' ? 'Theo giờ' : 'Theo ngày'}</div>
+                                        <div class="room-price-value">${formatCurrency(price)}/${priceText}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -5796,8 +6413,8 @@
                 }
             }, 5000);
             
-            // Scroll to top if needed (optional)
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // KHÔNG scroll lên đầu trang khi hiển thị thông báo để giữ nguyên vị trí người dùng
+            // window.scrollTo({ top: 0, behavior: 'smooth' }); // Đã bỏ để giữ nguyên vị trí scroll
         }
         
         // Show error message (backward compatible + toast)

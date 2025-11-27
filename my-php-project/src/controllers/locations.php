@@ -3,31 +3,40 @@ ob_start();
 session_start();
 require_once __DIR__ . '/../../config/database.php';
 
-header('Content-Type: application/json');
+// Đảm bảo encoding UTF-8
+mb_internal_encoding('UTF-8');
+mb_http_output('UTF-8');
+
+header('Content-Type: application/json; charset=utf-8');
+
+// Helper function để encode JSON với UTF-8
+function jsonResponse($data) {
+    return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
 
 // Kiểm tra người dùng đã đăng nhập chưa
 if (!isset($_SESSION['user'])) {
-    echo json_encode(['success' => false, 'error' => 'Bạn cần đăng nhập']);
+            echo jsonResponse(['success' => false, 'error' => 'Bạn cần đăng nhập']);
     exit();
 }
 
 $pdo = getDBConnection();
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
-// Các action yêu cầu quyền admin
-$adminOnlyActions = ['add_location', 'update_location', 'delete_location', 'get_locations'];
+// Các action yêu cầu quyền quản lý tài chính (role 2)
+$financeManagerActions = ['add_location', 'update_location', 'delete_location'];
 
-// Kiểm tra quyền admin cho các action chỉ dành cho admin
+// Kiểm tra quyền quản lý tài chính cho các action chỉnh sửa
 $userRole = $_SESSION['user']['ID_Role'] ?? $_SESSION['user']['role'] ?? null;
-if (in_array($action, $adminOnlyActions) && !in_array($userRole, [1, 2, 3, 4])) {
-    echo json_encode(['success' => false, 'error' => 'Không có quyền truy cập']);
+if (in_array($action, $financeManagerActions) && $userRole != 2) {
+    echo jsonResponse(['success' => false, 'error' => 'Chỉ quản lý tài chính mới có quyền thực hiện thao tác này']);
     exit();
 }
 
 try {
     switch ($action) {
         case 'test':
-            echo json_encode(['success' => true, 'message' => 'Controller hoạt động bình thường']);
+            echo jsonResponse(['success' => true, 'message' => 'Controller hoạt động bình thường']);
             break;
             
         case 'get_locations':
@@ -44,7 +53,7 @@ try {
             // Đảm bảo bảng và cột tồn tại
             $checkTable = $pdo->query("SHOW TABLES LIKE 'diadiem'");
             if ($checkTable->rowCount() == 0) {
-                echo json_encode(['success' => false, 'error' => 'Bảng diadiem không tồn tại']);
+                echo jsonResponse(['success' => false, 'error' => 'Bảng diadiem không tồn tại']);
                 break;
             }
             
@@ -97,7 +106,7 @@ try {
             $stmt->execute($params);
             $locations = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            echo json_encode(['success' => true, 'locations' => $locations]);
+            echo jsonResponse(['success' => true, 'locations' => $locations]);
             break;
             
         case 'get_location':
@@ -107,7 +116,7 @@ try {
             $eventEndDate = $_GET['event_end_date'] ?? $_POST['event_end_date'] ?? null;
             
             if (!$locationId) {
-                echo json_encode(['success' => false, 'error' => 'Thiếu ID địa điểm']);
+                echo jsonResponse(['success' => false, 'error' => 'Thiếu ID địa điểm']);
                 break;
             }
             
@@ -180,9 +189,9 @@ try {
                 $location['rooms'] = $rooms;
                 $response = ['success' => true, 'location' => $location];
                 error_log("API Response: " . json_encode($response, JSON_UNESCAPED_UNICODE));
-                echo json_encode($response, JSON_UNESCAPED_UNICODE);
+                echo jsonResponse($response);
             } else {
-                echo json_encode(['success' => false, 'error' => 'Không tìm thấy địa điểm']);
+                echo jsonResponse(['success' => false, 'error' => 'Không tìm thấy địa điểm']);
             }
             break;
             
@@ -198,36 +207,38 @@ try {
             $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'SucChua', 'QuanHuyen', 'TinhThanh'];
             foreach ($requiredFields as $field) {
                 if (empty($input[$field])) {
-                    echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
+                    echo jsonResponse(['success' => false, 'error' => "Trường {$field} không được để trống"]);
                     exit();
                 }
             }
             
             // LoaiThue chỉ bắt buộc cho địa điểm ngoài trời
             if (($input['LoaiDiaDiem'] ?? '') === 'Ngoài trời' && empty($input['LoaiThue'])) {
-                echo json_encode(['success' => false, 'error' => 'Loại thuê là bắt buộc cho địa điểm ngoài trời']);
+                echo jsonResponse(['success' => false, 'error' => 'Loại thuê là bắt buộc cho địa điểm ngoài trời']);
                 exit();
             }
             
             // Xác thực LoaiDiaDiem
             $allowedTypes = ['Trong nhà', 'Ngoài trời'];
             if (!in_array($input['LoaiDiaDiem'], $allowedTypes)) {
-                echo json_encode(['success' => false, 'error' => 'Loại địa điểm không hợp lệ']);
+                echo jsonResponse(['success' => false, 'error' => 'Loại địa điểm không hợp lệ']);
                 break;
             }
             
             // Xác thực sức chứa
             if (!is_numeric($input['SucChua']) || $input['SucChua'] <= 0) {
-                echo json_encode(['success' => false, 'error' => 'Sức chứa phải là số dương']);
+                echo jsonResponse(['success' => false, 'error' => 'Sức chứa phải là số dương']);
                 break;
             }
             
-            // Kiểm tra tên địa điểm đã tồn tại chưa
-            $stmt = $pdo->prepare("SELECT ID_DD FROM diadiem WHERE TenDiaDiem = ?");
-            $stmt->execute([$input['TenDiaDiem']]);
-            if ($stmt->fetch()) {
-                echo json_encode(['success' => false, 'error' => 'Tên địa điểm đã tồn tại']);
-                break;
+            // Kiểm tra địa chỉ đã tồn tại chưa (chỉ kiểm tra địa chỉ, không kiểm tra tên)
+            if (!empty($input['DiaChi'])) {
+                $stmt = $pdo->prepare("SELECT ID_DD FROM diadiem WHERE DiaChi = ?");
+                $stmt->execute([$input['DiaChi']]);
+                if ($stmt->fetch()) {
+                    echo jsonResponse(['success' => false, 'error' => 'Địa chỉ đã tồn tại']);
+                    break;
+                }
             }
             
             // Xử lý upload hình ảnh
@@ -247,19 +258,19 @@ try {
                 // Xác thực loại file
                 $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
                 if (!in_array(strtolower($fileInfo['extension']), $allowedTypes)) {
-                    echo json_encode(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
+                    echo jsonResponse(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
                     break;
                 }
                 
                 // Xác thực kích thước file (tối đa 5MB)
                 if ($_FILES['HinhAnh']['size'] > 5 * 1024 * 1024) {
-                    echo json_encode(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
+                    echo jsonResponse(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
                     break;
                 }
                 
                 // Di chuyển file đã upload
                 if (!move_uploaded_file($_FILES['HinhAnh']['tmp_name'], $uploadPath)) {
-                    echo json_encode(['success' => false, 'error' => 'Không thể upload file']);
+                    echo jsonResponse(['success' => false, 'error' => 'Không thể upload file']);
                     break;
                 }
             }
@@ -299,7 +310,7 @@ try {
                 $imageName
             ]);
             
-            echo json_encode(['success' => true, 'message' => 'Thêm địa điểm thành công']);
+            echo jsonResponse(['success' => true, 'message' => 'Thêm địa điểm thành công']);
             break;
             
         case 'update_location':
@@ -311,7 +322,7 @@ try {
             
             $locationId = $input['id'] ?? null;
             if (!$locationId) {
-                echo json_encode(['success' => false, 'error' => 'Thiếu ID địa điểm']);
+                echo jsonResponse(['success' => false, 'error' => 'Thiếu ID địa điểm']);
                 exit();
             }
             
@@ -319,7 +330,7 @@ try {
             $requiredFields = ['TenDiaDiem', 'LoaiDiaDiem', 'SucChua', 'QuanHuyen', 'TinhThanh'];
             foreach ($requiredFields as $field) {
                 if (empty($input[$field])) {
-                    echo json_encode(['success' => false, 'error' => "Trường {$field} không được để trống"]);
+                    echo jsonResponse(['success' => false, 'error' => "Trường {$field} không được để trống"]);
                     exit();
                 }
             }
@@ -327,13 +338,13 @@ try {
             // Xác thực LoaiDiaDiem
             $allowedTypes = ['Trong nhà', 'Ngoài trời'];
             if (!in_array($input['LoaiDiaDiem'], $allowedTypes)) {
-                echo json_encode(['success' => false, 'error' => 'Loại địa điểm không hợp lệ']);
+                echo jsonResponse(['success' => false, 'error' => 'Loại địa điểm không hợp lệ']);
                 break;
             }
             
             // LoaiThue chỉ bắt buộc cho địa điểm ngoài trời
             if (($input['LoaiDiaDiem'] ?? '') === 'Ngoài trời' && empty($input['LoaiThue'])) {
-                echo json_encode(['success' => false, 'error' => 'Loại thuê là bắt buộc cho địa điểm ngoài trời']);
+                echo jsonResponse(['success' => false, 'error' => 'Loại thuê là bắt buộc cho địa điểm ngoài trời']);
                 break;
             }
             
@@ -341,33 +352,51 @@ try {
             if (!empty($input['LoaiThue'])) {
                 $allowedRentTypes = ['Theo giờ', 'Theo ngày', 'Cả hai'];
                 if (!in_array($input['LoaiThue'], $allowedRentTypes)) {
-                    echo json_encode(['success' => false, 'error' => 'Loại thuê không hợp lệ']);
+                    echo jsonResponse(['success' => false, 'error' => 'Loại thuê không hợp lệ']);
                     break;
                 }
             }
             
             // Xác thực sức chứa
             if (!is_numeric($input['SucChua']) || $input['SucChua'] <= 0) {
-                echo json_encode(['success' => false, 'error' => 'Sức chứa phải là số dương']);
+                echo jsonResponse(['success' => false, 'error' => 'Sức chứa phải là số dương']);
                 break;
             }
             
             // Kiểm tra địa điểm có tồn tại không
-            $stmt = $pdo->prepare("SELECT TenDiaDiem FROM diadiem WHERE ID_DD = ?");
+            $stmt = $pdo->prepare("SELECT TenDiaDiem, LoaiDiaDiem FROM diadiem WHERE ID_DD = ?");
             $stmt->execute([$locationId]);
             $existingLocation = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$existingLocation) {
-                echo json_encode(['success' => false, 'error' => 'Không tìm thấy địa điểm']);
+                echo jsonResponse(['success' => false, 'error' => 'Không tìm thấy địa điểm']);
                 break;
             }
             
-            // Kiểm tra tên mới có trùng với địa điểm khác không
-            if ($input['TenDiaDiem'] !== $existingLocation['TenDiaDiem']) {
-                $stmt = $pdo->prepare("SELECT ID_DD FROM diadiem WHERE TenDiaDiem = ? AND ID_DD != ?");
-                $stmt->execute([$input['TenDiaDiem'], $locationId]);
+            // RÀNG BUỘC: Nếu địa điểm hiện tại là "Trong nhà" và đã có phòng, không cho phép đổi sang "Ngoài trời"
+            $oldLocationType = $existingLocation['LoaiDiaDiem'] ?? '';
+            $newLocationType = $input['LoaiDiaDiem'] ?? '';
+            
+            if ($oldLocationType === 'Trong nhà' && $newLocationType === 'Ngoài trời') {
+                // Kiểm tra xem địa điểm có phòng không
+                $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM phong WHERE ID_DD = ?");
+                $stmt->execute([$locationId]);
+                $roomCount = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($roomCount['count'] > 0) {
+                    echo jsonResponse(['success' => false, 'error' => 'Không thể đổi loại địa điểm từ "Trong nhà" sang "Ngoài trời" vì địa điểm này đã có ' . $roomCount['count'] . ' phòng. Vui lòng xóa tất cả phòng trước khi đổi loại địa điểm.']);
+                    break;
+                }
+            }
+            
+            // Kiểm tra địa chỉ có trùng với địa điểm khác không (chỉ kiểm tra địa chỉ, không kiểm tra tên)
+            $isAddressChanged = ($input['DiaChi'] ?? '') !== ($existingLocation['DiaChi'] ?? '');
+            
+            if ($isAddressChanged && !empty($input['DiaChi'])) {
+                $stmt = $pdo->prepare("SELECT ID_DD FROM diadiem WHERE DiaChi = ? AND ID_DD != ?");
+                $stmt->execute([$input['DiaChi'], $locationId]);
                 if ($stmt->fetch()) {
-                    echo json_encode(['success' => false, 'error' => 'Tên địa điểm đã tồn tại']);
+                    echo jsonResponse(['success' => false, 'error' => 'Địa chỉ đã tồn tại']);
                     break;
                 }
             }
@@ -389,19 +418,19 @@ try {
                 // Xác thực loại file
                 $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
                 if (!in_array(strtolower($fileInfo['extension']), $allowedTypes)) {
-                    echo json_encode(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
+                    echo jsonResponse(['success' => false, 'error' => 'Định dạng file không được hỗ trợ. Chỉ chấp nhận: jpg, jpeg, png, gif, webp']);
                     break;
                 }
                 
                 // Xác thực kích thước file (tối đa 5MB)
                 if ($_FILES['HinhAnh']['size'] > 5 * 1024 * 1024) {
-                    echo json_encode(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
+                    echo jsonResponse(['success' => false, 'error' => 'Kích thước file quá lớn. Tối đa 5MB']);
                     break;
                 }
                 
                 // Di chuyển file đã upload
                 if (!move_uploaded_file($_FILES['HinhAnh']['tmp_name'], $uploadPath)) {
-                    echo json_encode(['success' => false, 'error' => 'Không thể upload file']);
+                    echo jsonResponse(['success' => false, 'error' => 'Không thể upload file']);
                     break;
                 }
             }
@@ -471,7 +500,7 @@ try {
                 ]);
             }
             
-            echo json_encode(['success' => true, 'message' => 'Cập nhật địa điểm thành công']);
+            echo jsonResponse(['success' => true, 'message' => 'Cập nhật địa điểm thành công']);
             break;
             
         case 'delete_location':
@@ -485,7 +514,7 @@ try {
                 
                 if (!$locationId) {
                     ob_clean();
-                    echo json_encode(['success' => false, 'error' => 'Thiếu ID địa điểm']);
+                    echo jsonResponse(['success' => false, 'error' => 'Thiếu ID địa điểm']);
                     break;
                 }
                 
@@ -496,7 +525,7 @@ try {
                 
                 if (!$location) {
                     ob_clean();
-                    echo json_encode(['success' => false, 'error' => 'Không tìm thấy địa điểm']);
+                    echo jsonResponse(['success' => false, 'error' => 'Không tìm thấy địa điểm']);
                     break;
                 }
                 
@@ -515,7 +544,7 @@ try {
                 
                 if ($activeEvent['count'] > 0) {
                     ob_clean();
-                    echo json_encode([
+                    echo jsonResponse([
                         'success' => false, 
                         'error' => "Không thể xóa địa điểm vì đang có sự kiện đang diễn ra: {$activeEvent['events']}"
                     ]);
@@ -536,7 +565,7 @@ try {
                 
                 if ($upcomingEvent['count'] > 0) {
                     ob_clean();
-                    echo json_encode([
+                    echo jsonResponse([
                         'success' => false, 
                         'error' => "Không thể xóa địa điểm vì đang có sự kiện sắp diễn ra: {$upcomingEvent['events']}"
                     ]);
@@ -555,7 +584,7 @@ try {
                 
                 if ($bookedEvent['count'] > 0) {
                     ob_clean();
-                    echo json_encode([
+                    echo jsonResponse([
                         'success' => false, 
                         'error' => "Không thể xóa địa điểm vì đang có {$bookedEvent['count']} sự kiện đã được đặt (kể cả chưa duyệt)"
                     ]);
@@ -579,7 +608,7 @@ try {
                     
                     if ($roomActiveEvent['count'] > 0) {
                         ob_clean();
-                        echo json_encode([
+                        echo jsonResponse([
                             'success' => false, 
                             'error' => "Không thể xóa địa điểm vì có phòng đang có sự kiện đang diễn ra"
                         ]);
@@ -603,15 +632,15 @@ try {
                     if (isset($deletedRooms) && $deletedRooms > 0) {
                         $message .= " (đã xóa {$deletedRooms} phòng thuộc địa điểm)";
                     }
-                    echo json_encode(['success' => true, 'message' => $message]);
+                    echo jsonResponse(['success' => true, 'message' => $message]);
                 } else {
                     ob_clean();
-                    echo json_encode(['success' => false, 'error' => 'Không thể xóa địa điểm']);
+                    echo jsonResponse(['success' => false, 'error' => 'Không thể xóa địa điểm']);
                 }
             } catch (Exception $e) {
                 error_log("Delete location error: " . $e->getMessage());
                 ob_clean();
-                echo json_encode(['success' => false, 'error' => 'Lỗi xóa địa điểm: ' . $e->getMessage()]);
+                echo jsonResponse(['success' => false, 'error' => 'Lỗi xóa địa điểm: ' . $e->getMessage()]);
             }
             exit();
             
@@ -619,7 +648,7 @@ try {
             // Lấy thống kê địa điểm
             $checkTable = $pdo->query("SHOW TABLES LIKE 'diadiem'");
             if ($checkTable->rowCount() == 0) {
-                echo json_encode(['success' => false, 'error' => 'Bảng diadiem không tồn tại']);
+                echo jsonResponse(['success' => false, 'error' => 'Bảng diadiem không tồn tại']);
                 break;
             }
             
@@ -635,7 +664,7 @@ try {
             $stats['inactive_locations'] = (int)$pdo->query("SELECT COUNT(*) FROM diadiem WHERE TrangThaiHoatDong IN ('Bảo trì', 'Ngừng hoạt động')")->fetchColumn();
             $stats['total_capacity'] = (int)($pdo->query("SELECT SUM(SucChua) FROM diadiem WHERE TrangThaiHoatDong = 'Hoạt động' OR TrangThaiHoatDong IS NULL")->fetchColumn() ?? 0);
             
-            echo json_encode([
+            echo jsonResponse([
                 'success' => true, 
                 'stats' => $stats
             ]);
@@ -647,7 +676,7 @@ try {
             $newStatus = $_POST['status'] ?? null;
             
             if (!$locationId || !$newStatus) {
-                echo json_encode(['success' => false, 'error' => 'Thiếu thông tin cần thiết']);
+                echo jsonResponse(['success' => false, 'error' => 'Thiếu thông tin cần thiết']);
                 break;
             }
             
@@ -657,7 +686,7 @@ try {
             $location = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$location) {
-                echo json_encode(['success' => false, 'error' => 'Không tìm thấy địa điểm']);
+                echo jsonResponse(['success' => false, 'error' => 'Không tìm thấy địa điểm']);
                 break;
             }
             
@@ -678,20 +707,20 @@ try {
             
             if ($result) {
                 $statusText = $newStatus === 'Hoạt động' ? 'kích hoạt' : ($newStatus === 'Bảo trì' ? 'chuyển bảo trì' : 'tắt hoạt động');
-                echo json_encode(['success' => true, 'message' => "Đã {$statusText} địa điểm thành công"]);
+                echo jsonResponse(['success' => true, 'message' => "Đã {$statusText} địa điểm thành công"]);
             } else {
-                echo json_encode(['success' => false, 'error' => 'Lỗi khi cập nhật trạng thái']);
+                echo jsonResponse(['success' => false, 'error' => 'Lỗi khi cập nhật trạng thái']);
             }
             break;
             
         default:
-            echo json_encode(['success' => false, 'error' => 'Hành động không hợp lệ']);
+            echo jsonResponse(['success' => false, 'error' => 'Hành động không hợp lệ']);
             break;
     }
     
 } catch (Exception $e) {
     ob_clean();
-    echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
+    echo jsonResponse(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
 }
 
 ob_end_flush();

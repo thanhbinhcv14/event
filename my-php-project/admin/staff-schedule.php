@@ -67,308 +67,29 @@ try {
         $staffInfo = ['ID_NhanVien' => null, 'HoTen' => 'Nhân viên', 'ChucVu' => 'Staff', 'Email' => ''];
     } else {
         error_log("DEBUG: Staff info found - ID: " . $staffInfo['ID_NhanVien'] . ", Name: " . $staffInfo['HoTen']);
-        
-        // Check if this staff has any assignments
-        $checkStmt = $pdo->prepare("SELECT COUNT(*) as count FROM chitietkehoach WHERE ID_NhanVien = ?");
-        $checkStmt->execute([$staffInfo['ID_NhanVien']]);
-        $assignmentCount = $checkStmt->fetch(PDO::FETCH_ASSOC);
-        error_log("DEBUG: Direct check - chitietkehoach assignments for staff " . $staffInfo['ID_NhanVien'] . ": " . $assignmentCount['count']);
     }
     
-    // Get assignments from both lichlamviec and chitietkehoach
+    // Assignments sẽ được load qua AJAX từ API
     $assignments = [];
-    
-    if ($staffInfo && $staffInfo['ID_NhanVien']) {
-    // First, try to get from lichlamviec
-    $stmt = $pdo->prepare("
-        SELECT 
-            llv.ID_LLV,
-            llv.NhiemVu,
-            llv.NgayBatDau,
-            llv.NgayKetThuc,
-            llv.TrangThai,
-            llv.GhiChu,
-            llv.CongViec,
-                llv.NgayKetThuc as HanHoanThanh,
-            llv.Tiendo,
-                NULL as ThoiGianBatDauThucTe,
-                NULL as ThoiGianKetThucThucTe,
-                NULL as TienDoPhanTram,
-                NULL as ThoiGianLamViec,
-                NULL as ChamTienDo,
-                NULL as GhiChuTienDo,
-            COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
-            COALESCE(dl.MoTa, '') as SuKienMoTa,
-            COALESCE(dl.NgayBatDau, llv.NgayBatDau) as EventStartDate,
-            COALESCE(dl.NgayKetThuc, llv.NgayKetThuc) as EventEndDate,
-            COALESCE(dl.SoNguoiDuKien, 0) as SoNguoiDuKien,
-            COALESCE(dl.NganSach, 0) as NganSach,
-            COALESCE(dl.GhiChu, '') as SuKienGhiChu,
-            COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
-            COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
-            COALESCE(ls.TenLoai, 'Không xác định') as TenLoaiSK,
-            COALESCE(ls.MoTa, '') as LoaiSKMoTa,
-            COALESCE(kh.HoTen, 'Không xác định') as TenKhachHang,
-            COALESCE(kh.SoDienThoai, 'Không xác định') as SoDienThoai,
-            COALESCE(kh.DiaChi, '') as KhachHangDiaChi,
-                COALESCE(kht.TenKeHoach, llv.NhiemVu) as ten_kehoach,
-                COALESCE(kht.NoiDung, llv.GhiChu) as kehoach_noidung,
-                COALESCE(kht.TrangThai, llv.TrangThai) as kehoach_trangthai,
-            'lichlamviec' as source_table
-        FROM lichlamviec llv
-        LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
-        LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-        LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
-        LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-            LEFT JOIN kehoachthuchien kht ON llv.ID_KeHoach = kht.ID_KeHoach
-        WHERE llv.ID_NhanVien = ?
-        ORDER BY (llv.TrangThai = 'Hoàn thành') ASC, llv.NgayBatDau ASC
-    ");
-    $stmt->execute([$staffInfo['ID_NhanVien']]);
-    $lichlamviec_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Then, try to get from chitietkehoach
-    $stmt = $pdo->prepare("
-        SELECT 
-            ck.ID_ChiTiet as ID_LLV,
-            ck.TenBuoc as NhiemVu,
-            ck.NgayBatDau,
-            ck.NgayKetThuc,
-            ck.TrangThai,
-                ck.MoTa as GhiChu,
-            ck.TenBuoc as CongViec,
-            ck.NgayKetThuc as HanHoanThanh,
-            COALESCE(llv.Tiendo, '0') as Tiendo,
-                NULL as ThoiGianBatDauThucTe,
-                NULL as ThoiGianKetThucThucTe,
-                NULL as TienDoPhanTram,
-                NULL as ThoiGianLamViec,
-                NULL as ChamTienDo,
-                COALESCE(llv.GhiChu, NULL) as GhiChuTienDo,
-            COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
-            COALESCE(dl.MoTa, '') as SuKienMoTa,
-            COALESCE(dl.NgayBatDau, ck.NgayBatDau) as EventStartDate,
-            COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
-            COALESCE(dl.SoNguoiDuKien, 0) as SoNguoiDuKien,
-            COALESCE(dl.NganSach, 0) as NganSach,
-            COALESCE(dl.GhiChu, '') as SuKienGhiChu,
-            COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
-            COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
-            COALESCE(ls.TenLoai, 'Không xác định') as TenLoaiSK,
-            COALESCE(ls.MoTa, '') as LoaiSKMoTa,
-            COALESCE(kh.HoTen, 'Không xác định') as TenKhachHang,
-            COALESCE(kh.SoDienThoai, 'Không xác định') as SoDienThoai,
-            COALESCE(kh.DiaChi, '') as KhachHangDiaChi,
-                COALESCE(kht.TenKeHoach, ck.TenBuoc) as ten_kehoach,
-                COALESCE(kht.NoiDung, ck.MoTa) as kehoach_noidung,
-                COALESCE(kht.TrangThai, ck.TrangThai) as kehoach_trangthai,
-            COALESCE(bs.TrangThai, NULL) as IssueStatus,
-            'chitietkehoach' as source_table
-        FROM chitietkehoach ck
-            LEFT JOIN lichlamviec llv ON llv.ID_ChiTiet = ck.ID_ChiTiet
-            LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
-            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
-        LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
-        LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-        LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
-        LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-        LEFT JOIN baocaosuco bs ON bs.ID_Task = ck.ID_ChiTiet AND bs.LoaiTask = 'chitietkehoach' AND bs.ID_NhanVien = ck.ID_NhanVien
-        WHERE ck.ID_NhanVien = ?
-        ORDER BY (ck.TrangThai = 'Hoàn thành') ASC, ck.NgayBatDau ASC
-    ");
-    $stmt->execute([$staffInfo['ID_NhanVien']]);
-    $chitietkehoach_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Combine both results - but prioritize lichlamviec to avoid duplicates
-    $assignments = $lichlamviec_assignments;
-    
-    // Only add chitietkehoach assignments that don't have corresponding lichlamviec entries
-    foreach ($chitietkehoach_assignments as $chitiet) {
-        $isDuplicate = false;
-        foreach ($lichlamviec_assignments as $lich) {
-            // Check if this chitietkehoach entry already exists in lichlamviec
-            // by comparing task name, dates, and staff ID
-            if ($chitiet['NhiemVu'] == $lich['NhiemVu'] && 
-                $chitiet['NgayBatDau'] == $lich['NgayBatDau'] && 
-                $chitiet['NgayKetThuc'] == $lich['NgayKetThuc']) {
-                $isDuplicate = true;
-                break;
-            }
-        }
-        if (!$isDuplicate) {
-            $assignments[] = $chitiet;
-        }
-    }
-    
-    // Sort assignments: non-completed tasks first, then completed tasks
-    // Within each group, sort by start date
-    usort($assignments, function($a, $b) {
-        $aCompleted = ($a['TrangThai'] == 'Hoàn thành') ? 1 : 0;
-        $bCompleted = ($b['TrangThai'] == 'Hoàn thành') ? 1 : 0;
-        
-        // First sort by completion status (0 = not completed, 1 = completed)
-        if ($aCompleted != $bCompleted) {
-            return $aCompleted - $bCompleted;
-        }
-        
-        // If same status, sort by start date
-        $aDate = strtotime($a['NgayBatDau'] ?? '1970-01-01');
-        $bDate = strtotime($b['NgayBatDau'] ?? '1970-01-01');
-        return $aDate - $bDate;
-    });
-        
-        error_log("DEBUG: Found " . count($lichlamviec_assignments) . " lichlamviec assignments");
-        error_log("DEBUG: Found " . count($chitietkehoach_assignments) . " chitietkehoach assignments");
-        error_log("DEBUG: Total assignments: " . count($assignments));
-        
-        // Debug: Log first assignment if exists
-        if (!empty($chitietkehoach_assignments)) {
-            error_log("DEBUG: First chitietkehoach assignment: " . json_encode($chitietkehoach_assignments[0]));
-        }
-    } else {
-        error_log("WARNING: No staff ID found, using fallback by user/email to fetch assignments");
-        // Fallback: fetch by users link (ID_User/Email) via subqueries/joins
-        // lichlamviec via subselect of staff IDs mapped to this user
-        $stmt = $pdo->prepare("
-            SELECT 
-                llv.ID_LLV,
-                llv.NhiemVu,
-                llv.NgayBatDau,
-                llv.NgayKetThuc,
-                llv.TrangThai,
-                llv.GhiChu,
-                llv.CongViec,
-                llv.NgayKetThuc as HanHoanThanh,
-                llv.Tiendo,
-                NULL as ThoiGianBatDauThucTe,
-                NULL as ThoiGianKetThucThucTe,
-                NULL as TienDoPhanTram,
-                NULL as ThoiGianLamViec,
-                NULL as ChamTienDo,
-                NULL as GhiChuTienDo,
-                COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
-                COALESCE(dl.NgayBatDau, llv.NgayBatDau) as EventStartDate,
-                COALESCE(dl.NgayKetThuc, llv.NgayKetThuc) as EventEndDate,
-                COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
-                COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
-                COALESCE(kht.TenKeHoach, llv.NhiemVu) as ten_kehoach,
-                COALESCE(kht.NoiDung, llv.GhiChu) as kehoach_noidung,
-                COALESCE(kht.TrangThai, llv.TrangThai) as kehoach_trangthai,
-                'lichlamviec' as source_table
-            FROM lichlamviec llv
-            LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
-            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-            LEFT JOIN kehoachthuchien kht ON llv.ID_KeHoach = kht.ID_KeHoach
-            WHERE llv.ID_NhanVien IN (
-                SELECT nv.ID_NhanVien FROM nhanvieninfo nv JOIN users u ON nv.ID_User = u.ID_User
-                WHERE u.ID_User = ? OR u.Email = ?
-            )
-            ORDER BY (llv.TrangThai = 'Hoàn thành') ASC, llv.NgayBatDau ASC
-        ");
-        $stmt->execute([$userId, $userEmail]);
-        $lichlamviec_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // chitietkehoach via join to nv->users by user
-        $stmt = $pdo->prepare("
-            SELECT 
-                ck.ID_ChiTiet as ID_LLV,
-                ck.TenBuoc as NhiemVu,
-                ck.NgayBatDau,
-                ck.NgayKetThuc,
-                ck.TrangThai,
-                ck.MoTa as GhiChu,
-                ck.TenBuoc as CongViec,
-                ck.NgayKetThuc as HanHoanThanh,
-                COALESCE(llv.Tiendo, '0') as Tiendo,
-                NULL as ThoiGianBatDauThucTe,
-                NULL as ThoiGianKetThucThucTe,
-                NULL as TienDoPhanTram,
-                NULL as ThoiGianLamViec,
-                NULL as ChamTienDo,
-                COALESCE(llv.GhiChu, NULL) as GhiChuTienDo,
-                COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
-                COALESCE(dl.NgayBatDau, ck.NgayBatDau) as EventStartDate,
-                COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
-                COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
-                COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
-                COALESCE(kht.TenKeHoach, ck.TenBuoc) as ten_kehoach,
-                COALESCE(kht.NoiDung, ck.MoTa) as kehoach_noidung,
-                COALESCE(kht.TrangThai, ck.TrangThai) as kehoach_trangthai,
-                'chitietkehoach' as source_table
-            FROM chitietkehoach ck
-            JOIN nhanvieninfo nv ON ck.ID_NhanVien = nv.ID_NhanVien
-            JOIN users u ON nv.ID_User = u.ID_User
-            LEFT JOIN lichlamviec llv ON llv.ID_ChiTiet = ck.ID_ChiTiet
-            LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
-            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
-            LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
-            LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-            WHERE u.ID_User = ? OR u.Email = ?
-            ORDER BY (ck.TrangThai = 'Hoàn thành') ASC, ck.NgayBatDau ASC
-        ");
-        $stmt->execute([$userId, $userEmail]);
-        $chitietkehoach_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $assignments = array_merge($lichlamviec_assignments, $chitietkehoach_assignments);
-        
-        // Sort assignments: non-completed tasks first, then completed tasks
-        // Within each group, sort by start date
-        usort($assignments, function($a, $b) {
-            $aCompleted = ($a['TrangThai'] == 'Hoàn thành') ? 1 : 0;
-            $bCompleted = ($b['TrangThai'] == 'Hoàn thành') ? 1 : 0;
-            
-            // First sort by completion status (0 = not completed, 1 = completed)
-            if ($aCompleted != $bCompleted) {
-                return $aCompleted - $bCompleted;
-            }
-            
-            // If same status, sort by start date
-            $aDate = strtotime($a['NgayBatDau'] ?? '1970-01-01');
-            $bDate = strtotime($b['NgayBatDau'] ?? '1970-01-01');
-            return $aDate - $bDate;
-        });
-    }
-    
-    // Debug: Log assignments query
-    error_log("DEBUG: Staff Schedule - Staff ID: " . ($staffInfo['ID_NhanVien'] ?? 'N/A'));
-    error_log("DEBUG: Staff Schedule - lichlamviec assignments: " . count($lichlamviec_assignments));
-    error_log("DEBUG: Staff Schedule - chitietkehoach assignments: " . count($chitietkehoach_assignments));
-    error_log("DEBUG: Staff Schedule - Total assignments: " . count($assignments));
-    
-    // Debug: Log first assignment data
-    if (!empty($assignments)) {
-        error_log("DEBUG: First assignment data: " . json_encode($assignments[0]));
-    }
-    
-    if (!empty($lichlamviec_assignments)) {
-        error_log("DEBUG: Staff Schedule - First lichlamviec assignment: " . json_encode($lichlamviec_assignments[0]));
-    }
-    if (!empty($chitietkehoach_assignments)) {
-        error_log("DEBUG: Staff Schedule - First chitietkehoach assignment: " . json_encode($chitietkehoach_assignments[0]));
-    }
-    if (!empty($assignments)) {
-        error_log("DEBUG: Staff Schedule - First combined assignment: " . json_encode($assignments[0]));
-    }
     
 } catch (Exception $e) {
-    $assignments = [];
-    $lichlamviec_assignments = [];
-    $chitietkehoach_assignments = [];
     $staffInfo = ['ID_NhanVien' => null, 'HoTen' => 'Nhân viên', 'ChucVu' => 'Staff', 'Email' => ''];
-    error_log("Error fetching staff assignments: " . $e->getMessage());
+    $assignments = [];
+    error_log("Error fetching staff info: " . $e->getMessage());
     echo "<!-- Error: " . $e->getMessage() . " -->";
 }
 ?>
 
-<style>
+    <style>
+        /* Statistics Cards - Gọn gàng hơn */
         .stats-card {
             background: white;
-            border-radius: 15px;
-            padding: 25px;
+            border-radius: 12px;
+            padding: 18px 20px;
             text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
             border: 1px solid #e9ecef;
-            transition: all 0.3s ease;
+            transition: box-shadow 0.2s ease;
             position: relative;
             overflow: hidden;
         }
@@ -379,54 +100,54 @@ try {
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
+            height: 3px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         
         .stats-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         
         .stats-number {
-            font-size: 2.5rem;
-            font-weight: bold;
+            font-size: 2rem;
+            font-weight: 700;
             color: #667eea;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
+            line-height: 1.2;
         }
         
         .stats-label {
             color: #6c757d;
-            font-size: 0.95rem;
-            margin-top: 5px;
+            font-size: 0.85rem;
+            margin-top: 4px;
             font-weight: 500;
         }
         
         .stats-card .fas {
-            font-size: 2.2rem;
-            margin-bottom: 15px;
-            opacity: 0.8;
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            opacity: 0.7;
         }
         
+        /* Assignment Cards - Tối ưu spacing */
         .assignment-card {
             border: 1px solid #e0e0e0;
-            border-radius: 15px;
-            margin-bottom: 25px;
-            transition: all 0.3s ease;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            transition: box-shadow 0.2s ease;
             background: white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
             overflow: hidden;
         }
         
         .assignment-card:hover {
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         
         .assignment-header {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            padding: 20px;
-            border-bottom: 1px solid #e0e0e0;
+            background: #f8f9fa;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e9ecef;
             position: relative;
         }
         
@@ -436,38 +157,43 @@ try {
             left: 0;
             top: 0;
             bottom: 0;
-            width: 4px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 3px;
+            background: #667eea;
         }
         
         .assignment-header h5 {
             color: #2c3e50;
             font-weight: 600;
-            font-size: 1.1rem;
-            margin-bottom: 12px;
+            font-size: 1rem;
+            margin-bottom: 8px;
+            line-height: 1.3;
         }
         
         .assignment-header h5 i {
             color: #667eea;
-            margin-right: 8px;
+            margin-right: 6px;
+            font-size: 0.95rem;
         }
         
         .assignment-header p {
             color: #6c757d;
-            font-size: 0.9rem;
-            margin-bottom: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+            line-height: 1.4;
         }
         
         .assignment-header p i {
             color: #667eea;
-            margin-right: 6px;
-            width: 16px;
+            margin-right: 5px;
+            width: 14px;
+            font-size: 0.8rem;
         }
         
+        /* Status Badges - Nhỏ gọn hơn */
         .status-badge {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
             font-weight: 500;
         }
         
@@ -491,166 +217,187 @@ try {
             color: #721c24;
         }
         
+        /* Timeline - Bỏ vạch, thay bằng ô trắng */
         .timeline {
             position: relative;
-            padding-left: 40px;
+            padding-left: 0;
         }
         
         .timeline::before {
-            content: '';
-            position: absolute;
-            left: 20px;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 2px;
+            display: none;
         }
         
         .timeline-item {
             position: relative;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
         
         .timeline-item::before {
+            display: none;
+        }
+        
+        /* Thay thế bằng ô trắng nhỏ bên trái card */
+        .timeline-item .assignment-card {
+            position: relative;
+        }
+        
+        .timeline-item .assignment-card::before {
             content: '';
             position: absolute;
-            left: -32px;
-            top: 8px;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #667eea;
-            border: 4px solid white;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-            z-index: 2;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #e9ecef;
+            border-radius: 12px 0 0 12px;
         }
         
-        .timeline-item.completed::before {
+        .timeline-item.completed .assignment-card::before {
             background: #28a745;
-            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
         }
         
-        .timeline-item.in-progress::before {
+        .timeline-item.in-progress .assignment-card::before {
             background: #ffc107;
-            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
         }
         
-        .timeline-item.issue::before {
+        .timeline-item.issue .assignment-card::before {
             background: #dc3545;
-            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
         }
         
-        .event-info {
-            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-            border-radius: 12px;
-            padding: 20px;
-            margin: 15px 0;
-            border-left: 4px solid #2196f3;
-            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1);
+        /* Hoặc nếu muốn bỏ hoàn toàn, dùng border-left thay thế */
+        .timeline-item .assignment-header::before {
+            width: 4px;
+            background: #e9ecef;
         }
         
-        .event-info h6 {
-            color: #1976d2;
-            font-weight: 600;
-            margin-bottom: 15px;
-            font-size: 1rem;
+        .timeline-item.completed .assignment-header::before {
+            background: #28a745;
         }
         
-        .event-info h6 i {
-            color: #2196f3;
-            margin-right: 8px;
+        .timeline-item.in-progress .assignment-header::before {
+            background: #ffc107;
         }
         
-        .event-info p {
-            color: #424242;
-            margin-bottom: 8px;
-            font-size: 0.9rem;
-            line-height: 1.4;
+        .timeline-item.issue .assignment-header::before {
+            background: #dc3545;
         }
         
-        .event-info p strong {
-            color: #1976d2;
-            font-weight: 600;
-        }
-        
-        .action-buttons {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid #e9ecef;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .action-buttons .btn {
-            border-radius: 8px;
-            font-weight: 500;
-            padding: 8px 16px;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            min-width: 120px;
-            text-align: center;
-        }
-        
-        .action-buttons .btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-        
-        .action-buttons .btn i {
-            margin-right: 5px;
-        }
-        
+        /* Card Body - Gọn hơn */
         .card-body {
-            padding: 25px;
-            background: #fafbfc;
+            padding: 18px 20px;
+            background: #ffffff;
         }
         
         .card-body h6 {
             color: #495057;
             font-weight: 600;
-            margin-bottom: 12px;
-            font-size: 0.95rem;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
         }
         
         .card-body h6 i {
             color: #6c757d;
-            margin-right: 6px;
+            margin-right: 5px;
+            font-size: 0.85rem;
         }
         
         .card-body p {
             color: #6c757d;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             line-height: 1.5;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         
+        /* Alerts - Gọn hơn */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        
+        .alert.border-warning {
+            border-left: 3px solid #ffc107 !important;
+        }
+        
+        .alert.border-success {
+            border-left: 3px solid #198754 !important;
+        }
+        
+        .alert.border-danger {
+            border-left: 3px solid #dc3545 !important;
+        }
+        
+        .alert.border-secondary {
+            border-left: 3px solid #6c757d !important;
+        }
+        
+        /* Action Buttons - Gọn gàng */
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #e9ecef;
+            background: #f8f9fa;
+            padding: 12px 16px;
+            border-radius: 8px;
+        }
+        
+        .action-buttons .btn {
+            border-radius: 6px;
+            font-weight: 500;
+            padding: 6px 14px;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+            min-width: auto;
+        }
+        
+        .action-buttons .btn:hover {
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        
+        .action-buttons .btn i {
+            margin-right: 4px;
+            font-size: 0.8rem;
+        }
+        
+        /* Progress Bar - Gọn hơn */
+        .progress {
+            height: 18px;
+            border-radius: 10px;
+            background: #e9ecef;
+        }
+        
+        .progress-bar {
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            line-height: 18px;
+        }
+        
+        /* Modal - Tối ưu */
         .modal-content {
-            border-radius: 20px;
+            border-radius: 12px;
             border: none;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
-            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
         
         .modal-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border-bottom: none;
-            padding: 20px 25px;
+            padding: 16px 20px;
         }
         
         .modal-header .modal-title {
             font-weight: 600;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
         }
         
         .modal-header .modal-title i {
-            margin-right: 10px;
+            margin-right: 8px;
         }
         
         .modal-header .btn-close {
@@ -658,101 +405,68 @@ try {
             opacity: 0.8;
         }
         
-        .modal-header .btn-close:hover {
-            opacity: 1;
-        }
-        
         .modal-body {
-            padding: 25px;
-            background: #fafbfc;
+            padding: 20px;
+            background: #ffffff;
         }
         
         .modal-footer {
             background: #f8f9fa;
             border-top: 1px solid #e9ecef;
-            padding: 15px 25px;
+            padding: 12px 20px;
         }
         
         .modal-footer .btn {
-            border-radius: 8px;
+            border-radius: 6px;
             font-weight: 500;
-            padding: 8px 20px;
+            padding: 6px 16px;
+            font-size: 0.9rem;
         }
         
         /* Modal content styling */
         .modal-body .card {
-            border-radius: 12px;
-            border: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            margin-bottom: 16px;
+            box-shadow: none;
         }
         
         .modal-body .card-header {
-            border-radius: 12px 12px 0 0;
-            border-bottom: none;
-            padding: 15px 20px;
+            border-radius: 8px 8px 0 0;
+            border-bottom: 1px solid #e9ecef;
+            padding: 12px 16px;
+            background: #f8f9fa;
         }
         
         .modal-body .card-body {
-            padding: 20px;
+            padding: 16px;
         }
         
         .modal-body .card-header h6 {
             margin: 0;
             font-weight: 600;
+            font-size: 0.9rem;
         }
         
         .modal-body .card-header i {
-            margin-right: 8px;
-        }
-        
-        .modal-body .alert {
-            border-radius: 8px;
-            border: none;
-        }
-        
-        .modal-body .table {
-            border-radius: 8px;
-            overflow: hidden;
+            margin-right: 6px;
+            font-size: 0.85rem;
         }
         
         .modal-body .badge {
-            font-size: 0.8rem;
-            padding: 6px 10px;
+            font-size: 0.75rem;
+            padding: 4px 8px;
         }
         
         /* Status indicators */
         .status-indicator {
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         
-        .status-badge {
-            font-size: 0.75rem;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-weight: 500;
-        }
-        
-        .alert.border-warning {
-            border-left: 4px solid #ffc107 !important;
-        }
-        
-        .alert.border-success {
-            border-left: 4px solid #198754 !important;
-        }
-        
-        .alert.border-danger {
-            border-left: 4px solid #dc3545 !important;
-        }
-        
-        .alert.border-secondary {
-            border-left: 4px solid #6c757d !important;
-        }
-        
-        /* Timer animation for "Đang làm việc" */
+        /* Timer animation */
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -761,6 +475,106 @@ try {
         
         .status-working .badge {
             animation: pulse 2s infinite;
+        }
+        
+        /* Filter Section - Gọn hơn */
+        .card {
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        
+        .card-body {
+            padding: 16px;
+        }
+        
+        .form-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        
+        .form-control, .form-select {
+            font-size: 0.9rem;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        
+        /* Small text improvements */
+        small {
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+        
+        /* Badge improvements */
+        .badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            font-weight: 500;
+        }
+        
+        /* Remove excessive spacing */
+        .mb-4 {
+            margin-bottom: 1.25rem !important;
+        }
+        
+        .mb-3 {
+            margin-bottom: 0.9rem !important;
+        }
+        
+        .mb-2 {
+            margin-bottom: 0.6rem !important;
+        }
+        
+        .mt-3 {
+            margin-top: 0.9rem !important;
+        }
+        
+        .mt-2 {
+            margin-top: 0.6rem !important;
+        }
+        
+        .mt-1 {
+            margin-top: 0.3rem !important;
+        }
+        
+        /* Text improvements */
+        h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        h5 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        h6 {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            color: #adb5bd;
+            margin-bottom: 16px;
+        }
+        
+        .empty-state h4 {
+            color: #6c757d;
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+        }
+        
+        .empty-state p {
+            color: #adb5bd;
+            font-size: 0.9rem;
         }
     </style>
 
@@ -773,7 +587,7 @@ try {
                             <i class="fas fa-tasks fa-2x text-primary"></i>
                         </div>
                         <div class="flex-grow-1 ms-3">
-                            <div class="stats-number"><?= count($assignments) ?></div>
+                            <div class="stats-number" id="statTotal">0</div>
                             <div class="stats-label">Tổng công việc</div>
                         </div>
                     </div>
@@ -786,9 +600,7 @@ try {
                             <i class="fas fa-clock fa-2x text-secondary"></i>
                         </div>
                         <div class="flex-grow-1 ms-3">
-                            <div class="stats-number">
-                                <?= count(array_filter($assignments, function($a) { return empty($a['TrangThai']) || $a['TrangThai'] == 'Chưa làm' || $a['TrangThai'] == 'Chưa bắt đầu'; })) ?>
-                            </div>
+                            <div class="stats-number" id="statNotStarted">0</div>
                             <div class="stats-label">Chưa bắt đầu</div>
                         </div>
                     </div>
@@ -801,9 +613,7 @@ try {
                             <i class="fas fa-play fa-2x text-warning"></i>
                         </div>
                         <div class="flex-grow-1 ms-3">
-                            <div class="stats-number">
-                                <?= count(array_filter($assignments, function($a) { return $a['TrangThai'] == 'Đang làm' || $a['TrangThai'] == 'Đang thực hiện'; })) ?>
-                            </div>
+                            <div class="stats-number" id="statInProgress">0</div>
                             <div class="stats-label">Đang làm việc</div>
                         </div>
                     </div>
@@ -816,9 +626,7 @@ try {
                             <i class="fas fa-check-circle fa-2x text-success"></i>
                         </div>
                         <div class="flex-grow-1 ms-3">
-                            <div class="stats-number">
-                                <?= count(array_filter($assignments, function($a) { return $a['TrangThai'] == 'Hoàn thành'; })) ?>
-                            </div>
+                            <div class="stats-number" id="statCompleted">0</div>
                             <div class="stats-label">Hoàn thành</div>
                         </div>
                     </div>
@@ -831,9 +639,7 @@ try {
                             <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
                         </div>
                         <div class="flex-grow-1 ms-3">
-                            <div class="stats-number">
-                                <?= count(array_filter($assignments, function($a) { return $a['TrangThai'] == 'Báo sự cố'; })) ?>
-                            </div>
+                            <div class="stats-number" id="statIssue">0</div>
                             <div class="stats-label">Báo sự cố</div>
                         </div>
                     </div>
@@ -875,20 +681,7 @@ try {
                                 </label>
                                 <select id="eventFilter" class="form-select" onchange="filterAssignments()">
                                     <option value="">Tất cả sự kiện</option>
-                                    <?php
-                                    // Get unique event names
-                                    $uniqueEvents = [];
-                                    foreach ($assignments as $assignment) {
-                                        $eventName = $assignment['TenSuKien'] ?? 'Không xác định';
-                                        if (!in_array($eventName, $uniqueEvents)) {
-                                            $uniqueEvents[] = $eventName;
-                                        }
-                                    }
-                                    sort($uniqueEvents);
-                                    foreach ($uniqueEvents as $eventName):
-                                    ?>
-                                    <option value="<?= htmlspecialchars($eventName) ?>"><?= htmlspecialchars($eventName) ?></option>
-                                    <?php endforeach; ?>
+                                    <!-- Options sẽ được load từ JavaScript -->
                                 </select>
                             </div>
                             <div class="col-md-2">
@@ -900,7 +693,7 @@ try {
                         <div class="row mt-2">
                             <div class="col-12">
                                 <small class="text-muted" id="filterResultsCount">
-                                    Hiển thị <strong><?= count($assignments) ?></strong> công việc
+                                    Hiển thị <strong>0</strong> công việc
                                 </small>
                             </div>
                         </div>
@@ -926,33 +719,28 @@ try {
                     </div>
                 </div>
 
-                <?php if (empty($assignments)): ?>
-                <div class="text-center py-5">
+                <!-- Loading state -->
+                <div id="assignmentsLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Đang tải danh sách công việc...</p>
+                </div>
+                
+                <!-- Empty state -->
+                <div id="assignmentsEmpty" class="text-center py-5" style="display: none;">
                     <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
                     <h3>Chưa có công việc nào được phân công</h3>
                     <p class="text-muted">Các công việc được phân công sẽ hiển thị ở đây.</p>
-                    <?php if (isset($staffInfo['ID_NhanVien'])): ?>
-                    <p class="text-muted">Staff ID: <?= $staffInfo['ID_NhanVien'] ?></p>
-                    <?php endif; ?>
-                    <div class="alert alert-info mt-3">
-                        <small>Debug: Tìm kiếm công việc cho nhân viên ID: <?= $staffInfo['ID_NhanVien'] ?? 'N/A' ?></small>
-                        <br><small>Lịch làm việc: <?= count($lichlamviec_assignments) ?> công việc</small>
-                        <br><small>Chi tiết kế hoạch: <?= count($chitietkehoach_assignments) ?> công việc</small>
-                        <br><small>Tổng cộng: <?= count($assignments) ?> công việc</small>
-                        <br><small>User ID: <?= $userId ?? 'N/A' ?></small>
-                        <br><small>User Email: <?= $userEmail ?? 'N/A' ?></small>
-                        <?php if (!empty($chitietkehoach_assignments)): ?>
-                        <br><small>First chitietkehoach: <?= htmlspecialchars(json_encode($chitietkehoach_assignments[0])) ?></small>
-                        <?php endif; ?>
-                    </div>
                 </div>
-                <?php else: ?>
-                <div class="timeline">
-                    <?php foreach ($assignments as $assignment): ?>
+                
+                <!-- Assignments container -->
+                <div class="timeline" id="assignmentsContainer" style="display: none;">
+                    <!-- Assignments sẽ được render từ JavaScript -->
                     <div class="timeline-item <?= strtolower(str_replace(' ', '-', $assignment['TrangThai'])) ?>">
                         <div class="assignment-card" 
                              data-assignment-id="<?= $assignment['ID_LLV'] ?>" 
-                             data-source-table="<?= $assignment['source_table'] ?? 'lichlamviec' ?>"
+                             data-source-table="<?= htmlspecialchars($assignment['source_table'] ?? 'lichlamviec') ?>"
                              data-event-name="<?= htmlspecialchars($assignment['TenSuKien'] ?? '') ?>"
                              data-task-name="<?= htmlspecialchars($assignment['NhiemVu'] ?? '') ?>"
                              data-location-name="<?= htmlspecialchars($assignment['TenDiaDiem'] ?? '') ?>"
@@ -1290,10 +1078,36 @@ try {
                                 <div class="action-buttons">
                                     <?php if (empty($assignment['TrangThai']) || $assignment['TrangThai'] == 'Chưa bắt đầu' || $assignment['TrangThai'] == 'Chưa làm'): ?>
                                     <!-- Only show "Bắt đầu làm việc" button for empty, "Chưa bắt đầu" or "Chưa làm" status -->
-                                    <button class="btn btn-primary btn-sm" onclick="startWork(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')">
+                                    <?php
+                                    // Kiểm tra ràng buộc thời gian: chỉ được bắt đầu trước giờ bắt đầu tối đa 5 phút
+                                    $canStart = false;
+                                    $minutesRemaining = 0;
+                                    if (!empty($assignment['NgayBatDau'])) {
+                                        $now = new DateTime();
+                                        $startTime = new DateTime($assignment['NgayBatDau']);
+                                        $earliestStart = clone $startTime;
+                                        $earliestStart->modify('-5 minutes');
+                                        
+                                        $canStart = $now >= $earliestStart;
+                                        if (!$canStart) {
+                                            $diff = $now->diff($earliestStart);
+                                            $minutesRemaining = ($diff->days * 24 * 60) + ($diff->h * 60) + $diff->i;
+                                        }
+                                    }
+                                    ?>
+                                    <button class="btn <?= $canStart ? 'btn-primary' : 'btn-secondary' ?> btn-sm" 
+                                            onclick="startWork(<?= $assignment['ID_LLV'] ?>, '<?= $assignment['source_table'] ?? 'lichlamviec' ?>')"
+                                            <?= !$canStart ? 'disabled' : '' ?>
+                                            <?= !$canStart ? 'title="Chỉ được bắt đầu trước 5 phút kể từ giờ bắt đầu"' : '' ?>>
                                         <i class="fas fa-play"></i>
                                         Bắt đầu làm việc
                                     </button>
+                                    <?php if (!$canStart): ?>
+                                    <small class="text-muted d-block mt-1">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Chỉ được bắt đầu trước 5 phút kể từ giờ bắt đầu
+                                    </small>
+                                    <?php endif; ?>
                                     <?php elseif ($assignment['TrangThai'] == 'Hoàn thành'): ?>
                                     <!-- Hide all buttons when task is completed -->
                                     <div class="text-center text-muted">
@@ -1330,9 +1144,7 @@ try {
                             </div>
                         </div>
                     </div>
-                    <?php endforeach; ?>
                 </div>
-                <?php endif; ?>
             </div>
         </div>
         
@@ -1371,36 +1183,6 @@ try {
         </div>
     </div>
 
-    <!-- Update Progress Modal -->
-    <div class="modal fade" id="updateProgressModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Cập nhật tiến độ</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="updateProgressForm">
-                        <input type="hidden" id="progressAssignmentId" name="assignmentId">
-                        
-                        <div class="mb-3">
-                            <label for="progressValue" class="form-label">Tiến độ (%)</label>
-                            <input type="number" class="form-control" id="progressValue" name="progress" min="0" max="100" required>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="progressNote" class="form-label">Ghi chú tiến độ</label>
-                            <textarea class="form-control" id="progressNote" name="note" rows="3"></textarea>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="button" class="btn btn-primary" onclick="saveProgressUpdate()">Cập nhật</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Report Issue Modal -->
     <div class="modal fade" id="reportIssueModal" tabindex="-1">
@@ -1466,44 +1248,6 @@ try {
         </div>
     </div>
 
-    <!-- Update Progress Modal -->
-    <div class="modal fade" id="updateProgressModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="fas fa-percentage"></i>
-                        Cập nhật tiến độ
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="updateProgressForm">
-                        <input type="hidden" id="progressAssignmentId" name="assignmentId">
-                        <input type="hidden" id="progressTable" name="sourceTable">
-                        
-                        <div class="mb-3">
-                            <label for="progressValue" class="form-label">Tiến độ hoàn thành (%)</label>
-                            <input type="number" class="form-control" id="progressValue" name="progress" min="0" max="100" required>
-                            <div class="form-text">Nhập phần trăm hoàn thành từ 0 đến 100</div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="progressNote" class="form-label">Ghi chú tiến độ</label>
-                            <textarea class="form-control" id="progressNote" name="note" rows="3" placeholder="Mô tả tiến độ hiện tại..."></textarea>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="button" class="btn btn-primary" onclick="saveProgressUpdate()">
-                        <i class="fas fa-save"></i>
-                        Cập nhật tiến độ
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Complete Work Modal -->
     <div class="modal fade" id="completeWorkModal" tabindex="-1">
@@ -1666,8 +1410,60 @@ try {
             }
         }
 
+        // Helper function: Kiểm tra xem có thể bắt đầu task hay không (chỉ được bắt đầu trước giờ bắt đầu tối đa 5 phút)
+        function canStartTask(startTime) {
+            if (!startTime) return false;
+            
+            const now = new Date();
+            const start = new Date(startTime);
+            const earliestStart = new Date(start);
+            earliestStart.setMinutes(earliestStart.getMinutes() - 5); // Trừ 5 phút
+            
+            // Chỉ được bắt đầu từ (giờ bắt đầu - 5 phút) trở đi
+            // Ví dụ: task bắt đầu lúc 05:00 → chỉ được bắt đầu từ 04:55 trở đi
+            return now >= earliestStart;
+        }
+        
+        // Helper function: Tính số phút còn lại trước khi có thể bắt đầu
+        function getMinutesUntilCanStart(startTime) {
+            if (!startTime) return 0;
+            
+            const now = new Date();
+            const start = new Date(startTime);
+            const earliestStart = new Date(start);
+            earliestStart.setMinutes(earliestStart.getMinutes() - 5);
+            
+            if (now >= earliestStart) return 0;
+            
+            const diff = earliestStart.getTime() - now.getTime();
+            const minutes = Math.ceil(diff / (1000 * 60)); // Chuyển từ milliseconds sang phút
+            
+            // Giới hạn tối đa hiển thị là 1440 phút (24 giờ) để tránh hiển thị số quá lớn
+            return minutes > 1440 ? 1440 : minutes;
+        }
+        
         function startWork(assignmentId, sourceTable) {
             try {
+                // Tìm assignment card để lấy thông tin thời gian
+                const card = document.querySelector(`.assignment-card[data-assignment-id="${assignmentId}"]`);
+                if (!card) {
+                    alert('Không tìm thấy thông tin công việc');
+                    return;
+                }
+                
+                // Lấy thời gian bắt đầu từ assignment data
+                const assignment = allAssignments.find(a => a.ID_LLV == assignmentId && a.source_table === sourceTable);
+                if (!assignment || !assignment.NgayBatDau) {
+                    alert('Không tìm thấy thông tin thời gian bắt đầu');
+                    return;
+                }
+                
+                // Kiểm tra ràng buộc thời gian: chỉ được bắt đầu trước giờ bắt đầu tối đa 5 phút
+                if (!canStartTask(assignment.NgayBatDau)) {
+                    alert('Chỉ được bắt đầu trước 5 phút kể từ giờ bắt đầu.');
+                    return;
+                }
+                
                 document.getElementById('startWorkId').value = assignmentId;
                 document.getElementById('startWorkTable').value = sourceTable;
                 
@@ -1679,18 +1475,6 @@ try {
             }
         }
 
-        function updateProgress(assignmentId, sourceTable) {
-            try {
-                document.getElementById('progressAssignmentId').value = assignmentId;
-                document.getElementById('progressTable').value = sourceTable;
-                
-                const modal = new bootstrap.Modal(document.getElementById('updateProgressModal'));
-                modal.show();
-            } catch (error) {
-                console.error('Error opening update progress modal:', error);
-                alert('Có lỗi xảy ra khi mở modal cập nhật tiến độ');
-            }
-        }
 
         function showCompleteWorkModal(assignmentId, sourceTable, taskName) {
             try {
@@ -1801,8 +1585,8 @@ try {
                     if (data.success) {
                         alert('Hoàn thành công việc và báo cáo tiến độ thành công!');
                         bootstrap.Modal.getInstance(document.getElementById('completeWorkModal')).hide();
-                        // Reload page to show updated status
-                        location.reload();
+                        // Reload assignments từ API
+                        loadAssignments();
                     } else {
                         throw new Error(data.message || 'Lỗi khi gửi báo cáo tiến độ');
                     }
@@ -1953,9 +1737,8 @@ try {
                     alert('Bắt đầu làm việc thành công');
                             bootstrap.Modal.getInstance(document.getElementById('startWorkModal')).hide();
                             
-                            // Update UI dynamically without reload
-                            console.log('Calling updateTaskStatusAfterStart with:', assignmentId, sourceTable);
-                            updateTaskStatusAfterStart(assignmentId, sourceTable);
+                            // Reload assignments từ API
+                            loadAssignments();
                 } else {
                     alert('Lỗi: ' + data.message);
                         }
@@ -2153,183 +1936,6 @@ try {
             }
         }
 
-        function saveProgressUpdate() {
-            const form = document.getElementById('updateProgressForm');
-            const formData = new FormData(form);
-            formData.append('action', 'update_progress');
-            
-            const assignmentId = formData.get('assignmentId');
-            const sourceTable = formData.get('sourceTable');
-            const progress = formData.get('progress');
-            
-            fetch('../src/controllers/staff-schedule.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Close modal
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('updateProgressModal'));
-                    if (modal) {
-                        modal.hide();
-                    }
-                    
-                    // Update UI dynamically
-                    updateProgressDisplay(assignmentId, sourceTable, data.progress, data.status);
-                    
-                    // Show success message
-                    alert('Cập nhật tiến độ thành công');
-                } else {
-                    alert('Lỗi: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Có lỗi xảy ra khi cập nhật tiến độ');
-            });
-        }
-        
-        function updateProgressDisplay(assignmentId, sourceTable, progress, status) {
-            try {
-                console.log('=== UPDATE PROGRESS DISPLAY DEBUG ===');
-                console.log('assignmentId:', assignmentId);
-                console.log('sourceTable:', sourceTable);
-                console.log('progress:', progress);
-                console.log('status:', status);
-                
-                // Find the assignment card by data attribute
-                let card = document.querySelector(`.assignment-card[data-assignment-id="${assignmentId}"][data-source-table="${sourceTable}"]`);
-                
-                // Fallback: try to find by ID only
-                if (!card) {
-                    console.log('Card not found with both attributes, trying by ID only...');
-                    card = document.querySelector(`.assignment-card[data-assignment-id="${assignmentId}"]`);
-                }
-                
-                // Fallback: try to find by button onclick
-                if (!card) {
-                    console.log('Card not found by data attributes, trying by button onclick...');
-                    const buttons = document.querySelectorAll(`button[onclick*="${assignmentId}"]`);
-                    if (buttons.length > 0) {
-                        card = buttons[0].closest('.assignment-card');
-                    }
-                }
-                
-                if (!card) {
-                    console.error('Assignment card not found for ID:', assignmentId, 'Source:', sourceTable);
-                    console.log('Available cards:', document.querySelectorAll('.assignment-card').length);
-                    // Try reload after a short delay
-                    setTimeout(() => location.reload(), 500);
-                    return;
-                }
-                
-                console.log('Card found:', card);
-                
-                const progressValue = parseInt(progress) || 0;
-                const assignmentHeader = card.querySelector('.assignment-header');
-                
-                if (!assignmentHeader) {
-                    console.error('Assignment header not found');
-                    location.reload();
-                    return;
-                }
-                
-                // Find or create progress bar container
-                let progressContainer = assignmentHeader.querySelector(`#progress-bar-${assignmentId}`);
-                
-                console.log('Progress container found:', progressContainer ? 'Yes' : 'No');
-                
-                // Create progress bar HTML
-                const progressBarHtml = `
-                    <div class="mt-3" id="progress-bar-${assignmentId}">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <small class="text-muted">Tiến độ</small>
-                            <small class="text-muted"><strong>${progressValue}%</strong></small>
-                        </div>
-                        <div class="progress" style="height: 20px;">
-                            <div class="progress-bar ${progressValue >= 100 ? 'bg-success' : 'bg-primary'} progress-bar-striped ${progressValue < 100 ? 'progress-bar-animated' : ''}" 
-                                 role="progressbar" 
-                                 style="width: ${progressValue}%" 
-                                 aria-valuenow="${progressValue}" 
-                                 aria-valuemin="0" 
-                                 aria-valuemax="100">
-                                ${progressValue}%
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                if (progressContainer) {
-                    // Update existing progress bar
-                    console.log('Updating existing progress bar');
-                    progressContainer.outerHTML = progressBarHtml;
-                } else {
-                    // Create progress bar - insert after deadline info or at the end of header
-                    console.log('Creating new progress bar');
-                    const deadlineInfo = assignmentHeader.querySelector('p:last-of-type');
-                    if (deadlineInfo) {
-                        deadlineInfo.insertAdjacentHTML('afterend', progressBarHtml);
-                        console.log('Inserted after deadline info');
-                    } else {
-                        // Fallback: insert at the end of header content (before closing div)
-                        const headerContent = assignmentHeader.querySelector('.d-flex');
-                        if (headerContent) {
-                            headerContent.insertAdjacentHTML('afterend', progressBarHtml);
-                            console.log('Inserted after header content');
-                        } else {
-                            assignmentHeader.insertAdjacentHTML('beforeend', progressBarHtml);
-                            console.log('Inserted at end of header');
-                        }
-                    }
-                }
-                
-                console.log('Progress bar updated successfully');
-                
-                // Update status badge and alert if status changed
-                if (status) {
-                    // Update status alert section
-                    const statusAlert = card.querySelector('.alert');
-                    if (statusAlert) {
-                        if (status === 'Đang làm' || status === 'Đang thực hiện') {
-                            statusAlert.className = 'alert alert-warning border-warning status-working';
-                            statusAlert.innerHTML = `
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <i class="fas fa-play-circle text-warning"></i>
-                                        <strong class="text-warning">ĐANG LÀM VIỆC</strong>
-                                        <span class="badge bg-warning text-dark ms-2">
-                                            <i class="fas fa-clock"></i> Đang làm việc
-                                        </span>
-                                    </div>
-                                </div>
-                            `;
-                        } else if (status === 'Hoàn thành') {
-                            statusAlert.className = 'alert alert-success border-success';
-                            statusAlert.innerHTML = `
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <i class="fas fa-check-circle text-success"></i>
-                                        <strong class="text-success">HOÀN THÀNH</strong>
-                                        <span class="badge bg-success text-white ms-2">
-                                            <i class="fas fa-check"></i> Hoàn thành
-                                        </span>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    }
-                }
-                
-                // Update statistics
-                updateStatistics();
-                
-            } catch (error) {
-                console.error('Error updating progress display:', error);
-                // Fallback to reload if dynamic update fails
-                location.reload();
-            }
-        }
 
         function saveCompleteWork() {
             const form = document.getElementById('completeWorkForm');
@@ -2360,7 +1966,8 @@ try {
                     
                     if (data.success) {
                         alert('Hoàn thành công việc thành công');
-                        location.reload();
+                        // Reload assignments từ API
+                        loadAssignments();
                     } else {
                         alert('Lỗi: ' + data.message);
                     }
@@ -2417,7 +2024,8 @@ try {
                 if (data.success) {
                     alert('Báo sự cố thành công');
                         bootstrap.Modal.getInstance(document.getElementById('reportIssueModal')).hide();
-                    location.reload();
+                    // Reload assignments từ API
+                    loadAssignments();
                 } else {
                     alert('Lỗi: ' + data.message);
                 }
@@ -3211,24 +2819,14 @@ try {
             const statusFilter = document.getElementById('statusFilter').value;
             const eventFilter = document.getElementById('eventFilter').value;
             
-            const assignmentCards = document.querySelectorAll('.timeline-item');
-            let visibleCount = 0;
-            
-            assignmentCards.forEach(card => {
-                // Get assignment data from card
-                const assignmentCard = card.querySelector('.assignment-card');
-                if (!assignmentCard) {
-                    card.style.display = 'none';
-                    return;
-                }
+            // Filter assignments array
+            let filtered = allAssignments.filter(assignment => {
+                const taskName = (assignment.NhiemVu || '').toLowerCase();
+                const eventName = (assignment.TenSuKien || '').toLowerCase();
+                const locationName = (assignment.TenDiaDiem || '').toLowerCase();
+                const status = (assignment.TrangThai || '').trim();
                 
-                // Get data from attributes
-                const taskName = (assignmentCard.getAttribute('data-task-name') || '').toLowerCase();
-                const eventName = (assignmentCard.getAttribute('data-event-name') || '').toLowerCase();
-                const locationName = (assignmentCard.getAttribute('data-location-name') || '').toLowerCase();
-                const status = (assignmentCard.getAttribute('data-status') || '').trim();
-                
-                // Check search term match (search in task name, event name, location)
+                // Check search term match
                 const matchesSearch = !searchTerm || 
                     taskName.includes(searchTerm) ||
                     eventName.includes(searchTerm) ||
@@ -3239,26 +2837,17 @@ try {
                 
                 // Check event filter match
                 const matchesEvent = !eventFilter || 
-                    (assignmentCard.getAttribute('data-event-name') || '') === eventFilter;
+                    (assignment.TenSuKien || '') === eventFilter;
                 
-                // Show/hide card based on filters
-                if (matchesSearch && matchesStatus && matchesEvent) {
-                    card.style.display = '';
-                    visibleCount++;
-                } else {
-                    card.style.display = 'none';
-                }
+                return matchesSearch && matchesStatus && matchesEvent;
             });
             
-            // Update results count
-            const resultsCountElement = document.getElementById('filterResultsCount');
-            if (resultsCountElement) {
-                resultsCountElement.innerHTML = `Hiển thị <strong>${visibleCount}</strong> công việc`;
-            }
+            // Re-render filtered assignments
+            renderAssignments(filtered);
             
             // Show message if no results
-            const timeline = document.querySelector('.timeline');
-            if (visibleCount === 0 && assignmentCards.length > 0) {
+            const timeline = document.getElementById('assignmentsContainer');
+            if (filtered.length === 0 && allAssignments.length > 0) {
                 let noResultsMsg = timeline.querySelector('.no-results-message');
                 if (!noResultsMsg) {
                     noResultsMsg = document.createElement('div');
@@ -3290,8 +2879,13 @@ try {
             filterAssignments();
         }
 
-        // Hide loading overlay when page is loaded
+        // Global variable để lưu assignments
+        let allAssignments = [];
+        
+        // Load assignments từ API khi trang load
         document.addEventListener('DOMContentLoaded', function() {
+            loadAssignments();
+            
             setTimeout(function() {
                 const loadingOverlay = document.getElementById('pageLoading');
                 if (loadingOverlay) {
@@ -3317,6 +2911,545 @@ try {
                 loadingOverlay.style.display = 'none';
             }
         }, 3000);
+        
+        // Load assignments từ API
+        function loadAssignments() {
+            const loadingDiv = document.getElementById('assignmentsLoading');
+            const emptyDiv = document.getElementById('assignmentsEmpty');
+            const containerDiv = document.getElementById('assignmentsContainer');
+            
+            // Show loading
+            if (loadingDiv) loadingDiv.style.display = 'block';
+            if (emptyDiv) emptyDiv.style.display = 'none';
+            if (containerDiv) containerDiv.style.display = 'none';
+            
+            console.log('Loading assignments from API...');
+            fetch('../src/controllers/staff-schedule.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'action=get_assignments'
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // Get response as text first to check if it's valid JSON
+                return response.text().then(text => {
+                    console.log('Raw response:', text.substring(0, 200)); // Log first 200 chars
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error('JSON parse error:', e);
+                        console.error('Response text:', text);
+                        throw new Error('Response không phải JSON hợp lệ: ' + text.substring(0, 100));
+                    }
+                });
+            })
+            .then(data => {
+                console.log('Parsed data:', data);
+                
+                if (data.success && data.assignments) {
+                    console.log('Assignments loaded:', data.assignments.length);
+                    allAssignments = data.assignments;
+                    renderAssignments(allAssignments);
+                    updateStatistics(allAssignments);
+                    updateEventFilter(allAssignments);
+                } else {
+                    console.error('Error loading assignments:', data.message || 'Unknown error');
+                    if (loadingDiv) loadingDiv.style.display = 'none';
+                    if (emptyDiv) emptyDiv.style.display = 'block';
+                    if (data.message) {
+                        console.error('Error message:', data.message);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error loading assignments:', error);
+                console.error('Error stack:', error.stack);
+                if (loadingDiv) loadingDiv.style.display = 'none';
+                if (emptyDiv) emptyDiv.style.display = 'block';
+                alert('Có lỗi xảy ra khi tải danh sách công việc: ' + error.message);
+            });
+        }
+        
+        // Render assignments vào HTML
+        function renderAssignments(assignments) {
+            const loadingDiv = document.getElementById('assignmentsLoading');
+            const emptyDiv = document.getElementById('assignmentsEmpty');
+            const containerDiv = document.getElementById('assignmentsContainer');
+            
+            if (loadingDiv) loadingDiv.style.display = 'none';
+            
+            if (!assignments || assignments.length === 0) {
+                if (emptyDiv) emptyDiv.style.display = 'block';
+                if (containerDiv) containerDiv.style.display = 'none';
+                return;
+            }
+            
+            if (emptyDiv) emptyDiv.style.display = 'none';
+            if (containerDiv) containerDiv.style.display = 'block';
+            
+            // Sort assignments: non-completed tasks first, then completed tasks
+            const sortedAssignments = [...assignments].sort((a, b) => {
+                const aCompleted = (a.TrangThai == 'Hoàn thành') ? 1 : 0;
+                const bCompleted = (b.TrangThai == 'Hoàn thành') ? 1 : 0;
+                
+                if (aCompleted != bCompleted) {
+                    return aCompleted - bCompleted;
+                }
+                
+                const aDate = new Date(a.NgayBatDau || '1970-01-01').getTime();
+                const bDate = new Date(b.NgayBatDau || '1970-01-01').getTime();
+                return aDate - bDate;
+            });
+            
+            let html = '';
+            sortedAssignments.forEach(assignment => {
+                html += renderAssignmentCard(assignment);
+            });
+            
+            if (containerDiv) {
+                containerDiv.innerHTML = html;
+            }
+            
+            // Update filter results count
+            updateFilterResultsCount(assignments.length);
+        }
+        
+        // Render một assignment card
+        function renderAssignmentCard(assignment) {
+            const statusClass = assignment.TrangThai ? assignment.TrangThai.toLowerCase().replace(/\s+/g, '-') : 'pending';
+            const tiendo = assignment.Tiendo || '0';
+            const tiendoValue = parseInt(tiendo.toString().replace('%', '')) || 0;
+            const sourceTable = assignment.source_table || 'lichlamviec';
+            
+            // Format dates
+            const formatDateTime = (dateStr) => {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${day}/${month}/${year} ${hours}:${minutes}`;
+            };
+            
+            const formatDate = (dateStr) => {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = date.getFullYear();
+                return `${day}/${month}/${year}`;
+            };
+            
+            // Calculate elapsed time
+            const calculateElapsedTime = (startTime) => {
+                if (!startTime) return 'Đang làm việc';
+                const start = new Date(startTime).getTime();
+                const now = Date.now();
+                const elapsed = Math.floor((now - start) / 1000);
+                const hours = Math.floor(elapsed / 3600);
+                const minutes = Math.floor((elapsed % 3600) / 60);
+                return `${hours}h ${minutes}m`;
+            };
+            
+            // Calculate total time
+            const calculateTotalTime = (startTime, endTime) => {
+                if (!startTime || !endTime) return '';
+                const start = new Date(startTime).getTime();
+                const end = new Date(endTime).getTime();
+                const total = Math.floor((end - start) / 1000);
+                const hours = Math.floor(total / 3600);
+                const minutes = Math.floor((total % 3600) / 60);
+                return `${hours}h ${minutes}m`;
+            };
+            
+            // Escape HTML
+            const escapeHtml = (text) => {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            };
+            
+            let statusSection = '';
+            const status = assignment.TrangThai || 'Chưa làm';
+            
+            if (status === 'Chưa làm' || status === 'Chưa bắt đầu' || !status) {
+                statusSection = `
+                    <div class="mb-3">
+                        <div class="alert alert-secondary border-secondary">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-clock text-secondary"></i>
+                                    <strong class="text-secondary">CHƯA BẮT ĐẦU</strong>
+                                    <span class="badge bg-secondary text-white ms-2">
+                                        <i class="fas fa-hourglass-start"></i> Chờ bắt đầu
+                                    </span>
+                                </div>
+                                <div>
+                                    <span class="badge bg-secondary text-white">
+                                        <i class="fas fa-info-circle"></i> Sử dụng các nút bên dưới để cập nhật trạng thái
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (status === 'Đang làm' || status === 'Đang thực hiện') {
+                const elapsedTime = calculateElapsedTime(assignment.ThoiGianBatDauThucTe);
+                statusSection = `
+                    <div class="mb-3">
+                        <div class="alert alert-warning border-warning status-working">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-play-circle text-warning"></i>
+                                    <strong class="text-warning">ĐANG LÀM VIỆC</strong>
+                                    <span class="badge bg-warning text-dark ms-2">
+                                        <i class="fas fa-clock"></i> ${elapsedTime}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    ${assignment.ThoiGianBatDauThucTe ? `
+                    <div class="mt-2">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    <i class="fas fa-play text-success"></i>
+                                    <strong>Bắt đầu:</strong> ${formatDateTime(assignment.ThoiGianBatDauThucTe)}
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    <i class="fas fa-clock text-info"></i>
+                                    <strong>Đã làm:</strong> ${elapsedTime}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+            } else if (status === 'Hoàn thành') {
+                statusSection = `
+                    <div class="mb-3">
+                        <div class="alert alert-success border-success">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-check-circle text-success"></i>
+                                    <strong class="text-success">ĐÃ HOÀN THÀNH</strong>
+                                    ${assignment.ChamTienDo ? `
+                                    <span class="badge bg-warning text-dark ms-2">
+                                        <i class="fas fa-exclamation-triangle"></i> Chậm tiến độ
+                                    </span>
+                                    ` : `
+                                    <span class="badge bg-success text-white ms-2">
+                                        <i class="fas fa-trophy"></i> Đúng hạn
+                                    </span>
+                                    `}
+                                </div>
+                                <div>
+                                    <button class="btn btn-outline-info btn-sm" onclick="viewTaskDetails(${assignment.ID_LLV}, '${sourceTable}')">
+                                        <i class="fas fa-eye"></i> Xem chi tiết
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    ${assignment.ThoiGianBatDauThucTe ? `
+                    <div class="mt-2">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    <i class="fas fa-play text-success"></i>
+                                    <strong>Bắt đầu:</strong> ${formatDateTime(assignment.ThoiGianBatDauThucTe)}
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    <i class="fas fa-stop text-danger"></i>
+                                    <strong>Kết thúc:</strong> ${assignment.ThoiGianKetThucThucTe ? formatDateTime(assignment.ThoiGianKetThucThucTe) : 'Chưa có'}
+                                </small>
+                            </div>
+                        </div>
+                        ${assignment.ThoiGianKetThucThucTe ? `
+                        <div class="mt-1">
+                            <small class="text-muted">
+                                <i class="fas fa-clock text-info"></i>
+                                <strong>Tổng thời gian:</strong> ${calculateTotalTime(assignment.ThoiGianBatDauThucTe, assignment.ThoiGianKetThucThucTe)}
+                            </small>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+                    ${assignment.KPI !== null && assignment.KPI !== undefined ? `
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="fas fa-chart-line"></i>
+                            <strong>KPI:</strong> 
+                            <span class="${assignment.KPI >= 0 ? 'text-success' : 'text-danger'}">
+                                ${(function() {
+                                    const kpiValue = parseFloat(assignment.KPI);
+                                    return kpiValue >= 0 ? `+${kpiValue.toFixed(2)}%` : `${kpiValue.toFixed(2)}%`;
+                                })()}
+                            </span>
+                            ${assignment.KPI >= 0 ? '(Nhanh hơn dự kiến)' : '(Chậm hơn dự kiến)'}
+                        </small>
+                    </div>
+                    ` : ''}
+                `;
+            } else if (status === 'Báo sự cố') {
+                const issueStatus = assignment.IssueStatus || null;
+                const isResolved = (issueStatus === 'Đã xử lý' || issueStatus === 'Đã đóng');
+                statusSection = `
+                    <div class="mb-3">
+                        ${isResolved ? `
+                        <div class="alert alert-success border-success">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-check-circle text-success"></i>
+                                    <strong class="text-success">SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ</strong>
+                                    <span class="badge bg-success text-white ms-2">
+                                        <i class="fas fa-check"></i> ${issueStatus === 'Đã xử lý' ? 'Đã xử lý' : 'Đã đóng'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <button class="btn btn-outline-info btn-sm" onclick="viewTaskDetails(${assignment.ID_LLV}, '${sourceTable}')">
+                                        <i class="fas fa-eye"></i> Xem chi tiết
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        ` : `
+                        <div class="alert alert-danger border-danger">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-exclamation-triangle text-danger"></i>
+                                    <strong class="text-danger">BÁO SỰ CỐ</strong>
+                                    <span class="badge bg-danger text-white ms-2">
+                                        <i class="fas fa-warning"></i> Cần hỗ trợ
+                                    </span>
+                                </div>
+                                <div>
+                                    <button class="btn btn-outline-warning btn-sm" onclick="viewTaskDetails(${assignment.ID_LLV}, '${sourceTable}')">
+                                        <i class="fas fa-eye"></i> Xem chi tiết
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        `}
+                    </div>
+                    ${assignment.GhiChuTienDo ? `
+                    <div class="mt-2">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Mô tả sự cố:</strong> ${escapeHtml(assignment.GhiChuTienDo)}
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+            }
+            
+            // Action buttons
+            let actionButtons = '';
+            if (status === 'Chưa làm' || status === 'Chưa bắt đầu' || !status) {
+                // Kiểm tra xem có thể bắt đầu hay không (trước giờ bắt đầu tối đa 5 phút)
+                const canStart = canStartTask(assignment.NgayBatDau);
+                const buttonDisabled = !canStart ? 'disabled' : '';
+                const buttonClass = !canStart ? 'btn-secondary' : 'btn-primary';
+                const tooltipText = !canStart ? 'Chỉ được bắt đầu trước 5 phút kể từ giờ bắt đầu' : '';
+                
+                actionButtons = `
+                    <button class="btn ${buttonClass} btn-sm" 
+                            onclick="startWork(${assignment.ID_LLV}, '${sourceTable}')" 
+                            ${buttonDisabled}
+                            ${tooltipText ? `title="${tooltipText}" data-bs-toggle="tooltip"` : ''}>
+                        <i class="fas fa-play"></i> Bắt đầu làm việc
+                    </button>
+                    ${!canStart ? `
+                    <small class="text-muted d-block mt-1">
+                        <i class="fas fa-info-circle"></i> 
+                        Chỉ được bắt đầu trước 5 phút kể từ giờ bắt đầu
+                    </small>
+                    ` : ''}
+                `;
+            } else if (status === 'Hoàn thành') {
+                actionButtons = `
+                    <div class="text-center text-muted">
+                        <i class="fas fa-check-circle text-success"></i>
+                        <small>Công việc đã hoàn thành</small>
+                    </div>
+                `;
+            } else {
+                actionButtons = `
+                    ${status !== 'Hoàn thành' ? `
+                    <button class="btn btn-success btn-sm" onclick="showCompleteWorkModal(${assignment.ID_LLV}, '${sourceTable}', '${escapeHtml(assignment.NhiemVu || 'Công việc')}')">
+                        <i class="fas fa-check"></i> Hoàn thành & Báo cáo
+                    </button>
+                    ` : ''}
+                    <button class="btn btn-danger btn-sm" onclick="reportIssue(${assignment.ID_LLV}, '${sourceTable}')">
+                        <i class="fas fa-exclamation-triangle"></i> Báo sự cố
+                    </button>
+                    <button class="btn btn-outline-info btn-sm" onclick="viewTaskDetails(${assignment.ID_LLV}, '${sourceTable}')">
+                        <i class="fas fa-eye"></i> Chi tiết
+                    </button>
+                `;
+            }
+            
+            return `
+                <div class="timeline-item ${statusClass}">
+                    <div class="assignment-card" 
+                         data-assignment-id="${assignment.ID_LLV}" 
+                         data-source-table="${escapeHtml(sourceTable)}"
+                         data-event-name="${escapeHtml(assignment.TenSuKien || '')}"
+                         data-task-name="${escapeHtml(assignment.NhiemVu || '')}"
+                         data-location-name="${escapeHtml(assignment.TenDiaDiem || '')}"
+                         data-status="${escapeHtml(status)}">
+                        <div class="assignment-header">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h5 class="mb-2">
+                                        <i class="fas fa-tasks"></i>
+                                        ${escapeHtml(assignment.NhiemVu || 'Không có tên')}
+                                    </h5>
+                                    <p class="mb-1 text-muted">
+                                        <i class="fas fa-calendar"></i>
+                                        ${formatDateTime(assignment.NgayBatDau)} - ${formatDateTime(assignment.NgayKetThuc)}
+                                    </p>
+                                    ${assignment.HanHoanThanh ? `
+                                    <p class="mb-1 text-muted">
+                                        <i class="fas fa-clock"></i>
+                                        Hạn hoàn thành: ${formatDate(assignment.HanHoanThanh)}
+                                    </p>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            
+                            ${tiendoValue >= 0 ? `
+                            <div class="mt-3" id="progress-bar-${assignment.ID_LLV}">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small class="text-muted">Tiến độ</small>
+                                    <small class="text-muted"><strong>${tiendoValue}%</strong></small>
+                                </div>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar ${tiendoValue >= 100 ? 'bg-success' : 'bg-primary'} progress-bar-striped ${tiendoValue < 100 ? 'progress-bar-animated' : ''}" 
+                                         role="progressbar" 
+                                         style="width: ${tiendoValue}%" 
+                                         aria-valuenow="${tiendoValue}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        ${tiendoValue}%
+                                    </div>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="card-body" 
+                             data-customer-name="${escapeHtml(assignment.TenKhachHang || '')}"
+                             data-customer-phone="${escapeHtml(assignment.SoDienThoai || '')}"
+                             data-customer-address="${escapeHtml(assignment.KhachHangDiaChi || '')}"
+                             data-event-name="${escapeHtml(assignment.TenSuKien || '')}"
+                             data-event-type="${escapeHtml(assignment.TenLoaiSK || '')}"
+                             data-event-location="${escapeHtml(assignment.TenDiaDiem || '')}"
+                             data-event-address="${escapeHtml(assignment.DiaChi || '')}"
+                             data-event-start="${formatDateTime(assignment.EventStartDate || assignment.NgayBatDau)}"
+                             data-event-end="${formatDateTime(assignment.EventEndDate || assignment.NgayKetThuc)}"
+                             data-event-attendees="${assignment.SoNguoiDuKien || 0}"
+                             data-event-budget="${assignment.NganSach || 0}"
+                             data-event-description="${escapeHtml(assignment.SuKienMoTa || '')}"
+                             data-event-note="${escapeHtml(assignment.SuKienGhiChu || '')}">
+                            ${assignment.GhiChu ? `
+                            <div class="mb-3">
+                                <h6><i class="fas fa-sticky-note"></i> Ghi chú</h6>
+                                <p class="text-muted">${escapeHtml(assignment.GhiChu)}</p>
+                            </div>
+                            ` : ''}
+                            
+                            ${assignment.kehoach_noidung ? `
+                            <div class="mb-3">
+                                <h6><i class="fas fa-clipboard-list"></i> Nội dung kế hoạch</h6>
+                                <p class="text-muted">${escapeHtml(assignment.kehoach_noidung)}</p>
+                            </div>
+                            ` : ''}
+                            
+                            ${statusSection}
+                            
+                            <div class="action-buttons">
+                                ${actionButtons}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Update statistics
+        function updateStatistics(assignments) {
+            if (!assignments) assignments = allAssignments;
+            
+            const total = assignments.length;
+            const notStarted = assignments.filter(a => !a.TrangThai || a.TrangThai === 'Chưa làm' || a.TrangThai === 'Chưa bắt đầu').length;
+            const inProgress = assignments.filter(a => a.TrangThai === 'Đang làm' || a.TrangThai === 'Đang thực hiện').length;
+            const completed = assignments.filter(a => a.TrangThai === 'Hoàn thành').length;
+            const issue = assignments.filter(a => a.TrangThai === 'Báo sự cố').length;
+            
+            const statTotal = document.getElementById('statTotal');
+            const statNotStarted = document.getElementById('statNotStarted');
+            const statInProgress = document.getElementById('statInProgress');
+            const statCompleted = document.getElementById('statCompleted');
+            const statIssue = document.getElementById('statIssue');
+            
+            if (statTotal) statTotal.textContent = total;
+            if (statNotStarted) statNotStarted.textContent = notStarted;
+            if (statInProgress) statInProgress.textContent = inProgress;
+            if (statCompleted) statCompleted.textContent = completed;
+            if (statIssue) statIssue.textContent = issue;
+        }
+        
+        // Update event filter dropdown
+        function updateEventFilter(assignments) {
+            const eventFilter = document.getElementById('eventFilter');
+            if (!eventFilter) return;
+            
+            // Get unique event names
+            const uniqueEvents = [];
+            assignments.forEach(assignment => {
+                const eventName = assignment.TenSuKien || 'Không xác định';
+                if (!uniqueEvents.includes(eventName)) {
+                    uniqueEvents.push(eventName);
+                }
+            });
+            uniqueEvents.sort();
+            
+            // Clear existing options except first one
+            eventFilter.innerHTML = '<option value="">Tất cả sự kiện</option>';
+            
+            // Add options
+            uniqueEvents.forEach(eventName => {
+                const option = document.createElement('option');
+                option.value = eventName;
+                option.textContent = eventName;
+                eventFilter.appendChild(option);
+            });
+        }
+        
+        // Update filter results count
+        function updateFilterResultsCount(count) {
+            const countElement = document.getElementById('filterResultsCount');
+            if (countElement) {
+                countElement.innerHTML = `Hiển thị <strong>${count}</strong> công việc`;
+            }
+        }
     </script>
 </body>
 </html>

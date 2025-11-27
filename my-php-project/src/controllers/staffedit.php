@@ -124,6 +124,7 @@ function addStaff() {
         $salary = $_POST['Luong'] ?? 0;
         $startDate = $_POST['NgayVaoLam'] ?? '';
         $role = $_POST['ID_Role'] ?? 4; // Default to staff role
+        $status = $_POST['TrangThai'] ?? 'Hoạt động'; // Default to 'Hoạt động' if not provided
         
         if (empty($email) || empty($password) || empty($fullName) || empty($phone)) {
             echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
@@ -150,9 +151,9 @@ function addStaff() {
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("
                 INSERT INTO users (Email, Password, ID_Role, TrangThai, NgayTao)
-                VALUES (?, ?, ?, 'Hoạt động', NOW())
+                VALUES (?, ?, ?, ?, NOW())
             ");
-            $stmt->execute([$email, $hashedPassword, $role]);
+            $stmt->execute([$email, $hashedPassword, $role, $status]);
         $userId = $pdo->lastInsertId();
         
             // Insert staff info
@@ -193,6 +194,41 @@ function updateStaff() {
         if (empty($staffId) || empty($fullName) || empty($phone)) {
             echo json_encode(['success' => false, 'message' => 'Thiếu thông tin bắt buộc']);
             return;
+        }
+        
+        // Lấy ID_NhanVien từ ID_User
+        $stmt = $pdo->prepare("SELECT ID_NhanVien FROM nhanvieninfo WHERE ID_User = ?");
+        $stmt->execute([$staffId]);
+        $staffInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$staffInfo) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy nhân viên']);
+            return;
+        }
+        
+        $nhanVienId = $staffInfo['ID_NhanVien'];
+        
+        // Kiểm tra nếu đang cố khóa tài khoản và nhân viên có nhiệm vụ
+        if (!empty($status) && $status === 'Bị khóa') {
+            // Kiểm tra lichlamviec
+            $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM lichlamviec WHERE ID_NhanVien = ?");
+            $stmt->execute([$nhanVienId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result['count'] > 0) {
+                echo json_encode(['success' => false, 'message' => 'Không thể khóa tài khoản nhân viên đã có công việc được phân công. Vui lòng hoàn tất hoặc hủy các công việc liên quan trước']);
+                return;
+            }
+            
+            // Kiểm tra chitietkehoach
+            $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM chitietkehoach WHERE ID_NhanVien = ?");
+            $stmt->execute([$nhanVienId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result['count'] > 0) {
+                echo json_encode(['success' => false, 'message' => 'Không thể khóa tài khoản nhân viên đã có công việc được phân công. Vui lòng hoàn tất hoặc hủy các công việc liên quan trước']);
+                return;
+            }
         }
         
         $pdo->beginTransaction();
@@ -255,13 +291,35 @@ function deleteStaff() {
             return;
         }
         
-        // Check if staff has assignments
-        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM lichlamviec WHERE ID_NhanVien = ?");
+        // Lấy ID_NhanVien từ ID_User
+        $stmt = $pdo->prepare("SELECT ID_NhanVien FROM nhanvieninfo WHERE ID_User = ?");
         $stmt->execute([$staffId]);
+        $staffInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$staffInfo) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy nhân viên']);
+            return;
+        }
+        
+        $nhanVienId = $staffInfo['ID_NhanVien'];
+        
+        // Kiểm tra nhân viên có nhiệm vụ trong lichlamviec không
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM lichlamviec WHERE ID_NhanVien = ?");
+        $stmt->execute([$nhanVienId]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($result['count'] > 0) {
-            echo json_encode(['success' => false, 'message' => 'Không thể xóa nhân viên đã có công việc được phân công']);
+            echo json_encode(['success' => false, 'message' => 'Không thể xóa nhân viên đã có công việc được phân công. Vui lòng hoàn tất hoặc hủy các công việc liên quan trước']);
+            return;
+        }
+        
+        // Kiểm tra nhân viên có nhiệm vụ trong chitietkehoach không
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM chitietkehoach WHERE ID_NhanVien = ?");
+        $stmt->execute([$nhanVienId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result['count'] > 0) {
+            echo json_encode(['success' => false, 'message' => 'Không thể xóa nhân viên đã có công việc được phân công. Vui lòng hoàn tất hoặc hủy các công việc liên quan trước']);
             return;
         }
         

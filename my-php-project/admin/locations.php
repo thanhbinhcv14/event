@@ -115,10 +115,11 @@ include 'includes/admin-header.php';
                     Danh sách địa điểm
                 </h3>
                 <div class="action-buttons">
+                    <?php if ($user['ID_Role'] == 2): ?>
                     <button class="btn btn-success" onclick="showAddModal()">
                         <i class="fas fa-plus"></i> Thêm địa điểm
                     </button>
-                    
+                    <?php endif; ?>
                 </div>
             </div>
             
@@ -449,17 +450,21 @@ include 'includes/admin-header.php';
                         data: null,
                         orderable: false,
                         render: function(data, type, row) {
+                            const userRole = <?= $user['ID_Role'] ?? 0 ?>;
+                            const isFinanceManager = userRole == 2;
                             return `
                                 <div class="action-buttons">
                                     <button class="btn btn-info btn-sm" onclick="viewLocation(${row.ID_DD})" title="Xem chi tiết">
                                         <i class="fas fa-eye"></i>
                                     </button>
+                                    ${isFinanceManager ? `
                                     <button class="btn btn-warning btn-sm" onclick="editLocation(${row.ID_DD})" title="Chỉnh sửa">
                                         <i class="fas fa-edit"></i>
                                     </button>
                                     <button class="btn btn-danger btn-sm" onclick="deleteLocation(${row.ID_DD})" title="Xóa">
                                         <i class="fas fa-trash"></i>
                                     </button>
+                                    ` : ''}
                                 </div>
                             `;
                         }
@@ -950,11 +955,25 @@ include 'includes/admin-header.php';
                     const modal = new bootstrap.Modal(document.getElementById('locationModal'));
                     modal.show();
                 } else {
-                    AdminPanel.showError(response.message || 'Không thể tải thông tin địa điểm');
+                    // Hiển thị lỗi cụ thể từ server (error hoặc message)
+                    const errorMessage = response.error || response.message || 'Không thể tải thông tin địa điểm';
+                    AdminPanel.showError(errorMessage);
                 }
             })
             .catch(error => {
-                AdminPanel.showError('Có lỗi xảy ra khi tải thông tin địa điểm');
+                // Cố gắng lấy thông báo lỗi cụ thể từ error response
+                let errorMessage = 'Có lỗi xảy ra khi tải thông tin địa điểm';
+                if (error && error.response) {
+                    try {
+                        const errorData = typeof error.response === 'string' ? JSON.parse(error.response) : error.response;
+                        errorMessage = errorData.error || errorData.message || errorMessage;
+                    } catch (e) {
+                        // Nếu không parse được, dùng message mặc định
+                    }
+                } else if (error && error.message) {
+                    errorMessage = error.message;
+                }
+                AdminPanel.showError(errorMessage);
             });
         }
 
@@ -998,19 +1017,33 @@ include 'includes/admin-header.php';
                         </div>
                     `);
                 } else {
+                    // Hiển thị lỗi cụ thể từ server (error hoặc message)
+                    const errorMessage = response.error || response.message || 'Không thể tải chi tiết địa điểm';
                     $('#viewModalBody').html(`
                         <div class="alert alert-danger">
                             <i class="fas fa-exclamation-circle"></i>
-                            ${response.message || 'Không thể tải chi tiết địa điểm'}
+                            ${errorMessage}
                         </div>
                     `);
                 }
             })
             .catch(error => {
+                // Cố gắng lấy thông báo lỗi cụ thể từ error response
+                let errorMessage = 'Có lỗi xảy ra khi tải chi tiết địa điểm';
+                if (error && error.response) {
+                    try {
+                        const errorData = typeof error.response === 'string' ? JSON.parse(error.response) : error.response;
+                        errorMessage = errorData.error || errorData.message || errorMessage;
+                    } catch (e) {
+                        // Nếu không parse được, dùng message mặc định
+                    }
+                } else if (error && error.message) {
+                    errorMessage = error.message;
+                }
                 $('#viewModalBody').html(`
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-circle"></i>
-                        Có lỗi xảy ra khi tải chi tiết địa điểm
+                        ${errorMessage}
                     </div>
                 `);
             });
@@ -1055,7 +1088,7 @@ include 'includes/admin-header.php';
             // Thêm action vào form data
             formData.append('action', action);
             
-            // Debug: Log form data
+            // Gỡ lỗi: Ghi log dữ liệu form
             console.log('Form data being sent:');
             for (let [key, value] of formData.entries()) {
                 console.log(key + ': ' + value);
@@ -1069,11 +1102,25 @@ include 'includes/admin-header.php';
                     locationsTable.ajax.reload();
                     loadStatistics();
                 } else {
-                    AdminPanel.showError(response.message || 'Có lỗi xảy ra khi lưu địa điểm');
+                    // Hiển thị lỗi cụ thể từ server (error hoặc message)
+                    const errorMessage = response.error || response.message || 'Có lỗi xảy ra khi lưu địa điểm';
+                    AdminPanel.showError(errorMessage);
                 }
             })
             .catch(error => {
-                AdminPanel.showError('Có lỗi xảy ra khi lưu địa điểm');
+                // Cố gắng lấy thông báo lỗi cụ thể từ error response
+                let errorMessage = 'Có lỗi xảy ra khi lưu địa điểm';
+                if (error && error.response) {
+                    try {
+                        const errorData = typeof error.response === 'string' ? JSON.parse(error.response) : error.response;
+                        errorMessage = errorData.error || errorData.message || errorMessage;
+                    } catch (e) {
+                        // Nếu không parse được, dùng message mặc định
+                    }
+                } else if (error && error.message) {
+                    errorMessage = error.message;
+                }
+                AdminPanel.showError(errorMessage);
             });
         }
 
@@ -1086,7 +1133,7 @@ include 'includes/admin-header.php';
                     formData.append('action', 'delete_location');
                     formData.append('id', id);
                     
-                    // Debug: Ghi log form data
+                    // Gỡ lỗi: Ghi log dữ liệu form
                     console.log('Delete location - Form data being sent:');
                     for (let [key, value] of formData.entries()) {
                         console.log(key + ': ' + value);
@@ -1099,11 +1146,25 @@ include 'includes/admin-header.php';
                             locationsTable.ajax.reload();
                             loadStatistics();
                         } else {
-                            AdminPanel.showError(response.message || 'Có lỗi xảy ra khi xóa địa điểm');
+                            // Hiển thị lỗi cụ thể từ server (error hoặc message)
+                            const errorMessage = response.error || response.message || 'Có lỗi xảy ra khi xóa địa điểm';
+                            AdminPanel.showError(errorMessage);
                         }
                     })
                     .catch(error => {
-                        AdminPanel.showError('Có lỗi xảy ra khi xóa địa điểm');
+                        // Cố gắng lấy thông báo lỗi cụ thể từ error response
+                        let errorMessage = 'Có lỗi xảy ra khi xóa địa điểm';
+                        if (error && error.response) {
+                            try {
+                                const errorData = typeof error.response === 'string' ? JSON.parse(error.response) : error.response;
+                                errorMessage = errorData.error || errorData.message || errorMessage;
+                            } catch (e) {
+                                // Nếu không parse được, dùng message mặc định
+                            }
+                        } else if (error && error.message) {
+                            errorMessage = error.message;
+                        }
+                        AdminPanel.showError(errorMessage);
                     });
                 }
             );

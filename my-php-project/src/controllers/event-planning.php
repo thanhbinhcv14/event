@@ -123,8 +123,20 @@ if (!empty($action)) {
             updateStepById($pdo);
             break;
             
+        case 'publish_step':
+            publishStep($pdo);
+            break;
+            
         case 'delete_plan':
             deletePlan($pdo);
+            break;
+            
+        case 'start_task':
+            startTask($pdo);
+            break;
+            
+        case 'end_task':
+            endTask($pdo);
             break;
             
             default:
@@ -586,7 +598,8 @@ function getEventSteps($pdo) {
                 nv.SoDienThoai,
                 COALESCE(llv.Tiendo, '0%') as Tiendo,
                 COALESCE(llv.GhiChu, NULL) as GhiChuTienDo,
-                GROUP_CONCAT(DISTINCT CONCAT(llv_nv.HoTen, ' - ', llv_nv.ChucVu) SEPARATOR ', ') as AllStaffNames
+                GROUP_CONCAT(DISTINCT CONCAT(llv_nv.HoTen, ' - ', llv_nv.ChucVu) SEPARATOR ', ') as AllStaffNames,
+                c.DaCongBo
             FROM chitietkehoach c
             LEFT JOIN kehoachthuchien k ON c.ID_KeHoach = k.ID_KeHoach
             LEFT JOIN sukien s ON k.ID_SuKien = s.ID_SuKien
@@ -602,16 +615,29 @@ function getEventSteps($pdo) {
         $stmt->execute([$eventId, $eventId]);
         $steps = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Với mỗi bước, lấy tất cả ID nhân viên được phân công từ lichlamviec
+        // Với mỗi bước, lấy tất cả ID nhân viên được phân công từ lichlamviec kèm thông tin KPI
         foreach ($steps as &$step) {
             $staffStmt = $pdo->prepare("
-                SELECT DISTINCT llv.ID_NhanVien, nv.HoTen, nv.ChucVu
+                SELECT DISTINCT 
+                    llv.ID_LLV,
+                    llv.ID_NhanVien, 
+                    nv.HoTen, 
+                    nv.ChucVu,
+                    llv.ThoiGianBatDauThucTe,
+                    llv.ThoiGianKetThucThucTe,
+                    llv.KPI,
+                    llv.TrangThai as TrangThaiNhiemVu,
+                    llv.NgayBatDau as NgayBatDauDuKien,
+                    llv.NgayKetThuc as NgayKetThucDuKien
                 FROM lichlamviec llv
                 LEFT JOIN nhanvieninfo nv ON llv.ID_NhanVien = nv.ID_NhanVien
                 WHERE llv.ID_ChiTiet = ?
             ");
             $staffStmt->execute([$step['ID_ChiTiet']]);
             $step['assignedStaff'] = $staffStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Đảm bảo DaCongBo có giá trị
+            $step['DaCongBo'] = isset($step['DaCongBo']) ? (int)$step['DaCongBo'] : 0;
         }
         unset($step);
         
@@ -740,8 +766,32 @@ function createPlan($pdo) {
     try {
         $eventId = $_POST['eventId'] ?? $_POST['event_id'] ?? '';
         $planName = $_POST['planName'] ?? $_POST['plan_name'] ?? '';
-        $startDate = $_POST['startDate'] ?? $_POST['start_date'] ?? '';
-        $endDate = $_POST['endDate'] ?? $_POST['end_date'] ?? '';
+        
+        // Lấy datetime đã combine từ frontend, hoặc combine từ date + time
+        $startDateTime = $_POST['startDateTime'] ?? '';
+        $endDateTime = $_POST['endDateTime'] ?? '';
+        
+        // Nếu không có datetime đã combine, thì combine từ date + time
+        if (empty($startDateTime)) {
+            $startDate = $_POST['startDate'] ?? $_POST['start_date'] ?? '';
+            $startTime = $_POST['startTime'] ?? $_POST['start_time'] ?? '';
+            if (!empty($startDate) && !empty($startTime)) {
+                $startDateTime = $startDate . ' ' . $startTime;
+            }
+        }
+        
+        if (empty($endDateTime)) {
+            $endDate = $_POST['endDate'] ?? $_POST['end_date'] ?? '';
+            $endTime = $_POST['endTime'] ?? $_POST['end_time'] ?? '';
+            if (!empty($endDate) && !empty($endTime)) {
+                $endDateTime = $endDate . ' ' . $endTime;
+            }
+        }
+        
+        // Tách lại thành date để lưu vào database (nếu cần)
+        $startDate = !empty($startDateTime) ? explode(' ', $startDateTime)[0] : '';
+        $endDate = !empty($endDateTime) ? explode(' ', $endDateTime)[0] : '';
+        
         $content = $_POST['planContent'] ?? $_POST['planDescription'] ?? $_POST['content'] ?? '';
         $notes = $_POST['notes'] ?? '';
         
@@ -807,12 +857,12 @@ function createPlan($pdo) {
         // Ghi log quá trình validation để debug
         error_log("Validation check - eventId: '$eventId', planName: '$planName', startDate: '$startDate', endDate: '$endDate', content: '$content'");
         
-        if (empty($eventId) || empty($planName) || empty($startDate) || empty($endDate) || empty($content)) {
+        if (empty($eventId) || empty($planName) || empty($startDateTime) || empty($endDateTime) || empty($content)) {
             $missing = [];
             if (empty($eventId)) $missing[] = 'eventId';
             if (empty($planName)) $missing[] = 'planName';
-            if (empty($startDate)) $missing[] = 'startDate';
-            if (empty($endDate)) $missing[] = 'endDate';
+            if (empty($startDateTime)) $missing[] = 'startDateTime (hoặc startDate + startTime)';
+            if (empty($endDateTime)) $missing[] = 'endDateTime (hoặc endDate + endTime)';
             if (empty($content)) $missing[] = 'planContent/planDescription';
             
             // Ghi log bổ sung cho trường content
@@ -866,6 +916,24 @@ function createPlan($pdo) {
             return;
         }
         
+        // Kiểm tra xem sự kiện đã hoàn thành chưa
+        $eventStatusStmt = $pdo->prepare("
+            SELECT s.TrangThaiThucTe
+            FROM datlichsukien dl
+            LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+            WHERE dl.ID_DatLich = ?
+        ");
+        $eventStatusStmt->execute([$eventId]);
+        $eventStatus = $eventStatusStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($eventStatus && $eventStatus['TrangThaiThucTe'] === 'Hoàn thành') {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Không thể tạo kế hoạch cho sự kiện đã hoàn thành'
+            ]);
+            return;
+        }
+        
         // Kiểm tra xem đã có kế hoạch cho sự kiện này chưa
         $checkSql = "
             SELECT kht.ID_KeHoach 
@@ -880,6 +948,70 @@ function createPlan($pdo) {
             echo json_encode([
                 'success' => false,
                 'error' => 'Kế hoạch cho sự kiện này đã tồn tại'
+            ]);
+            return;
+        }
+        
+        // Kiểm tra và chuẩn hóa thời gian kế hoạch
+        try {
+            // Nếu chỉ có ngày (không có giờ), tự động set 00:00:00 - 23:59:59
+            if (strlen($startDateTime) == 10) {
+                // Chỉ có ngày (YYYY-MM-DD), thêm giờ mặc định
+                $startDateTime = $startDateTime . ' 00:00:00';
+            }
+            if (strlen($endDateTime) == 10) {
+                // Chỉ có ngày (YYYY-MM-DD), thêm giờ mặc định
+                $endDateTime = $endDateTime . ' 23:59:59';
+            }
+            
+            // Sử dụng datetime đã combine (có cả ngày và giờ)
+            $startDateTimeObj = new DateTime($startDateTime);
+            $endDateTimeObj = new DateTime($endDateTime);
+            
+            // Kiểm tra thời gian kết thúc phải sau thời gian bắt đầu
+            if ($endDateTimeObj <= $startDateTimeObj) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Thời gian kết thúc phải sau thời gian bắt đầu'
+                ]);
+                return;
+            }
+            
+            // Lấy thời gian sự kiện để kiểm tra
+            $eventTimeStmt = $pdo->prepare("
+                SELECT NgayBatDau, NgayKetThuc
+                FROM datlichsukien
+                WHERE ID_DatLich = ?
+            ");
+            $eventTimeStmt->execute([$eventId]);
+            $eventTime = $eventTimeStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($eventTime) {
+                $eventStart = new DateTime($eventTime['NgayBatDau']);
+                $eventEnd = new DateTime($eventTime['NgayKetThuc']);
+                
+                // Kiểm tra thời gian kế hoạch phải nằm trong thời gian sự kiện (cho phép trước 1 ngày và sau 1 ngày)
+                $planStart = clone $startDateTimeObj;
+                $planStart->setTime(0, 0, 0);
+                $planEnd = clone $endDateTimeObj;
+                $planEnd->setTime(23, 59, 59);
+                $eventStartCheck = clone $eventStart;
+                $eventStartCheck->modify('-1 day');
+                $eventEndCheck = clone $eventEnd;
+                $eventEndCheck->modify('+1 day');
+                
+                if ($planStart < $eventStartCheck || $planEnd > $eventEndCheck) {
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Thời gian kế hoạch phải nằm trong khoảng thời gian của sự kiện (cho phép trước/sau 1 ngày)'
+                    ]);
+                    return;
+                }
+            }
+        } catch (Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Lỗi khi xác thực thời gian: ' . $e->getMessage()
             ]);
             return;
         }
@@ -977,8 +1109,8 @@ function createPlan($pdo) {
             $sukienResult['ID_SuKien'],
             $planName,
             $content,
-            $startDate,
-            $endDate,
+            $startDateTime,  // Sử dụng datetime đầy đủ (có cả giờ)
+            $endDateTime,    // Sử dụng datetime đầy đủ (có cả giờ)
             $employeeId
         ]);
         
@@ -1085,6 +1217,25 @@ function deleteStep($pdo) {
             echo json_encode([
                 'success' => false,
                 'error' => 'Thiếu thông tin bắt buộc'
+            ]);
+            return;
+        }
+        
+        // Kiểm tra xem sự kiện đã hoàn thành chưa
+        $eventStatusStmt = $pdo->prepare("
+            SELECT s.TrangThaiThucTe
+            FROM chitietkehoach ctk
+            LEFT JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            WHERE ctk.ID_ChiTiet = ?
+        ");
+        $eventStatusStmt->execute([$stepId]);
+        $eventStatus = $eventStatusStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($eventStatus && $eventStatus['TrangThaiThucTe'] === 'Hoàn thành') {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Không thể xóa bước cho sự kiện đã hoàn thành'
             ]);
             return;
         }
@@ -1208,6 +1359,90 @@ function updatePlanById($pdo) {
             echo json_encode([
                 'success' => false,
                 'error' => 'Vui lòng điền đầy đủ thông tin bắt buộc. Thiếu: ' . implode(', ', $missing)
+            ]);
+            return;
+        }
+        
+        // Kiểm tra xem sự kiện đã hoàn thành chưa
+        $eventStatusStmt = $pdo->prepare("
+            SELECT s.TrangThaiThucTe, dl.ID_DatLich
+            FROM kehoachthuchien kht
+            LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+            LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+            WHERE kht.ID_KeHoach = ?
+        ");
+        $eventStatusStmt->execute([$planId]);
+        $eventStatus = $eventStatusStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($eventStatus && ($eventStatus['TrangThaiThucTe'] === 'Hoàn thành' || $eventStatus['TrangThai'] === 'Hoàn thành')) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Không thể cập nhật kế hoạch cho sự kiện đã hoàn thành'
+            ]);
+            return;
+        }
+        
+        // Kiểm tra và chuẩn hóa thời gian kế hoạch
+        try {
+            // Nếu chỉ có ngày (không có giờ), tự động set 00:00:00 - 23:59:59
+            if (strlen($startDateTime) == 10) {
+                // Chỉ có ngày (YYYY-MM-DD), thêm giờ mặc định
+                $startDateTime = $startDateTime . ' 00:00:00';
+            }
+            if (strlen($endDateTime) == 10) {
+                // Chỉ có ngày (YYYY-MM-DD), thêm giờ mặc định
+                $endDateTime = $endDateTime . ' 23:59:59';
+            }
+            
+            $startDateObj = new DateTime($startDateTime);
+            $endDateObj = new DateTime($endDateTime);
+            
+            // Kiểm tra thời gian kết thúc phải sau thời gian bắt đầu
+            if ($endDateObj <= $startDateObj) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Thời gian kết thúc phải sau thời gian bắt đầu'
+                ]);
+                return;
+            }
+            
+            // Lấy thời gian sự kiện để kiểm tra
+            if ($eventStatus && isset($eventStatus['ID_DatLich'])) {
+                $eventTimeStmt = $pdo->prepare("
+                    SELECT NgayBatDau, NgayKetThuc
+                    FROM datlichsukien
+                    WHERE ID_DatLich = ?
+                ");
+                $eventTimeStmt->execute([$eventStatus['ID_DatLich']]);
+                $eventTime = $eventTimeStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($eventTime) {
+                    $eventStart = new DateTime($eventTime['NgayBatDau']);
+                    $eventEnd = new DateTime($eventTime['NgayKetThuc']);
+                    
+                    // Kiểm tra thời gian kế hoạch phải nằm trong thời gian sự kiện (cho phép trước 1 ngày và sau 1 ngày)
+                    $planStart = clone $startDateObj;
+                    $planStart->setTime(0, 0, 0);
+                    $planEnd = clone $endDateObj;
+                    $planEnd->setTime(23, 59, 59);
+                    $eventStartCheck = clone $eventStart;
+                    $eventStartCheck->modify('-1 day');
+                    $eventEndCheck = clone $eventEnd;
+                    $eventEndCheck->modify('+1 day');
+                    
+                    if ($planStart < $eventStartCheck || $planEnd > $eventEndCheck) {
+                        echo json_encode([
+                            'success' => false,
+                            'error' => 'Thời gian kế hoạch phải nằm trong khoảng thời gian của sự kiện (cho phép trước/sau 1 ngày)'
+                        ]);
+                        return;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Lỗi khi xác thực thời gian: ' . $e->getMessage()
             ]);
             return;
         }
@@ -1375,6 +1610,190 @@ function updateStepById($pdo) {
                 'error' => 'Vui lòng điền đầy đủ thông tin bắt buộc. Thiếu: ' . implode(', ', $missing)
             ]);
             return;
+        }
+        
+        // Kiểm tra thời gian
+        try {
+            $startDateObj = new DateTime($startDateTime);
+            $endDateObj = new DateTime($endDateTime);
+            
+            if ($endDateObj <= $startDateObj) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Thời gian kết thúc phải sau thời gian bắt đầu'
+                ]);
+                return;
+            }
+            
+            // Kiểm tra xem sự kiện đã hoàn thành chưa
+            $eventStatusStmt = $pdo->prepare("
+                SELECT s.TrangThaiThucTe, dl.ID_DatLich, kht.ID_KeHoach
+                FROM chitietkehoach ctk
+                LEFT JOIN kehoachthuchien kht ON ctk.ID_KeHoach = kht.ID_KeHoach
+                LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
+                LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
+                WHERE ctk.ID_ChiTiet = ?
+            ");
+            $eventStatusStmt->execute([$stepId]);
+            $eventStatus = $eventStatusStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($eventStatus && $eventStatus['TrangThaiThucTe'] === 'Hoàn thành') {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Không thể cập nhật bước cho sự kiện đã hoàn thành'
+                ]);
+                return;
+            }
+            
+            // Kiểm tra thời gian bước có nằm trong thời gian kế hoạch và sự kiện không
+            if ($eventStatus && isset($eventStatus['ID_KeHoach']) && isset($eventStatus['ID_DatLich'])) {
+                // Lấy thời gian kế hoạch
+                $planTimeStmt = $pdo->prepare("
+                    SELECT NgayBatDau, NgayKetThuc
+                    FROM kehoachthuchien
+                    WHERE ID_KeHoach = ?
+                ");
+                $planTimeStmt->execute([$eventStatus['ID_KeHoach']]);
+                $planTime = $planTimeStmt->fetch(PDO::FETCH_ASSOC);
+                
+                // Lấy thời gian sự kiện
+                $eventTimeStmt = $pdo->prepare("
+                    SELECT NgayBatDau, NgayKetThuc
+                    FROM datlichsukien
+                    WHERE ID_DatLich = ?
+                ");
+                $eventTimeStmt->execute([$eventStatus['ID_DatLich']]);
+                $eventTime = $eventTimeStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($planTime) {
+                    $planStart = new DateTime($planTime['NgayBatDau']);
+                    $planEnd = new DateTime($planTime['NgayKetThuc']);
+                    
+                    // Kiểm tra xem kế hoạch có phải là cả ngày không (00:00:00 - 23:59:59)
+                    $planStartTime = $planStart->format('H:i:s');
+                    $planEndTime = $planEnd->format('H:i:s');
+                    $isFullDay = ($planStartTime === '00:00:00' && $planEndTime === '23:59:59');
+                    
+                    if ($isFullDay) {
+                        // Nếu kế hoạch là cả ngày, chỉ cần kiểm tra ngày
+                        $planStartDate = $planStart->format('Y-m-d');
+                        $planEndDate = $planEnd->format('Y-m-d');
+                        $stepStartDate = $startDateObj->format('Y-m-d');
+                        $stepEndDate = $endDateObj->format('Y-m-d');
+                        
+                        if ($stepStartDate < $planStartDate || $stepEndDate > $planEndDate) {
+                            echo json_encode([
+                                'success' => false,
+                                'error' => 'Thời gian bước phải nằm trong ngày của kế hoạch (' . $planStartDate . ' - ' . $planEndDate . ')'
+                            ]);
+                            return;
+                        }
+                    } else {
+                        // Nếu kế hoạch có giờ cụ thể, kiểm tra cả ngày và giờ (cho phép trước/sau 1 giờ)
+                        $planStartCheck = clone $planStart;
+                        $planStartCheck->modify('-1 hour');
+                        $planEndCheck = clone $planEnd;
+                        $planEndCheck->modify('+1 hour');
+                        
+                        if ($startDateObj < $planStartCheck || $endDateObj > $planEndCheck) {
+                            echo json_encode([
+                                'success' => false,
+                                'error' => 'Thời gian bước phải nằm trong khoảng thời gian của kế hoạch (cho phép trước/sau 1 giờ)'
+                            ]);
+                            return;
+                        }
+                    }
+                }
+                
+                if ($eventTime) {
+                    $eventStart = new DateTime($eventTime['NgayBatDau']);
+                    $eventEnd = new DateTime($eventTime['NgayKetThuc']);
+                    
+                    // Kiểm tra thời gian bước phải nằm trong thời gian sự kiện (cho phép trước/sau 1 ngày)
+                    $eventStartCheck = clone $eventStart;
+                    $eventStartCheck->modify('-1 day');
+                    $eventEndCheck = clone $eventEnd;
+                    $eventEndCheck->modify('+1 day');
+                    
+                    if ($startDateObj < $eventStartCheck || $endDateObj > $eventEndCheck) {
+                        echo json_encode([
+                            'success' => false,
+                            'error' => 'Thời gian bước phải nằm trong khoảng thời gian của sự kiện (cho phép trước/sau 1 ngày)'
+                        ]);
+                        return;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Lỗi khi xác thực thời gian: ' . $e->getMessage()
+            ]);
+            return;
+        }
+        
+        // Kiểm tra xem nhân viên đã bắt đầu nhiệm vụ chưa - nếu có thì không cho phép sửa
+        $checkStartedStmt = $pdo->prepare("
+            SELECT COUNT(*) as count
+            FROM lichlamviec
+            WHERE ID_ChiTiet = ? AND ThoiGianBatDauThucTe IS NOT NULL
+        ");
+        $checkStartedStmt->execute([$stepId]);
+        $hasStarted = $checkStartedStmt->fetch(PDO::FETCH_ASSOC)['count'] > 0;
+        
+        if ($hasStarted) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Không thể sửa bước này vì nhân viên đã bắt đầu thực hiện nhiệm vụ'
+            ]);
+            return;
+        }
+        
+        // Kiểm tra xung đột thời gian cho từng nhân viên (trừ chính bước này)
+        if (!empty($staffIds)) {
+            foreach ($staffIds as $singleStaffId) {
+                $conflictStmt = $pdo->prepare("
+                    SELECT llv.ID_LLV, llv.NhiemVu, llv.NgayBatDau, llv.NgayKetThuc, llv.ID_ChiTiet
+                    FROM lichlamviec llv
+                    WHERE llv.ID_NhanVien = ?
+                    AND llv.ID_ChiTiet != ?
+                    AND (
+                        (llv.NgayBatDau <= ? AND llv.NgayKetThuc > ?)
+                        OR (llv.NgayBatDau < ? AND llv.NgayKetThuc >= ?)
+                        OR (llv.NgayBatDau >= ? AND llv.NgayKetThuc <= ?)
+                    )
+                    AND llv.TrangThai != 'Hoàn thành'
+                ");
+                $conflictStmt->execute([
+                    $singleStaffId,
+                    $stepId,
+                    $startDateTime, $startDateTime,
+                    $endDateTime, $endDateTime,
+                    $startDateTime, $endDateTime
+                ]);
+                $conflicts = $conflictStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                if (!empty($conflicts)) {
+                    // Lấy tên nhân viên
+                    $staffNameStmt = $pdo->prepare("SELECT HoTen FROM nhanvieninfo WHERE ID_NhanVien = ?");
+                    $staffNameStmt->execute([$singleStaffId]);
+                    $staffName = $staffNameStmt->fetchColumn();
+                    
+                    $conflictInfo = [];
+                    foreach ($conflicts as $conflict) {
+                        $conflictInfo[] = $conflict['NhiemVu'] . ' (' . 
+                            date('d/m/Y H:i', strtotime($conflict['NgayBatDau'])) . ' - ' . 
+                            date('d/m/Y H:i', strtotime($conflict['NgayKetThuc'])) . ')';
+                    }
+                    
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Nhân viên ' . ($staffName ?: 'ID: ' . $singleStaffId) . 
+                            ' đã có nhiệm vụ chồng chéo thời gian: ' . implode(', ', $conflictInfo)
+                    ]);
+                    return;
+                }
+            }
         }
         
         // Get current step info to check if staff changed
@@ -1550,13 +1969,39 @@ function addEventStep($pdo) {
         $endDateTime = $endDate . ' ' . $endTime;
         
         // Validate datetime
-        $startDateObj = new DateTime($startDateTime);
-        $endDateObj = new DateTime($endDateTime);
-        
-        if ($endDateObj <= $startDateObj) {
+        try {
+            $startDateObj = new DateTime($startDateTime);
+            $endDateObj = new DateTime($endDateTime);
+            
+            if ($endDateObj <= $startDateObj) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Thời gian kết thúc phải sau thời gian bắt đầu'
+                ]);
+                return;
+            }
+            
+            // Kiểm tra xem sự kiện đã hoàn thành chưa
+            $eventStatusStmt = $pdo->prepare("
+                SELECT s.TrangThaiThucTe
+                FROM datlichsukien dl
+                LEFT JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
+                WHERE dl.ID_DatLich = ?
+            ");
+            $eventStatusStmt->execute([$eventId]);
+            $eventStatus = $eventStatusStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($eventStatus && $eventStatus['TrangThaiThucTe'] === 'Hoàn thành') {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Không thể thêm bước cho sự kiện đã hoàn thành'
+                ]);
+                return;
+            }
+        } catch (Exception $e) {
             echo json_encode([
                 'success' => false,
-                'error' => 'Thời gian kết thúc phải sau thời gian bắt đầu'
+                'error' => 'Lỗi khi xác thực thời gian: ' . $e->getMessage()
             ]);
             return;
         }
@@ -1579,6 +2024,51 @@ function addEventStep($pdo) {
             return;
         }
         
+        // Kiểm tra xung đột thời gian cho từng nhân viên
+        if (!empty($staffIds)) {
+            foreach ($staffIds as $singleStaffId) {
+                $conflictStmt = $pdo->prepare("
+                    SELECT llv.ID_LLV, llv.NhiemVu, llv.NgayBatDau, llv.NgayKetThuc
+                    FROM lichlamviec llv
+                    WHERE llv.ID_NhanVien = ?
+                    AND (
+                        (llv.NgayBatDau <= ? AND llv.NgayKetThuc > ?)
+                        OR (llv.NgayBatDau < ? AND llv.NgayKetThuc >= ?)
+                        OR (llv.NgayBatDau >= ? AND llv.NgayKetThuc <= ?)
+                    )
+                    AND llv.TrangThai != 'Hoàn thành'
+                ");
+                $conflictStmt->execute([
+                    $singleStaffId,
+                    $startDateTime, $startDateTime,
+                    $endDateTime, $endDateTime,
+                    $startDateTime, $endDateTime
+                ]);
+                $conflicts = $conflictStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                if (!empty($conflicts)) {
+                    // Lấy tên nhân viên
+                    $staffNameStmt = $pdo->prepare("SELECT HoTen FROM nhanvieninfo WHERE ID_NhanVien = ?");
+                    $staffNameStmt->execute([$singleStaffId]);
+                    $staffName = $staffNameStmt->fetchColumn();
+                    
+                    $conflictInfo = [];
+                    foreach ($conflicts as $conflict) {
+                        $conflictInfo[] = $conflict['NhiemVu'] . ' (' . 
+                            date('d/m/Y H:i', strtotime($conflict['NgayBatDau'])) . ' - ' . 
+                            date('d/m/Y H:i', strtotime($conflict['NgayKetThuc'])) . ')';
+                    }
+                    
+                    echo json_encode([
+                        'success' => false,
+                        'error' => 'Nhân viên ' . ($staffName ?: 'ID: ' . $singleStaffId) . 
+                            ' đã có nhiệm vụ chồng chéo thời gian: ' . implode(', ', $conflictInfo)
+                    ]);
+                    return;
+                }
+            }
+        }
+        
         // Insert step
         // Note: GhiChu column doesn't exist in chitietkehoach table
         // If stepNote is provided, append it to MoTa
@@ -1588,8 +2078,8 @@ function addEventStep($pdo) {
         }
         
         $sql = "
-            INSERT INTO chitietkehoach (ID_KeHoach, TenBuoc, MoTa, NgayBatDau, NgayKetThuc, ID_NhanVien, TrangThai)
-            VALUES (?, ?, ?, ?, ?, ?, 'Chưa làm')
+            INSERT INTO chitietkehoach (ID_KeHoach, TenBuoc, MoTa, NgayBatDau, NgayKetThuc, ID_NhanVien, TrangThai, DaCongBo)
+            VALUES (?, ?, ?, ?, ?, ?, 'Chưa làm', 0)
         ";
         
         $stmt = $pdo->prepare($sql);
@@ -1709,23 +2199,28 @@ function getStaffTasks($pdo) {
         
         $staffId = $staff['ID_NhanVien'];
         
-        // Get tasks from chitietkehoach
+        // Get tasks from lichlamviec - chỉ lấy nhiệm vụ đã được công bố
         $stmt = $pdo->prepare("
             SELECT 
-                ck.ID_ChiTiet,
-                ck.TenBuoc,
-                ck.TrangThai,
-                ck.MoTa,
-                ck.NgayBatDau,
-                ck.NgayKetThuc,
+                llv.ID_LLV,
+                llv.ID_ChiTiet,
+                llv.NhiemVu as TenBuoc,
+                llv.TrangThai,
+                llv.CongViec as MoTa,
+                llv.NgayBatDau,
+                llv.NgayKetThuc,
+                llv.ThoiGianBatDauThucTe,
+                llv.ThoiGianKetThucThucTe,
+                llv.KPI,
                 dl.TenSuKien,
                 dd.TenDiaDiem
-            FROM chitietkehoach ck
-            LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
-            LEFT JOIN datlichsukien dl ON kht.ID_DatLich = dl.ID_DatLich
+            FROM lichlamviec llv
+            LEFT JOIN chitietkehoach ck ON llv.ID_ChiTiet = ck.ID_ChiTiet
+            LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
             LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
-            WHERE ck.ID_NhanVien = ?
-            ORDER BY ck.NgayBatDau DESC
+            WHERE llv.ID_NhanVien = ? 
+            AND (llv.ID_ChiTiet IS NULL OR ck.DaCongBo = 1)
+            ORDER BY llv.NgayBatDau DESC
         ");
         $stmt->execute([$staffId]);
         $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1734,6 +2229,60 @@ function getStaffTasks($pdo) {
         
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy danh sách công việc: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * Công bố bước thực hiện - cho phép nhân viên thấy nhiệm vụ
+ */
+function publishStep($pdo) {
+    try {
+        $stepId = $_POST['stepId'] ?? '';
+        
+        if (empty($stepId)) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Thiếu thông tin bước'
+            ]);
+            return;
+        }
+        
+        // Kiểm tra quyền - chỉ role 1, 2, 3 mới được công bố
+        $user = getCurrentUser();
+        if (!in_array($user['ID_Role'], [1, 2, 3])) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Không có quyền công bố bước'
+            ]);
+            return;
+        }
+        
+        // Cập nhật DaCongBo = 1
+        $updateStmt = $pdo->prepare("
+            UPDATE chitietkehoach 
+            SET DaCongBo = 1 
+            WHERE ID_ChiTiet = ?
+        ");
+        $result = $updateStmt->execute([$stepId]);
+        
+        if ($result) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Đã công bố bước thành công. Nhân viên có thể thấy nhiệm vụ.'
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Lỗi khi công bố bước'
+            ]);
+        }
+        
+    } catch (Exception $e) {
+        error_log("Publish Step Error: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error' => 'Lỗi khi công bố bước: ' . $e->getMessage()
+        ]);
     }
 }
 
@@ -1796,14 +2345,8 @@ function checkAndUpdateEventStatusFromStep($pdo, $stepId) {
             $stmt = $pdo->prepare("UPDATE sukien SET TrangThai = 'Hoàn thành' WHERE ID_SuKien = ?");
             $stmt->execute([$eventId]);
             
-            // Also update datlichsukien status if exists
-            $stmt = $pdo->prepare("
-                UPDATE datlichsukien dl
-                JOIN sukien s ON dl.ID_DatLich = s.ID_DatLich
-                SET dl.TrangThai = 'Hoàn thành'
-                WHERE s.ID_SuKien = ?
-            ");
-            $stmt->execute([$eventId]);
+            // Note: datlichsukien không có cột TrangThai, chỉ có TrangThaiDuyet và TrangThaiThanhToan
+            // Trạng thái sự kiện được lưu trong bảng sukien.TrangThaiThucTe
             
             error_log("DEBUG: checkAndUpdateEventStatusFromStep - Event status updated to 'Hoàn thành'");
         } else {
@@ -2288,6 +2831,271 @@ function updateAllPlanStatusesForView($pdo) {
         
     } catch (Exception $e) {
         error_log("ERROR: updateAllPlanStatusesForView - " . $e->getMessage());
+    }
+}
+
+/**
+ * Bắt đầu nhiệm vụ (START) - Nhân viên nhấn nút START
+ * Cho phép nhấn START trước giờ làm việc (ví dụ: 3h thì 3h5 có thể bấm START)
+ */
+function startTask($pdo) {
+    try {
+        $taskId = $_POST['task_id'] ?? $_POST['ID_LLV'] ?? '';
+        
+        if (empty($taskId)) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Thiếu thông tin nhiệm vụ'
+            ]);
+            return;
+        }
+        
+        // Lấy thông tin nhiệm vụ
+        $taskStmt = $pdo->prepare("
+            SELECT llv.*, ctk.NgayBatDau as NgayBatDauDuKien, ctk.NgayKetThuc as NgayKetThucDuKien
+            FROM lichlamviec llv
+            LEFT JOIN chitietkehoach ctk ON llv.ID_ChiTiet = ctk.ID_ChiTiet
+            WHERE llv.ID_LLV = ?
+        ");
+        $taskStmt->execute([$taskId]);
+        $task = $taskStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$task) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Không tìm thấy nhiệm vụ'
+            ]);
+            return;
+        }
+        
+        // Kiểm tra xem đã bắt đầu chưa
+        if ($task['ThoiGianBatDauThucTe'] !== null) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Nhiệm vụ đã được bắt đầu'
+            ]);
+            return;
+        }
+        
+        // Kiểm tra xem đã kết thúc chưa
+        if ($task['ThoiGianKetThucThucTe'] !== null) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Nhiệm vụ đã được kết thúc, không thể bắt đầu lại'
+            ]);
+            return;
+        }
+        
+        // Lấy thời gian hiện tại
+        $currentTime = new DateTime();
+        $scheduledStart = new DateTime($task['NgayBatDau']);
+        
+        // Cho phép nhấn START trước giờ làm việc (ví dụ: 3h thì 3h5 có thể bấm START)
+        // Kiểm tra xem có thể bắt đầu không (cho phép bắt đầu trước 5 phút)
+        $allowedStartTime = clone $scheduledStart;
+        $allowedStartTime->modify('-5 minutes');
+        
+        if ($currentTime < $allowedStartTime) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Chưa đến thời gian được phép bắt đầu. Có thể bắt đầu trước 5 phút so với giờ làm việc dự kiến.'
+            ]);
+            return;
+        }
+        
+        // Cập nhật thời gian bắt đầu thực tế và trạng thái
+        $updateStmt = $pdo->prepare("
+            UPDATE lichlamviec 
+            SET 
+                ThoiGianBatDauThucTe = NOW(),
+                TrangThai = 'Đang làm',
+                NgayCapNhat = NOW()
+            WHERE ID_LLV = ?
+        ");
+        $result = $updateStmt->execute([$taskId]);
+        
+        if ($result) {
+            // Đồng bộ trạng thái với chitietkehoach nếu cần
+            $syncStmt = $pdo->prepare("
+                UPDATE chitietkehoach 
+                SET TrangThai = 'Đang làm' 
+                WHERE ID_ChiTiet = ? 
+                AND TrangThai = 'Chưa làm'
+            ");
+            $syncStmt->execute([$task['ID_ChiTiet']]);
+            
+            // Cập nhật trạng thái kế hoạch
+            updatePlanStatusFromSteps($pdo, $task['ID_ChiTiet'], 'chitietkehoach');
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Đã bắt đầu nhiệm vụ',
+                'startTime' => date('Y-m-d H:i:s')
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Lỗi khi bắt đầu nhiệm vụ'
+            ]);
+        }
+        
+    } catch (Exception $e) {
+        error_log("Start Task Error: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error' => 'Lỗi khi bắt đầu nhiệm vụ: ' . $e->getMessage()
+        ]);
+    }
+}
+
+/**
+ * Kết thúc nhiệm vụ (END) - Nhân viên nhấn nút END
+ * Tính KPI dựa trên thời gian thực tế vs thời gian dự kiến
+ */
+function endTask($pdo) {
+    try {
+        $taskId = $_POST['task_id'] ?? $_POST['ID_LLV'] ?? '';
+        
+        if (empty($taskId)) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Thiếu thông tin nhiệm vụ'
+            ]);
+            return;
+        }
+        
+        // Lấy thông tin nhiệm vụ
+        $taskStmt = $pdo->prepare("
+            SELECT llv.*, ctk.NgayBatDau as NgayBatDauDuKien, ctk.NgayKetThuc as NgayKetThucDuKien
+            FROM lichlamviec llv
+            LEFT JOIN chitietkehoach ctk ON llv.ID_ChiTiet = ctk.ID_ChiTiet
+            WHERE llv.ID_LLV = ?
+        ");
+        $taskStmt->execute([$taskId]);
+        $task = $taskStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$task) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Không tìm thấy nhiệm vụ'
+            ]);
+            return;
+        }
+        
+        // Kiểm tra xem đã bắt đầu chưa
+        if ($task['ThoiGianBatDauThucTe'] === null) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Nhiệm vụ chưa được bắt đầu. Vui lòng nhấn START trước.'
+            ]);
+            return;
+        }
+        
+        // Kiểm tra xem đã kết thúc chưa
+        if ($task['ThoiGianKetThucThucTe'] !== null) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Nhiệm vụ đã được kết thúc'
+            ]);
+            return;
+        }
+        
+        // Tính KPI
+        $scheduledStart = new DateTime($task['NgayBatDau']);
+        $scheduledEnd = new DateTime($task['NgayKetThuc']);
+        $actualStart = new DateTime($task['ThoiGianBatDauThucTe']);
+        $actualEnd = new DateTime(); // Thời gian hiện tại
+        
+        // Tính thời gian dự kiến (giây)
+        $scheduledDuration = $scheduledEnd->getTimestamp() - $scheduledStart->getTimestamp();
+        
+        // Tính thời gian thực tế (giây)
+        $actualDuration = $actualEnd->getTimestamp() - $actualStart->getTimestamp();
+        
+        // Tính KPI: ((Thời gian dự kiến - Thời gian thực tế) / Thời gian dự kiến) * 100
+        // KPI > 0: nhanh hơn dự kiến (dương)
+        // KPI < 0: chậm hơn dự kiến (âm)
+        $kpi = 0;
+        if ($scheduledDuration > 0) {
+            $kpi = (($scheduledDuration - $actualDuration) / $scheduledDuration) * 100;
+        }
+        
+        // Cập nhật thời gian kết thúc thực tế, KPI và trạng thái
+        $updateStmt = $pdo->prepare("
+            UPDATE lichlamviec 
+            SET 
+                ThoiGianKetThucThucTe = NOW(),
+                KPI = ?,
+                TrangThai = 'Hoàn thành',
+                ThoiGianHoanThanh = NOW(),
+                NgayCapNhat = NOW()
+            WHERE ID_LLV = ?
+        ");
+        $result = $updateStmt->execute([$kpi, $taskId]);
+        
+        if ($result) {
+            // Đồng bộ trạng thái với chitietkehoach
+            // Kiểm tra xem tất cả nhiệm vụ của bước này đã hoàn thành chưa
+            $allTasksStmt = $pdo->prepare("
+                SELECT COUNT(*) as total, 
+                       SUM(CASE WHEN TrangThai = 'Hoàn thành' THEN 1 ELSE 0 END) as completed
+                FROM lichlamviec
+                WHERE ID_ChiTiet = ?
+            ");
+            $allTasksStmt->execute([$task['ID_ChiTiet']]);
+            $allTasks = $allTasksStmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Nếu tất cả nhiệm vụ đã hoàn thành, cập nhật trạng thái bước
+            if ($allTasks['total'] > 0 && $allTasks['completed'] == $allTasks['total']) {
+                $stepStmt = $pdo->prepare("
+                    UPDATE chitietkehoach 
+                    SET TrangThai = 'Hoàn thành' 
+                    WHERE ID_ChiTiet = ?
+                ");
+                $stepStmt->execute([$task['ID_ChiTiet']]);
+            } else {
+                // Nếu chưa tất cả hoàn thành, đánh dấu là "Đang làm"
+                $stepStmt = $pdo->prepare("
+                    UPDATE chitietkehoach 
+                    SET TrangThai = 'Đang làm' 
+                    WHERE ID_ChiTiet = ? 
+                    AND TrangThai = 'Chưa làm'
+                ");
+                $stepStmt->execute([$task['ID_ChiTiet']]);
+            }
+            
+            // Cập nhật trạng thái kế hoạch
+            updatePlanStatusFromSteps($pdo, $task['ID_ChiTiet'], 'chitietkehoach');
+            
+            // Kiểm tra và cập nhật trạng thái sự kiện
+            checkAndUpdateEventStatusFromStep($pdo, $task['ID_ChiTiet']);
+            
+            // Format KPI để hiển thị
+            $kpiFormatted = number_format($kpi, 2);
+            $kpiDisplay = $kpi >= 0 ? "+{$kpiFormatted}%" : "{$kpiFormatted}%";
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Đã kết thúc nhiệm vụ',
+                'endTime' => date('Y-m-d H:i:s'),
+                'kpi' => $kpi,
+                'kpiDisplay' => $kpiDisplay,
+                'scheduledDuration' => $scheduledDuration,
+                'actualDuration' => $actualDuration
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Lỗi khi kết thúc nhiệm vụ'
+            ]);
+        }
+        
+    } catch (Exception $e) {
+        error_log("End Task Error: " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'error' => 'Lỗi khi kết thúc nhiệm vụ: ' . $e->getMessage()
+        ]);
     }
 }
 

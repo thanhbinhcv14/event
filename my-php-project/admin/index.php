@@ -421,7 +421,15 @@ try {
                             <?php foreach ($dashboardData['recent_assignments'] as $assignment): ?>
                             <tr>
                                 <td>
-                                    <strong><?= htmlspecialchars($assignment['TenSuKien'] ?? 'N/A') ?></strong>
+                                    <?php 
+                                    // Hiển thị TenLoaiSK nếu có, nếu không thì TenSuKien
+                                    $eventName = $assignment['TenLoaiSK'] ?? $assignment['TenSuKien'] ?? 'N/A';
+                                    if ($eventName != 'Không xác định' && $eventName != 'N/A') {
+                                        echo '<strong>' . htmlspecialchars($eventName) . '</strong>';
+                                    } else {
+                                        echo '<span class="text-muted">N/A</span>';
+                                    }
+                                    ?>
                                 </td>
                                 <td>
                                     <?= htmlspecialchars($assignment['NhiemVu'] ?? $assignment['CongViec'] ?? 'N/A') ?>
@@ -430,8 +438,19 @@ try {
                                 <td><?= $assignment['NgayBatDau'] ? date('d/m/Y H:i', strtotime($assignment['NgayBatDau'])) : 'N/A' ?></td>
                                 <td><?= $assignment['NgayKetThuc'] ? date('d/m/Y H:i', strtotime($assignment['NgayKetThuc'])) : 'N/A' ?></td>
                                 <td>
-                                    <span class="status-badge status-<?= strtolower(str_replace(' ', '-', $assignment['TrangThai'] ?? 'Chưa xác định')) ?>">
-                                        <?= htmlspecialchars($assignment['TrangThai'] ?? 'Chưa xác định') ?>
+                                    <?php
+                                    $status = $assignment['TrangThai'] ?? 'Chưa xác định';
+                                    // Map trạng thái để hiển thị đúng
+                                    $statusMap = [
+                                        'Chưa làm' => 'CHƯA LÀM',
+                                        'Đang làm' => 'ĐANG LÀM',
+                                        'Hoàn thành' => 'HOÀN THÀNH',
+                                        'Báo sự cố' => 'BÁO SỰ CỐ'
+                                    ];
+                                    $displayStatus = $statusMap[$status] ?? strtoupper($status);
+                                    ?>
+                                    <span class="status-badge status-<?= strtolower(str_replace(' ', '-', $status)) ?>">
+                                        <?= htmlspecialchars($displayStatus) ?>
                                     </span>
                                 </td>
                                 <td>

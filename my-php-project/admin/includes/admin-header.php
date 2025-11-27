@@ -306,19 +306,14 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
                 <span>Quản lý thanh toán</span>
             </a>
             
-            <a href="customeredit_content.php" class="menu-item <?= $currentPage === 'customeredit_content' ? 'active' : '' ?>">
-                <i class="fas fa-users"></i>
-                <span>Quản lý khách hàng</span>
+            <a href="manager-reports.php" class="menu-item <?= $currentPage === 'manager-reports' ? 'active' : '' ?>">
+                <i class="fas fa-chart-line"></i>
+                <span>Báo cáo từ nhân viên</span>
             </a>
             
             <a href="reports.php" class="menu-item <?= $currentPage === 'reports' ? 'active' : '' ?>">
                 <i class="fas fa-chart-bar"></i>
                 <span>Thống kê báo cáo</span>
-            </a>
-            
-            <a href="manager-reports.php" class="menu-item <?= $currentPage === 'manager-reports' ? 'active' : '' ?>">
-                <i class="fas fa-chart-line"></i>
-                <span>Báo cáo từ nhân viên</span>
             </a>
             <?php endif; ?>
             
@@ -334,14 +329,19 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Quản trị';
                 <span>Xem duyệt sự kiện</span>
             </a>
             
+            <a href="customeredit_content.php" class="menu-item <?= $currentPage === 'customeredit_content' ? 'active' : '' ?>">
+                <i class="fas fa-users"></i>
+                <span>Quản lý khách hàng</span>
+            </a>
+            
             <a href="blogs.php" class="menu-item <?= $currentPage === 'blogs' ? 'active' : '' ?>">
                 <i class="fas fa-blog"></i>
                 <span>Quản lý bài viết</span>
             </a>
             <?php endif; ?>
             
-            <!-- Chat Hỗ trợ - Tất cả role admin/staff -->
-            <?php if (in_array($user['ID_Role'], [1, 2, 3, 4])): ?>
+            <!-- Chat Hỗ trợ - Chỉ role 1 (Admin) và role 3 (Quản lý sự kiện) -->
+            <?php if (in_array($user['ID_Role'], [1, 3])): ?>
             <a href="chat.php" class="menu-item <?= $currentPage === 'chat' ? 'active' : '' ?>">
                 <i class="fas fa-comments"></i>
                 <span>Chat Hỗ trợ Khách hàng</span>

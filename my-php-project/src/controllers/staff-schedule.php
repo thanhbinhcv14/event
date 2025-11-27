@@ -41,9 +41,6 @@ switch ($action) {
     case 'update_assignment_status':
         updateAssignmentStatus();
         break;
-    case 'update_progress':
-        updateProgress();
-        break;
     case 'start_work':
         startWork();
         break;
@@ -64,8 +61,13 @@ switch ($action) {
 
 function getAssignments() {
     try {
-        // Clear any output buffer
-        ob_clean();
+        // Clear any output buffer first
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        
+        // Set content type
+        header('Content-Type: application/json; charset=utf-8');
         
         // Check if database function exists
         if (!function_exists('getDBConnection')) {
@@ -76,6 +78,11 @@ function getAssignments() {
         if (!$pdo) {
             throw new Exception('Không thể kết nối database');
         }
+        
+        if (!isset($_SESSION['user']['ID_User'])) {
+            throw new Exception('User session không tồn tại');
+        }
+        
         $userId = $_SESSION['user']['ID_User'];
         
         // Get staff info
@@ -87,8 +94,8 @@ function getAssignments() {
         
         if (!$staff) {
             error_log("ERROR: Staff not found for user ID: " . $userId);
-            echo json_encode(['success' => false, 'message' => 'Không tìm thấy thông tin nhân viên']);
-            return;
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy thông tin nhân viên'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            exit;
         }
         
         error_log("DEBUG: Staff found - ID: " . $staff['ID_NhanVien']);
@@ -107,32 +114,50 @@ function getAssignments() {
                        llv.GhiChu,
                        llv.CongViec,
                        llv.NgayKetThuc as HanHoanThanh,
-                       llv.Tiendo,
+                       llv.TienDo as Tiendo,
                        llv.ThoiGianBatDauThucTe,
                        llv.ThoiGianKetThucThucTe,
-                       llv.TienDoPhanTram,
-                       llv.ThoiGianLamViec,
-                       llv.ChamTienDo,
-                       llv.GhiChuTienDo,
+                       llv.KPI,
+                       NULL as TienDoPhanTram,
+                       NULL as ThoiGianLamViec,
+                       NULL as ChamTienDo,
+                       NULL as GhiChuTienDo,
                        COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+                       COALESCE(dl.MoTa, '') as SuKienMoTa,
                        COALESCE(dl.NgayBatDau, llv.NgayBatDau) as EventStartDate,
                        COALESCE(dl.NgayKetThuc, llv.NgayKetThuc) as EventEndDate,
+                       COALESCE(dl.SoNguoiDuKien, 0) as SoNguoiDuKien,
+                       COALESCE(dl.NganSach, 0) as NganSach,
+                       COALESCE(dl.GhiChu, '') as SuKienGhiChu,
                        COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
                        COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
+                       COALESCE(ls.TenLoai, 'Không xác định') as TenLoaiSK,
+                       COALESCE(ls.MoTa, '') as LoaiSKMoTa,
                        COALESCE(kh.HoTen, 'Không xác định') as TenKhachHang,
                        COALESCE(kh.SoDienThoai, 'Không xác định') as SoDienThoai,
+                       COALESCE(kh.DiaChi, '') as KhachHangDiaChi,
+                       COALESCE(kht.TenKeHoach, llv.NhiemVu) as ten_kehoach,
+                       COALESCE(kht.NoiDung, llv.GhiChu) as kehoach_noidung,
+                       COALESCE(kht.TrangThai, llv.TrangThai) as kehoach_trangthai,
                        'lichlamviec' as source_table
                    FROM lichlamviec llv
                    LEFT JOIN datlichsukien dl ON llv.ID_DatLich = dl.ID_DatLich
                    LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+                   LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
                    LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-                   WHERE llv.ID_NhanVien = ?
+                   LEFT JOIN kehoachthuchien kht ON llv.ID_KeHoach = kht.ID_KeHoach
+                   LEFT JOIN chitietkehoach ck_check ON llv.ID_ChiTiet = ck_check.ID_ChiTiet
+                   WHERE llv.ID_NhanVien = ? 
+                   AND (
+                       (llv.ID_ChiTiet IS NULL) OR 
+                       (llv.ID_ChiTiet IS NOT NULL AND ck_check.DaCongBo = 1)
+                   )
                    ORDER BY llv.NgayBatDau ASC
                ");
         $stmt->execute([$staff['ID_NhanVien']]);
         $lichlamviec_assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-               // Then, try to get from chitietkehoach
+               // Then, try to get from chitietkehoach (chỉ lấy những task chưa có trong lichlamviec)
                $stmt = $pdo->prepare("
                    SELECT 
                        ck.ID_ChiTiet as ID_LLV,
@@ -143,28 +168,44 @@ function getAssignments() {
                        ck.MoTa as GhiChu,
                        ck.TenBuoc as CongViec,
                        ck.NgayKetThuc as HanHoanThanh,
-                       '0' as Tiendo,
-                       NULL as ThoiGianBatDauThucTe,
-                       NULL as ThoiGianKetThucThucTe,
+                       COALESCE(llv.TienDo, '0') as Tiendo,
+                       COALESCE(llv.ThoiGianBatDauThucTe, NULL) as ThoiGianBatDauThucTe,
+                       COALESCE(llv.ThoiGianKetThucThucTe, NULL) as ThoiGianKetThucThucTe,
                        NULL as TienDoPhanTram,
                        NULL as ThoiGianLamViec,
                        NULL as ChamTienDo,
-                       NULL as GhiChuTienDo,
+                       COALESCE(llv.GhiChu, NULL) as GhiChuTienDo,
                        COALESCE(dl.TenSuKien, 'Không xác định') as TenSuKien,
+                       COALESCE(dl.MoTa, '') as SuKienMoTa,
                        COALESCE(dl.NgayBatDau, ck.NgayBatDau) as EventStartDate,
                        COALESCE(dl.NgayKetThuc, ck.NgayKetThuc) as EventEndDate,
+                       COALESCE(dl.SoNguoiDuKien, 0) as SoNguoiDuKien,
+                       COALESCE(dl.NganSach, 0) as NganSach,
+                       COALESCE(dl.GhiChu, '') as SuKienGhiChu,
                        COALESCE(dd.TenDiaDiem, 'Không xác định') as TenDiaDiem,
                        COALESCE(dd.DiaChi, 'Không xác định') as DiaChi,
+                       COALESCE(ls.TenLoai, 'Không xác định') as TenLoaiSK,
+                       COALESCE(ls.MoTa, '') as LoaiSKMoTa,
                        COALESCE(kh.HoTen, 'Không xác định') as TenKhachHang,
                        COALESCE(kh.SoDienThoai, 'Không xác định') as SoDienThoai,
+                       COALESCE(kh.DiaChi, '') as KhachHangDiaChi,
+                       COALESCE(kht.TenKeHoach, ck.TenBuoc) as ten_kehoach,
+                       COALESCE(kht.NoiDung, ck.MoTa) as kehoach_noidung,
+                       COALESCE(kht.TrangThai, ck.TrangThai) as kehoach_trangthai,
+                       COALESCE(bs.TrangThai, NULL) as IssueStatus,
                        'chitietkehoach' as source_table
                    FROM chitietkehoach ck
+                   LEFT JOIN lichlamviec llv ON llv.ID_ChiTiet = ck.ID_ChiTiet AND llv.ID_NhanVien = ck.ID_NhanVien
                    LEFT JOIN kehoachthuchien kht ON ck.ID_KeHoach = kht.ID_KeHoach
                    LEFT JOIN sukien s ON kht.ID_SuKien = s.ID_SuKien
                    LEFT JOIN datlichsukien dl ON s.ID_DatLich = dl.ID_DatLich
                    LEFT JOIN diadiem dd ON dl.ID_DD = dd.ID_DD
+                   LEFT JOIN loaisukien ls ON dl.ID_LoaiSK = ls.ID_LoaiSK
                    LEFT JOIN khachhanginfo kh ON dl.ID_KhachHang = kh.ID_KhachHang
-                   WHERE ck.ID_NhanVien = ?
+                   LEFT JOIN baocao bs ON bs.ID_Task = ck.ID_ChiTiet AND bs.LoaiTask = 'chitietkehoach' AND bs.LoaiBaoCao = 'Sự cố' AND bs.ID_NhanVien = ck.ID_NhanVien
+                   WHERE ck.ID_NhanVien = ? 
+                   AND ck.DaCongBo = 1
+                   AND llv.ID_LLV IS NULL
                    ORDER BY ck.NgayBatDau ASC
                ");
         $stmt->execute([$staff['ID_NhanVien']]);
@@ -173,16 +214,38 @@ function getAssignments() {
         // Combine both results
         $assignments = array_merge($lichlamviec_assignments, $chitietkehoach_assignments);
         
+        // Ensure assignments is always an array
+        if (!is_array($assignments)) {
+            $assignments = [];
+        }
+        
         // Debug logs
         error_log("DEBUG: Staff Schedule Controller - Staff ID: " . $staff['ID_NhanVien']);
         error_log("DEBUG: Staff Schedule Controller - lichlamviec assignments: " . count($lichlamviec_assignments));
         error_log("DEBUG: Staff Schedule Controller - chitietkehoach assignments: " . count($chitietkehoach_assignments));
         error_log("DEBUG: Staff Schedule Controller - Total assignments: " . count($assignments));
         
-        echo json_encode(['success' => true, 'assignments' => $assignments]);
+        // Clear any output buffer before sending response
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        
+        $response = ['success' => true, 'assignments' => $assignments];
+        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
         
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy lịch làm việc: ' . $e->getMessage()]);
+        error_log("ERROR in getAssignments: " . $e->getMessage());
+        error_log("ERROR stack trace: " . $e->getTraceAsString());
+        
+        // Clear any output buffer
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'message' => 'Lỗi khi lấy lịch làm việc: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
     }
 }
 
@@ -433,26 +496,6 @@ function updateProgress() {
                     $managerId = $stmt->fetchColumn();
                     
                     if ($managerId) {
-                        // Create baocaotiendo table if not exists (match database structure)
-                        try {
-                            $pdo->exec("
-                                CREATE TABLE IF NOT EXISTS baocaotiendo (
-                                    ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
-                                    ID_NhanVien INT NOT NULL,
-                                    ID_QuanLy INT NOT NULL,
-                                    ID_Task INT NOT NULL,
-                                    LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
-                                    TienDo INT DEFAULT 0,
-                                    GhiChu TEXT DEFAULT NULL,
-                                    TrangThai VARCHAR(50) DEFAULT NULL,
-                                    NgayBaoCao DATETIME DEFAULT CURRENT_TIMESTAMP
-                                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-                            ");
-                        } catch (Exception $e) {
-                            // Table might already exist, continue
-                            error_log("DEBUG: updateProgress - Table creation: " . $e->getMessage());
-                        }
-                        
                         // Prepare progress report note
                         $reportNote = $note ? $note : "Cập nhật tiến độ: {$progressInt}%";
                         if ($progressInt >= 100) {
@@ -470,11 +513,11 @@ function updateProgress() {
                             $reportStatus = 'Chưa bắt đầu';
                         }
                         
-                        // Insert or update progress report
+                        // Insert or update progress report vào bảng baocao mới (LoaiBaoCao = 'Tiến độ')
                         // Check if report already exists for this task
                         $checkStmt = $pdo->prepare("
-                            SELECT ID_BaoCao FROM baocaotiendo 
-                            WHERE ID_NhanVien = ? AND ID_Task = ? AND LoaiTask = ?
+                            SELECT ID_BaoCao FROM baocao 
+                            WHERE ID_NhanVien = ? AND ID_Task = ? AND LoaiTask = ? AND LoaiBaoCao = 'Tiến độ'
                             ORDER BY NgayBaoCao DESC LIMIT 1
                         ");
                         $checkStmt->execute([$staffId, $assignmentId, $sourceTable]);
@@ -483,9 +526,9 @@ function updateProgress() {
                         if ($existingReport) {
                             // Update existing report
                             $updateStmt = $pdo->prepare("
-                                UPDATE baocaotiendo 
+                                UPDATE baocao 
                                 SET TienDo = ?, 
-                                    GhiChu = ?, 
+                                    MoTa = ?, 
                                     TrangThai = ?,
                                     NgayBaoCao = NOW()
                                 WHERE ID_BaoCao = ?
@@ -500,8 +543,8 @@ function updateProgress() {
                         } else {
                             // Insert new report
                             $insertStmt = $pdo->prepare("
-                                INSERT INTO baocaotiendo (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, TienDo, GhiChu, TrangThai, NgayBaoCao)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                                INSERT INTO baocao (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, LoaiBaoCao, TienDo, MoTa, TrangThai, NgayBaoCao)
+                                VALUES (?, ?, ?, ?, 'Tiến độ', ?, ?, ?, NOW())
                             ");
                             $insertStmt->execute([
                                 $staffId, 
@@ -598,27 +641,6 @@ function reportIssue() {
             throw new Exception("Manager not found");
         }
         
-        // Create baocaosuco table if not exists (match database structure)
-        try {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS baocaosuco (
-                ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
-                ID_NhanVien INT NOT NULL,
-                ID_QuanLy INT NOT NULL,
-                ID_Task INT NOT NULL,
-                LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
-                TieuDe VARCHAR(255) NOT NULL,
-                    MoTa TEXT DEFAULT NULL,
-                MucDo ENUM('Thấp', 'Trung bình', 'Cao', 'Khẩn cấp') DEFAULT 'Trung bình',
-                TrangThai ENUM('Mới', 'Đang xử lý', 'Đã xử lý', 'Đã đóng') DEFAULT 'Mới',
-                    NgayBaoCao TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-            ");
-        } catch (Exception $e) {
-            // Table might already exist, continue
-            error_log("DEBUG: reportIssue - Table creation: " . $e->getMessage());
-        }
-        
         // Get task title
         $taskTitle = '';
         if ($sourceTable === 'chitietkehoach') {
@@ -631,10 +653,10 @@ function reportIssue() {
             $taskTitle = $stmt->fetchColumn() ?: 'Công việc không xác định';
         }
         
-        // Insert issue report
+        // Insert issue report vào bảng baocao mới (LoaiBaoCao = 'Sự cố')
         $stmt = $pdo->prepare("
-            INSERT INTO baocaosuco (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, TieuDe, MoTa, MucDo, TrangThai, NgayBaoCao)
-            VALUES (?, ?, ?, ?, ?, ?, 'Trung bình', 'Mới', NOW())
+            INSERT INTO baocao (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, LoaiBaoCao, TieuDe, MoTa, MucDo, TrangThai, NgayBaoCao)
+            VALUES (?, ?, ?, ?, 'Sự cố', ?, ?, 'Trung bình', 'Mới', NOW())
         ");
         $result = $stmt->execute([
             $staffId,
@@ -715,6 +737,34 @@ function startWork() {
         
         $currentTime = date('Y-m-d H:i:s');
         error_log("DEBUG: startWork - currentTime: " . $currentTime);
+        
+        // Kiểm tra ràng buộc thời gian: chỉ được bắt đầu trước giờ bắt đầu tối đa 5 phút
+        if ($sourceTable === 'chitietkehoach') {
+            $stmt = $pdo->prepare("SELECT NgayBatDau FROM chitietkehoach WHERE ID_ChiTiet = ?");
+            $stmt->execute([$assignmentId]);
+            $startTime = $stmt->fetchColumn();
+        } else {
+            $stmt = $pdo->prepare("SELECT NgayBatDau FROM lichlamviec WHERE ID_LLV = ?");
+            $stmt->execute([$assignmentId]);
+            $startTime = $stmt->fetchColumn();
+        }
+        
+        if ($startTime) {
+            $startDateTime = new DateTime($startTime);
+            $currentDateTime = new DateTime($currentTime);
+            $earliestStartTime = clone $startDateTime;
+            $earliestStartTime->modify('-5 minutes');
+            
+            // Kiểm tra: chỉ được bắt đầu từ (giờ bắt đầu - 5 phút) trở đi
+            if ($currentDateTime < $earliestStartTime) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => false, 
+                    'message' => "Chỉ được bắt đầu trước 5 phút kể từ giờ bắt đầu."
+                ]);
+                return;
+            }
+        }
         
         // Try to update with basic fields first
         if ($sourceTable === 'chitietkehoach') {
@@ -824,6 +874,60 @@ function completeWork() {
             return;
         }
         
+        // Kiểm tra task đã được bắt đầu chưa
+        if ($sourceTable === 'chitietkehoach') {
+            // Với chitietkehoach, kiểm tra qua lichlamviec
+            $checkStmt = $pdo->prepare("
+                SELECT llv.ThoiGianBatDauThucTe, llv.TrangThai 
+                FROM lichlamviec llv 
+                WHERE llv.ID_ChiTiet = ? 
+                LIMIT 1
+            ");
+            $checkStmt->execute([$assignmentId]);
+            $taskInfo = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$taskInfo || !$taskInfo['ThoiGianBatDauThucTe']) {
+                error_log("ERROR: completeWork - Task chưa được bắt đầu (chitietkehoach)");
+                echo json_encode(['success' => false, 'message' => 'Công việc phải được bắt đầu trước khi hoàn thành. Vui lòng nhấn "Bắt đầu làm việc" trước.']);
+                return;
+            }
+            
+            // Kiểm tra trạng thái phải là "Đang làm"
+            if ($taskInfo['TrangThai'] !== 'Đang làm' && $taskInfo['TrangThai'] !== 'Đang thực hiện') {
+                error_log("ERROR: completeWork - Task không ở trạng thái 'Đang làm' (chitietkehoach): " . $taskInfo['TrangThai']);
+                echo json_encode(['success' => false, 'message' => 'Chỉ có thể hoàn thành công việc đang trong trạng thái "Đang làm".']);
+                return;
+            }
+        } else {
+            // Với lichlamviec, kiểm tra trực tiếp
+            $checkStmt = $pdo->prepare("
+                SELECT ThoiGianBatDauThucTe, TrangThai 
+                FROM lichlamviec 
+                WHERE ID_LLV = ?
+            ");
+            $checkStmt->execute([$assignmentId]);
+            $taskInfo = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$taskInfo) {
+                error_log("ERROR: completeWork - Task không tồn tại (lichlamviec)");
+                echo json_encode(['success' => false, 'message' => 'Không tìm thấy công việc']);
+                return;
+            }
+            
+            if (!$taskInfo['ThoiGianBatDauThucTe']) {
+                error_log("ERROR: completeWork - Task chưa được bắt đầu (lichlamviec)");
+                echo json_encode(['success' => false, 'message' => 'Công việc phải được bắt đầu trước khi hoàn thành. Vui lòng nhấn "Bắt đầu làm việc" trước.']);
+                return;
+            }
+            
+            // Kiểm tra trạng thái phải là "Đang làm"
+            if ($taskInfo['TrangThai'] !== 'Đang làm' && $taskInfo['TrangThai'] !== 'Đang thực hiện') {
+                error_log("ERROR: completeWork - Task không ở trạng thái 'Đang làm' (lichlamviec): " . $taskInfo['TrangThai']);
+                echo json_encode(['success' => false, 'message' => 'Chỉ có thể hoàn thành công việc đang trong trạng thái "Đang làm".']);
+                return;
+            }
+        }
+        
         $currentTime = date('Y-m-d H:i:s');
         error_log("DEBUG: completeWork - currentTime: " . $currentTime);
         
@@ -854,17 +958,49 @@ function completeWork() {
             error_log("DEBUG: completeWork - chitietkehoach SQL: " . $sql);
             error_log("DEBUG: completeWork - chitietkehoach Params: " . json_encode($params));
         } else {
-            // lichlamviec has columns: ThoiGianHoanThanh (datetime), TienDo (varchar), GhiChu (text)
+            // lichlamviec: Tính KPI khi kết thúc task
+            // Lấy thông tin task để tính KPI
+            $taskStmt = $pdo->prepare("
+                SELECT NgayBatDau, NgayKetThuc, ThoiGianBatDauThucTe 
+                FROM lichlamviec 
+                WHERE ID_LLV = ?
+            ");
+            $taskStmt->execute([$assignmentId]);
+            $task = $taskStmt->fetch(PDO::FETCH_ASSOC);
+            
+            $kpi = null;
+            if ($task && $task['ThoiGianBatDauThucTe']) {
+                // Tính KPI: ((Thời gian dự kiến - Thời gian thực tế) / Thời gian dự kiến) * 100
+                $scheduledStart = new DateTime($task['NgayBatDau']);
+                $scheduledEnd = new DateTime($task['NgayKetThuc']);
+                $actualStart = new DateTime($task['ThoiGianBatDauThucTe']);
+                $actualEnd = new DateTime($currentTime);
+                
+                $scheduledDuration = $scheduledEnd->getTimestamp() - $scheduledStart->getTimestamp();
+                $actualDuration = $actualEnd->getTimestamp() - $actualStart->getTimestamp();
+                
+                if ($scheduledDuration > 0) {
+                    $kpi = (($scheduledDuration - $actualDuration) / $scheduledDuration) * 100;
+                } else {
+                    $kpi = 0;
+                }
+            }
+            
+            // Cập nhật lichlamviec với KPI và thời gian kết thúc
             $sql = "
                 UPDATE lichlamviec 
                 SET TrangThai = 'Hoàn thành', 
-                    ThoiGianHoanThanh = ?, 
-                    TienDo = ?
+                    ThoiGianKetThucThucTe = ?,
+                    ThoiGianHoanThanh = ?,
+                    KPI = ?,
+                    TienDo = '100%',
+                    NgayCapNhat = NOW()
                 WHERE ID_LLV = ?
             ";
-            $params = [$currentTime, $progress . '%', $assignmentId];
+            $params = [$currentTime, $currentTime, $kpi, $assignmentId];
             error_log("DEBUG: completeWork - lichlamviec SQL: " . $sql);
             error_log("DEBUG: completeWork - lichlamviec Params: " . json_encode($params));
+            error_log("DEBUG: completeWork - KPI calculated: " . ($kpi !== null ? $kpi : 'NULL'));
         }
         
         $stmt = $pdo->prepare($sql);
@@ -926,33 +1062,13 @@ function completeWork() {
                 $managerId = $stmt->fetchColumn();
                 
                 if ($managerId) {
-                    // Create baocaotiendo table if not exists (match database structure)
-                    try {
-                    $pdo->exec("
-                        CREATE TABLE IF NOT EXISTS baocaotiendo (
-                            ID_BaoCao INT AUTO_INCREMENT PRIMARY KEY,
-                            ID_NhanVien INT NOT NULL,
-                            ID_QuanLy INT NOT NULL,
-                            ID_Task INT NOT NULL,
-                            LoaiTask ENUM('lichlamviec', 'chitietkehoach') NOT NULL,
-                                TienDo INT DEFAULT 0,
-                                GhiChu TEXT DEFAULT NULL,
-                                TrangThai VARCHAR(50) DEFAULT NULL,
-                                NgayBaoCao DATETIME DEFAULT CURRENT_TIMESTAMP
-                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-                        ");
-                    } catch (Exception $e) {
-                        // Table might already exist, continue
-                        error_log("DEBUG: completeWork - Table creation: " . $e->getMessage());
-                    }
-                    
                     // Prepare report note
                     $reportNote = $note ? $note : "Hoàn thành công việc - Tiến độ: 100%";
                     
                     // Check if report already exists for this task
                     $checkStmt = $pdo->prepare("
-                        SELECT ID_BaoCao FROM baocaotiendo 
-                        WHERE ID_NhanVien = ? AND ID_Task = ? AND LoaiTask = ?
+                        SELECT ID_BaoCao FROM baocao 
+                        WHERE ID_NhanVien = ? AND ID_Task = ? AND LoaiTask = ? AND LoaiBaoCao = 'Tiến độ'
                         ORDER BY NgayBaoCao DESC LIMIT 1
                     ");
                     $checkStmt->execute([$staffId, $assignmentId, $sourceTable]);
@@ -961,9 +1077,9 @@ function completeWork() {
                     if ($existingReport) {
                         // Update existing report
                         $updateStmt = $pdo->prepare("
-                            UPDATE baocaotiendo 
+                            UPDATE baocao 
                             SET TienDo = ?, 
-                                GhiChu = ?, 
+                                MoTa = ?, 
                                 TrangThai = 'Hoàn thành',
                                 NgayBaoCao = NOW()
                             WHERE ID_BaoCao = ?
@@ -975,10 +1091,10 @@ function completeWork() {
                         ]);
                         error_log("DEBUG: completeWork - Updated existing progress report ID: " . $existingReport['ID_BaoCao']);
                     } else {
-                        // Insert new report
+                        // Insert new report vào bảng baocao mới (LoaiBaoCao = 'Tiến độ')
                         $insertStmt = $pdo->prepare("
-                            INSERT INTO baocaotiendo (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, TienDo, GhiChu, TrangThai, NgayBaoCao)
-                            VALUES (?, ?, ?, ?, ?, ?, 'Hoàn thành', NOW())
+                            INSERT INTO baocao (ID_NhanVien, ID_QuanLy, ID_Task, LoaiTask, LoaiBaoCao, TienDo, MoTa, TrangThai, NgayBaoCao)
+                            VALUES (?, ?, ?, ?, 'Tiến độ', ?, ?, 'Hoàn thành', NOW())
                         ");
                         $insertStmt->execute([
                             $staffId, 
